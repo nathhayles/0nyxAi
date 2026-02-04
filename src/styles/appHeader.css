@@ -1,0 +1,16 @@
+.appHeader {
+  width: 100%;
+  max-width: 100%;
+  overflow: visible !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.appHeaderRight {
+  display: flex;
+  gap: 12px;
+  flex-wrap: nowrap;
+  overflow: visible;
+}

@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Onyx — Stable Baseline</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root{
+    --bg:#f9fafb; --panel:#fff; --border:#e5e7eb; --muted:#6b7280;
+    --blue:#2563eb; --blue2:#eef2ff; --black:#111827;
+  }
+  body{margin:0;font-family:system-ui,sans-serif;background:var(--bg)}
+  .app{display:flex;height:100vh}
+  .sidebar{width:280px;border-right:1px solid var(--border);background:var(--panel);padding:12px;overflow:auto}
+  .main{flex:1;display:flex;flex-direction:column}
+  .header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--panel)}
+  .header h2{margin:0;font-size:16px}
+  .header .actions{display:flex;gap:8px;align-items:center}
+  .btn{border:1px solid #d1d5db;background:#fff;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:13px}
+  .btn.primary{background:var(--black);border-color:var(--black);color:#fff}
+  .btn.small{padding:5px 8px;font-size:12px}
+  .workspace{display:grid;grid-template-columns:1fr 460px;flex:1;overflow:hidden}
+  .left,.right{padding:16px;overflow:auto}
+  .right{border-left:1px solid var(--border);background:#fafafa}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px}
+  .panel h3{margin:0 0 10px;font-size:13px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}
+  label{font-size:12px;color:#111}
+  .muted{color:var(--muted);font-size:12px}
+  select,input[type=file],input[type=number]{font-size:13px}
+  input[type=range]{width:180px}
+  input[type=number]{width:86px;padding:6px;border:1px solid var(--border);border-radius:8px}
+  select{padding:6px;border:1px solid var(--border);border-radius:8px}
+  .sceneList{margin-top:10px}
+  .sceneItem{
+    display:flex;align-items:center;gap:8px;
+    border:1px solid var(--border);border-radius:10px;
+    padding:8px;margin-bottom:8px;background:#fff;cursor:grab;
+  }
+  .sceneItem.active{border-color:var(--blue);background:var(--blue2)}
+  .pill{width:26px;height:20px;border-radius:6px;background:var(--black);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center}
+  .frame{
+    width:100%;aspect-ratio:16/9;background:#000;border-radius:14px;
+    overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;color:#fff
+  }
+  .frame video,.frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .overlay{
+    position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.55);
+    padding:6px 8px;border-radius:10px;font-size:12px;max-width:90%
+  }
+  .timelineWrap{border-top:1px solid var(--border);background:var(--panel);padding:12px 16px}
+  .timelineHeader{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .timelineHeader .muted{margin-left:10px}
+  .timelineTrack{display:flex;gap:10px;overflow:auto;padding-bottom:8px}
+  .clip{
+    min-width:220px;border:1px solid var(--border);border-radius:12px;padding:10px;background:#fff
+  }
+  .clip.active{border-color:var(--blue);box-shadow:0 0 0 2px rgba(37,99,235,.15) inset}
+  .clipTitle{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:8px}
+  .bar{height:10px;background:#e5e7eb;border-radius:999px;position:relative;overflow:hidden}
+  .win{height:100%;background:var(--blue);border-radius:999px;position:absolute}
+  .scrub{margin-top:10px}
+  .scrub input{width:100%}
+  .progress{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden}
+  .progress > div{height:100%;width:0%;background:var(--blue);transition:width .25s}
+</style>
+</head>
+
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="row" style="gap:8px">
+      <button class="btn small" onclick="addScene()">Add scene</button>
+      <button class="btn small" onclick="duplicateScene()" title="Duplicate">Duplicate</button>
+      <button class="btn small" onclick="deleteScene()">Delete</button>
+    </div>
+
+    <div class="panel">
+      <h3>Scenes (drag to reorder)</h3>
+      <div id="sceneList" class="sceneList"></div>
+      <div class="muted">Tip: drag a scene tile to reorder.</div>
+    </div>
+
+    <div class="panel">
+      <h3>Background music (global)</h3>
+      <div class="row">
+        <input type="file" accept="audio/*" onchange="loadMusic(this.files[0])">
+      </div>
+      <div class="row">
+        <label>Music vol</label>
+        <input type="range" min="0" max="1" step="0.01" value="0.5" oninput="setMusicVol(this.value)">
+        <span class="muted" id="musicVolLabel">0.50</span>
+      </div>
+      <div class="row">
+        <label>Voice vol (global)</label>
+        <input type="range" min="0" max="1" step="0.01" value="1" oninput="setGlobalVoiceVol(this.value)">
+        <span class="muted" id="voiceVolLabel">1.00</span>
+      </div>
+      <div class="muted">No ducking (as agreed).</div>
+    </div>
+
+    <div class="panel">
+      <h3>Export</h3>
+      <button class="btn" onclick="openExport()">Export video</button>
+      <div class="muted">Placeholder render UI (real render later).</div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="header">
+      <h2>Onyx Editor</h2>
+      <div class="actions">
+        <button class="btn primary" onclick="playFull()">▶ Preview full video</button>
+        <button class="btn" onclick="stopPlayback()">■ Stop</button>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <div class="left">
+        <div class="panel">
+          <h3>Scene editor</h3>
+
+          <div class="row">
+            <label>Media</label>
+            <select id="mediaType" onchange="setMediaType(this.value)">
+              <option value="static">Static</option>
+              <option value="image">Image</option>
+              <option value="video">Video</option>
+              <option value="ai">AI</option>
+            </select>
+            <input id="mediaFile" type="file" accept="image/*,video/*" onchange="loadMedia(this.files[0])">
+            <span class="muted" id="mediaStatus"></span>
+          </div>
+
+          <div class="row">
+            <label>Duration</label>
+            <input id="durRange" type="range" min="1" max="60" step="0.1" oninput="setDuration(this.value)">
+            <span class="muted" id="durLabel"></span>
+          </div>
+
+          <div class="row">
+            <label>Trim start</label>
+            <input id="trimStartRange" type="range" step="0.1" oninput="setTrimStart(this.value)">
+            <input id="trimStartNum" type="number" step="0.1" oninput="setTrimStart(this.value)">
+            <span class="muted" id="trimStartLabel"></span>
+          </div>
+
+          <div class="row">
+            <label>Trim end</label>
+            <input id="trimEndRange" type="range" step="0.1" oninput="setTrimEnd(this.value)">
+            <input id="trimEndNum" type="number" step="0.1" oninput="setTrimEnd(this.value)">
+            <span class="muted" id="trimEndLabel"></span>
+          </div>
+
+          <div class="row">
+            <button class="btn small" onclick="resetTrim()">Reset trim</button>
+            <button class="btn small" onclick="snapTrim()">Snap end to duration</button>
+          </div>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+
+          <div class="row">
+            <label>Voiceover (per-scene)</label>
+            <input type="file" accept="audio/*" onchange="loadVoice(this.files[0])">
+            <label style="display:flex;gap:6px;align-items:center">
+              <input type="checkbox" id="muteVoice" onchange="toggleMute(this.checked)">
+              mute
+            </label>
+          </div>
+
+          <div class="row">
+            <label>Scene voice vol</label>
+            <input type="range" min="0" max="1" step="0.01" value="1" oninput="setSceneVoiceVol(this.value)">
+            <span class="muted" id="sceneVoiceVolLabel">1.00</span>
+          </div>
+
+          <div class="muted">Voice attaches to the scene. Mute is per-scene.</div>
+        </div>
+
+        <div class="panel" id="exportPanel" style="display:none">
+          <h3>Export</h3>
+          <div class="row">
+            <button class="btn primary" id="exportBtn" onclick="startExport()">Start export</button>
+            <button class="btn" onclick="closeExport()">Close</button>
+          </div>
+          <div class="progress"><div id="exportBar"></div></div>
+          <div class="muted" id="exportStatus">Idle</div>
+        </div>
+      </div>
+
+      <div class="right">
+        <div class="panel">
+          <h3>Preview</h3>
+          <div class="frame" id="frame">
+            <div class="overlay" id="overlay"></div>
+          </div>
+          <div class="scrub">
+            <div class="muted">Scene scrub (within trim window)</div>
+            <input id="scrub" type="range" min="0" max="100" value="0" oninput="scrubScene(this.value)">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timelineWrap">
+      <div class="timelineHeader">
+        <div style="display:flex;align-items:center;gap:10px">
+          <strong style="font-size:13px">Timeline</strong>
+          <span class="muted">Shows trim window inside each scene duration</span>
+        </div>
+      </div>
+      <div id="timeline" class="timelineTrack"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- State ---------- */
+const mkScene = (n)=>({
+  id: crypto.randomUUID(),
+  name: `Scene ${n}`,
+  mediaType: "static",
+  mediaUrl: null,
+  duration: 5,
+  trimStart: 0,
+  trimEnd: 5,
+  voiceUrl: null,
+  muted: false,
+  sceneVoiceVol: 1
+});
+
+let scenes = [mkScene(1), mkScene(2), mkScene(3)];
+let active = 0;
+
+let bgMusic = new Audio();
+bgMusic.loop = true;
+bgMusic.volume = 0.5;
+
+let globalVoiceVol = 1;
+let playback = { running:false, timers:[], currentVideo:null, currentVoice:null };
+
+/* ---------- Helpers ---------- */
+const $ = (id)=>document.getElementById(id);
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+function fmt1(v){ return Number(v).toFixed(1); }
+
+/* ---------- Render ---------- */
+function render(){
+  renderSceneList();
+  renderEditor();
+  renderPreview();
+  renderTimeline();
+}
+
+function renderSceneList(){
+  const el = $("sceneList");
+  el.innerHTML = "";
+  scenes.forEach((s,i)=>{
+    const d = document.createElement("div");
+    d.className = "sceneItem" + (i===active ? " active":"");
+    d.draggable = true;
+
+    d.ondragstart = (e)=>e.dataTransfer.setData("from", String(i));
+    d.ondragover  = (e)=>e.preventDefault();
+    d.ondrop      = (e)=>{
+      e.preventDefault();
+      const from = Number(e.dataTransfer.getData("from"));
+      const to = i;
+      if(Number.isNaN(from) || from===to) return;
+      scenes.splice(to,0,scenes.splice(from,1)[0]);
+      active = to;
+      render();
+    };
+
+    d.onclick = ()=>{ active=i; render(); };
+
+    const pill = document.createElement("div");
+    pill.className="pill";
+    pill.textContent = String(i+1);
+
+    const name = document.createElement("div");
+    name.textContent = s.name;
+
+    d.appendChild(pill);
+    d.appendChild(name);
+    el.appendChild(d);
+  });
+}
+
+function renderEditor(){
+  const s = scenes[active];
+
+  $("mediaType").value = s.mediaType;
+  $("mediaStatus").textContent = s.mediaUrl ? "loaded" : "";
+
+  $("durRange").value = s.duration;
+  $("durLabel").textContent = `${fmt1(s.duration)}s`;
+
+  // Trim ranges track duration
+  $("trimStartRange").max = s.duration;
+  $("trimEndRange").max = s.duration;
+
+  $("trimStartRange").value = s.trimStart;
+  $("trimEndRange").value = s.trimEnd;
+  $("trimStartNum").value = s.trimStart;
+  $("trimEndNum").value = s.trimEnd;
+
+  $("trimStartLabel").textContent = `${fmt1(s.trimStart)}s`;
+  $("trimEndLabel").textContent = `${fmt1(s.trimEnd)}s`;
+
+  $("muteVoice").checked = s.muted;
+  $("sceneVoiceVolLabel").textContent = fmt2(s.sceneVoiceVol);
+  // scene voice vol slider is the 1st range in that row (we set via query):
+  const sceneVolSlider = document.querySelectorAll('input[type="range"][min="0"][max="1"][step="0.01"]')[1];
+  if(sceneVolSlider) sceneVolSlider.value = s.sceneVoiceVol;
+
+  $("musicVolLabel").textContent = fmt2(bgMusic.volume);
+  $("voiceVolLabel").textContent = fmt2(globalVoiceVol);
+}
+
+function fmt2(v){ return Number(v).toFixed(2); }
+
+function renderPreview(){
+  stopPreviewMediaOnly();
+
+  const s = scenes[active];
+  const frame = $("frame");
+  const overlay = $("overlay");
+  frame.innerHTML = "";
+  frame.appendChild(overlay);
+
+  overlay.textContent = `${s.name} (${fmt1(s.trimStart)}–${fmt1(s.trimEnd)}s) • ${s.mediaType}`;
+
+  if(s.mediaType==="video" && s.mediaUrl){
+    const v = document.createElement("video");
+    v.src = s.mediaUrl;
+    v.muted = true;
+    v.loop = true;
+    v.autoplay = true;
+    v.playsInline = true;
+    frame.appendChild(v);
+    playback.currentVideo = v;
+  } else if(s.mediaType==="image" && s.mediaUrl){
+    const img = document.createElement("img");
+    img.src = s.mediaUrl;
+    frame.appendChild(img);
+  } else if(s.mediaType==="ai"){
+    const txt = document.createElement("div");
+    txt.textContent = "AI scene (prompt-driven placeholder)";
+    frame.appendChild(txt);
+  } else {
+    const txt = document.createElement("div");
+    txt.textContent = "Static scene";
+    frame.appendChild(txt);
+  }
+}
+
+function renderTimeline(){
+  const el = $("timeline");
+  el.innerHTML = "";
+  scenes.forEach((s,i)=>{
+    const clip = document.createElement("div");
+    clip.className = "clip" + (i===active ? " active":"");
+    clip.onclick = ()=>{ active=i; render(); };
+
+    const title = document.createElement("div");
+    title.className="clipTitle";
+    title.innerHTML = `<strong>${s.name}</strong><span class="muted">${fmt1(s.duration)}s</span>`;
+
+    const bar = document.createElement("div");
+    bar.className="bar";
+
+    const win = document.createElement("div");
+    win.className="win";
+
+    const startPct = (s.trimStart / s.duration) * 100;
+    const widthPct = ((s.trimEnd - s.trimStart) / s.duration) * 100;
+    win.style.left = `${clamp(startPct,0,100)}%`;
+    win.style.width = `${clamp(widthPct,0,100)}%`;
+
+    bar.appendChild(win);
+
+    clip.appendChild(title);
+    clip.appendChild(bar);
+
+    el.appendChild(clip);
+  });
+}
+
+/* ---------- Scene actions ---------- */
+function addScene(){
+  scenes.push(mkScene(scenes.length+1));
+  active = scenes.length-1;
+  render();
+}
+
+function duplicateScene(){
+  const s = scenes[active];
+  const copy = structuredClone(s);
+  copy.id = crypto.randomUUID();
+  copy.name = s.name + " copy";
+  scenes.splice(active+1,0,copy);
+  active++;
+  render();
+}
+
+function deleteScene(){
+  if(scenes.length===1) return;
+  scenes.splice(active,1);
+  active = Math.max(0, active-1);
+  render();
+}
+
+/* ---------- Media ---------- */
+function setMediaType(v){
+  scenes[active].mediaType = v;
+  renderPreview();
+}
+
+function loadMedia(file){
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  scenes[active].mediaUrl = url;
+  // auto-guess type if user didn't set it right
+  if(file.type.startsWith("video/")) scenes[active].mediaType = "video";
+  if(file.type.startsWith("image/")) scenes[active].mediaType = "image";
+  $("mediaType").value = scenes[active].mediaType;
+
+  // if video, attempt duration fill (best-effort)
+  if(file.type.startsWith("video/")){
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.src = url;
+    v.onloadedmetadata = ()=>{
+      const dur = Number(v.duration);
+      if(Number.isFinite(dur) && dur>0){
+        const s = scenes[active];
+        s.duration = Math.min(60, dur);            // cap for UI
+        s.trimStart = 0;
+        s.trimEnd = Math.min(s.duration, Math.min(10, s.duration));
+        render();
+      } else render();
+    };
+  } else {
+    render();
+  }
+}
+
+/* ---------- Duration + Trim (synced) ---------- */
+function setDuration(v){
+  const s = scenes[active];
+  s.duration = +v;
+  s.trimStart = clamp(s.trimStart, 0, s.duration);
+  s.trimEnd   = clamp(s.trimEnd, s.trimStart, s.duration);
+  render();
+}
+
+function setTrimStart(v){
+  const s = scenes[active];
+  s.trimStart = clamp(+v, 0, s.trimEnd);
+  render();
+}
+
+function setTrimEnd(v){
+  const s = scenes[active];
+  s.trimEnd = clamp(+v, s.trimStart, s.duration);
+  render();
+}
+
+function resetTrim(){
+  const s = scenes[active];
+  s.trimStart = 0;
+  s.trimEnd = s.duration;
+  render();
+}
+
+function snapTrim(){
+  scenes[active].trimEnd = scenes[active].duration;
+  render();
+}
+
+/* ---------- Scrub (preview label only) ---------- */
+function scrubScene(pct){
+  const s = scenes[active];
+  const t = (pct/100)*(s.trimEnd - s.trimStart) + s.trimStart;
+  $("overlay").textContent = `${s.name} @ ${fmt1(t)}s • ${s.mediaType}`;
+}
+
+/* ---------- Audio ---------- */
+function loadVoice(file){
+  if(!file) return;
+  scenes[active].voiceUrl = URL.createObjectURL(file);
+}
+
+function toggleMute(val){
+  scenes[active].muted = !!val;
+}
+
+function setSceneVoiceVol(v){
+  scenes[active].sceneVoiceVol = +v;
+  $("sceneVoiceVolLabel").textContent = fmt2(scenes[active].sceneVoiceVol);
+}
+
+function loadMusic(file){
+  if(!file) return;
+  bgMusic.src = URL.createObjectURL(file);
+  bgMusic.play().catch(()=>{});
+}
+
+function setMusicVol(v){
+  bgMusic.volume = +v;
+  $("musicVolLabel").textContent = fmt2(bgMusic.volume);
+}
+
+function setGlobalVoiceVol(v){
+  globalVoiceVol = +v;
+  $("voiceVolLabel").textContent = fmt2(globalVoiceVol);
+}
+
+/* ---------- Playback (full timeline) ---------- */
+function stopPreviewMediaOnly(){
+  if(playback.currentVideo){
+    try{ playback.currentVideo.pause(); }catch(e){}
+    playback.currentVideo = null;
+  }
+}
+
+function stopPlayback(){
+  playback.running = false;
+  playback.timers.forEach(t=>clearTimeout(t));
+  playback.timers = [];
+  if(playback.currentVoice){ try{ playback.currentVoice.pause(); }catch(e){} playback.currentVoice=null; }
+  if(bgMusic){ try{ bgMusic.pause(); }catch(e){} }
+  renderPreview();
+}
+
+function playFull(){
+  stopPlayback();
+  playback.running = true;
+
+  // start bg music if available
+  if(bgMusic && bgMusic.src){
+    bgMusic.currentTime = 0;
+    bgMusic.play().catch(()=>{});
+  }
+
+  let i = 0;
+  const runScene = ()=>{
+    if(!playback.running) return;
+    active = i;
+    render(); // updates preview and overlay
+
+    const s = scenes[i];
+    const durationToPlay = Math.max(0.1, s.trimEnd - s.trimStart);
+
+    // play scene voice (best-effort)
+    if(s.voiceUrl && !s.muted){
+      const voice = new Audio(s.voiceUrl);
+      voice.volume = clamp(globalVoiceVol * s.sceneVoiceVol, 0, 1);
+      playback.currentVoice = voice;
+      voice.play().catch(()=>{});
+      // stop it at end of scene segment
+      playback.timers.push(setTimeout(()=>{ try{voice.pause();}catch(e){} }, durationToPlay*1000));
+    }
+
+    playback.timers.push(setTimeout(()=>{
+      i++;
+      if(i < scenes.length) runScene();
+      else {
+        playback.running = false;
+        if(bgMusic){ try{ bgMusic.pause(); }catch(e){} }
+        $("overlay").textContent = "Playback complete";
+      }
+    }, durationToPlay*1000));
+  };
+
+  runScene();
+}
+
+/* ---------- Export placeholder ---------- */
+let exportTimer=null;
+function openExport(){ $("exportPanel").style.display="block"; }
+function closeExport(){ $("exportPanel").style.display="none"; }
+
+function startExport(){
+  // placeholder: fake progress
+  if(exportTimer) clearInterval(exportTimer);
+  $("exportStatus").textContent = "Rendering…";
+  $("exportBtn").disabled = true;
+  let p=0;
+  $("exportBar").style.width="0%";
+  exportTimer = setInterval(()=>{
+    p += Math.random()*12;
+    if(p>=100){
+      p=100;
+      clearInterval(exportTimer);
+      $("exportStatus").textContent = "Export complete ✓ (hook real render later)";
+      $("exportBtn").disabled = false;
+      $("exportBtn").textContent = "Download (placeholder)";
+      $("exportBtn").onclick = ()=>alert("Download hook (next phase)");
+    }
+    $("exportBar").style.width = p.toFixed(0)+"%";
+  }, 550);
+}
+
+/* ---------- Init ---------- */
+render();
+</script>
+</body>
+</html>

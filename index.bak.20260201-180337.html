@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Onyx — Scene Drag + Visual Trim</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+body{margin:0;font-family:system-ui,sans-serif;background:#f9fafb}
+.app{display:flex;height:100vh}
+.sidebar{width:260px;border-right:1px solid #e5e7eb;padding:12px;background:#fff}
+.main{flex:1;display:flex;flex-direction:column}
+.header{padding:14px 16px;border-bottom:1px solid #e5e7eb}
+.workspace{display:grid;grid-template-columns:1fr 420px;flex:1}
+.editor,.preview{padding:16px}
+.preview{border-left:1px solid #e5e7eb;background:#fafafa}
+
+.panel{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:14px}
+
+.frame{
+  width:100%;aspect-ratio:16/9;
+  background:#000;border-radius:10px;
+  overflow:hidden;display:flex;
+  align-items:center;justify-content:center;
+  color:#fff;position:relative
+}
+.frame video,.frame img{
+  position:absolute;inset:0;
+  width:100%;height:100%;object-fit:cover
+}
+
+.scene-item{
+  padding:6px;border:1px solid #e5e7eb;border-radius:6px;
+  margin-bottom:6px;cursor:grab;background:#fff
+}
+.scene-item.active{border-color:#2563eb;background:#eef2ff}
+
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input[type=range]{width:160px}
+input[type=number]{width:70px}
+select{padding:4px}
+button.small{font-size:11px;padding:4px 8px}
+
+.timeline{
+  padding:10px;border-top:1px solid #e5e7eb;background:#fff
+}
+.trim-bar{
+  position:relative;height:10px;background:#e5e7eb;border-radius:999px
+}
+.trim-window{
+  position:absolute;height:100%;
+  background:#2563eb;border-radius:999px
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+  <div class="sidebar">
+    <button onclick="addScene()">Add scene</button>
+    <button onclick="duplicateScene()">Duplicate scene</button>
+    <button onclick="deleteScene()">Delete scene</button>
+    <div id="sceneList"></div>
+  </div>
+
+  <div class="main">
+    <div class="header"><strong>Onyx Editor</strong></div>
+
+    <div class="workspace">
+      <div class="editor">
+        <div class="panel">
+          <strong>Scene editor</strong>
+
+          <div class="row">
+            <label>Media</label>
+            <select onchange="setMediaType(this.value)">
+              <option value="static">Static</option>
+              <option value="image">Image</option>
+              <option value="video">Video</option>
+              <option value="ai">AI</option>
+            </select>
+            <input type="file" accept="image/*,video/*" onchange="loadMedia(this.files[0])">
+          </div>
+
+          <div class="row">
+            <label>Duration</label>
+            <input type="range" min="1" max="30" step="0.1"
+                   id="duration" oninput="setDuration(this.value)">
+            <span id="durLabel"></span>
+          </div>
+
+          <div class="row">
+            <label>Trim start</label>
+            <input type="range" step="0.1" id="trimStartRange"
+                   oninput="setTrimStart(this.value)">
+            <input type="number" step="0.1" id="trimStartNum"
+                   oninput="setTrimStart(this.value)">
+          </div>
+
+          <div class="row">
+            <label>Trim end</label>
+            <input type="range" step="0.1" id="trimEndRange"
+                   oninput="setTrimEnd(this.value)">
+            <input type="number" step="0.1" id="trimEndNum"
+                   oninput="setTrimEnd(this.value)">
+          </div>
+
+          <button class="small" onclick="resetTrim()">Reset trim</button>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="frame" id="frame"></div>
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="trim-bar">
+        <div class="trim-window" id="trimWindow"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let scenes=[newScene("Scene 1"),newScene("Scene 2"),newScene("Scene 3")]
+let active=0
+
+function newScene(name){
+  return{ name,duration:5,trimStart:0,trimEnd:5,mediaType:"static",media:null }
+}
+
+function render(){
+  renderSceneList()
+  renderEditor()
+  renderPreview()
+  renderTrimBar()
+}
+
+function renderSceneList(){
+  sceneList.innerHTML=""
+  scenes.forEach((s,i)=>{
+    const d=document.createElement("div")
+    d.className="scene-item"+(i===active?" active":"")
+    d.draggable=true
+    d.ondragstart=e=>e.dataTransfer.setData("i",i)
+    d.ondragover=e=>e.preventDefault()
+    d.ondrop=e=>{
+      const from=+e.dataTransfer.getData("i")
+      scenes.splice(i,0,scenes.splice(from,1)[0])
+      active=i;render()
+    }
+    d.onclick=()=>{active=i;render()}
+    d.textContent=s.name
+    sceneList.appendChild(d)
+  })
+}
+
+function renderEditor(){
+  const s=scenes[active]
+  duration.value=s.duration
+  durLabel.textContent=s.duration.toFixed(1)+"s"
+
+  trimStartRange.max=trimEndRange.max=s.duration
+  trimStartRange.value=trimStartNum.value=s.trimStart
+  trimEndRange.value=trimEndNum.value=s.trimEnd
+}
+
+function renderPreview(){
+  frame.innerHTML=""
+  const s=scenes[active]
+  if(s.mediaType==="video"&&s.media){
+    const v=document.createElement("video")
+    v.src=s.media;v.autoplay=true;v.loop=true;v.muted=true
+    frame.appendChild(v)
+  }else if(s.mediaType==="image"&&s.media){
+    const i=document.createElement("img")
+    i.src=s.media;frame.appendChild(i)
+  }else if(s.mediaType==="ai"){
+    frame.textContent="AI scene"
+  }else{
+    frame.textContent="Static scene"
+  }
+}
+
+function renderTrimBar(){
+  const s=scenes[active]
+  const start=(s.trimStart/s.duration)*100
+  const width=((s.trimEnd-s.trimStart)/s.duration)*100
+  trimWindow.style.left=start+"%"
+  trimWindow.style.width=width+"%"
+}
+
+function setMediaType(v){scenes[active].mediaType=v;renderPreview()}
+function loadMedia(f){if(!f)return;scenes[active].media=URL.createObjectURL(f);renderPreview()}
+function setDuration(v){scenes[active].duration=+v;scenes[active].trimEnd=Math.min(scenes[active].trimEnd,+v);render()}
+function setTrimStart(v){scenes[active].trimStart=Math.min(+v,scenes[active].trimEnd);render()}
+function setTrimEnd(v){scenes[active].trimEnd=Math.max(+v,scenes[active].trimStart);render()}
+function resetTrim(){scenes[active].trimStart=0;scenes[active].trimEnd=scenes[active].duration;render()}
+
+function addScene(){scenes.push(newScene("Scene "+(scenes.length+1)));active=scenes.length-1;render()}
+function duplicateScene(){scenes.splice(active+1,0,{...scenes[active],name:scenes[active].name+" copy"});active++;render()}
+function deleteScene(){if(scenes.length===1)return;scenes.splice(active,1);active=Math.max(0,active-1);render()}
+
+render()
+</script>
+</body>
+</html>

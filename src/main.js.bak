@@ -1,0 +1,158 @@
+const API_URL = "http://localhost:3000";
+
+/* ===============================
+   IDENTITY
+================================ */
+function getUserEmail() {
+  let email = localStorage.getItem("USER_EMAIL");
+  if (!email) {
+    email = prompt("Enter your email:")?.trim();
+    if (!email) throw new Error("Email required");
+    localStorage.setItem("USER_EMAIL", email);
+  }
+  return email;
+}
+const userEmail = getUserEmail();
+
+/* ===============================
+   API
+================================ */
+async function api(path, opts) {
+  const res = await fetch(`${API_URL}${path}`, opts);
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "API error");
+  return json;
+}
+
+const getScenes = () => api("/api/scenes");
+const getCredits = () => api(`/api/credits?email=${encodeURIComponent(userEmail)}`);
+const regenerate = (sceneId) =>
+  api("/api/regenerate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sceneId, email: userEmail }),
+  });
+
+const checkout = (quantity) =>
+  api("/api/billing/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: userEmail, quantity }),
+  });
+
+/* ===============================
+   DOM
+================================ */
+const sceneList = document.getElementById("sceneList");
+const creditEl = document.getElementById("creditCount");
+const content = document.getElementById("content");
+
+/* ===============================
+   STATE
+================================ */
+let scenes = [];
+let selected = null;
+let credits = 0;
+
+/* ===============================
+   HELPERS
+================================ */
+async function refreshAll() {
+  const [c, s] = await Promise.all([getCredits(), getScenes()]);
+  credits = c.credits;
+  scenes = s;
+  creditEl.textContent = credits;
+  render();
+}
+
+async function pollUntilReady(sceneId) {
+  while (true) {
+    await new Promise(r => setTimeout(r, 1500));
+    const s = await getScenes();
+    const found = s.find(x => x.id === sceneId);
+    if (found && found.status === "ready") break;
+  }
+  await refreshAll();
+}
+
+/* ===============================
+   RENDER
+================================ */
+function render() {
+  sceneList.innerHTML = "";
+  scenes.forEach(s => {
+    const el = document.createElement("div");
+    el.className = "scene-card";
+    el.innerHTML = `<strong>${s.title}</strong><div>Status: ${s.status}</div>`;
+    el.onclick = () => { selected = s; renderInspector(); };
+    sceneList.appendChild(el);
+  });
+  renderInspector();
+}
+
+function renderInspector() {
+  let panel = document.getElementById("inspector");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "inspector";
+    panel.style.maxWidth = "420px";
+    content.appendChild(panel);
+  }
+
+  if (!selected) {
+    panel.innerHTML = "<em>Select a scene</em>";
+    return;
+  }
+
+  const outOfCredits = credits <= 0;
+
+  panel.innerHTML = `
+    <h3>Inspector</h3>
+    <div style="height:180px;border:1px dashed #aaa;display:grid;place-items:center;">
+      Status: <strong>${selected.status}</strong>
+    </div>
+
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button id="regen" ${outOfCredits ? "disabled" : ""}>Regenerate</button>
+      <button id="refresh">Refresh</button>
+    </div>
+
+    ${outOfCredits ? `
+      <p style="color:#b00;margin-top:10px;">You're out of credits.</p>
+      <div style="display:flex;gap:8px;">
+        <button class="buy" data-q="5">Buy 5</button>
+        <button class="buy" data-q="10">Buy 10</button>
+        <button class="buy" data-q="25">Buy 25</button>
+      </div>
+    ` : ""}
+  `;
+
+  panel.querySelector("#refresh").onclick = refreshAll;
+
+  const regenBtn = panel.querySelector("#regen");
+  if (regenBtn) {
+    regenBtn.onclick = async () => {
+      await regenerate(selected.id);
+      await pollUntilReady(selected.id);
+    };
+  }
+
+  panel.querySelectorAll(".buy").forEach(btn => {
+    btn.onclick = async () => {
+      const q = Number(btn.dataset.q);
+      const r = await checkout(q);
+      window.location.href = r.url;
+    };
+  });
+}
+
+/* ===============================
+   BOOT
+================================ */
+(async () => {
+  // Auto-refresh after Stripe return
+  if (location.search.includes("success")) {
+    history.replaceState({}, "", location.pathname);
+  }
+  await refreshAll();
+})();

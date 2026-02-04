@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Dashboard</title>
+</head>
+<body>
+  <h1>Admin Dashboard</h1>
+
+  <div id="loginBox">
+    <input
+      type="password"
+      id="token"
+      placeholder="Admin token"
+      style="width:300px"
+    />
+    <button id="loginBtn">Login</button>
+  </div>
+
+  <pre id="status"></pre>
+  <hr />
+  <pre id="dashboard"></pre>
+
+  <script>
+    const API = "http://localhost:3000/api/admin";
+    const status = document.getElementById("status");
+    const dashboard = document.getElementById("dashboard");
+    const btn = document.getElementById("loginBtn");
+
+    function getToken() {
+      return localStorage.getItem("admin_token");
+    }
+
+    async function fetchJSON(path) {
+      const res = await fetch(API + path, {
+        headers: {
+          "Authorization": "Bearer " + getToken()
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error("Request failed: " + res.status);
+      }
+
+      return res.json();
+    }
+
+    async function loadDashboard() {
+      try {
+        const health = await fetchJSON("/health");
+        const stats = await fetchJSON("/stats");
+
+        dashboard.textContent =
+          "Health:\n" +
+          JSON.stringify(health, null, 2) +
+          "\n\nStats:\n" +
+          JSON.stringify(stats, null, 2);
+
+      } catch (e) {
+        dashboard.textContent = "Dashboard load failed";
+      }
+    }
+
+    btn.onclick = async () => {
+      const token = document.getElementById("token").value.trim();
+      status.textContent = "Logging in...";
+
+      const res = await fetch(API + "/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token })
+      });
+
+      if (!res.ok) {
+        status.textContent = "Login failed";
+        return;
+      }
+
+      localStorage.setItem("admin_token", token);
+      status.textContent = "Login successful ✅";
+      loadDashboard();
+    };
+
+    // Auto-load if token already exists
+    if (getToken()) {
+      status.textContent = "Admin token detected ✅";
+      loadDashboard();
+    }
+  </script>
+</body>
+</html>

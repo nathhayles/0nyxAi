@@ -1,0 +1,39 @@
+.editorTopBar{
+  height: 64px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 20px;
+  background: linear-gradient(180deg, #0b1026, #070b1a);
+  border-bottom: 1px solid #1f2a44;
+  overflow: visible;
+}
+
+.editorTopBarRight{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+  flex-wrap: wrap;
+}
+
+.editorTitle{ font-weight:900; opacity:.9; }
+
+.topSelect,.topBtn{
+  background:#121a33;
+  border:1px solid #1f2a44;
+  color:#fff;
+  padding:8px 14px;
+  border-radius:14px;
+  font-weight:800;
+}
+
+.earnBtn{
+  background:#2b3cff;
+  border:none;
+  color:#fff;
+  padding:8px 16px;
+  border-radius:14px;
+  font-weight:900;
+}
+.credits{ opacity:.7; font-weight:800; }

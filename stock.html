@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Stock Media</title>
+  <style>
+    img, video { width: 200px; margin: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Stock Media Test</h1>
+  <input id="q" placeholder="search term" value="nature" />
+  <button id="go">Search</button>
+  <div id="grid"></div>
+
+  <script type="module">
+    const grid = document.getElementById("grid");
+    document.getElementById("go").onclick = async () => {
+      const q = document.getElementById("q").value;
+      grid.innerHTML = "Loading...";
+      const res = await fetch(`http://localhost:3000/api/stock/search?q=${q}`);
+      const data = await res.json();
+      grid.innerHTML = "";
+
+      (data.photos || []).forEach(p => {
+        const img = document.createElement("img");
+        img.src = p.src.medium;
+        grid.appendChild(img);
+      });
+
+      (data.videos || []).forEach(v => {
+        const video = document.createElement("video");
+        video.src = v.video_files[0].link;
+        video.controls = true;
+        grid.appendChild(video);
+      });
+    };
+  </script>
+</body>
+</html>
