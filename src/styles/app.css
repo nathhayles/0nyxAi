@@ -1,0 +1,42 @@
+/* =========================
+   GLOBAL APP FRAME
+========================= */
+
+body {
+  margin: 0;
+  background: #070b16;
+  color: #ffffff;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+}
+
+.appMain {
+  padding-top: 64px; /* top bar height */
+}
+
+/* =========================
+   LANDING / PRICING SHARED
+========================= */
+
+h1, h2, h3 {
+  letter-spacing: -0.02em;
+}
+
+a {
+  color: #cdd9ff;
+}
+
+a.btnPrimary {
+  display: inline-block;
+  text-decoration: none;
+}
+
+/* =========================
+   CENTERED PAGES
+========================= */
+
+.pageCenter {
+  max-width: 960px;
+  margin: 80px auto;
+  padding: 0 20px;
+}
+

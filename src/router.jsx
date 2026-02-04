@@ -4,7 +4,7 @@ import Pricing from "./pages/Pricing.jsx";
 
 function Landing() {
   return `
-    <div style="max-width:900px;margin:80px auto;padding:0 20px">
+    <div class="pageCenter">
       <h1 style="font-size:48px;margin-bottom:12px">Create videos fast.</h1>
       <p style="opacity:.8;font-size:18px;margin-bottom:32px">
         Scene‑based AI video editor. Simple. Fast. Built to ship.
