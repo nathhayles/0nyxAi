@@ -1,26 +1,57 @@
 /* =========================
-   EDITOR LAYOUT – POLISH v4
-   (TARGET ACTUAL SCENE LIST)
+   EDITOR UI POLISH – PASS 5
+   (CONSISTENCY & FEEL)
 ========================= */
+
+:root {
+  --bg: #070b16;
+  --panel: rgba(10,14,30,0.9);
+  --border: rgba(255,255,255,0.08);
+  --muted: rgba(255,255,255,0.6);
+  --text: #ffffff;
+  --accent: #4da3ff;
+}
+
+* { box-sizing: border-box; }
 
 .editorRoot {
   display: flex;
   height: calc(100vh - 64px);
-  background: #070b16;
+  background: var(--bg);
+  color: var(--text);
 }
 
 /* LEFT PANEL */
 .editorLeft {
   width: 280px;
-  border-right: 1px solid rgba(255,255,255,0.08);
+  border-right: 1px solid var(--border);
   padding: 14px;
-  background: rgba(10,14,30,0.9);
+  background: var(--panel);
 }
 
-.editorLeft input,
-.editorLeft button {
-  width: 100%;
+.editorLeft input {
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  padding: 0 10px;
   margin-bottom: 10px;
+}
+
+.editorLeft button {
+  height: 40px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* PRIMARY BUTTON */
+.editorLeft button,
+.btnPrimary {
+  background: var(--accent);
+  color: #fff;
 }
 
 /* CANVAS */
@@ -29,6 +60,7 @@
   padding: 20px;
   display: flex;
   flex-direction: column;
+  gap: 18px;
 }
 
 /* PREVIEW */
@@ -39,22 +71,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255,255,255,0.55);
-  margin-bottom: 18px;
+  color: var(--muted);
 }
 
 /* ===== SCENE STRIP ===== */
-
 .sceneStrip {
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid var(--border);
   padding-top: 12px;
   overflow-x: auto;
 }
 
-/* THIS is the missing piece */
 .sceneStrip .scenes {
-  display: flex !important;
-  flex-direction: row !important;
+  display: flex;
   gap: 14px;
   align-items: center;
   white-space: nowrap;
@@ -64,12 +92,15 @@
 .sceneStrip .scenes > button {
   min-width: 140px;
   height: 64px;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 2px dashed rgba(255,255,255,0.35);
   background: transparent;
-  color: rgba(255,255,255,0.9);
+  color: var(--text);
   font-weight: 700;
   cursor: pointer;
+}
+.sceneStrip .scenes > button:hover {
+  border-color: var(--accent);
 }
 
 /* SCENE ITEM */
@@ -77,20 +108,26 @@
   min-width: 160px;
   height: 64px;
   background: rgba(255,255,255,0.08);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 0 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  transition: background .15s ease, transform .1s ease;
 }
-
+.sceneItem:hover {
+  background: rgba(255,255,255,0.12);
+  transform: translateY(-1px);
+}
 .sceneItem span {
   font-weight: 700;
 }
-
 .sceneItem button {
   background: none;
   border: none;
-  color: rgba(255,255,255,0.6);
+  color: var(--muted);
   cursor: pointer;
+}
+.sceneItem button:hover {
+  color: #fff;
 }
