@@ -1,4 +1,5 @@
 import "./styles/app.css";
+import "./styles/editor.css";
 import Router from "./router.jsx";
 
 function render() {
