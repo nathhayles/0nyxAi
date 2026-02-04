@@ -1,23 +1,20 @@
-import TrimBar from "../components/TrimBar.jsx";
 import SceneStrip from "../components/SceneStrip.jsx";
+import { MediaPanel } from "../components/MediaPanel.jsx";
 
 export default function Editor() {
-  const drafts = JSON.parse(localStorage.getItem("drafts") || "[]");
-  const activeId = localStorage.getItem("activeDraftId");
-  const draft = drafts.find(d => d.id === activeId) || null;
-
-  if (draft) {
-    window.__ACTIVE_DRAFT__ = draft;
-  }
-
   return `
     <div class="editorRoot">
-      <div class="editorStage">
-        <div class="videoStage">Drop media here</div>
-        ${TrimBar()}
+      <div class="editorLeft">
+        <div class="editorLeftPanel">
+          ${MediaPanel()}
+        </div>
       </div>
 
-      <div class="editorTimeline">
+      <div class="editorCanvas">
+        <div class="previewDrop">
+          <div class="dropZone">Drop media here</div>
+        </div>
+
         ${SceneStrip()}
       </div>
     </div>
