@@ -1,30 +1,32 @@
 export default function Pricing() {
   return `
-    <div class="pricing">
-      <h1>Pricing</h1>
-      <p>Starter, Pro, and Agency plans.</p>
+    <div style="max-width:720px;margin:60px auto;padding:0 20px">
+      <h1 style="font-size:36px;margin-bottom:10px">Simple pricing</h1>
+      <p style="opacity:.8;margin-bottom:40px">
+        Create and export AI‑assisted videos in minutes.
+      </p>
 
-      <div class="grid">
-        <div class="card">
-          <h3>Starter</h3>
-          <p class="price">$9 / mo</p>
+      <div style="border:1px solid #1f2a44;border-radius:16px;padding:24px">
+        <h2 style="font-size:28px;margin-bottom:6px">Creator</h2>
+        <p style="opacity:.8;margin-bottom:20px">
+          Everything you need to start.
+        </p>
+
+        <div style="font-size:42px;font-weight:900;margin-bottom:20px">
+          $19<span style="font-size:16px;font-weight:400">/month</span>
         </div>
-        <div class="card">
-          <h3>Pro</h3>
-          <p class="price">$29 / mo</p>
-        </div>
-        <div class="card">
-          <h3>Agency</h3>
-          <p class="price">$99 / mo</p>
-        </div>
+
+        <ul style="line-height:1.9;margin-bottom:30px">
+          <li>✔ Unlimited projects</li>
+          <li>✔ Scene‑based editor</li>
+          <li>✔ Media upload</li>
+          <li>✔ Video export</li>
+        </ul>
+
+        <button class="btnPrimary fullWidth">
+          Start soon
+        </button>
       </div>
-
-      <button id="backHomeBtn" class="btn secondary">Back</button>
     </div>
   `;
-}
-
-export function bindPricingHandlers({ goHome }) {
-  const btn = document.getElementById("backHomeBtn");
-  if (btn) btn.onclick = goHome;
 }

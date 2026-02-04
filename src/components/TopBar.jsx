@@ -1,20 +1,14 @@
 export default function TopBar() {
   return `
-    <header class="topBar">
-      <nav class="topNav">
-        <a href="/" data-link>Home</a>
-        <a href="/editor" data-link>Editor</a>
-        <a href="/app" data-link>Scheduler</a>
-        <a href="/projects" data-link>Projects</a>
-        <a href="/affiliate" data-link>Affiliate</a>
-        <a href="/pricing" data-link>Pricing</a>
-        <a href="/earn" data-link>Earn</a>
-        <a href="/admin" data-link>Admin</a>
-      </nav>
-
+    <div class="topBar">
+      <div class="topNav">
+        <a href="/">Onyx</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/app/editor">Editor</a>
+      </div>
       <div class="topActions">
         <span class="credits">Credits: 120</span>
       </div>
-    </header>
+    </div>
   `;
 }
