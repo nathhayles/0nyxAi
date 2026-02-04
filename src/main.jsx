@@ -1,3 +1,4 @@
+import "./styles/app.css";
 import Router from "./router.jsx";
 
 function render() {
@@ -23,4 +24,3 @@ document.addEventListener("click", (e) => {
 });
 
 render();
-
