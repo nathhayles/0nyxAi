@@ -1,653 +1,96 @@
-.editorRoot{ display:flex; width:100%; min-width:0; overflow: visible; }
+/* =========================
+   EDITOR LAYOUT – POLISH v4
+   (TARGET ACTUAL SCENE LIST)
+========================= */
 
-.editorLeft{
-  display:flex;
-  width:360px;
-  min-width:320px;
-  border-right:1px solid #1f2a44;
-  background: rgba(10,14,30,.7);
-}
-
-.editorLeftIcons{
-  width:60px;
-  border-right:1px solid #1f2a44;
-  padding:14px 10px;
-  display:flex;
-  flex-direction:column;
-  gap:14px;
-}
-
-.editorLeftIcons button{
-  height:44px; width:44px;
-  border-radius:10px;
-  border:1px solid transparent;
-  background: transparent;
-  color:#fff;
-  cursor:pointer;
-}
-
-.editorLeftIcons button.active{
-  border-color:#2b3cff;
-  box-shadow: 0 0 0 2px rgba(43,60,255,.25) inset;
-}
-
-.editorLeftPanel{ flex:1; padding:18px; }
-
-.editorCanvas{ flex:1; min-width:0; padding:18px; }
-
-.previewDrop{
-  height: 420px;
-  border: 2px dashed rgba(43,60,255,.7);
-  border-radius: 18px;
-  background: rgba(10,14,30,.35);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  position: relative;
-}
-
-.previewDrop.dragOver{
-  border-color:#2b3cff;
-  box-shadow: 0 0 0 3px rgba(43,60,255,.2) inset;
-}
-
-.previewVideo{
-  width:100%;
-  height:100%;
-  border-radius:16px;
-  background:#000;
-  object-fit: contain;
-}
-
-.dropZone{ color: rgba(255,255,255,.65); font-weight: 900; }
-
-.previewRemove{ position:absolute; top:14px; right:14px; }
-
-.mediaGrid{
-  display:grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.mediaItem{
-  border:1px solid #1f2a44;
-  border-radius:14px;
-  overflow:hidden;
-  background: rgba(10,14,30,.55);
-  cursor:pointer;
-}
-
-.mediaItem video, .mediaItem img{
-  width:100%;
-  height:110px;
-  object-fit: cover;
-  display:block;
-  background:#000;
-}
-
-.mediaName{
-  padding:8px 10px;
-  font-size:12px;
-  opacity:.85;
-  white-space: nowrap;
-  overflow:hidden;
-  text-overflow: ellipsis;
-}
-
-.timelineBar{ display:flex; gap:14px; margin-top:16px; }
-
-.timelineItem{
-  width:140px;
-  height:110px;
-  border-radius:16px;
-  border:1px solid #1f2a44;
-  overflow:hidden;
-  background: rgba(10,14,30,.55);
-  cursor:pointer;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-.timelineItem.active{
-  border-color:#2b3cff;
-  box-shadow: 0 0 0 2px rgba(43,60,255,.25) inset;
-}
-
-.timelineItem video{ width:100%; height:100%; object-fit: cover; }
-
-.timelineEmpty{ opacity:.7; font-weight:900; }
-
-.btnPrimary{
-  background:#2b3cff;
-  border:none;
-  color:#fff;
-  padding:10px 14px;
-  border-radius:14px;
-  font-weight:900;
-  cursor:pointer;
-}
-
-.btnGhost{
-  background:#121a33;
-  border:1px solid #1f2a44;
-  color:#fff;
-  padding:10px 14px;
-  border-radius:14px;
-  font-weight:800;
-  cursor:pointer;
-}
-
-.fullWidth{ width:100%; }
-.hint{ opacity:.7; }
-
-/* ===== MEDIA GRID FIX ===== */
-
-#mediaList {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.mediaItem {
-  border-radius: 12px;
-  overflow: hidden;
-  background: rgba(15,20,40,0.8);
-  border: 1px solid rgba(255,255,255,0.08);
-}
-
-.mediaItem video,
-.mediaItem img {
-  width: 100%;
-  height: 120px;
-  object-fit: cover;
-  display: block;
-}
-
-.mediaName {
-  padding: 6px 8px;
-  font-size: 12px;
-  opacity: 0.8;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ===== SCENES BAR ===== */
-.scenesBar {
-  display: flex;
-  gap: 12px;
-  padding: 10px 16px;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  background: rgba(10,15,30,0.95);
-}
-
-.sceneItem {
-  min-width: 120px;
-  height: 64px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.06);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-#addScene {
-  width: 64px;
-  border-radius: 10px;
-  font-size: 24px;
-}
-
-/* ===== PREVIEW LAYOUT FIX ===== */
-
-.previewDrop {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.previewVideo {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-}
-
-.previewDrop.dragOver {
-  outline: 2px dashed #4da3ff;
-  background: rgba(77,163,255,0.08);
-}
-
-/* ===== FIX PREVIEW GEOMETRY ===== */
-
-.editorCanvas {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.previewDrop {
-  flex: 1;
-  width: 100%;
-  max-width: 100%;
-  position: relative;
-  overflow: hidden;
-  border-radius: 16px;
-}
-
-/* Video must fully occupy container */
-.previewVideo {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-}
-
-/* ===== FIX DRAG BLOCKING ===== */
-
-/* This element was BLOCKING drop events */
-.dropZone {
-  pointer-events: none;
-}
-
-/* Visual feedback only */
-.previewDrop.dragOver {
-  outline: 2px dashed #4da3ff;
-  outline-offset: -6px;
-}
-
-/* ===== LAYOUT LOCK ===== */
 .editorRoot {
   display: flex;
-  height: calc(100vh - 72px);
+  height: calc(100vh - 64px);
+  background: #070b16;
 }
 
-.editorCanvas {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+/* LEFT PANEL */
+.editorLeft {
+  width: 280px;
+  border-right: 1px solid rgba(255,255,255,0.08);
+  padding: 14px;
+  background: rgba(10,14,30,0.9);
 }
 
-/* ===== PREVIEW FIX ===== */
-.previewDrop {
-  flex: 1;
-  position: relative;
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.previewVideo {
+.editorLeft input,
+.editorLeft button {
   width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-}
-
-/* ===== DRAG CATCHER ===== */
-#dropCatcher {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-}
-
-#dropCatcher.dragOver {
-  outline: 2px dashed #4da3ff;
-  background: rgba(77,163,255,0.08);
-}
-
-/* Allow hint to show but not block */
-.dropZone {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ===== DRAG & DROP (RELIABLE) ===== */
-.editorRoot { display:flex; height: calc(100vh - 72px); }
-.editorCanvas { flex:1; display:flex; flex-direction:column; min-width:0; }
-
-.previewDrop { position:relative; flex:1; border-radius:16px; overflow:hidden; }
-.previewVideo { width:100%; height:100%; object-fit:contain; background:#000; display:block; }
-
-#dropCatcher {
-  position:absolute;
-  inset:0;
-  z-index:5;
-  cursor: copy;
-}
-
-#dropCatcher.dragOver {
-  outline: 2px dashed #4da3ff;
-  outline-offset: -8px;
-  background: rgba(77,163,255,0.08);
-}
-
-.dropZone {
-  pointer-events: none;
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:6;
-}
-
-/* ===== TRIM BAR ===== */
-
-.trimBar {
-  position: relative;
-  margin-top: 12px;
-  padding: 12px;
-  background: rgba(255,255,255,0.04);
-  border-radius: 12px;
-}
-
-.trimTrack {
-  height: 6px;
-  background: rgba(255,255,255,0.15);
-  border-radius: 4px;
   margin-bottom: 10px;
 }
 
-.trimHandle {
-  width: 100%;
-  appearance: none;
-  background: transparent;
-  position: absolute;
-  left: 0;
-  pointer-events: auto;
-}
-
-.trimHandle::-webkit-slider-thumb {
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  background: #4da3ff;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.trimLabels {
+/* CANVAS */
+.editorCanvas {
+  flex: 1;
+  padding: 20px;
   display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  opacity: 0.8;
-  margin-top: 8px;
+  flex-direction: column;
 }
 
-/* ===== TRIM BAR (REAL EDITOR BEHAVIOR) ===== */
-
-.trimBar {
-  position: relative;
-  margin: 14px 0 6px;
-  padding: 14px 10px 18px;
-  background: rgba(255,255,255,0.04);
-  border-radius: 14px;
-}
-
-.trimTrack {
-  height: 6px;
-  background: rgba(255,255,255,0.18);
-  border-radius: 4px;
-  margin-bottom: 14px;
-}
-
-/* shared */
-.trimHandle {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 22px;
-  appearance: none;
-  background: none;
-  pointer-events: auto;
-}
-
-/* START handle */
-.trimStart {
-  z-index: 2;
-}
-
-/* END handle */
-.trimEnd {
-  z-index: 3;
-}
-
-/* thumb */
-.trimHandle::-webkit-slider-thumb {
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  background: #4da3ff;
-  border-radius: 50%;
-  cursor: ew-resize;
-  box-shadow: 0 0 0 2px rgba(0,0,0,0.4);
-}
-
-/* labels */
-.trimLabels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  opacity: 0.85;
-  margin-top: 8px;
-}
-
-/* ===== TRIM BAR (WORKING VERSION) ===== */
-
-.trimBar {
-  position: relative;
-  margin-top: 12px;
-  padding: 14px 12px 20px;
-  background: rgba(255,255,255,0.04);
-  border-radius: 12px;
-}
-
-.trimTrack {
-  height: 6px;
-  background: rgba(255,255,255,0.2);
-  border-radius: 4px;
-  margin-bottom: 14px;
-}
-
-.trimRange {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  top: 22px;
-  width: calc(100% - 24px);
-  appearance: none;
-  background: transparent;
-  pointer-events: none; /* 🔴 KEY */
-}
-
-.trimRange::-webkit-slider-thumb {
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  background: #4da3ff;
-  border-radius: 50%;
-  cursor: pointer;
-  pointer-events: auto; /* 🔴 KEY */
-  position: relative;
-  z-index: 2;
-}
-
-.trimStart::-webkit-slider-thumb {
-  z-index: 3;
-}
-
-.trimEnd::-webkit-slider-thumb {
-  z-index: 4;
-}
-
-.trimLabels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  opacity: 0.85;
-  margin-top: 22px;
-}
-
-/* ===== WORKING DUAL TRIM SLIDER ===== */
-
-.trimBar {
-  position: relative;
-  margin-top: 12px;
-  padding: 12px;
-  background: rgba(255,255,255,0.04);
-  border-radius: 12px;
-}
-
-.trimTrack {
-  height: 6px;
-  background: rgba(255,255,255,0.2);
-  border-radius: 4px;
-  margin-bottom: 14px;
-}
-
-.trimHandle {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  pointer-events: auto;
-  background: none;
-  appearance: none;
-}
-
-.trimHandle::-webkit-slider-thumb {
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  background: #4da3ff;
-  border-radius: 50%;
-  cursor: pointer;
-  position: relative;
-  z-index: 2;
-}
-
-/* KEY FIX: separate interaction layers */
-.trimStart { z-index: 3; }
-.trimEnd   { z-index: 2; }
-
-.trimLabels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  opacity: 0.85;
-  margin-top: 10px;
-}
-
-/* =========================
-   TOP BAR
-========================= */
-
-.topBar {
-  height: 64px;
+/* PREVIEW */
+.previewDrop {
+  flex: 1;
+  border-radius: 16px;
+  border: 2px dashed rgba(77,163,255,0.45);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  background: linear-gradient(180deg, #0b1020, #070b16);
+  justify-content: center;
+  color: rgba(255,255,255,0.55);
+  margin-bottom: 18px;
 }
 
-.topNav {
-  display: flex;
-  gap: 18px;
-}
-
-.topNav a {
-  color: #cdd9ff;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.topNav a:hover {
-  color: #ffffff;
-}
-
-.topActions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.credits {
-  opacity: 0.85;
-}
-
-.earnBtn {
-  background: #4d6bff;
-  border: none;
-  border-radius: 12px;
-  padding: 8px 14px;
-  color: #fff;
-  cursor: pointer;
-}
-
-/* =========================
-   APP SHELL: hide any nested TopBar rendered by pages
-   (Shell TopBar is OUTSIDE .appMain, so it stays visible)
-========================= */
-.appMain .topBar {
-  display: none !important;
-}
-
-/* =========================
-   Scheduler internal tabs
-========================= */
-.schedulerTabs {
-  display: flex;
-  gap: 10px;
-  padding: 10px 14px;
-  border-bottom: 1px solid #1b2135;
-}
-
-.schedulerTabs a {
-  padding: 6px 12px;
-  border-radius: 8px;
-  color: #cdd9ff;
-  text-decoration: none;
-}
-
-.schedulerTabs a.active {
-  background: #2b3cff;
-  color: #fff;
-}
-
-.schedulerContent {
-  padding: 16px;
-}
+/* ===== SCENE STRIP ===== */
 
 .sceneStrip {
-  padding: 10px;
-  border-top: 1px solid #ccc;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 12px;
+  overflow-x: auto;
 }
 
+/* THIS is the missing piece */
+.sceneStrip .scenes {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 14px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* ADD SCENE */
+.sceneStrip .scenes > button {
+  min-width: 140px;
+  height: 64px;
+  border-radius: 12px;
+  border: 2px dashed rgba(255,255,255,0.35);
+  background: transparent;
+  color: rgba(255,255,255,0.9);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* SCENE ITEM */
 .sceneItem {
-  display: flex;
-  gap: 8px;
-  margin: 6px 0;
-}
-
-.trimBar {
-  display: flex;
-  gap: 20px;
-  padding: 10px 0;
-}
-
-.trimBar label {
+  min-width: 160px;
+  height: 64px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 0 14px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+}
+
+.sceneItem span {
+  font-weight: 700;
+}
+
+.sceneItem button {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
 }
