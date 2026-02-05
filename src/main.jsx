@@ -1,3 +1,10 @@
+import { installEditorDelegation } from "./state/editorDelegation.js";
+installEditorDelegation();
+import { bindEditorInteractions } from "./state/bindEditorInteractions.js";
+import { setActiveScene, addMediaToScene, renderPreview } from "./state/scenes.js";
+window.setActiveScene = setActiveScene;
+window.addMediaToScene = addMediaToScene;
+window.renderPreview = renderPreview;
 import "./styles/editor.css";
 import "./styles/editorSidebar.css";
 import "./styles/onyx.css";
@@ -21,7 +28,7 @@ function render() {
   // If we are on legacy scheduler routes, mount legacy app inside #page and run legacy router
   if (path.startsWith("/app")) {
     const page = document.getElementById("page");
-    if (page) page.innerHTML = App(); bindEditorUi(); // creates #view for legacy router
+    if (page) page.innerHTML = App(); bindEditorInteractions(); renderPreview(); bindEditorUi(); // creates #view for legacy router
     renderRouter();
   }
 }

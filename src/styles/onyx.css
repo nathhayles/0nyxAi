@@ -208,3 +208,104 @@ a {
 body {
   background: var(--onyx-900) !important;
 }
+
+/* --- Scenes bar placement --- */
+.editorMain {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.editorScenes {
+  height: 120px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  justify-content: center;
+  background: linear-gradient(
+    180deg,
+    rgba(11,13,16,0.6),
+    var(--onyx-900)
+  );
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* --- Visuals: Library Grid --- */
+.visualsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
+  padding-top: 12px;
+}
+
+.mediaCard {
+  background: var(--onyx-800);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  height: 72px;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-400);
+  font-size: 12px;
+}
+
+.mediaCard:hover {
+  border-color: var(--accent);
+}
+
+.mediaCard::after {
+  content: "Add";
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: var(--accent-soft);
+  color: var(--ink-100);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  opacity: 0;
+}
+
+.mediaCard:hover::after {
+  opacity: 1;
+}
+
+/* --- FIX: unblock editor interactions --- */
+.editorPreview::before,
+.editorPreview::after {
+  pointer-events: none !important;
+}
+
+.editorPreview {
+  pointer-events: auto;
+}
+
+.editorToolPanel,
+.editorSidebar,
+.editorScenes {
+  pointer-events: auto;
+  z-index: 10;
+}
+
+/* emergency click unblocking */
+* {
+  pointer-events: auto;
+}
+
+/* --- FIX: divider must not block clicks --- */
+.editorDivider,
+.editorDivider *,
+.editorSplitter,
+.editorSplitter * {
+  pointer-events: none !important;
+}
+
+/* --- HARD: ensure editor area is clickable --- */
+.editorRoot, .editorRoot * {
+  pointer-events: auto !important;
+}
