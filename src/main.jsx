@@ -1,3 +1,6 @@
+import "./styles/editor.css";
+import "./styles/editorSidebar.css";
+import "./styles/onyx.css";
 import { installEditorDelegation } from "./state/editorDelegation.js";
 installEditorDelegation();
 import { bindEditorInteractions } from "./state/bindEditorInteractions.js";
@@ -5,11 +8,7 @@ import { setActiveScene, addMediaToScene, renderPreview } from "./state/scenes.j
 window.setActiveScene = setActiveScene;
 window.addMediaToScene = addMediaToScene;
 window.renderPreview = renderPreview;
-import "./styles/editor.css";
-import "./styles/editorSidebar.css";
-import "./styles/onyx.css";
 import { bindEditorUi } from "./state/editorUi.js";
-import "./styles/editorSidebar.css";
 import AppShell from "./app/AppShell.jsx";
 import App from "./pages/App.jsx";
 import { renderRouter } from "./router.js";

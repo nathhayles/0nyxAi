@@ -11,19 +11,30 @@ export function setActiveScene(id) {
   renderPreview();
 }
 
-export function addMediaToScene(label) {
+export function addMediaToScene(type) {
   const scene = scenes.find(s => s.id === activeSceneId);
   if (!scene) return;
-  scene.media = label;
+  scene.media = { type };
   renderPreview();
 }
 
 export function renderPreview() {
-  const el = document.getElementById("previewContent");
-  const scene = scenes.find(s => s.id === activeSceneId);
-  if (!el) return;
+  const stage = document.getElementById("previewStage");
+  if (!stage) return;
 
-  el.textContent = scene?.media
-    ? `Scene ${scene.id}: ${scene.media}`
-    : `Scene ${scene.id}: Empty`;
+  const scene = scenes.find(s => s.id === activeSceneId);
+  stage.innerHTML = "";
+
+  if (!scene || !scene.media) {
+    const empty = document.createElement("div");
+    empty.className = "emptyPreview";
+    empty.textContent = "No media";
+    stage.appendChild(empty);
+    return;
+  }
+
+  const box = document.createElement("div");
+  box.className = "previewMedia";
+  box.textContent = scene.media.type + " PREVIEW";
+  stage.appendChild(box);
 }
