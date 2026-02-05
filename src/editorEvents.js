@@ -1,4 +1,4 @@
-import { addMediaToScene, setActiveScene } from "./state/scenes";
+import { addUpload, addMediaToScene, setActiveScene } from "./state/scenes";
 
 let sceneCount = 3;
 
@@ -21,12 +21,7 @@ export function initEditorEvents() {
       document.getElementById("mediaUploadInput")?.click();
     }
 
-    /* ---------- AI GENERATE ---------- */
-    if (e.target.dataset.action === "ai-generate") {
-      alert("AI Studio coming next");
-    }
-
-    /* ---------- STOCK MEDIA ---------- */
+    /* ---------- STOCK ---------- */
     if (e.target.dataset.action === "media") {
       const type = e.target.dataset.mediaType;
       const url =
@@ -61,7 +56,8 @@ export function initEditorEvents() {
 
       const url = URL.createObjectURL(file);
       const type = file.type.startsWith("video") ? "video" : "image";
-      addMediaToScene({ type, url });
+
+      addUpload({ type, url });
     }
   });
 

@@ -1,7 +1,7 @@
 export const scenes = [
-  { id: 1, media: null },
-  { id: 2, media: null },
-  { id: 3, media: null }
+  { id: 1, media: null, uploads: [] },
+  { id: 2, media: null, uploads: [] },
+  { id: 3, media: null, uploads: [] }
 ];
 
 let activeSceneId = 1;
@@ -9,6 +9,7 @@ let activeSceneId = 1;
 export function setActiveScene(id) {
   activeSceneId = id;
   renderPreview();
+  renderUploadThumbnails();
 }
 
 export function addMediaToScene(media) {
@@ -16,6 +17,16 @@ export function addMediaToScene(media) {
   if (!scene) return;
 
   scene.media = media;
+  renderPreview();
+}
+
+export function addUpload(media) {
+  const scene = scenes.find(s => s.id === activeSceneId);
+  if (!scene) return;
+
+  scene.uploads.push(media);
+  scene.media = media;
+  renderUploadThumbnails();
   renderPreview();
 }
 
@@ -47,6 +58,34 @@ export function renderPreview() {
     vid.style.maxHeight = "100%";
     stage.appendChild(vid);
   }
+}
+
+export function renderUploadThumbnails() {
+  const grid = document.getElementById("uploadsGrid");
+  if (!grid) return;
+
+  const scene = scenes.find(s => s.id === activeSceneId);
+  grid.innerHTML = "";
+
+  scene.uploads.forEach((media, index) => {
+    const card = document.createElement("div");
+    card.className = "mediaCard";
+    card.dataset.index = index;
+
+    if (media.type === "image") {
+      const img = document.createElement("img");
+      img.src = media.url;
+      card.appendChild(img);
+    } else {
+      card.textContent = "Video";
+    }
+
+    card.addEventListener("click", () => {
+      addMediaToScene(media);
+    });
+
+    grid.appendChild(card);
+  });
 }
 
 window.setActiveScene = setActiveScene;

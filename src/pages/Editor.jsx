@@ -2,7 +2,6 @@ export default function Editor() {
   return `
     <div class="editorRoot">
 
-      <!-- TOP BAR -->
       <div class="editorTopBar">
         <div class="leftControls">
           <select class="ratioSelect">
@@ -22,10 +21,8 @@ export default function Editor() {
         </div>
       </div>
 
-      <!-- BODY -->
       <div class="editorBody">
 
-        <!-- SIDEBAR -->
         <div class="editorSidebar">
           <div class="sidebarIcon active">🖼️</div>
           <div class="sidebarIcon">🙂</div>
@@ -36,7 +33,6 @@ export default function Editor() {
           <div class="sidebarIcon">🎨</div>
         </div>
 
-        <!-- TOOL PANEL -->
         <div class="editorToolPanel">
           <h3>Visuals</h3>
 
@@ -48,34 +44,29 @@ export default function Editor() {
 
           <div class="toolBody">
 
-            <!-- LIBRARY TAB -->
             <div class="toolSection active" data-section="library">
               <div class="visualsGrid">
                 <div class="mediaCard" data-action="media" data-media-type="image">Stock Image</div>
-                <div class="mediaCard" data-action="media" data-media-type="image">Stock Image</div>
-                <div class="mediaCard" data-action="media" data-media-type="video">Stock Video</div>
                 <div class="mediaCard" data-action="media" data-media-type="video">Stock Video</div>
               </div>
             </div>
 
-            <!-- AI STUDIO TAB -->
             <div class="toolSection" data-section="ai">
               <div class="mediaActions">
                 <button data-action="ai-generate">✨ AI Generate</button>
               </div>
             </div>
 
-            <!-- UPLOADS TAB -->
             <div class="toolSection" data-section="uploads">
               <div class="mediaActions">
                 <button data-action="upload">⬆ Upload Image / Video</button>
               </div>
+              <div id="uploadsGrid" class="visualsGrid"></div>
             </div>
 
           </div>
         </div>
 
-        <!-- PREVIEW -->
         <div class="editorPreview">
           <div id="previewStage">
             <div class="emptyPreview">No media</div>
@@ -84,7 +75,6 @@ export default function Editor() {
 
       </div>
 
-      <!-- SCENES -->
       <div class="editorScenes">
         <button data-action="add-scene">+ Add Scene</button>
         <span data-action="scene" data-scene-id="1">Scene 1</span>
@@ -92,7 +82,6 @@ export default function Editor() {
         <span data-action="scene" data-scene-id="3">Scene 3</span>
       </div>
 
-      <!-- HIDDEN FILE INPUT -->
       <input
         id="mediaUploadInput"
         type="file"
