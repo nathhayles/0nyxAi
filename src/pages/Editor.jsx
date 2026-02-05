@@ -1,8 +1,15 @@
+import { useExportUx } from "../state/useExportUx.jsx";
+import { runExport } from "../state/runExport.jsx";
+import ExportButton from "../components/ExportButton.jsx";
+import { useCredits } from "../state/CreditsContext.jsx";
 import SceneStrip from "../components/SceneStrip.jsx";
 import { MediaPanel } from "../components/MediaPanel.jsx";
 import { exportProject } from "../api/export.js";
 
 export default function Editor() {
+  const { credits, setCredits } = useCredits();
+  const exportUx = useExportUx();
+  const durationSeconds = 60;
   return `
     <div class="editorRoot">
       <div class="editorLeft">

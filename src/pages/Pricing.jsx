@@ -1,34 +1,75 @@
+import React from "react";
+import { useCredits } from "../state/CreditsContext.jsx";
+import { usePricingModal } from "../state/usePricingModal";
+import { PricingModal } from "../components/PricingModal";
+
 export default function Pricing() {
-  return `
-    <div class="pageCenter">
-      <h1 style="font-size:42px;margin-bottom:16px">Pricing</h1>
-      <p style="opacity:.8;margin-bottom:32px">
-        Simple usage‑based pricing. No subscriptions. Pay only for what you render.
+  const { credits } = useCredits();
+  const { open, openModal, closeModal } = usePricingModal();
+
+  return (
+    <section className="pricingWrap">
+      <h1>Pricing</h1>
+      <p className="sub">
+        Simple pricing based on export time. <b>1 credit = 1 second.</b>
       </p>
 
-      <div style="display:flex;gap:24px;flex-wrap:wrap">
-        <div style="flex:1;min-width:260px;padding:24px;border-radius:16px;background:rgba(255,255,255,.04)">
-          <h3>Free</h3>
-          <p style="opacity:.8">Try the editor</p>
-          <ul style="opacity:.85">
-            <li>Editor access</li>
-            <li>Watermarked exports</li>
-          </ul>
-        </div>
+      <div className="plans">
+        <Plan
+          title="Free"
+          price="$0"
+          bullets={[
+            "120 credits",
+            "Watermarked exports",
+            "Up to 60s per export",
+          ]}
+          cta="Start Editing"
+        />
 
-        <div style="flex:1;min-width:260px;padding:24px;border-radius:16px;background:rgba(43,60,255,.15);border:1px solid #2b3cff">
-          <h3>Credits</h3>
-          <p style="opacity:.9">Pay per render</p>
-          <ul style="opacity:.9">
-            <li>No subscription</li>
-            <li>HD exports</li>
-            <li>Commercial use</li>
-          </ul>
-          <a href="/app/editor" class="btnPrimary" style="margin-top:16px;display:inline-block">
-            Open Editor
-          </a>
-        </div>
+        <Plan
+          title="Starter"
+          price="$12 / month"
+          bullets={[
+            "1,200 credits (~20 min)",
+            "No watermark",
+            "1080p exports",
+          ]}
+          cta="Upgrade"
+          highlight
+          onClick={openModal}
+        />
+
+        <Plan
+          title="Pro"
+          price="$29 / month"
+          bullets={[
+            "6,000 credits (~100 min)",
+            "No watermark",
+            "4K exports",
+          ]}
+          cta="Upgrade"
+          onClick={openModal}
+        />
       </div>
+
+      <div className="creditsNow">
+        Credits available: <b>{credits}</b>
+      </div>
+
+      <PricingModal open={open} onClose={closeModal} />
+    </section>
+  );
+}
+
+function Plan({ title, price, bullets, cta, highlight, onClick }) {
+  return (
+    <div className={`plan ${highlight ? "highlight" : ""}`}>
+      <h3>{title}</h3>
+      <div className="price">{price}</div>
+      <ul>
+        {bullets.map(b => <li key={b}>{b}</li>)}
+      </ul>
+      <button className="cta" onClick={onClick}>{cta}</button>
     </div>
-  `;
+  );
 }

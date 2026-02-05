@@ -1,0 +1,41 @@
+.topBar { display:flex; justify-content:space-between; padding:12px 20px; }
+.topBarRight { opacity:.9; }
+
+.pricingWrap { max-width:1100px; margin:40px auto; padding:0 24px; }
+.plans { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; }
+.plan { padding:20px; border-radius:14px; background:#0f1220; border:1px solid rgba(255,255,255,.1); transition:.15s; }
+.plan:hover { transform:translateY(-2px); }
+.plan.highlight { border-color:#4f46e5; background:rgba(79,70,229,.15); }
+.price { font-size:22px; margin-bottom:12px; }
+.cta { width:100%; padding:10px; border-radius:10px; }
+
+.modalBackdrop { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; }
+.modalCard { background:#111; padding:20px; border-radius:12px; width:min(520px,92vw); }
+.modalActions { display:flex; gap:10px; justify-content:flex-end; }
+
+/* --- TopBar navigation spacing fix --- */
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.topBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.topBarLeft nav {
+  display: flex;
+  gap: 16px;
+}
+
+.topBarLeft nav a {
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.topBarRight {
+  font-weight: 500;
+}

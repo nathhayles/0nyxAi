@@ -1,27 +1,25 @@
-import "./styles/app.css";
-import "./styles/editor.css";
+import React from "react";
+import { createRoot } from "react-dom/client";
 import Router from "./router.jsx";
+import { CreditsProvider } from "./state/CreditsContext.jsx";
+import "./styles.css";
 
-function render() {
-  document.body.innerHTML = Router(window.location.pathname);
+const root = createRoot(document.getElementById("root"));
+
+function App() {
+  const [path, setPath] = React.useState(window.location.pathname);
+
+  React.useEffect(() => {
+    const onPop = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  return (
+    <CreditsProvider>
+      <Router path={path} />
+    </CreditsProvider>
+  );
 }
 
-window.addEventListener("popstate", render);
-
-document.addEventListener("click", (e) => {
-  const a = e.target.closest("a[href]");
-  if (!a) return;
-
-  const href = a.getAttribute("href");
-  if (
-    href.startsWith("http") ||
-    href.startsWith("mailto:") ||
-    href.startsWith("#")
-  ) return;
-
-  e.preventDefault();
-  history.pushState({}, "", href);
-  render();
-});
-
-render();
+root.render(<App />);

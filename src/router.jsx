@@ -1,30 +1,37 @@
+import React from "react";
 import TopBar from "./components/TopBar.jsx";
 import Editor from "./pages/Editor.jsx";
 import Pricing from "./pages/Pricing.jsx";
+import SchedulerPage from "./pages/SchedulerPage.jsx";
+import ProjectsPage from "./pages/ProjectsPage.jsx";
 
 function Landing() {
-  return `
-    <div class="pageCenter">
-      <h1 style="font-size:48px;margin-bottom:12px">Create videos fast.</h1>
-      <p style="opacity:.8;font-size:18px;margin-bottom:32px">
-        Scene‑based AI video editor. Simple. Fast. Built to ship.
+  return (
+    <div className="pageCenter">
+      <h1 style={{ fontSize: 48, marginBottom: 12 }}>Create videos fast.</h1>
+      <p style={{ opacity: 0.8, fontSize: 18, marginBottom: 32 }}>
+        Scene-based AI video editor. Simple. Fast. Built to ship.
       </p>
-      <a href="/app/editor" class="btnPrimary">Open Editor</a>
+      <a href="/app/editor" className="btnPrimary">Open Editor</a>
     </div>
-  `;
+  );
 }
 
-export default function Router(path) {
-  let page = "";
+export default function Router({ path }) {
+  let page;
 
-  if (path === "/pricing") page = Pricing();
-  else if (path.startsWith("/app/editor")) page = Editor();
-  else page = Landing();
+  if (path === "/pricing") page = <Pricing />;
+  else if (path === "/projects") page = <ProjectsPage />;
+  else if (path === "/scheduler") page = <SchedulerPage />;
+  else if (path.startsWith("/app/editor")) page = <Editor />;
+  else page = <Landing />;
 
-  return `
-    ${TopBar()}
-    <main class="appMain">
-      ${page}
-    </main>
-  `;
+  return (
+    <>
+      <TopBar />
+      <main className="appMain">
+        {page}
+      </main>
+    </>
+  );
 }
