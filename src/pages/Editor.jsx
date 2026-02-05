@@ -2,57 +2,80 @@ export default function Editor() {
   return `
     <div class="editorRoot">
 
-      <!-- Editor top functions bar -->
-      <div class="editorTopBar" id="editorTopBar">
+      <!-- TOP BAR -->
+      <div class="editorTopBar">
         <div class="leftControls">
-          <div class="ratioDropdown" data-action="ratio">16:9 ▾</div>
-          <button class="iconBtn" data-action="undo" title="Undo">↶</button>
-          <button class="iconBtn" data-action="redo" title="Redo">↷</button>
+          <select class="ratioSelect">
+            <option>16:9</option>
+            <option>9:16</option>
+            <option>1:1</option>
+            <option>4:5</option>
+          </select>
+          <button class="iconBtn">↶</button>
+          <button class="iconBtn">↷</button>
         </div>
-
         <div class="rightControls">
-          <button data-action="preview">Preview</button>
-          <button data-action="download">Download</button>
-          <button data-action="earn">Earn</button>
+          <button>Preview</button>
+          <button>Download</button>
+          <button>Earn</button>
           <span class="credits">Credits: 120</span>
         </div>
       </div>
 
-      <!-- Main editor body row -->
+      <!-- BODY -->
       <div class="editorBody">
 
+        <!-- SIDEBAR -->
         <div class="editorSidebar">
-          <div class="sidebarIcon active" data-action="tool" data-tool="visuals" title="Visuals">🖼️</div>
-          <div class="sidebarIcon" data-action="tool" data-tool="avatars" title="Avatars">🙂</div>
-          <div class="sidebarIcon" data-action="tool" data-tool="audio" title="Audio">🔊</div>
-          <div class="sidebarIcon" data-action="tool" data-tool="layouts" title="Layouts">📐</div>
-          <div class="sidebarIcon" data-action="tool" data-tool="text" title="Text">✏️</div>
-          <div class="sidebarIcon" data-action="tool" data-tool="elements" title="Elements">⭐</div>
-          <div class="sidebarIcon" data-action="tool" data-tool="styles" title="Styles">🎨</div>
-          <div class="sidebarIcon" data-action="tool" data-tool="branding" title="Branding">🏷️</div>
+          <div class="sidebarIcon active">🖼️</div>
+          <div class="sidebarIcon">🙂</div>
+          <div class="sidebarIcon">🔊</div>
+          <div class="sidebarIcon">📐</div>
+          <div class="sidebarIcon">✏️</div>
+          <div class="sidebarIcon">⭐</div>
+          <div class="sidebarIcon">🎨</div>
         </div>
 
-        <div class="editorToolPanel" id="toolPanel">
+        <!-- TOOL PANEL -->
+        <div class="editorToolPanel">
           <h3>Visuals</h3>
 
           <div class="toolTabs">
-            <div class="toolTab active" data-action="tab" data-tab="library">Library</div>
-            <div class="toolTab" data-action="tab" data-tab="ai">AI Studio</div>
-            <div class="toolTab" data-action="tab" data-tab="uploads">Uploads</div>
+            <div class="toolTab active" data-tab="library">Library</div>
+            <div class="toolTab" data-tab="ai">AI Studio</div>
+            <div class="toolTab" data-tab="uploads">Uploads</div>
           </div>
 
           <div class="toolBody">
-            <div class="visualsGrid">
-              <div class="mediaCard" data-action="media" data-media-label="Image">Image</div>
-              <div class="mediaCard" data-action="media" data-media-label="Image">Image</div>
-              <div class="mediaCard" data-action="media" data-media-label="Video">Video</div>
-              <div class="mediaCard" data-action="media" data-media-label="Image">Image</div>
-              <div class="mediaCard" data-action="media" data-media-label="Video">Video</div>
-              <div class="mediaCard" data-action="media" data-media-label="Image">Image</div>
+
+            <!-- LIBRARY TAB -->
+            <div class="toolSection active" data-section="library">
+              <div class="visualsGrid">
+                <div class="mediaCard" data-action="media" data-media-type="image">Stock Image</div>
+                <div class="mediaCard" data-action="media" data-media-type="image">Stock Image</div>
+                <div class="mediaCard" data-action="media" data-media-type="video">Stock Video</div>
+                <div class="mediaCard" data-action="media" data-media-type="video">Stock Video</div>
+              </div>
             </div>
+
+            <!-- AI STUDIO TAB -->
+            <div class="toolSection" data-section="ai">
+              <div class="mediaActions">
+                <button data-action="ai-generate">✨ AI Generate</button>
+              </div>
+            </div>
+
+            <!-- UPLOADS TAB -->
+            <div class="toolSection" data-section="uploads">
+              <div class="mediaActions">
+                <button data-action="upload">⬆ Upload Image / Video</button>
+              </div>
+            </div>
+
           </div>
         </div>
 
+        <!-- PREVIEW -->
         <div class="editorPreview">
           <div id="previewStage">
             <div class="emptyPreview">No media</div>
@@ -61,13 +84,21 @@ export default function Editor() {
 
       </div>
 
-      <!-- Scenes bar -->
+      <!-- SCENES -->
       <div class="editorScenes">
         <button data-action="add-scene">+ Add Scene</button>
         <span data-action="scene" data-scene-id="1">Scene 1</span>
         <span data-action="scene" data-scene-id="2">Scene 2</span>
         <span data-action="scene" data-scene-id="3">Scene 3</span>
       </div>
+
+      <!-- HIDDEN FILE INPUT -->
+      <input
+        id="mediaUploadInput"
+        type="file"
+        accept="image/*,video/*"
+        style="display:none"
+      />
 
     </div>
   `;

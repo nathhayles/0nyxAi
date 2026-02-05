@@ -518,3 +518,38 @@ body {
   white-space:nowrap !important;
   padding:10px 16px !important;
 }
+
+/* Main navigation */
+.mainNav {
+  height: 56px;
+  background: linear-gradient(180deg, #0b0f14, #0a0d12);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+}
+
+.mainMenu {
+  display: flex;
+  gap: 16px;
+  padding: 0 16px;
+  align-items: center;
+}
+
+.mainMenu a {
+  color: #d1d5db;
+  text-decoration: none;
+  font-size: 14px;
+  opacity: 0.85;
+}
+
+.mainMenu a:hover {
+  opacity: 1;
+}
+
+.toolSection {
+  display: none;
+}
+
+.toolSection.active {
+  display: block;
+}
