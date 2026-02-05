@@ -1,33 +1,62 @@
 import { stockMedia } from "./stock";
+import { pushHistory, undo, redo } from "./history";
 
-export const scenes = [
-  { id: 1, media: null, uploads: [] },
-  { id: 2, media: null, uploads: [] },
-  { id: 3, media: null, uploads: [] }
-];
+export let editorState = {
+  ratio: "16:9",
+  activeSceneId: 1,
+  scenes: [
+    { id: 1, media: null, uploads: [] },
+    { id: 2, media: null, uploads: [] },
+    { id: 3, media: null, uploads: [] }
+  ]
+};
 
-let activeSceneId = 1;
+export function setRatio(ratio) {
+  pushHistory(editorState);
+  editorState = { ...editorState, ratio };
+  renderPreview();
+}
 
 export function setActiveScene(id) {
-  activeSceneId = id;
+  pushHistory(editorState);
+  editorState = { ...editorState, activeSceneId: id };
   renderPreview();
   renderUploadThumbnails();
 }
 
 export function addMediaToScene(media) {
-  const scene = scenes.find(s => s.id === activeSceneId);
-  if (!scene) return;
-
-  scene.media = media;
+  pushHistory(editorState);
+  editorState = {
+    ...editorState,
+    scenes: editorState.scenes.map(s =>
+      s.id === editorState.activeSceneId ? { ...s, media } : s
+    )
+  };
   renderPreview();
 }
 
 export function addUpload(media) {
-  const scene = scenes.find(s => s.id === activeSceneId);
-  if (!scene) return;
+  pushHistory(editorState);
+  editorState = {
+    ...editorState,
+    scenes: editorState.scenes.map(s =>
+      s.id === editorState.activeSceneId
+        ? { ...s, uploads: [...s.uploads, media], media }
+        : s
+    )
+  };
+  renderUploadThumbnails();
+  renderPreview();
+}
 
-  scene.uploads.push(media);
-  scene.media = media;
+export function undoAction() {
+  editorState = undo(editorState);
+  renderUploadThumbnails();
+  renderPreview();
+}
+
+export function redoAction() {
+  editorState = redo(editorState);
   renderUploadThumbnails();
   renderPreview();
 }
@@ -36,8 +65,9 @@ export function renderPreview() {
   const stage = document.getElementById("previewStage");
   if (!stage) return;
 
-  const scene = scenes.find(s => s.id === activeSceneId);
+  const scene = editorState.scenes.find(s => s.id === editorState.activeSceneId);
   stage.innerHTML = "";
+  stage.dataset.ratio = editorState.ratio;
 
   if (!scene || !scene.media) {
     stage.innerHTML = '<div class="emptyPreview">No media</div>';
@@ -48,6 +78,7 @@ export function renderPreview() {
     const img = document.createElement("img");
     img.src = scene.media.url;
     stage.appendChild(img);
+    return;
   }
 
   if (scene.media.type === "video") {
@@ -55,14 +86,20 @@ export function renderPreview() {
     vid.src = scene.media.url;
     vid.controls = true;
     stage.appendChild(vid);
+    return;
   }
+}
+
+function makeDraggableCard(card, media) {
+  card.draggable = true;
+  card.dataset.dragMedia = JSON.stringify({ type: media.type, url: media.url, thumbnail: media.thumbnail });
 }
 
 export function renderUploadThumbnails() {
   const grid = document.getElementById("uploadsGrid");
   if (!grid) return;
 
-  const scene = scenes.find(s => s.id === activeSceneId);
+  const scene = editorState.scenes.find(s => s.id === editorState.activeSceneId);
   grid.innerHTML = "";
 
   scene.uploads.forEach(media => {
@@ -70,8 +107,10 @@ export function renderUploadThumbnails() {
     card.className = "mediaCard";
 
     const img = document.createElement("img");
-    img.src = media.thumbnail || media.url;
+    img.src = media.thumbnail;
     card.appendChild(img);
+
+    makeDraggableCard(card, media);
 
     card.onclick = () => addMediaToScene(media);
     grid.appendChild(card);
@@ -83,7 +122,6 @@ export function renderStockThumbnails() {
   if (!grid) return;
 
   grid.innerHTML = "";
-
   stockMedia.forEach(media => {
     const card = document.createElement("div");
     card.className = "mediaCard";
@@ -92,10 +130,14 @@ export function renderStockThumbnails() {
     img.src = media.thumbnail;
     card.appendChild(img);
 
+    // for stock, thumbnail is remote; url is remote
+    makeDraggableCard(card, { ...media, thumbnail: media.thumbnail });
+
     card.onclick = () => addMediaToScene(media);
     grid.appendChild(card);
   });
 }
 
-window.setActiveScene = setActiveScene;
-window.renderStockThumbnails = renderStockThumbnails;
+window.editorUndo = undoAction;
+window.editorRedo = redoAction;
+window.setRatio = setRatio;

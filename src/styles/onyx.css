@@ -657,3 +657,59 @@ body {
   object-fit: cover;
   display: block;
 }
+
+/* ===== HARD OVERRIDE: THUMBNAILS MUST RENDER ===== */
+.editorToolPanel .visualsGrid {
+  grid-auto-rows: 80px !important;
+}
+
+.editorToolPanel .mediaCard {
+  height: 80px !important;
+  min-height: 80px !important;
+  overflow: hidden !important;
+}
+
+.editorToolPanel .mediaCard img {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+/* thumbnail must show */
+.editorToolPanel .visualsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-auto-rows: 80px;
+  gap: 12px;
+}
+
+.editorToolPanel .mediaCard {
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0b0f14;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.editorToolPanel .mediaCard img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* LEFT TOOLBAR PANELS */
+.toolPanel { display: none; }
+.toolPanel.active { display: block; }
+
+/* Active state */
+.sidebarIcon.active {
+  background: rgba(255,255,255,0.12);
+  border-radius: 10px;
+}
+
+/* Keep tool panel from collapsing */
+.editorToolPanel { min-width: 320px; }
