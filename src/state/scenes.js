@@ -67,17 +67,20 @@ export function renderUploadThumbnails() {
   const scene = scenes.find(s => s.id === activeSceneId);
   grid.innerHTML = "";
 
-  scene.uploads.forEach((media, index) => {
+  scene.uploads.forEach(media => {
     const card = document.createElement("div");
     card.className = "mediaCard";
-    card.dataset.index = index;
 
     if (media.type === "image") {
       const img = document.createElement("img");
-      img.src = media.url;
+      img.src = media.thumbnail || media.url;
       card.appendChild(img);
-    } else {
-      card.textContent = "Video";
+    }
+
+    if (media.type === "video") {
+      const img = document.createElement("img");
+      img.src = media.thumbnail;
+      card.appendChild(img);
     }
 
     card.addEventListener("click", () => {

@@ -6,7 +6,6 @@ export function initEditorEvents() {
 
   document.addEventListener("click", (e) => {
 
-    /* ---------- TABS ---------- */
     if (e.target.classList.contains("toolTab")) {
       document.querySelectorAll(".toolTab").forEach(t => t.classList.remove("active"));
       document.querySelectorAll(".toolSection").forEach(s => s.classList.remove("active"));
@@ -16,12 +15,10 @@ export function initEditorEvents() {
       document.querySelector(`.toolSection[data-section="${tab}"]`)?.classList.add("active");
     }
 
-    /* ---------- UPLOAD ---------- */
     if (e.target.dataset.action === "upload") {
       document.getElementById("mediaUploadInput")?.click();
     }
 
-    /* ---------- STOCK ---------- */
     if (e.target.dataset.action === "media") {
       const type = e.target.dataset.mediaType;
       const url =
@@ -29,10 +26,9 @@ export function initEditorEvents() {
           ? "https://www.w3schools.com/html/mov_bbb.mp4"
           : "https://picsum.photos/1200/800";
 
-      addMediaToScene({ type, url });
+      addMediaToScene({ type, url, thumbnail: url });
     }
 
-    /* ---------- ADD SCENE ---------- */
     if (e.target.dataset.action === "add-scene") {
       sceneCount++;
       const bar = document.querySelector(".editorScenes");
@@ -43,7 +39,6 @@ export function initEditorEvents() {
       bar.appendChild(span);
     }
 
-    /* ---------- SELECT SCENE ---------- */
     if (e.target.dataset.action === "scene") {
       setActiveScene(Number(e.target.dataset.sceneId));
     }
@@ -57,7 +52,28 @@ export function initEditorEvents() {
       const url = URL.createObjectURL(file);
       const type = file.type.startsWith("video") ? "video" : "image";
 
-      addUpload({ type, url });
+      if (type === "image") {
+        addUpload({ type, url, thumbnail: url });
+        return;
+      }
+
+      // VIDEO THUMBNAIL GENERATION
+      const video = document.createElement("video");
+      video.src = url;
+      video.muted = true;
+      video.currentTime = 0.1;
+
+      video.addEventListener("loadeddata", () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const thumb = canvas.toDataURL("image/jpeg");
+        addUpload({ type: "video", url, thumbnail: thumb });
+      });
     }
   });
 
