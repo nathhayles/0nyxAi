@@ -1,3 +1,5 @@
+import { stockMedia } from "./stock";
+
 export const scenes = [
   { id: 1, media: null, uploads: [] },
   { id: 2, media: null, uploads: [] },
@@ -45,8 +47,6 @@ export function renderPreview() {
   if (scene.media.type === "image") {
     const img = document.createElement("img");
     img.src = scene.media.url;
-    img.style.maxWidth = "100%";
-    img.style.maxHeight = "100%";
     stage.appendChild(img);
   }
 
@@ -54,8 +54,6 @@ export function renderPreview() {
     const vid = document.createElement("video");
     vid.src = scene.media.url;
     vid.controls = true;
-    vid.style.maxWidth = "100%";
-    vid.style.maxHeight = "100%";
     stage.appendChild(vid);
   }
 }
@@ -71,24 +69,33 @@ export function renderUploadThumbnails() {
     const card = document.createElement("div");
     card.className = "mediaCard";
 
-    if (media.type === "image") {
-      const img = document.createElement("img");
-      img.src = media.thumbnail || media.url;
-      card.appendChild(img);
-    }
+    const img = document.createElement("img");
+    img.src = media.thumbnail || media.url;
+    card.appendChild(img);
 
-    if (media.type === "video") {
-      const img = document.createElement("img");
-      img.src = media.thumbnail;
-      card.appendChild(img);
-    }
+    card.onclick = () => addMediaToScene(media);
+    grid.appendChild(card);
+  });
+}
 
-    card.addEventListener("click", () => {
-      addMediaToScene(media);
-    });
+export function renderStockThumbnails() {
+  const grid = document.getElementById("libraryGrid");
+  if (!grid) return;
 
+  grid.innerHTML = "";
+
+  stockMedia.forEach(media => {
+    const card = document.createElement("div");
+    card.className = "mediaCard";
+
+    const img = document.createElement("img");
+    img.src = media.thumbnail;
+    card.appendChild(img);
+
+    card.onclick = () => addMediaToScene(media);
     grid.appendChild(card);
   });
 }
 
 window.setActiveScene = setActiveScene;
+window.renderStockThumbnails = renderStockThumbnails;
