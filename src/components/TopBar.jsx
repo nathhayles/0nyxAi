@@ -1,25 +1,20 @@
-import React from "react";
-import { useCredits } from "../state/CreditsContext.jsx";
-
 export default function TopBar() {
-  const { credits } = useCredits();
+  return `
+    <header class="topBar">
+      <nav class="topNav">
+        <a href="/" data-link>Home</a>
+        <a href="/editor" data-link>Editor</a>
+        <a href="/app" data-link>Scheduler</a>
+        <a href="/projects" data-link>Projects</a>
+        <a href="/affiliate" data-link>Affiliate</a>
+        <a href="/pricing" data-link>Pricing</a>
+        <a href="/earn" data-link>Earn</a>
+        <a href="/admin" data-link>Admin</a>
+      </nav>
 
-  return (
-    <header className="topBar">
-      <div className="topBarLeft">
-        <a href="/" className="logo">Onyx</a>
-        <nav>
-          <a href="/pricing">Pricing</a>
-          <a href="/projects">Projects</a>
-          <a href="/scheduler">Scheduler</a>
-        </nav>
-      </div>
-      <div
-        className="topBarRight"
-        title="1 credit = 1 second of video"
-      >
-        Credits: <b>{credits}</b>
+      <div class="topActions">
+        <span class="credits">Credits: 120</span>
       </div>
     </header>
-  );
+  `;
 }

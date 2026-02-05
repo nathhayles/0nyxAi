@@ -1,0 +1,51 @@
+.editorSidebar {
+  width: 72px;
+  background: #f7f7f9;
+  border-right: 1px solid #e5e5e5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 12px;
+}
+
+.sidebarIcon {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #555;
+}
+
+.sidebarIcon.active {
+  background: #e8e8ff;
+  color: #4f46e5;
+}
+
+.editorToolPanel {
+  width: 320px;
+  background: #fff;
+  border-right: 1px solid #e5e5e5;
+  padding: 16px;
+}
+
+.toolTabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.toolTab {
+  cursor: pointer;
+  padding-bottom: 6px;
+  border-bottom: 2px solid transparent;
+  color: #777;
+}
+
+.toolTab.active {
+  border-color: #4f46e5;
+  color: #000;
+}

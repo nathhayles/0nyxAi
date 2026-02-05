@@ -1,0 +1,210 @@
+:root {
+  --onyx-900: #0b0d10;
+  --onyx-850: #111318;
+  --onyx-800: #161922;
+  --onyx-700: #1f2430;
+
+  --ink-100: #f4f6fb;
+  --ink-200: #d5d9e6;
+  --ink-400: #9aa3b2;
+
+  --accent: #6d6aff;
+  --accent-soft: rgba(109,106,255,0.15);
+
+  --border-subtle: rgba(255,255,255,0.06);
+}
+body {
+  background: var(--onyx-900);
+  color: var(--ink-100);
+}
+
+a {
+  color: var(--ink-200);
+}
+
+* {
+  box-sizing: border-box;
+}
+.editorSidebar {
+  background: linear-gradient(
+    180deg,
+    var(--onyx-850),
+    var(--onyx-900)
+  );
+  border-right: 1px solid var(--border-subtle);
+}
+
+.sidebarIcon {
+  color: var(--ink-400);
+}
+
+.sidebarIcon.active {
+  background: var(--accent-soft);
+  color: var(--ink-100);
+}
+
+.editorToolPanel {
+  background: var(--onyx-850);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.toolTab {
+  color: var(--ink-400);
+}
+
+.toolTab.active {
+  color: var(--ink-100);
+  border-color: var(--accent);
+}
+.editorPreview {
+  background:
+    radial-gradient(
+      circle at top,
+      #1b1f2a,
+      #0b0d10
+    );
+}
+
+.editorScenes {
+  background: var(--onyx-850);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sceneCard,
+.editorScenes span,
+.editorScenes button {
+  background: var(--onyx-800);
+  color: var(--ink-200);
+  border: 1px solid var(--border-subtle);
+}
+
+.sceneCard:hover,
+.editorScenes button:hover {
+  border-color: var(--accent);
+}
+.editorRoot {
+  display: flex;
+  height: calc(100vh - 48px);
+}
+
+.editorSidebar {
+  flex-shrink: 0;
+}
+
+.editorToolPanel {
+  width: 320px;
+  transition: width 0.2s ease, opacity 0.2s ease;
+}
+
+.editorToolPanel.collapsed {
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.collapseBtn {
+  position: absolute;
+  top: 12px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  background: var(--onyx-700);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  color: var(--ink-200);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- Editor layout fix --- */
+.editorRoot {
+  height: calc(100vh - 64px); /* account for top nav */
+  width: 100vw;
+  overflow: hidden;
+}
+
+.editorToolPanel {
+  background: linear-gradient(
+    180deg,
+    var(--onyx-800),
+    var(--onyx-850)
+  );
+  color: var(--ink-100);
+  min-width: 320px;
+  max-width: 320px;
+  position: relative;
+  z-index: 10;
+}
+
+.editorToolPanel h3 {
+  color: var(--ink-100);
+}
+
+.editorPreview {
+  flex: 1;
+  min-height: 0;
+}
+
+.editorScenes {
+  height: 140px;
+  flex-shrink: 0;
+}
+
+.editorSidebar {
+  background: var(--onyx-900);
+}
+
+.editorToolPanel.collapsed {
+  min-width: 0;
+  max-width: 0;
+}
+
+.editorToolPanel,
+.editorToolPanel * {
+  background-color: transparent;
+  color: var(--ink-100);
+}
+
+.editorToolPanel {
+  background: linear-gradient(
+    180deg,
+    var(--onyx-800),
+    var(--onyx-900)
+  );
+}
+
+.toolBody {
+  color: var(--ink-400);
+}
+
+/* === HARD ONYX OVERRIDES === */
+.editorToolPanel,
+.editorToolPanel *,
+.editorToolPanel div,
+.editorToolPanel h3 {
+  background: transparent !important;
+  color: var(--ink-100) !important;
+}
+
+.editorToolPanel {
+  background: linear-gradient(
+    180deg,
+    var(--onyx-800),
+    var(--onyx-900)
+  ) !important;
+}
+
+.editorSidebar {
+  background: var(--onyx-900) !important;
+}
+
+.toolTabs {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+body {
+  background: var(--onyx-900) !important;
+}

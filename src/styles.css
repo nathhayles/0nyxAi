@@ -39,3 +39,42 @@
 .topBarRight {
   font-weight: 500;
 }
+
+/* =========================
+   Editor layout normalization
+   ========================= */
+
+.editorPage {
+  padding: 24px;
+}
+
+.editorShell {
+  max-width: 1400px;
+  margin: 0 auto;
+  background: #0f1220;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.25);
+}
+
+/* Contain legacy layout weirdness */
+.editorShell * {
+  box-sizing: border-box;
+}
+
+/* Normalize controls */
+.editorShell button {
+  font-size: 14px;
+}
+
+.editorShell input,
+.editorShell textarea {
+  font-size: 14px;
+}
+
+/* Prevent edge-to-edge stretching */
+.editorShell img,
+.editorShell video,
+.editorShell canvas {
+  max-width: 100%;
+}

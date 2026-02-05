@@ -1,3 +1,4 @@
+import EditorPage from "./pages/Editor.jsx";
 import React from "react";
 import TopBar from "./components/TopBar.jsx";
 import Editor from "./pages/Editor.jsx";
@@ -23,7 +24,7 @@ export default function Router({ path }) {
   if (path === "/pricing") page = <Pricing />;
   else if (path === "/projects") page = <ProjectsPage />;
   else if (path === "/scheduler") page = <SchedulerPage />;
-  else if (path.startsWith("/app/editor")) page = <Editor />;
+  else if (path.startsWith("/app/editor")) page = <EditorPage />;
   else page = <Landing />;
 
   return (

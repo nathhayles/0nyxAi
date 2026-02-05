@@ -1,25 +1,49 @@
-import React from "react";
-import { createRoot } from "react-dom/client";
-import Router from "./router.jsx";
-import { CreditsProvider } from "./state/CreditsContext.jsx";
-import "./styles.css";
+import "./styles/editor.css";
+import "./styles/editorSidebar.css";
+import "./styles/onyx.css";
+import { bindEditorUi } from "./state/editorUi.js";
+import "./styles/editorSidebar.css";
+import AppShell from "./app/AppShell.jsx";
+import App from "./pages/App.jsx";
+import { renderRouter } from "./router.js";
 
-const root = createRoot(document.getElementById("root"));
-
-function App() {
-  const [path, setPath] = React.useState(window.location.pathname);
-
-  React.useEffect(() => {
-    const onPop = () => setPath(window.location.pathname);
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  return (
-    <CreditsProvider>
-      <Router path={path} />
-    </CreditsProvider>
-  );
+function isModifiedClick(e) {
+  return e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0;
 }
 
-root.render(<App />);
+function render() {
+  const path = window.location.pathname;
+  const root = document.getElementById("app");
+
+  // Always render AppShell so TopBar (and Earn) are always visible
+  root.innerHTML = AppShell(path);
+
+  // If we are on legacy scheduler routes, mount legacy app inside #page and run legacy router
+  if (path.startsWith("/app")) {
+    const page = document.getElementById("page");
+    if (page) page.innerHTML = App(); bindEditorUi(); // creates #view for legacy router
+    renderRouter();
+  }
+}
+
+window.addEventListener("popstate", render);
+
+document.addEventListener("click", (e) => {
+  if (isModifiedClick(e)) return;
+
+  const a = e.target.closest("a[href]");
+  if (!a) return;
+
+  const href = a.getAttribute("href");
+  if (!href) return;
+
+  // ignore external links
+  if (href.startsWith("http") || href.startsWith("mailto:") || href.startsWith("#")) return;
+
+  // SPA handle any internal route
+  e.preventDefault();
+  history.pushState(null, "", href);
+  render();
+});
+
+render();

@@ -4,18 +4,29 @@ export async function runExport({
   credits,
   durationSeconds,
   ux,
+  progress,
+  toast,
   onSuccess,
 }) {
   if (!canExport(credits, durationSeconds)) {
-    ux.fail(`Not enough credits (${durationSeconds} needed)`);
+    toast.show(`Not enough credits (${durationSeconds} needed)`, "error");
     return;
   }
 
   try {
     ux.start();
-    await onSuccess();
+    progress.start();
+    toast.show("Export started…");
+
+    await onSuccess(progress);
+
+    progress.finish();
+    toast.show("Export completed", "success");
     ux.finish();
+    setTimeout(progress.reset, 500);
   } catch (e) {
-    ux.fail("Export failed. Try again.");
+    ux.fail("Export failed");
+    toast.show("Export failed. Try again.", "error");
+    progress.reset();
   }
 }

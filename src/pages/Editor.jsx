@@ -1,50 +1,47 @@
-import { useExportUx } from "../state/useExportUx.jsx";
-import { runExport } from "../state/runExport.jsx";
-import ExportButton from "../components/ExportButton.jsx";
-import { useCredits } from "../state/CreditsContext.jsx";
-import SceneStrip from "../components/SceneStrip.jsx";
-import { MediaPanel } from "../components/MediaPanel.jsx";
-import { exportProject } from "../api/export.js";
-
 export default function Editor() {
-  const { credits, setCredits } = useCredits();
-  const exportUx = useExportUx();
-  const durationSeconds = 60;
   return `
     <div class="editorRoot">
-      <div class="editorLeft">
-        <div class="editorLeftPanel">
-          ${MediaPanel()}
-          <button id="exportBtn" class="btnPrimary fullWidth" style="margin-top:12px">
-            Export Video
-          </button>
+
+      <div class="editorSidebar">
+        <div class="sidebarIcon active" data-tool="visuals">🖼</div>
+        <div class="sidebarIcon" data-tool="avatars">🙂</div>
+        <div class="sidebarIcon" data-tool="audio">🔊</div>
+        <div class="sidebarIcon" data-tool="layouts">📐</div>
+        <div class="sidebarIcon" data-tool="text">✏️</div>
+        <div class="sidebarIcon" data-tool="elements">⭐</div>
+        <div class="sidebarIcon" data-tool="styles">🎨</div>
+        <div class="sidebarIcon" data-tool="branding">🏷</div>
+      </div>
+
+      <div class="editorToolPanel" id="toolPanel">
+        <div class="collapseBtn" id="collapseBtn">‹</div>
+
+        <h3>Visuals</h3>
+
+        <div class="toolTabs">
+          <div class="toolTab active">Library</div>
+          <div class="toolTab">AI Studio</div>
+          <div class="toolTab">Uploads</div>
+        </div>
+
+        <div class="toolBody">
+          Tool content goes here
         </div>
       </div>
 
-      <div class="editorCanvas">
-        <div class="previewDrop">
-          <div class="dropZone">Drop media here</div>
+      <div class="editorMain">
+        <div class="editorPreview">
+          PREVIEW AREA
         </div>
-        ${SceneStrip()}
+
+        <div class="editorScenes">
+          <button>+ Add Scene</button>
+          <span>Scene 1</span>
+          <span>Scene 2</span>
+          <span>Scene 3</span>
+        </div>
       </div>
+
     </div>
   `;
 }
-
-document.addEventListener("click", async (e) => {
-  if (e.target?.id === "exportBtn") {
-    e.target.textContent = "Rendering...";
-    e.target.disabled = true;
-
-    const result = await exportProject();
-
-    e.target.textContent = "Export Video";
-    e.target.disabled = false;
-
-    if (result?.success) {
-      alert("Export complete! (stub)");
-    } else {
-      alert("Export failed");
-    }
-  }
-});
