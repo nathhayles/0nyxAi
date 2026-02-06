@@ -1,80 +1,66 @@
 // src/state/scenes.js
-// SAFE WRAPPER: provides ALL exports editorEvents expects.
-// Goal: NO whitescreen (no missing exports), keep baseline usable (dnd/ratio/uploads/undo/redo).
+// Stable core: DnD + uploads not undone + ratio frame preview + ratio dropdown wiring
 
 import { stockMedia } from "./stock";
 
 /* -----------------------------
-   Utilities
+   Stores
 ----------------------------- */
-function deepClone(obj) {
-  if (typeof structuredClone === "function") return structuredClone(obj);
-  return JSON.parse(JSON.stringify(obj));
+const uploadsStore = { items: [] };
+
+let editorState = {
+  ratio: "16:9",
+  activeSceneId: 1,
+  scenes: [
+    { id: 1, items: [], media: null, trim: { start: 0, end: 1 } },
+    { id: 2, items: [], media: null, trim: { start: 0, end: 1 } },
+    { id: 3, items: [], media: null, trim: { start: 0, end: 1 } }
+  ]
+};
+
+const history = { past: [], future: [], limit: 80 };
+
+function clone(v) {
+  return typeof structuredClone === "function"
+    ? structuredClone(v)
+    : JSON.parse(JSON.stringify(v));
+}
+
+function pushHistory() {
+  history.past.push(clone(editorState));
+  if (history.past.length > history.limit) history.past.shift();
+  history.future = [];
 }
 
 function clamp(n, a, b) {
   return Math.max(a, Math.min(b, n));
 }
 
-function ratioToWH(ratio, maxW, maxH) {
-  let w = 16, h = 9;
-  if (ratio === "9:16") { w = 9; h = 16; }
-  else if (ratio === "1:1") { w = 1; h = 1; }
-  else if (ratio === "4:5") { w = 4; h = 5; }
-
-  let width = maxW;
-  let height = (width * h) / w;
-  if (height > maxH) {
-    height = maxH;
-    width = (height * w) / h;
-  }
-  return { width, height };
-}
-
-function makeDraggable(card, media) {
-  card.draggable = true;
-  card.dataset.dragMedia = JSON.stringify(media);
+function ratioWH(ratio) {
+  if (ratio === "9:16") return [9, 16];
+  if (ratio === "1:1") return [1, 1];
+  if (ratio === "4:5") return [4, 5];
+  return [16, 9];
 }
 
 /* -----------------------------
-   Permanent uploads store (NOT undoable)
+   Drag helper (RESTORES DnD)
 ----------------------------- */
-const uploadsStore = {
-  items: []
-};
+function makeDraggable(el, media) {
+  el.draggable = true;
+  el.dataset.dragMedia = JSON.stringify(media);
 
-function addUploadPermanent(media) {
-  uploadsStore.items.push(media);
+  el.addEventListener("dragstart", (e) => {
+    try {
+      e.dataTransfer.effectAllowed = "copy";
+      e.dataTransfer.setData("application/json", el.dataset.dragMedia);
+      e.dataTransfer.setData("text/plain", el.dataset.dragMedia);
+    } catch {}
+  });
 }
 
 /* -----------------------------
-   Editor state (undoable)
------------------------------ */
-let editorState = {
-  ratio: "16:9",
-  activeSceneId: 1,
-  scenes: [
-    { id: 1, items: [], media: null, trim: { start: 0, end: 1 } }
-  ]
-};
-
-/* -----------------------------
-   History (undo/redo) — DOES NOT include uploads
------------------------------ */
-const history = {
-  past: [],
-  future: [],
-  limit: 80
-};
-
-function pushHistory() {
-  history.past.push(deepClone(editorState));
-  if (history.past.length > history.limit) history.past.shift();
-  history.future = [];
-}
-
-/* -----------------------------
-   Scene helpers
+   Scene API (exports expected by editorEvents)
 ----------------------------- */
 export function getScenes() {
   return editorState.scenes;
@@ -85,46 +71,38 @@ export function getActiveScene() {
 }
 
 export function setActiveScene(id) {
-  if (!id || id === editorState.activeSceneId) return;
+  if (!id) return;
   pushHistory();
   editorState.activeSceneId = id;
   renderPreview();
-  renderUploadThumbnails();
-  renderStockThumbnails();
 }
 
 export function addScene() {
   pushHistory();
-  const nextId = Date.now();
-  editorState.scenes.push({ id: nextId, items: [], media: null, trim: { start: 0, end: 1 } });
-  editorState.activeSceneId = nextId;
+  const id = Date.now();
+  editorState.scenes.push({ id, items: [], media: null, trim: { start: 0, end: 1 } });
+  editorState.activeSceneId = id;
   renderPreview();
-  return nextId;
+  return id;
 }
 
-/* -----------------------------
-   REQUIRED by editorEvents.js
------------------------------ */
 export function addMediaToScene(media) {
   const scene = getActiveScene();
   if (!scene) return;
   pushHistory();
   scene.items.push(media);
-  scene.media = media; // select it for preview
+  scene.media = media;
   renderPreview();
 }
 
 export function addUpload(media) {
-  // Permanent: uploads must never be undone
-  addUploadPermanent(media);
-  // Optional: selecting upload should be done by user click/drag.
-  // If you want auto-select on upload, uncomment next line:
-  // addMediaToScene(media);
+  // Permanent: uploads must NEVER be undone
+  uploadsStore.items.push(media);
   renderUploadThumbnails();
 }
 
 export function setRatio(ratio) {
-  if (!ratio || ratio === editorState.ratio) return;
+  if (!ratio) return;
   pushHistory();
   editorState.ratio = ratio;
   renderPreview();
@@ -132,8 +110,8 @@ export function setRatio(ratio) {
 
 export function undoAction() {
   if (!history.past.length) return;
-  history.future.push(deepClone(editorState));
-  editorState = deepClone(history.past.pop());
+  history.future.push(clone(editorState));
+  editorState = clone(history.past.pop());
   renderPreview();
   renderUploadThumbnails();
   renderStockThumbnails();
@@ -141,35 +119,34 @@ export function undoAction() {
 
 export function redoAction() {
   if (!history.future.length) return;
-  history.past.push(deepClone(editorState));
-  editorState = deepClone(history.future.pop());
+  history.past.push(clone(editorState));
+  editorState = clone(history.future.pop());
   renderPreview();
   renderUploadThumbnails();
   renderStockThumbnails();
 }
 
 /* -----------------------------
-   Thumbnails
+   Thumbnails (DnD payloads)
 ----------------------------- */
 export function renderStockThumbnails() {
   const grid = document.getElementById("libraryGrid");
   if (!grid) return;
 
   grid.innerHTML = "";
-  (stockMedia || []).forEach(media => {
+  (stockMedia || []).forEach((m) => {
     const card = document.createElement("div");
     card.className = "mediaCard";
 
     const img = document.createElement("img");
-    img.src = media.thumbnail || media.url;
+    img.src = m.thumbnail || m.url;
     img.style.width = "100%";
     img.style.height = "100%";
     img.style.objectFit = "cover";
 
     card.appendChild(img);
-    makeDraggable(card, media);
-    card.onclick = () => addMediaToScene(media);
-
+    makeDraggable(card, m);
+    card.onclick = () => addMediaToScene(m);
     grid.appendChild(card);
   });
 }
@@ -179,26 +156,25 @@ export function renderUploadThumbnails() {
   if (!grid) return;
 
   grid.innerHTML = "";
-  uploadsStore.items.forEach(media => {
+  uploadsStore.items.forEach((m) => {
     const card = document.createElement("div");
     card.className = "mediaCard";
 
     const img = document.createElement("img");
-    img.src = media.thumbnail || media.url;
+    img.src = m.thumbnail || m.url;
     img.style.width = "100%";
     img.style.height = "100%";
     img.style.objectFit = "cover";
 
     card.appendChild(img);
-    makeDraggable(card, media);
-    card.onclick = () => addMediaToScene(media);
-
+    makeDraggable(card, m);
+    card.onclick = () => addMediaToScene(m);
     grid.appendChild(card);
   });
 }
 
 /* -----------------------------
-   Preview (ratio frame + media fill)
+   Preview (RATIO FRAME + NO OVERFLOW)
 ----------------------------- */
 export function renderPreview() {
   const stage = document.getElementById("previewStage");
@@ -210,47 +186,51 @@ export function renderPreview() {
   stage.style.justifyContent = "center";
   stage.style.overflow = "hidden";
 
+  const scene = getActiveScene();
+  if (!scene || !scene.media) {
+    const empty = document.createElement("div");
+    empty.textContent = "No media";
+    empty.style.color = "#9aa4b2";
+    stage.appendChild(empty);
+    return;
+  }
+
+  const ratio = editorState.ratio || "16:9";
+  const [rw, rh] = ratioWH(ratio);
+
   const maxW = Math.max(1, stage.clientWidth) * 0.96;
   const maxH = Math.max(1, stage.clientHeight) * 0.96;
-  const { width, height } = ratioToWH(editorState.ratio, maxW, maxH);
+
+  let width = maxW;
+  let height = (width * rh) / rw;
+  if (height > maxH) {
+    height = maxH;
+    width = (height * rw) / rh;
+  }
 
   const frame = document.createElement("div");
   frame.style.width = `${Math.round(width)}px`;
   frame.style.height = `${Math.round(height)}px`;
   frame.style.position = "relative";
+  frame.style.overflow = "hidden";
   frame.style.background = "#05070c";
   frame.style.border = "1px solid rgba(255,255,255,0.08)";
   frame.style.borderRadius = "12px";
-  frame.style.overflow = "hidden";
 
   stage.appendChild(frame);
 
-  const scene = getActiveScene();
-  const media = scene?.media || null;
+  const isVideo =
+    scene.media.type === "video" ||
+    (typeof scene.media.url === "string" && /\.(mp4|webm|mov)(\?|$)/i.test(scene.media.url));
 
-  if (!media) {
-    const empty = document.createElement("div");
-    empty.textContent = "No media";
-    empty.style.color = "#9aa4b2";
-    empty.style.fontSize = "14px";
-    empty.style.width = "100%";
-    empty.style.height = "100%";
-    empty.style.display = "flex";
-    empty.style.alignItems = "center";
-    empty.style.justifyContent = "center";
-    frame.appendChild(empty);
-    return;
-  }
-
-  const isVideo = media.type === "video" || (typeof media.url === "string" && media.url.match(/\.(mp4|webm|mov)(\?|$)/i));
   const el = document.createElement(isVideo ? "video" : "img");
-  el.src = media.url;
+  el.src = scene.media.url;
 
   if (isVideo) {
     el.controls = true;
     el.playsInline = true;
 
-    // Non-destructive trim clamp if present
+    // keep trim clamp support (safe)
     const trim = scene.trim || { start: 0, end: 1 };
     el.addEventListener("loadedmetadata", () => {
       const d = Number(el.duration || 0);
@@ -274,21 +254,49 @@ export function renderPreview() {
   el.style.width = "100%";
   el.style.height = "100%";
   el.style.objectFit = "cover";
-  el.style.objectPosition = "center";
-  el.style.display = "block";
 
   frame.appendChild(el);
 }
 
 /* -----------------------------
-   Global hooks (compat)
+   Global exposure (what your UI expects)
 ----------------------------- */
+window.getScenes = getScenes;
+window.getActiveScene = getActiveScene;
+window.addScene = addScene;
+window.setActiveScene = setActiveScene;
+
+window.addMediaToScene = addMediaToScene;
+window.addUpload = addUpload;
+
+window.setRatio = setRatio;
+window.editorUndo = undoAction;
+window.editorRedo = redoAction;
+
 window.renderStockThumbnails = renderStockThumbnails;
 window.renderUploadThumbnails = renderUploadThumbnails;
 window.renderPreview = renderPreview;
 
-window.setRatio = setRatio;
-window.setActiveScene = setActiveScene;
+/* -----------------------------
+   UI wiring: ratio dropdown -> setRatio
+----------------------------- */
+function bindRatioSelect() {
+  const sel = document.querySelector(".ratioSelect");
+  if (!sel) return;
 
-window.editorUndo = undoAction;
-window.editorRedo = redoAction;
+  // sync UI to state
+  try { sel.value = editorState.ratio; } catch {}
+
+  sel.onchange = (e) => {
+    const v = e.target.value;
+    setRatio(v);
+  };
+}
+
+/* Kick initial render/binds after DOM exists */
+setTimeout(() => {
+  bindRatioSelect();
+  renderStockThumbnails();
+  renderUploadThumbnails();
+  renderPreview();
+}, 0);
