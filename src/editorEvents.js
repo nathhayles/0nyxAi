@@ -50,7 +50,6 @@ export function initEditorEvents() {
   }, 0);
 
   document.addEventListener("click", (e) => {
-
     if (e.target.classList.contains("undoBtn")) {
       window.editorUndo?.();
       return;
@@ -90,7 +89,9 @@ export function initEditorEvents() {
 
     // UPLOAD
     if (e.target.dataset.action === "upload") {
-      document.getElementById("mediaUploadInput")?.click();
+      const input = document.getElementById("mediaUploadInput");
+      if (input) input.multiple = true;
+      input?.click();
       return;
     }
 
@@ -102,7 +103,7 @@ export function initEditorEvents() {
       span.textContent = `Scene ${sceneCount}`;
       span.dataset.action = "scene";
       span.dataset.sceneId = String(sceneCount);
-      bar.appendChild(span);
+      bar?.appendChild(span);
       return;
     }
 
@@ -114,29 +115,30 @@ export function initEditorEvents() {
 
   // Ratio + Upload change handlers
   document.addEventListener("change", async (e) => {
-
-    if (e.target.classList.contains("ratioSelect")) {
+    if (e.target.classList?.contains("ratioSelect")) {
       window.setRatio?.(e.target.value);
       return;
     }
 
     if (e.target.id === "mediaUploadInput") {
-      const file = e.target.files?.[0];
-      if (!file) return;
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
 
-      const blobURL = URL.createObjectURL(file);
-      const isVideo = file.type.startsWith("video");
+      for (const file of files) {
+        const blobURL = URL.createObjectURL(file);
+        const isVideo = file.type.startsWith("video");
 
-      if (!isVideo) {
-        const thumb = await fileToDataURL(file);
-        addUpload({ type: "image", url: blobURL, thumbnail: thumb });
-        renderUploadThumbnails();
-        return;
+        if (!isVideo) {
+          const thumb = await fileToDataURL(file);
+          addUpload({ type: "image", url: blobURL, thumbnail: thumb });
+        } else {
+          const thumb = await videoToThumbDataURL(blobURL);
+          addUpload({ type: "video", url: blobURL, thumbnail: thumb });
+        }
       }
 
-      const thumb = await videoToThumbDataURL(blobURL);
-      addUpload({ type: "video", url: blobURL, thumbnail: thumb });
       renderUploadThumbnails();
+      e.target.value = "";
       return;
     }
   });

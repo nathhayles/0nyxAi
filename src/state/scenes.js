@@ -11,13 +11,32 @@ export let editorState = {
   ]
 };
 
+function ratioToWH(ratio, maxW, maxH) {
+  let w = 16, h = 9;
+  if (ratio === "9:16") { w = 9; h = 16; }
+  else if (ratio === "1:1") { w = 1; h = 1; }
+  else if (ratio === "4:5") { w = 4; h = 5; }
+
+  let width = maxW;
+  let height = (width * h) / w;
+
+  if (height > maxH) {
+    height = maxH;
+    width = (height * w) / h;
+  }
+
+  return { width, height };
+}
+
 export function setRatio(ratio) {
+  if (!ratio || ratio === editorState.ratio) return;
   pushHistory(editorState);
   editorState = { ...editorState, ratio };
   renderPreview();
 }
 
 export function setActiveScene(id) {
+  if (!id || id === editorState.activeSceneId) return;
   pushHistory(editorState);
   editorState = { ...editorState, activeSceneId: id };
   renderPreview();
@@ -66,33 +85,63 @@ export function renderPreview() {
   if (!stage) return;
 
   const scene = editorState.scenes.find(s => s.id === editorState.activeSceneId);
+
   stage.innerHTML = "";
-  stage.dataset.ratio = editorState.ratio;
+  stage.style.display = "flex";
+  stage.style.alignItems = "center";
+  stage.style.justifyContent = "center";
+  stage.style.width = "100%";
+  stage.style.height = "100%";
+  stage.style.overflow = "hidden";
+
+  const maxW = Math.max(1, stage.clientWidth) * 0.92;
+  const maxH = Math.max(1, stage.clientHeight) * 0.92;
+
+  const { width, height } = ratioToWH(editorState.ratio, maxW, maxH);
+
+  const frame = document.createElement("div");
+  frame.className = "previewFrame";
+  frame.style.width = `${Math.round(width)}px`;
+  frame.style.height = `${Math.round(height)}px`;
+  frame.style.position = "relative";
+  frame.style.background = "#070a0f";
+  frame.style.border = "1px solid rgba(255,255,255,0.08)";
+  frame.style.borderRadius = "12px";
+  frame.style.overflow = "hidden";
+  stage.appendChild(frame);
 
   if (!scene || !scene.media) {
-    stage.innerHTML = '<div class="emptyPreview">No media</div>';
+    const empty = document.createElement("div");
+    empty.className = "emptyPreview";
+    empty.textContent = "No media";
+    empty.style.color = "#9aa4b2";
+    empty.style.fontSize = "14px";
+    frame.appendChild(empty);
     return;
   }
 
-  if (scene.media.type === "image") {
-    const img = document.createElement("img");
-    img.src = scene.media.url;
-    stage.appendChild(img);
-    return;
-  }
+  const el = document.createElement(scene.media.type === "video" ? "video" : "img");
+  el.src = scene.media.url;
+  if (scene.media.type === "video") el.controls = true;
 
-  if (scene.media.type === "video") {
-    const vid = document.createElement("video");
-    vid.src = scene.media.url;
-    vid.controls = true;
-    stage.appendChild(vid);
-    return;
-  }
+  // Fill the ratio frame (fixes “tiny player”)
+  el.style.position = "absolute";
+  el.style.inset = "0";
+  el.style.width = "100%";
+  el.style.height = "100%";
+  el.style.objectFit = "cover";
+  el.style.objectPosition = "center";
+  el.style.display = "block";
+  frame.appendChild(el);
 }
 
 function makeDraggableCard(card, media) {
   card.draggable = true;
-  card.dataset.dragMedia = JSON.stringify({ type: media.type, url: media.url, thumbnail: media.thumbnail });
+  card.dataset.dragMedia = JSON.stringify({
+    type: media.type,
+    url: media.url,
+    thumbnail: media.thumbnail
+  });
 }
 
 export function renderUploadThumbnails() {
@@ -102,17 +151,20 @@ export function renderUploadThumbnails() {
   const scene = editorState.scenes.find(s => s.id === editorState.activeSceneId);
   grid.innerHTML = "";
 
-  scene.uploads.forEach(media => {
+  (scene?.uploads || []).forEach(media => {
     const card = document.createElement("div");
     card.className = "mediaCard";
 
     const img = document.createElement("img");
-    img.src = media.thumbnail;
+    img.src = media.thumbnail || media.url;
+    img.style.width = "100%";
+    img.style.height = "100%";
+    img.style.objectFit = "cover";
     card.appendChild(img);
 
     makeDraggableCard(card, media);
-
     card.onclick = () => addMediaToScene(media);
+
     grid.appendChild(card);
   });
 }
@@ -128,16 +180,20 @@ export function renderStockThumbnails() {
 
     const img = document.createElement("img");
     img.src = media.thumbnail;
+    img.style.width = "100%";
+    img.style.height = "100%";
+    img.style.objectFit = "cover";
     card.appendChild(img);
 
-    // for stock, thumbnail is remote; url is remote
     makeDraggableCard(card, { ...media, thumbnail: media.thumbnail });
-
     card.onclick = () => addMediaToScene(media);
+
     grid.appendChild(card);
   });
 }
 
+// Global hooks used by the UI buttons / dropdown
 window.editorUndo = undoAction;
 window.editorRedo = redoAction;
 window.setRatio = setRatio;
+window.renderPreview = renderPreview;
