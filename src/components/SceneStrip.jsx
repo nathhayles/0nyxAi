@@ -1,45 +1,22 @@
-import { getScenes, addScene, deleteScene, duplicateScene } from "../store/scenes.js";
+export function mountSceneStrip() {
+  const bar = document.querySelector(".editorScenes");
+  if (!bar) return;
 
-export default function SceneStrip() {
-  const scenes = getScenes();
+  bar.innerHTML = "";
 
-  return `
-    <div class="sceneStrip">
-      <button
-        style="margin-bottom:10px"
-        onclick="(function(){
-          const scene = { id: Date.now(), clips: [] };
-          window.__addScene(scene);
-        })()"
-      >
-        + Add Scene
-      </button>
+  for (let i = 1; i <= 3; i++) {
+    const btn = document.createElement("button");
+    btn.className = "sceneBtn";
+    btn.textContent = `Scene ${i}`;
+    btn.dataset.sceneId = i;
 
-      <div class="scenes">
-        ${scenes.map((s, i) => `
-          <div class="sceneItem">
-            <span>Scene ${i + 1}</span>
-            <button onclick="window.__deleteScene(${i})">🗑</button>
-            <button onclick="window.__duplicateScene(${i})">⧉</button>
-          </div>
-        `).join("")}
-      </div>
-    </div>
-  `;
+    btn.onclick = () => {
+      document.querySelectorAll(".sceneBtn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      window.setActiveScene?.(i);
+    };
+
+    if (i === 1) btn.classList.add("active");
+    bar.appendChild(btn);
+  }
 }
-
-/* global helpers */
-window.__addScene = function (scene) {
-  addScene(scene);
-  window.location.reload();
-};
-
-window.__deleteScene = function (i) {
-  deleteScene(i);
-  window.location.reload();
-};
-
-window.__duplicateScene = function (i) {
-  duplicateScene(i);
-  window.location.reload();
-};

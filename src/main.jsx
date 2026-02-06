@@ -28,3 +28,7 @@ app.innerHTML = `
 document.getElementById("editorMount").innerHTML = Editor();
 
 initEditorEvents();
+
+import { initEditorEnhancements } from "./editorEnhancements";
+initEditorEnhancements();
+
