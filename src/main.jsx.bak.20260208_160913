@@ -1,4 +1,3 @@
-import "./trimRuntime.js";
 import "./styles/editor.css";
 import "./styles/editorSidebar.css";
 import "./styles/onyx.css";

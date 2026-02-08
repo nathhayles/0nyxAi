@@ -1,0 +1,13 @@
+import { mountSceneStrip } from "./components/SceneStrip";
+import { mountTimeline } from "./components/Timeline";
+import { mountAiStudio } from "./components/AiStudio";
+import { initTrimRuntime } from "./trimRuntime.js";
+
+export function initEditorEnhancements() {
+  setTimeout(() => {
+    mountSceneStrip();
+    mountTimeline();
+    mountAiStudio();
+    initTrimRuntime();
+  }, 0);
+}
