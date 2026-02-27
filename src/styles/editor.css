@@ -587,3 +587,89 @@ textarea {
   font-size: 10px !important;
 }
 
+
+
+/* ===== FIX: Ensure left rail overlays SceneStrip ===== */
+
+.editorRail {
+  position: relative;
+  z-index: 50;
+}
+
+.sceneStrip {
+  position: relative;
+  z-index: 1;
+}
+
+
+/* ===== HARD ALIGN SCENESTRIP UNDER CANVAS COLUMN ===== */
+
+.sceneStrip {
+  margin-left: 480px; /* rail (60px) + sidePanel (420px) */
+  width: calc(100% - 480px);
+  box-sizing: border-box;
+}
+
+
+/* ===== FIX: Constrain SceneStrip container itself ===== */
+
+.sceneStrip {
+  position: relative;
+  margin-left: 480px; /* rail (60) + sidePanel (420) */
+  width: calc(100% - 480px);
+  box-sizing: border-box;
+}
+
+.editorRail {
+  position: relative;
+  z-index: 10;
+}
+
+
+/* ===== FIX: Constrain SceneStrip outer wrapper ===== */
+
+/* Target the direct wrapper under the root editor container */
+.editorLayout + div {
+  margin-left: 480px; /* rail (60) + sidePanel (420) */
+  width: calc(100% - 480px);
+  box-sizing: border-box;
+}
+
+
+/* ===== FIX: Proper layout structure for SceneStrip ===== */
+
+.editorShell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.editorLayout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.sceneStrip {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+
+/* ===== FINAL FIX: Anchor SceneStrip to bottom ===== */
+
+.editorShell {
+  position: relative;
+}
+
+.sceneStrip {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.editorLayout {
+  padding-bottom: 140px; /* height of sceneStrip */
+}
+
