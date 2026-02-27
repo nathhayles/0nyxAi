@@ -563,3 +563,27 @@ textarea {
   justify-content: flex-end;
   gap: 10px;
 }
+
+/* ===== REMOVE EXCESS HORIZONTAL GAP ===== */
+
+.sceneStrip {
+  gap: 6px !important; /* tighten global spacing */
+}
+
+.sceneStrip .sceneThumb {
+  margin: 0 !important;
+}
+
+.sceneStrip .transitionChip {
+  width: auto !important;
+  min-width: 24px !important;
+  padding: 0 4px !important;
+  margin: 0 !important;
+}
+
+.sceneStrip .transitionIconBtn {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 10px !important;
+}
+
