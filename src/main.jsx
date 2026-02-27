@@ -1,35 +1,23 @@
-import "./trimRuntime.js";
+import React from "react";
+import ReactDOM from "react-dom/client";
+import Editor from "./pages/Editor.jsx";
 import "./styles/editor.css";
-import "./styles/editorSidebar.css";
-import "./styles/onyx.css";
 
-import Editor from "./pages/Editor";
-import { initEditorEvents } from "./editorEvents";
+function getMountEl() {
+  let el = document.getElementById("root");
+  if (el) return el;
 
-const app = document.getElementById("app");
+  el = document.getElementById("app");
+  if (el) return el;
 
-app.innerHTML = `
-  <header class="mainNav">
-    <nav class="mainMenu">
-      <a href="/">Home</a>
-      <a href="/editor">Editor</a>
-      <a href="/scheduler">Scheduler</a>
-      <a href="/projects">Projects</a>
-      <a href="/affiliate">Affiliate</a>
-      <a href="/pricing">Pricing</a>
-      <a href="/earn">Earn</a>
-      <a href="/admin">Admin</a>
-      <span class="credits">Credits: 120</span>
-    </nav>
-  </header>
+  el = document.createElement("div");
+  el.id = "root";
+  document.body.appendChild(el);
+  return el;
+}
 
-  <main id="editorMount"></main>
-`;
-
-document.getElementById("editorMount").innerHTML = Editor();
-
-initEditorEvents();
-
-import { initEditorEnhancements } from "./editorEnhancements";
-initEditorEnhancements();
-
+ReactDOM.createRoot(getMountEl()).render(
+  <React.StrictMode>
+    <Editor />
+  </React.StrictMode>
+);

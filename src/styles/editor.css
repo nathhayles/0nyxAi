@@ -1,49 +1,565 @@
-.editorRoot {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  grid-template-rows: 1fr 160px;
-  height: calc(100vh - 48px);
+body {
+  margin: 0;
+  background: #0e1117;
+  color: white;
+  font-family: sans-serif;
 }
 
-.editorLeft {
-  border-right: 1px solid #e5e5e5;
-  background: #fafafa;
-  overflow-y: auto;
+.editorShell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 
-.editorPreview {
-  background: #111;
+.topNav {
+  height: 52px;
+  background: #161b22;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 10px;
+  gap: 10px;
+  border-bottom: 1px solid #1f2937;
+}
+
+.topLeft {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: white;
+  gap: 10px;
 }
 
-.editorScenes {
-  grid-column: 1 / -1;
-  border-top: 1px solid #e5e5e5;
-  background: #fff;
-  overflow-x: auto;
+.backBtn, .saveBtn, .addSceneTopBtn {
+  height: 30px;
+  padding: 0 10px;
+  background: #1f2937;
+  color: white;
+  border: 1px solid #2b3442;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.addSceneTopBtn {
+  background: #16a34a;
+  border-color: #12813a;
+}
+
+.titleInput {
+  height: 30px;
+  width: 280px;
+  background: #0f141b;
+  color: white;
+  border: 1px solid #2b3442;
+  padding: 0 10px;
+  border-radius: 6px;
+}
+
+.topControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topControls select, .topControls button {
+  height: 30px;
+  background: #1f2937;
+  color: white;
+  border: 1px solid #2b3442;
+  padding: 0 10px;
+  border-radius: 6px;
+}
+
+.topControls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.editorBody {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.iconMenu {
+  width: 60px;
+  background: #111827;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 10px;
+  gap: 18px;
+  border-right: 1px solid #1f2937;
+}
+
+.iconMenu div {
+  cursor: pointer;
+  opacity: 0.9;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+}
+
+.iconMenu div.active {
+  background: #1f2937;
+  border: 1px solid #2b3442;
+}
+
+.sidePanel {
+  width: 360px;
+  background: #0f141b;
+  overflow-y: auto;
+  padding: 10px;
+  border-right: 1px solid #1f2937;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.panelTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.panelTabs button {
+  height: 30px;
+  padding: 0 10px;
+  background: #1f2937;
+  color: white;
+  border: 1px solid #2b3442;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.panelTabs button.active {
+  background: #2563eb;
+  border-color: #1d4ed8;
+}
+
+.panelTabsSpacer {
+  flex: 1;
+}
+
+.smallBtn {
+  height: 30px;
+  padding: 0 10px;
+  background: #1f2937;
+  color: white;
+  border: 1px solid #2b3442;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.smallBtn.primary {
+  background: #2563eb;
+  border-color: #1d4ed8;
+}
+
+.panelBlock {
+  background: #111827;
+  border: 1px solid #2b3442;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.panelTitle {
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.panelMuted {
+  opacity: 0.75;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.emptyState {
+  opacity: 0.75;
+  padding: 10px 0;
+}
+
+.uploadDrop {
+  height: 120px;
+  border: 1px dashed #2b3442;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #0f141b;
+}
+
+.stockGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stockTile {
+  height: 76px;
+  border: 1px solid #2b3442;
+  border-radius: 10px;
+  background: #0f141b;
+  display: grid;
+  place-items: center;
+  opacity: 0.85;
+}
+
+.aiStudioList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.aiItem {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #2b3442;
+  border-radius: 10px;
+  padding: 8px;
+  background: #0f141b;
+}
+
+.aiThumb {
+  width: 64px;
+  height: 42px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #2b3442;
+  background: #111827;
+  display: grid;
+  place-items: center;
+}
+
+.aiThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.aiThumbPlaceholder {
+  opacity: 0.8;
+  font-weight: bold;
+}
+
+.aiInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.aiName {
+  font-weight: bold;
   white-space: nowrap;
-  padding: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aiMeta {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+.aiActions {
+  display: flex;
+  gap: 8px;
+}
+
+.canvasArea {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #111827;
+}
+
+.canvas {
+  background: #1f2937;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 14px;
+  border: 1px solid #2b3442;
+}
+
+.ratio-16-9 { width: 860px; height: 484px; }
+.ratio-9-16 { width: 484px; height: 860px; }
+.ratio-1-1  { width: 640px; height: 640px; }
+
+.sceneStrip {
+  background: #161b22;
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  overflow-x: auto;
+  border-top: 1px solid #1f2937;
+  align-items: center;
+}
+
+.sceneThumb {
+  width: 220px;
+  min-width: 220px;
+  height: 132px;
+  border: 1px solid #2b3442;
+  border-radius: 12px;
+  background: #0f141b;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sceneThumb.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.25) inset;
+}
+
+.sceneThumbTop {
+  display: flex;
+  gap: 8px;
+  padding: 6px 8px;
+  align-items: center;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid #1f2937;
+}
+
+.sceneThumbTitle {
+  font-weight: bold;
+  font-size: 13px;
+  flex: 1;
+}
+
+.sceneThumbBtns {
+  display: flex;
+  gap: 6px;
+}
+
+.thumbBtn {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+  background: #1f2937;
+  color: white;
+  border: 1px solid #2b3442;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.thumbBtn.danger {
+  background: #7f1d1d;
+  border-color: #991b1b;
+}
+
+.sceneThumbMedia {
+  flex: 1;
+  position: relative;
+  background: #111827;
+}
+
+.sceneThumbMedia img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbPlaceholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(37,99,235,0.18), rgba(0,0,0,0.0));
+}
+
+.thumbPlaceholderText {
+  opacity: 0.85;
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.sceneThumbMeta {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 8px;
+  font-size: 12px;
+  opacity: 0.8;
+  border-top: 1px solid #1f2937;
+}
+
+.transitionChip {
+  min-width: 160px;
+  width: 160px;
+  height: 72px;
+  border: 1px solid #2b3442;
+  border-radius: 12px;
+  background: #0f141b;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px;
+  gap: 6px;
+}
+
+.transitionLabel {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.transitionChip select {
+  height: 30px;
+  background: #1f2937;
+  color: white;
+  border: 1px solid #2b3442;
+  border-radius: 10px;
+  padding: 0 10px;
 }
 
 .sceneCard {
-  display: inline-block;
-  width: 120px;
-  height: 90px;
-  margin-right: 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  text-align: center;
-  padding-top: 32px;
-  background: #f8f8f8;
+  margin-bottom: 12px;
+  padding: 10px;
+  background: #111827;
+  border: 1px solid #2b3442;
+  border-radius: 10px;
 }
 
-.addSceneBtn {
-  display: inline-block;
-  padding: 8px 12px;
-  border: 1px dashed #999;
-  border-radius: 6px;
+.sceneCard.active {
+  border-color: #2563eb;
+}
+
+.sceneHeaderRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.sceneTitle {
+  font-weight: bold;
+  flex: 1;
+}
+
+.sceneSmallBtn {
+  height: 26px;
+  padding: 0 10px;
+  background: #1f2937;
+  color: white;
+  border: 1px solid #2b3442;
   cursor: pointer;
+  border-radius: 8px;
+}
+
+.sceneSmallBtn.primary {
+  background: #2563eb;
+  border-color: #1d4ed8;
+}
+
+.sceneMetaRow {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 64px;
+  margin-bottom: 6px;
+  background: #0f141b;
+  color: white;
+  border: 1px solid #2b3442;
+  border-radius: 8px;
+  padding: 8px;
+  resize: vertical;
+}
+
+.volumeRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.volLabel {
+  width: 140px;
+  opacity: 0.9;
+}
+
+.volValue {
+  width: 50px;
+  text-align: right;
+  opacity: 0.85;
+}
+
+.listBox {
+  border: 1px solid #2b3442;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.listItem {
+  padding: 10px;
+  background: #0f141b;
+  border-bottom: 1px solid #1f2937;
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+.disclaimer {
+  margin-top: 10px;
+  opacity: 0.75;
+  font-size: 12px;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modalCard {
+  width: 420px;
+  background: #0f141b;
+  border: 1px solid #2b3442;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.modalTitle {
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.modalLabel {
+  opacity: 0.8;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.modalInput {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid #2b3442;
+  background: #111827;
+  color: white;
+  padding: 0 10px;
+  margin-bottom: 12px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
