@@ -9,8 +9,6 @@ import "../styles/editor.css";
 const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 const AI_STUDIO_LIBRARY_KEY = "onyx_ai_studio_library_v1";
 
-const API_BASE = "http://localhost:4000";
-
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
@@ -22,22 +20,6 @@ function safeJsonParse(raw, fallback) {
   } catch (_) {
     return fallback;
   }
-}
-
-async function uploadFiles(files) {
-  const form = new FormData();
-  for (const f of files) form.append("files", f);
-
-  const res = await fetch(`${API_BASE}/api/media/upload`, {
-    method: "POST",
-    body: form,
-  });
-
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(json?.error || `Upload failed (${res.status})`);
-  }
-  return json?.files || [];
 }
 
 export default function Editor() {
@@ -61,9 +43,7 @@ export default function Editor() {
       savedAt: null,
       generatedAt: null,
       isAiGenerated: false,
-      thumbnail: null, // used for strip + AI studio
-      mediaUrl: null, // NEW: actual media on canvas
-      mediaType: null, // "image" | "video" (future)
+      thumbnail: null, // dataURL or null
       transitionToNext: "cut", // cut|fade|slide|zoom
     },
   ]);
@@ -79,9 +59,6 @@ export default function Editor() {
   const [promptLabel, setPromptLabel] = useState("Name");
   const [promptDefault, setPromptDefault] = useState("");
   const promptResolveRef = useRef(null);
-
-  const [canvasDropHint, setCanvasDropHint] = useState(false);
-  const [canvasErr, setCanvasErr] = useState("");
 
   const snapshot = useMemo(() => {
     return {
@@ -212,8 +189,6 @@ export default function Editor() {
           generatedAt: null,
           isAiGenerated: false,
           thumbnail: null,
-          mediaUrl: null,
-          mediaType: null,
           transitionToNext: "cut",
         });
         return next;
@@ -299,7 +274,7 @@ export default function Editor() {
         narration: scene.narration || "",
         action: scene.action || "",
         mode: scene.mode || "ai",
-        thumbnail: scene.thumbnail || scene.mediaUrl || null,
+        thumbnail: scene.thumbnail || null,
         createdAt: new Date().toISOString(),
       };
 
@@ -377,79 +352,8 @@ export default function Editor() {
     });
   };
 
-  const applyMediaToActiveScene = ({ mediaType = "image", url, thumb }) => {
-    if (!url) return;
-    commit(() => {
-      setScenes((s) =>
-        s.map((sc) =>
-          sc.id === activeScene
-            ? {
-                ...sc,
-                mediaUrl: url,
-                mediaType,
-                thumbnail: thumb || url,
-              }
-            : sc
-        )
-      );
-    });
-  };
-
   const goBack = () => {
     window.location.href = "/drafts";
-  };
-
-  const activeSceneObj = useMemo(() => scenes.find((sc) => sc.id === activeScene) || null, [scenes, activeScene]);
-
-  // Canvas drop: accept (A) internal dragged tiles (application/onyx-media), (B) local files -> upload -> apply
-  const onCanvasDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-    setCanvasDropHint(true);
-  };
-
-  const onCanvasDragLeave = (e) => {
-    e.preventDefault();
-    setCanvasDropHint(false);
-  };
-
-  const onCanvasDrop = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setCanvasDropHint(false);
-    setCanvasErr("");
-
-    // Local file(s)
-    const dtFiles = e.dataTransfer?.files ? Array.from(e.dataTransfer.files) : [];
-    if (dtFiles.length > 0) {
-      try {
-        const out = await uploadFiles(dtFiles);
-        if (out && out.length > 0) {
-          const first = out[0];
-          applyMediaToActiveScene({
-            mediaType: first.type?.startsWith("video") ? "video" : "image",
-            url: first.url,
-            thumb: first.url,
-          });
-        }
-      } catch (err) {
-        setCanvasErr(err?.message || "Upload failed");
-      }
-      return;
-    }
-
-    // Internal dragged tile
-    try {
-      const raw = e.dataTransfer.getData("application/onyx-media");
-      if (!raw) return;
-      const payload = JSON.parse(raw);
-      if (payload?.kind !== "media") return;
-      applyMediaToActiveScene({
-        mediaType: payload.mediaType || "image",
-        url: payload.url,
-        thumb: payload.thumb || payload.url,
-      });
-    } catch (_) {}
   };
 
   useEffect(() => {
@@ -472,16 +376,10 @@ export default function Editor() {
     <div className="editorShell">
       <div className="topNav">
         <div className="topLeft">
-          <button className="backBtn" onClick={goBack}>
-            Back
-          </button>
+          <button className="backBtn" onClick={goBack}>Back</button>
           <input className="titleInput" value={title} onChange={(e) => updateTitle(e.target.value)} />
-          <button className="saveBtn" onClick={saveNow}>
-            Save
-          </button>
-          <button className="addSceneTopBtn" onClick={addScene}>
-            + Add Scene
-          </button>
+          <button className="saveBtn" onClick={saveNow}>Save</button>
+          <button className="addSceneTopBtn" onClick={addScene}>+ Add Scene</button>
         </div>
 
         <div className="topControls">
@@ -491,12 +389,8 @@ export default function Editor() {
             <option>1:1</option>
           </select>
 
-          <button onClick={undo} disabled={past.length === 0}>
-            Undo
-          </button>
-          <button onClick={redo} disabled={future.length === 0}>
-            Redo
-          </button>
+          <button onClick={undo} disabled={past.length === 0}>Undo</button>
+          <button onClick={redo} disabled={future.length === 0}>Redo</button>
 
           <button>Preview</button>
           <button>Download</button>
@@ -506,27 +400,13 @@ export default function Editor() {
 
       <div className="editorBody">
         <div className="iconMenu">
-          <div className={activeMenu === "storyboard" ? "active" : ""} onClick={() => setActiveMenu("storyboard")} title="Storyboard">
-            📜
-          </div>
-          <div className={activeMenu === "visuals" ? "active" : ""} onClick={() => setActiveMenu("visuals")} title="Visuals">
-            🎬
-          </div>
-          <div className={activeMenu === "audio" ? "active" : ""} onClick={() => setActiveMenu("audio")} title="Audio">
-            🎵
-          </div>
-          <div className={activeMenu === "branding" ? "active" : ""} onClick={() => setActiveMenu("branding")} title="Branding">
-            🏷
-          </div>
-          <div className={activeMenu === "styles" ? "active" : ""} onClick={() => setActiveMenu("styles")} title="Styles">
-            🎨
-          </div>
-          <div className={activeMenu === "text" ? "active" : ""} onClick={() => setActiveMenu("text")} title="Text">
-            🔤
-          </div>
-          <div className={activeMenu === "avatar" ? "active" : ""} onClick={() => setActiveMenu("avatar")} title="Avatar">
-            🧍
-          </div>
+          <div className={activeMenu === "storyboard" ? "active" : ""} onClick={() => setActiveMenu("storyboard")} title="Storyboard">📜</div>
+          <div className={activeMenu === "visuals" ? "active" : ""} onClick={() => setActiveMenu("visuals")} title="Visuals">🎬</div>
+          <div className={activeMenu === "audio" ? "active" : ""} onClick={() => setActiveMenu("audio")} title="Audio">🎵</div>
+          <div className={activeMenu === "branding" ? "active" : ""} onClick={() => setActiveMenu("branding")} title="Branding">🏷</div>
+          <div className={activeMenu === "styles" ? "active" : ""} onClick={() => setActiveMenu("styles")} title="Styles">🎨</div>
+          <div className={activeMenu === "text" ? "active" : ""} onClick={() => setActiveMenu("text")} title="Text">🔤</div>
+          <div className={activeMenu === "avatar" ? "active" : ""} onClick={() => setActiveMenu("avatar")} title="Avatar">🧍</div>
         </div>
 
         <div className="sidePanel">
@@ -553,8 +433,6 @@ export default function Editor() {
               setTab={(t) => commit(() => setVisualsTab(t))}
               onUseAiStudioItem={applyAiStudioItemToScene}
               libraryKey={AI_STUDIO_LIBRARY_KEY}
-              apiBase={API_BASE}
-              onPickMedia={(m) => applyMediaToActiveScene(m)}
             />
           )}
 
@@ -576,26 +454,7 @@ export default function Editor() {
         </div>
 
         <div className="canvasArea">
-          <div
-            className={`canvas ratio-${ratio.replace(":", "-")} ${canvasDropHint ? "canvasDropHint" : ""}`}
-            onDragOver={onCanvasDragOver}
-            onDragLeave={onCanvasDragLeave}
-            onDrop={onCanvasDrop}
-          >
-            {activeSceneObj?.mediaUrl ? (
-              activeSceneObj.mediaType === "video" ? (
-                <video src={activeSceneObj.mediaUrl} controls style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-              ) : (
-                <img src={activeSceneObj.mediaUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-              )
-            ) : (
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontWeight: 700, opacity: 0.9 }}>No Media</div>
-                <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>Drag a stock/upload thumbnail here, or drop a local file to upload.</div>
-                {canvasErr ? <div style={{ marginTop: 8, fontSize: 12, color: "#f87171" }}>{canvasErr}</div> : null}
-              </div>
-            )}
-          </div>
+          <div className={`canvas ratio-${ratio.replace(":", "-")}`}>No Media</div>
         </div>
       </div>
 
