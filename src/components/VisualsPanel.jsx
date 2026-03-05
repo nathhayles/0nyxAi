@@ -1,290 +1,228 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-function safeParse(raw, fallback) {
-  try {
-    const v = JSON.parse(raw);
-    return v ?? fallback;
-  } catch (_) {
-    return fallback;
-  }
+function extOf(nameOrUrl = "") {
+  const clean = String(nameOrUrl).split("?")[0].split("#")[0];
+  const parts = clean.split(".");
+  return parts.length > 1 ? parts.pop().toLowerCase() : "";
 }
 
-async function uploadFiles(apiBase, files) {
-  const form = new FormData();
-  for (const f of files) form.append("files", f);
-
-  const res = await fetch(`${apiBase}/api/media/upload`, {
-    method: "POST",
-    body: form,
-  });
-
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(json?.error || `Upload failed (${res.status})`);
-  }
-  return json?.files || [];
+function isVideo(nameOrUrl = "") {
+  const ext = extOf(nameOrUrl);
+  return ["mp4", "webm", "mov", "m4v"].includes(ext);
 }
 
-export default function VisualsPanel({
-  tab,
-  setTab,
-  onUseAiStudioItem,
-  libraryKey,
-  onPickMedia,
-  apiBase = "http://localhost:4000",
-}) {
-  const [aiStudioItems, setAiStudioItems] = useState([]);
+function isImage(nameOrUrl = "") {
+  const ext = extOf(nameOrUrl);
+  return ["png", "jpg", "jpeg", "gif", "webp"].includes(ext);
+}
 
-  // Uploads
+function normalizeUrl(url, apiBase) {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/")) return `${apiBase}${url}`;
+  return `${apiBase}/${url}`;
+}
+
+export default function VisualsPanel({ tab, setTab, onUseAiStudioItem, libraryKey }) {
+  const API_BASE = useMemo(() => {
+    const host = window.location.hostname || "localhost";
+    return `http://${host}:4000`;
+  }, []);
+
+  const [uploads, setUploads] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadErr, setUploadErr] = useState("");
-  const [uploadedItems, setUploadedItems] = useState([]);
+  const [error, setError] = useState("");
   const fileInputRef = useRef(null);
 
-  // Stock
-  const [q, setQ] = useState("mountains");
-  const [stockLoading, setStockLoading] = useState(false);
-  const [stockErr, setStockErr] = useState("");
-  const [stockImages, setStockImages] = useState([]);
+  const loadMedia = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/media`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`GET /api/media failed: ${res.status}`);
+      const data = await res.json();
 
-  const refreshAiStudio = () => {
-    const raw = localStorage.getItem(libraryKey);
-    const list = safeParse(raw || "[]", []);
-    setAiStudioItems(Array.isArray(list) ? list : []);
+      const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+      setUploads(
+        items
+          .map((it) => ({
+            name: it?.name || it?.fileName || it?.filename || "media",
+            url: normalizeUrl(it?.url || it?.publicUrl || it?.publicPath, API_BASE),
+          }))
+          .filter((it) => it.url)
+      );
+    } catch (e) {
+      console.error("Media load error:", e);
+      setError("Failed to load uploads (backend not reachable or API error).");
+      setUploads([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    refreshAiStudio();
+    loadMedia();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, []);
 
-  const canUseDragDrop = useMemo(() => true, []);
+  const uploadOne = async (file) => {
+    const fd = new FormData();
+    fd.append("file", file);
 
-  const handleUploadPicked = async (files) => {
-    if (!files || files.length === 0) return;
-    setUploadErr("");
-    setUploading(true);
+    const res = await fetch(`${API_BASE}/api/media/upload`, {
+      method: "POST",
+      body: fd,
+    });
+
+    let payload = null;
     try {
-      const out = await uploadFiles(apiBase, files);
-      setUploadedItems((prev) => [...out, ...prev]);
+      payload = await res.json();
+    } catch {
+      // ignore
+    }
+
+    if (!res.ok) {
+      const msg = payload?.error || payload?.message || `Upload failed: HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+
+    await loadMedia();
+  };
+
+  const uploadFiles = async (files) => {
+    const list = Array.from(files || []).filter(Boolean);
+    if (!list.length) return;
+
+    setUploading(true);
+    setError("");
+    try {
+      for (const f of list) await uploadOne(f);
     } catch (e) {
-      setUploadErr(e?.message || "Upload failed");
+      console.error("Upload error:", e);
+      setError(e?.message || "Upload failed.");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const onUploadsDrop = async (e) => {
+  const onPickFiles = (e) => uploadFiles(e.target.files);
+
+  const onDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!e.dataTransfer?.files || e.dataTransfer.files.length === 0) return;
-    await handleUploadPicked(Array.from(e.dataTransfer.files));
+    const dt = e.dataTransfer;
+    if (dt?.files?.length) uploadFiles(dt.files);
   };
 
-  const searchStock = async () => {
-    const query = String(q || "").trim();
-    if (!query) return;
-    setStockErr("");
-    setStockLoading(true);
-    try {
-      const res = await fetch(`${apiBase}/api/stock/search?q=${encodeURIComponent(query)}`);
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json?.error || `Stock search failed (${res.status})`);
-      setStockImages(Array.isArray(json?.images) ? json.images : []);
-    } catch (e) {
-      setStockErr(e?.message || "Stock search failed");
-      setStockImages([]);
-    } finally {
-      setStockLoading(false);
-    }
+  const onDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
   };
 
-  const onStockKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      searchStock();
-    }
-  };
+  const renderThumb = (item) => {
+    const u = item.url;
+    const key = `${item.name}-${u}`;
+    const video = isVideo(u) || isVideo(item.name);
+    const img = isImage(u) || isImage(item.name);
 
-  const dragStartPayload = (e, payloadObj) => {
-    if (!canUseDragDrop) return;
-    try {
-      e.dataTransfer.setData("application/onyx-media", JSON.stringify(payloadObj));
-      e.dataTransfer.effectAllowed = "copy";
-    } catch (_) {}
-  };
-
-  const renderMediaTile = (item, label) => {
-    const thumb = item?.thumb || item?.url;
-    const full = item?.full || item?.url;
-    const type = item?.type || "image";
+    const mediaType = video ? "video" : "image";
+    const thumb = u; // backend currently returns playable asset URL; use same for thumb
 
     return (
       <div
-        key={`${label}_${item?.id || item?.url || Math.random()}`}
-        className="mediaTile"
+        key={key}
+        className="mediaItem"
         draggable
-        onDragStart={(e) =>
-          dragStartPayload(e, {
-            kind: "media",
-            source: label,
-            mediaType: type,
-            thumb: thumb,
-            url: full,
-          })
-        }
-        onDoubleClick={() => onPickMedia && onPickMedia({ mediaType: type, thumb, url: full })}
-        title="Drag to canvas / Double-click to use"
+        onDragStart={(ev) => {
+          // IMPORTANT: Editor.jsx expects "application/onyx-media" with kind:"media"
+          const payload = { kind: "media", url: u, thumb, mediaType };
+          ev.dataTransfer.setData("application/onyx-media", JSON.stringify(payload));
+          ev.dataTransfer.effectAllowed = "copy";
+        }}
+        style={{
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: 10,
+          padding: 8,
+          background: "rgba(0,0,0,0.25)",
+          cursor: "grab",
+        }}
+        title={item.name}
       >
-        <div className="mediaThumb">
-          {thumb ? <img src={thumb} alt="" /> : <div className="mediaThumbPlaceholder">MEDIA</div>}
+        <div style={{ width: "100%", aspectRatio: "16/9", borderRadius: 10, overflow: "hidden", background: "rgba(255,255,255,0.04)" }}>
+          {video ? (
+            <video src={u} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          ) : img ? (
+            <img src={u} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", fontSize: 12, opacity: 0.7 }}>FILE</div>
+          )}
         </div>
+
+        <div style={{ marginTop: 8, fontSize: 11, opacity: 0.85, lineHeight: 1.2, wordBreak: "break-word" }}>{item.name}</div>
       </div>
     );
   };
 
   return (
-    <div>
-      <div className="panelTabs">
-        <button className={tab === "uploads" ? "active" : ""} onClick={() => setTab("uploads")}>
+    <div className="panelBody">
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+        <button className={tab === "uploads" ? "tabBtn active" : "tabBtn"} onClick={() => setTab("uploads")}>
           Uploads
         </button>
-        <button className={tab === "stock" ? "active" : ""} onClick={() => setTab("stock")}>
+        <button className={tab === "stock" ? "tabBtn active" : "tabBtn"} onClick={() => setTab("stock")}>
           Stock
         </button>
-        <button className={tab === "aistudio" ? "active" : ""} onClick={() => setTab("aistudio")}>
+        <button className={tab === "ai" ? "tabBtn active" : "tabBtn"} onClick={() => setTab("ai")}>
           AI Studio
         </button>
-        <div className="panelTabsSpacer" />
-        <button className="smallBtn" onClick={refreshAiStudio}>
+
+        <div style={{ flex: 1 }} />
+        <button className="tabBtn" onClick={loadMedia} disabled={loading || uploading}>
           Refresh
         </button>
       </div>
 
       {tab === "uploads" && (
-        <div className="panelBlock">
-          <div className="panelTitle">Uploads</div>
-          <div className="panelMuted">Upload files or drag-drop into this box. Then drag thumbnails to the canvas.</div>
+        <div>
+          <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 10 }}>
+            Upload files or drag-drop into this box. Then drag thumbnails to the canvas.
+          </div>
 
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-            <button
-              className="smallBtn primary"
-              onClick={() => fileInputRef.current && fileInputRef.current.click()}
-              disabled={uploading}
-              type="button"
-            >
-              {uploading ? "Uploading..." : "Upload files"}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              style={{ display: "none" }}
-              onChange={(e) => handleUploadPicked(Array.from(e.target.files || []))}
-            />
-            {uploadErr ? <div style={{ color: "#f87171", fontSize: 12 }}>{uploadErr}</div> : null}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+            <input ref={fileInputRef} type="file" multiple onChange={onPickFiles} />
+            {uploading ? <div style={{ fontSize: 12, opacity: 0.8 }}>Uploading…</div> : null}
+            {error ? <div style={{ fontSize: 12, color: "#f87171" }}>{error}</div> : null}
           </div>
 
           <div
-            className="uploadDrop"
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = "copy";
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            style={{
+              border: "1px dashed rgba(255,255,255,0.25)",
+              borderRadius: 12,
+              padding: 10,
+              minHeight: 140,
             }}
-            onDrop={onUploadsDrop}
           >
-            Drop media here
-          </div>
+            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 10 }}>Drop media here</div>
 
-          <div className="mediaGrid" style={{ marginTop: 10 }}>
-            {uploadedItems.length === 0 ? (
-              <div className="emptyState">No uploads yet.</div>
+            {loading ? (
+              <div style={{ fontSize: 12, opacity: 0.8 }}>Loading…</div>
+            ) : uploads.length ? (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {uploads.map(renderThumb)}
+              </div>
             ) : (
-              uploadedItems.map((it) =>
-                renderMediaTile(
-                  {
-                    url: it.url,
-                    thumb: it.url,
-                    type: it.type || "image",
-                    id: it.name,
-                  },
-                  "uploads"
-                )
-              )
+              <div style={{ fontSize: 12, opacity: 0.7 }}>No uploads yet.</div>
             )}
           </div>
         </div>
       )}
 
-      {tab === "stock" && (
-        <div className="panelBlock">
-          <div className="panelTitle">Stock Library</div>
-          <div className="panelMuted">Search stock (backend proxy). Drag thumbnails to the canvas.</div>
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={onStockKeyDown}
-              className="titleInput"
-              style={{ width: "100%" }}
-              placeholder="Search stock..."
-            />
-            <button className="smallBtn primary" onClick={searchStock} disabled={stockLoading}>
-              {stockLoading ? "..." : "Search"}
-            </button>
-          </div>
-
-          {stockErr ? <div style={{ color: "#f87171", fontSize: 12, marginBottom: 8 }}>{stockErr}</div> : null}
-
-          <div className="stockGrid">
-            {stockImages.map((img) =>
-              renderMediaTile(
-                {
-                  id: img.id,
-                  thumb: img.thumb,
-                  url: img.full,
-                  type: "image",
-                },
-                "stock"
-              )
-            )}
-          </div>
-        </div>
-      )}
-
-      {tab === "aistudio" && (
-        <div className="panelBlock">
-          <div className="panelTitle">AI Studio Library</div>
-          <div className="panelMuted">Only AI-generated scenes saved here.</div>
-
-          {aiStudioItems.length === 0 ? (
-            <div className="emptyState">No AI Studio items yet.</div>
-          ) : (
-            <div className="aiStudioList">
-              {aiStudioItems.map((it) => (
-                <div key={it.id} className="aiItem">
-                  <div className="aiThumb">
-                    {it.thumbnail ? <img src={it.thumbnail} alt={it.name || "AI"} /> : <div className="aiThumbPlaceholder">AI</div>}
-                  </div>
-                  <div className="aiInfo">
-                    <div className="aiName">{it.name || "Untitled AI Scene"}</div>
-                    <div className="aiMeta">
-                      {it.ratio || ""} • {it.createdAt ? new Date(it.createdAt).toLocaleString() : ""}
-                    </div>
-                  </div>
-                  <div className="aiActions">
-                    <button className="smallBtn primary" onClick={() => onUseAiStudioItem(it)}>
-                      Use
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {tab === "stock" && <div className="panelMuted">Stock library not wired in this build.</div>}
+      {tab === "ai" && <div className="panelMuted">AI Studio library not wired in this build.</div>}
     </div>
   );
 }
