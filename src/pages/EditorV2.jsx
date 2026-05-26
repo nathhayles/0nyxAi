@@ -9,7 +9,7 @@ import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import "../styles/editor.css";
 
-import TimelinePanel    from "../components/TimelinePanel.jsx";
+import SequencerPanel   from "../components/SequencerPanel.jsx";
 import StoryboardPanel  from "../components/StoryboardPanel.jsx";
 import VisualsPanel     from "../components/VisualsPanel.jsx";
 import StylesPanel      from "../components/StylesPanel.jsx";
@@ -522,19 +522,18 @@ export default function EditorV2() {
           />
         </div>
 
-        {/* Timeline — pinned to onyx/dark regardless of theme */}
+        {/* Sequencer — V2 NLE timeline, always dark */}
         <div data-theme="onyx">
-          <Safe name="TimelinePanel">
-            <TimelinePanel
+          <Safe name="SequencerPanel">
+            <SequencerPanel
               timelineState={timelineState} dispatch={dispatch}
-              isPlaying={isPlaying} scenes={scenes}
-              activeScene={activeScene} setActiveScene={setActiveScene}
+              isPlaying={isPlaying} onPlayPause={() => setIsPlaying(p => !p)}
+              scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene}
               updateScene={updateScene}
               globalMusicUrl={globalMusicUrl} globalMusicName={globalMusicName}
               musicVolume={musicVolume} voiceoverVolume={voiceoverVolume}
-              playbackProgress={playbackProgress} totalDuration={totalSec}
-              onSeek={p => dispatch({type:"SEEK",time:p*totalSec})}
-              onDuplicate={duplicateScene} onDelete={deleteScene} onMoveScene={moveScene}
+              totalDuration={totalSec}
+              onSeek={p => dispatch({ type: "SEEK", time: p * totalSec })}
             />
           </Safe>
         </div>

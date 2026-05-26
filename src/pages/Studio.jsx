@@ -13,6 +13,16 @@ const TOOLS = [
     available: true,
   },
   {
+    id: "video-to-reel",
+    icon: "🎞️",
+    label: "Video to Reel",
+    desc: "Upload your footage and turn it into a polished short-form reel with AI editing, captions and music",
+    route: "/video-to-reel",
+    color: "#4dd0ff",
+    available: true,
+    badge: "New",
+  },
+  {
     id: "campaign",
     icon: "⚡",
     label: "Campaign Generator",
