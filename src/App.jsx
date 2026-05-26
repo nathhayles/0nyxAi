@@ -103,6 +103,13 @@ function TrialBanner() {
 export default function App() {
   const location = useLocation();
   const isEditor = location.pathname.startsWith("/editor") || location.pathname.startsWith("/preview");
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const bgRoutes = ["/", "/login", "/signup", "/pricing", "/terms", "/privacy", "/earn", "/account", "/dashboard"];
@@ -115,7 +122,7 @@ export default function App() {
 
   return (
     <div>
-      {!isEditor && location.pathname !== "/" && <Navbar />}
+      {!isEditor && location.pathname !== "/" && <Navbar session={session} />}
       {!isEditor && location.pathname !== "/" && <TrialBanner />}
 
       <Routes>
