@@ -1,28 +1,48 @@
-import EditorPage from "../pages/EditorPage.jsx";
-import SchedulerPage from "../pages/SchedulerPage.jsx";
-import AffiliatePage from "../pages/AffiliatePage.jsx";
-import AdminPage from "../pages/AdminPage.jsx";
-import ProjectsPage from "../pages/ProjectsPage.jsx";
-import PricingPage from "../pages/PricingPage.jsx";
+import Navbar from "../components/Navbar";
+
 import LandingPage from "../pages/LandingPage.jsx";
-import EarnPage from "../pages/EarnPage.jsx";
+import PricingPage from "../pages/PricingPage.jsx";
+import TermsPage from "../pages/TermsPage.jsx";
+import Dashboard from "../pages/Dashboard.jsx";
+import CreatePage from "../pages/Create.jsx";
+import Studio from "../pages/Studio.jsx";
 
-export const routes = {
-  "/": LandingPage,
-  "/editor": EditorPage,
+import ProjectsPage from "../pages/ProjectsPage.jsx";
+import AffiliatePage from "../pages/AffiliatePage.jsx";
+import Account from "../pages/Account.jsx";
 
-  /* Legacy scheduler lives on /app/* */
-  "/scheduler": SchedulerPage,
-  "/app": SchedulerPage,
-  "/app/drafts": SchedulerPage,
-  "/app/brands": SchedulerPage,
-  "/app/publish": SchedulerPage,
-  "/app/ai": SchedulerPage,
-  "/app/accounts": SchedulerPage,
+import Login from "../components/Login.jsx";
 
-  "/projects": ProjectsPage,
-  "/affiliate": AffiliatePage,
-  "/pricing": PricingPage,
-  "/earn": EarnPage,
-  "/admin": AdminPage
+function withLayout(Page) {
+  return function Layout() {
+    return (
+      <>
+        <Navbar />
+        <Page />
+      </>
+    );
+  };
+}
+
+export default {
+  "/": withLayout(LandingPage),
+
+  "/pricing": withLayout(PricingPage),
+
+  "/terms": withLayout(TermsPage),
+
+  "/dashboard": withLayout(Dashboard),
+
+  "/projects": withLayout(ProjectsPage),
+
+  "/studio": withLayout(Studio),
+  "/campaign": withLayout(Studio),
+  "/music": withLayout(Studio),
+  "/create": withLayout(CreatePage),
+
+  "/earn": withLayout(AffiliatePage),
+
+  "/account": withLayout(Account),
+
+  "/login": Login
 };

@@ -1,23 +1,16 @@
+import "./styles/theme.css";
+import "./auth.css";
+import "./style.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import Editor from "./pages/Editor.jsx";
-import "./styles/editor.css";
+import { BrowserRouter } from "react-router-dom";
 
-function getMountEl() {
-  let el = document.getElementById("root");
-  if (el) return el;
+import App from "./App";
 
-  el = document.getElementById("app");
-  if (el) return el;
-
-  el = document.createElement("div");
-  el.id = "root";
-  document.body.appendChild(el);
-  return el;
-}
-
-ReactDOM.createRoot(getMountEl()).render(
+ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <Editor />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </React.StrictMode>
 );

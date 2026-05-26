@@ -1,78 +1,102 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 
 export default function ResetPassword() {
-  return `
-    <div class="auth">
-      <div class="auth-card">
-        <h1>Reset password</h1>
-        <p class="auth-subtitle">Enter a new password.</p>
+  const navigate = useNavigate();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState({ text: "", type: "" });
+  const [ready, setReady] = useState(false);
 
-        <form id="resetForm">
-          <label class="auth-label">New password</label>
-          <input
-            id="newPassword"
-            class="auth-input"
-            type="password"
-            placeholder="••••••••"
-            required
-          />
+  useEffect(() => {
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") setReady(true);
+    });
+  }, []);
 
-          <button type="submit" class="btn primary auth-btn">
-            Update password
-          </button>
-        </form>
-
-        <div id="resetMsg" class="auth-msg"></div>
-      </div>
-    </div>
-  `;
-}
-
-export async function bindResetHandlers({ goLogin }) {
-  const form = document.getElementById("resetForm");
-  const msg = document.getElementById("resetMsg");
-
-  const setMsg = (text) => {
-    msg.textContent = text || "";
-  };
-
-  // ✅ STEP 1: Read recovery token from URL
-  const params = new URLSearchParams(window.location.search);
-  const tokenHash = params.get("token_hash");
-  const type = params.get("type");
-
-  if (!tokenHash || type !== "recovery") {
-    setMsg("Invalid or expired recovery link. Please request a new one.");
-    return;
-  }
-
-  // ✅ STEP 2: Exchange recovery token for a session (CRITICAL)
-  const { error: verifyError } = await supabase.auth.verifyOtp({
-    type: "recovery",
-    token_hash: tokenHash,
-  });
-
-  if (verifyError) {
-    setMsg("Invalid or expired recovery link. Please request a new one.");
-    return;
-  }
-
-  // ✅ STEP 3: Allow password update
-  form.addEventListener("submit", async (e) => {
+  async function handleReset(e) {
     e.preventDefault();
-    setMsg("Updating password...");
+    if (!password) return setMsg({ text: "Enter a new password", type: "error" });
+    if (password !== confirm) return setMsg({ text: "Passwords don't match", type: "error" });
+    if (password.length < 8) return setMsg({ text: "Password must be at least 8 characters", type: "error" });
 
-    const password = document.getElementById("newPassword").value;
+    setLoading(true);
+    setMsg({ text: "", type: "" });
 
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setMsg(error.message);
-      return;
+      setMsg({ text: error.message, type: "error" });
+    } else {
+      setMsg({ text: "Password updated! Redirecting to login...", type: "success" });
+      setTimeout(() => navigate("/login"), 2000);
     }
+    setLoading(false);
+  }
 
-    setMsg("Password updated. Redirecting to login...");
-    setTimeout(goLogin, 1500);
-  });
+  const inputS = {
+    width: "100%", padding: "12px 16px", borderRadius: 8,
+    background: "#0f141b", border: "1px solid #2b3442",
+    color: "#e2e8f0", fontSize: 15, boxSizing: "border-box", outline: "none",
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#06070a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 400, background: "#0c1016", border: "1px solid #1f2937", borderRadius: 16, padding: 32 }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🔐</div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#fff", margin: 0 }}>Reset Password</h1>
+          <p style={{ color: "#64748b", fontSize: 14, marginTop: 8 }}>Enter your new password below</p>
+        </div>
+
+        {!ready ? (
+          <div style={{ textAlign: "center", color: "#64748b", fontSize: 14, padding: 20 }}>
+            Verifying reset link...
+          </div>
+        ) : (
+          <form onSubmit={handleReset} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div>
+              <label style={{ fontSize: 12, color: "#94a3b8", display: "block", marginBottom: 6 }}>New Password</label>
+              <input type="password" style={inputS} value={password}
+                onChange={e => setPassword(e.target.value)} placeholder="Min. 8 characters" />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, color: "#94a3b8", display: "block", marginBottom: 6 }}>Confirm Password</label>
+              <input type="password" style={inputS} value={confirm}
+                onChange={e => setConfirm(e.target.value)} placeholder="Repeat new password" />
+            </div>
+
+            {msg.text && (
+              <div style={{
+                padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                background: msg.type === "success" ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+                border: `1px solid ${msg.type === "success" ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
+                color: msg.type === "success" ? "#4ade80" : "#f87171",
+              }}>
+                {msg.text}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading} style={{
+              padding: "13px", borderRadius: 8, border: "none",
+              background: loading ? "#374151" : "#1d4ed8",
+              color: "#fff", fontWeight: 700, fontSize: 15,
+              cursor: loading ? "not-allowed" : "pointer", marginTop: 4,
+            }}>
+              {loading ? "Updating..." : "Update Password"}
+            </button>
+          </form>
+        )}
+
+        <div style={{ textAlign: "center", marginTop: 20 }}>
+          <button onClick={() => navigate("/login")} style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer" }}>
+            ← Back to Login
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
-

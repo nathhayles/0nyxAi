@@ -4,7 +4,7 @@ import Drafts from "./pages/Drafts.jsx";
 import Publishing from "./pages/Publishing.jsx";
 import Brands from "./pages/Brands.jsx";
 import AI from "./pages/Ai.jsx";
-import Accounts from "./pages/Accounts.jsx";
+import Accounts from "./pages/Account.jsx";
 
 function renderPage(html) {
   const view = document.getElementById("view");

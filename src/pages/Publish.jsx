@@ -1,62 +1,397 @@
-import { getCurrent } from "../store/appState.js";
+import { useState, useEffect } from "react";
+import { supabase } from "../supabaseClient.js";
+
+const PLATFORMS = [
+  { id: "instagram", label: "Instagram", icon: "📸", color: "#E1306C" },
+  { id: "tiktok",   label: "TikTok",    icon: "🎵", color: "#69C9D0" },
+  { id: "linkedin", label: "LinkedIn",  icon: "💼", color: "#0077b5" },
+  { id: "youtube",  label: "YouTube",   icon: "▶️",  color: "#FF0000" },
+];
+
+const STATUS_STYLES = {
+  published: { bg: "rgba(34,197,94,0.15)",  color: "#4ade80" },
+  failed:    { bg: "rgba(239,68,68,0.15)",  color: "#f87171" },
+  scheduled: { bg: "rgba(250,204,21,0.15)", color: "#fbbf24" },
+};
 
 export default function Publish() {
-  return `
-    <div class="page">
-      <h1>Publishing</h1>
-      <p class="hint">Reads the current doc/draft and simulates schedule/publish actions (wired to real data now).</p>
+  const [session, setSession]                     = useState(null);
+  const [brands, setBrands]                       = useState([]);
+  const [selectedBrandId, setSelectedBrandId]     = useState(null);
+  const [canAutopost, setCanAutopost]             = useState(false);
+  const [plan, setPlan]                           = useState("starter");
+  const [accounts, setAccounts]                   = useState({});
+  const [projects, setProjects]                   = useState([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState([]);
+  const [selectedProject, setSelectedProject]     = useState(null);
+  const [caption, setCaption]                     = useState("");
+  const [hashtags, setHashtags]                   = useState("");
+  const [scheduleAt, setScheduleAt]               = useState("");
+  const [posts, setPosts]                         = useState([]);
+  const [loading, setLoading]                     = useState(true);
+  const [submitting, setSubmitting]               = useState(false);
+  const [msg, setMsg]                             = useState({ text: "", type: "" });
+  const [aiPrompt, setAiPrompt]                   = useState('');
+  const [generatingCaption, setGeneratingCaption] = useState(false);
+  const [trialStatus, setTrialStatus]             = useState({ is_trial: false, trial_expired: false, days_remaining: null, has_paid_plan: false });
 
-      <div style="background:#161922;border:1px solid #2a2f3a;border-radius:12px;padding:14px;margin-top:12px">
-        <label class="auth-label">Schedule time</label>
-        <input id="scheduleAt" class="auth-input" type="datetime-local" />
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        loadAll(session);
+        fetch("/api/user/me", { headers: { Authorization: `Bearer ${session.access_token}` } })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => { if (d) setTrialStatus(d); })
+          .catch(() => {});
+      }
+    });
+  }, []);
 
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-          <button id="scheduleBtn" class="btn primary">Schedule</button>
-          <button id="publishBtn" class="btn secondary">Publish now</button>
+  useEffect(() => {
+    if (!session) return;
+    loadAccounts(session, selectedBrandId);
+  }, [session, selectedBrandId]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reelIdParam = params.get("reelId");
+    if (reelIdParam && projects.length > 0) {
+      const found = projects.find(p => p.id === reelIdParam);
+      if (found) {
+        setSelectedProject(found);
+        if (found.title && found.title !== 'Untitled Reel') setAiPrompt(found.title);
+      }
+    }
+  }, [projects]);
+
+  async function getHeaders(sess) {
+    const s = sess || session;
+    return { "Content-Type": "application/json", Authorization: `Bearer ${s.access_token}` };
+  }
+
+  async function loadAll(sess) {
+    const headers = { Authorization: `Bearer ${sess.access_token}` };
+    const [brandsRes, projectsRes, postsRes] = await Promise.all([
+      fetch("/api/brands", { headers }).then(r => r.json()),
+      fetch("/api/reels/for-publish", { headers }).then(r => r.json()),
+      fetch("/api/publish/posts", { headers }).then(r => r.json()),
+    ]);
+    if (brandsRes.brands) {
+      setBrands(brandsRes.brands);
+      setCanAutopost(brandsRes.canAutopost || false);
+      setPlan(brandsRes.plan || "starter");
+      const def = brandsRes.brands.find(b => b.is_default) || brandsRes.brands[0];
+      if (def) { setSelectedBrandId(def.id); await loadAccounts(sess, def.id); }
+    }
+    setProjects(projectsRes.projects || []);
+    setPosts(postsRes.posts || []);
+    setLoading(false);
+  }
+
+  async function loadAccounts(sess, brandId) {
+    const headers = { Authorization: `Bearer ${sess.access_token}` };
+    const res = await fetch(`/api/social/accounts`, { headers });
+    if (res.ok) { const d = await res.json(); setAccounts(d.accounts || {}); }
+  }
+
+  function togglePlatform(id) {
+    setSelectedPlatforms(prev =>
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  }
+
+  async function handlePublishNow() {
+    if (trialStatus.trial_expired) return setMsg({ text: "Your trial has expired. Upgrade to publish.", type: "error" });
+    if (!selectedProject) return setMsg({ text: "Select a project first", type: "error" });
+    if (selectedPlatforms.length === 0) return setMsg({ text: "Select at least one platform", type: "error" });
+    if (!canAutopost) return setMsg({ text: "Auto-posting requires an upgrade.", type: "error" });
+    setSubmitting(true); setMsg({ text: "", type: "" });
+    const results = [];
+    const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` };
+    const videoUrl = selectedProject.output_url || selectedProject.render_url;
+    for (const platform of selectedPlatforms) {
+      try {
+        const res = await fetch("/api/publish/now", {
+          method: "POST", headers,
+          body: JSON.stringify({ platform, video_url: videoUrl, caption, hashtags, brand_id: selectedBrandId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Publish failed");
+        results.push(`✅ ${platform}`);
+      } catch (err) {
+        results.push(`❌ ${platform}: ${err.message}`);
+      }
+    }
+    const allOk = results.every(r => r.startsWith("✅"));
+    setMsg({ text: results.join(" · "), type: allOk ? "success" : "error" });
+    if (allOk) { setCaption(""); setHashtags(""); }
+    setSubmitting(false);
+  }
+
+  async function handleSchedule() {
+    if (trialStatus.trial_expired) return setMsg({ text: "Your trial has expired. Upgrade to schedule posts.", type: "error" });
+    if (!selectedProject) return setMsg({ text: "Select a project", type: "error" });
+    if (!scheduleAt) return setMsg({ text: "Pick a schedule time", type: "error" });
+    if (selectedPlatforms.length === 0) return setMsg({ text: "Select at least one platform", type: "error" });
+    const unconnected = selectedPlatforms.filter(p => !accounts[p]);
+    if (unconnected.length > 0) return setMsg({ text: `Connect your ${unconnected.join(", ")} account(s) first`, type: "error" });
+    if (!canAutopost) return setMsg({ text: "Auto-posting requires an upgrade.", type: "error" });
+    setSubmitting(true); setMsg({ text: "", type: "" });
+    const results = [];
+    for (const platform of selectedPlatforms) {
+      try {
+        const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` };
+        const res = await fetch("/api/publish/schedule", {
+          method: "POST", headers,
+          body: JSON.stringify({ platform, video_url: selectedProject.output_url || selectedProject.render_url, caption, hashtags, post_at: new Date(scheduleAt).toISOString(), brand_id: selectedBrandId }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Schedule failed");
+        results.push(`✅ ${platform}`);
+      } catch (err) {
+        results.push(`❌ ${platform}: ${err.message}`);
+      }
+    }
+    const allOk = results.every(r => r.startsWith("✅"));
+    setMsg({ text: `${results.join(" · ")} · ${new Date(scheduleAt).toLocaleString()}`, type: allOk ? "success" : "error" });
+    if (allOk) { setCaption(""); setHashtags(""); setScheduleAt(""); }
+    setSubmitting(false);
+  }
+
+  async function generateCaption() {
+    if (!aiPrompt.trim()) return;
+    setGeneratingCaption(true);
+    try {
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` };
+      const res = await fetch('/api/analyse/caption', {
+        method: 'POST', headers,
+        body: JSON.stringify({ prompt: aiPrompt, platform: selectedPlatforms[0] || 'instagram' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      if (data.caption) setCaption(data.caption);
+      if (data.hashtags) setHashtags(data.hashtags);
+    } catch (err) {
+      setMsg({ text: err.message, type: 'error' });
+    }
+    setGeneratingCaption(false);
+  }
+
+  async function connectPlatform(platformId) {
+    if (!canAutopost) { window.location.href = "/account"; return; }
+    const headers = await getHeaders();
+    const qs = selectedBrandId ? `?brand_id=${selectedBrandId}` : "";
+    const res = await fetch(`/api/social/${platformId}/auth${qs}`, { headers });
+    const data = await res.json();
+    if (data.authUrl) window.location.href = data.authUrl;
+    else setMsg({ text: data.error || `Failed to connect ${platformId}`, type: "error" });
+  }
+
+  const card   = { background: "#0c1016", border: "1px solid #1f2937", borderRadius: 12, padding: 24, marginBottom: 16 };
+  const inputS = { width: "100%", background: "#0f141b", border: "1px solid #2b3442", color: "#e2e8f0", borderRadius: 8, padding: "10px 14px", fontSize: 14, boxSizing: "border-box", outline: "none", marginTop: 6 };
+  const allConnected = selectedPlatforms.length > 0 && selectedPlatforms.every(p => accounts[p]);
+  const selectedBrand = brands.find(b => b.id === selectedBrandId);
+  const canSubmit = !submitting && selectedPlatforms.length > 0 && allConnected && canAutopost;
+
+  if (loading) return <div style={{ minHeight: "100vh", background: "#06070a", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>Loading...</div>;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", fontFamily: "sans-serif" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>📤 Publish & Schedule</h1>
+        <p style={{ color: "#64748b", fontSize: 14, marginBottom: 28 }}>Post your rendered reels directly to social media or schedule for later.</p>
+
+        {trialStatus.trial_expired && (
+          <div style={{ ...card, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#f87171", marginBottom: 4 }}>Trial Expired</div>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>Your 14-day free trial has ended. Upgrade to keep publishing.</div>
+            </div>
+            <button onClick={() => window.location.href = "/pricing"} style={{ padding: "9px 18px", borderRadius: 8, border: "none", whiteSpace: "nowrap", background: "#ef4444", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Upgrade →</button>
+          </div>
+        )}
+
+        {trialStatus.is_trial && trialStatus.days_remaining != null && (
+          <div style={{ ...card, background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", marginBottom: 20 }}>
+            <div style={{ fontSize: 13, color: "#fbbf24" }}>
+              ⏳ Free trial — <strong>{trialStatus.days_remaining} day{trialStatus.days_remaining !== 1 ? "s" : ""}</strong> remaining.{" "}
+              <a href="/pricing" style={{ color: "#fbbf24", textDecoration: "underline" }}>Upgrade anytime →</a>
+            </div>
+          </div>
+        )}
+
+        {!canAutopost && (
+          <div style={{ ...card, background: "linear-gradient(135deg, rgba(124,58,237,0.1), rgba(29,78,216,0.1))", border: "1px solid rgba(124,58,237,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", marginBottom: 4 }}>🚀 Auto-posting not active</div>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>{plan === "starter" || plan === "creator" ? "Add the $15/mo Auto-posting add-on, or upgrade to Pro/Agency." : "Upgrade to Pro or Agency to unlock auto-publishing."}</div>
+            </div>
+            <button onClick={() => window.location.href = "/account"} style={{ padding: "9px 18px", borderRadius: 8, border: "none", whiteSpace: "nowrap", background: "linear-gradient(135deg, #7c3aed, #1d4ed8)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Upgrade →</button>
+          </div>
+        )}
+
+        {brands.length > 0 && (
+          <div style={card}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>Publishing as Brand</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {brands.map(b => (
+                <button key={b.id} onClick={() => setSelectedBrandId(b.id)} style={{ padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer", border: selectedBrandId === b.id ? "1px solid #7c3aed" : "1px solid #1f2937", background: selectedBrandId === b.id ? "rgba(124,58,237,0.15)" : "#111827", color: selectedBrandId === b.id ? "#a78bfa" : "#64748b" }}>
+                  {b.brand_label || "Unnamed"}{b.is_default && <span style={{ marginLeft: 5, fontSize: 9, opacity: 0.6 }}>DEFAULT</span>}
+                </button>
+              ))}
+            </div>
+            {selectedBrand && <div style={{ fontSize: 11, color: "#475569", marginTop: 10 }}>Social accounts connected under <span style={{ color: "#a78bfa" }}>{selectedBrand.brand_label}</span> will be used.</div>}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+          {PLATFORMS.map(p => {
+            const selected = selectedPlatforms.includes(p.id);
+            return (
+              <button key={p.id} onClick={() => togglePlatform(p.id)} style={{ padding: "8px 18px", borderRadius: 20, border: selected ? `2px solid ${p.color}` : "1px solid #1f2937", background: selected ? `${p.color}22` : "#111827", color: selected ? p.color : "#64748b", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                {p.icon} {p.label}{accounts[p.id] && <span style={{ marginLeft: 6, fontSize: 10, color: "#4ade80" }}>●</span>}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11, color: "#475569", marginBottom: 16 }}>Select one or more platforms to publish to.</div>
+
+        {selectedPlatforms.length > 0 && (
+          <div style={{ ...card, padding: "14px 20px" }}>
+            {selectedPlatforms.map(pid => {
+              const platform = PLATFORMS.find(p => p.id === pid);
+              const connected = !!accounts[pid];
+              return (
+                <div key={pid} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: selectedPlatforms[selectedPlatforms.length - 1] !== pid ? 10 : 0, marginBottom: selectedPlatforms[selectedPlatforms.length - 1] !== pid ? 10 : 0, borderBottom: selectedPlatforms[selectedPlatforms.length - 1] !== pid ? "1px solid #1f2937" : "none" }}>
+                  <div>
+                    <span style={{ fontSize: 13, color: "#94a3b8" }}>{platform?.icon} {platform?.label}: </span>
+                    {connected
+                      ? <span style={{ fontSize: 13, fontWeight: 600, color: "#4ade80" }}>✅ @{accounts[pid]}</span>
+                      : <span style={{ fontSize: 13, color: "#ef4444" }}>Not connected{selectedBrand ? ` for ${selectedBrand.brand_label}` : ""}</span>
+                    }
+                  </div>
+                  {!connected && (
+                    <button onClick={() => connectPlatform(pid)} style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: canAutopost ? (platform?.color || "#1d4ed8") : "#7c3aed", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      {canAutopost ? `Connect ${platform?.label}` : "Upgrade to Connect"}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div style={card}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 14 }}>Select Project</div>
+          {projects.length === 0
+            ? <div style={{ color: "#475569", fontSize: 13 }}>No rendered projects found. Render a reel in the editor first.</div>
+            : <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto" }}>
+                {projects.map(p => (
+                  <div key={p.id} onClick={() => { setSelectedProject(p); if (p.title && p.title !== 'Untitled Reel') setAiPrompt(p.title); }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 8, cursor: "pointer", background: selectedProject?.id === p.id ? "rgba(29,78,216,0.15)" : "#111827", border: selectedProject?.id === p.id ? "1px solid #3b82f6" : "1px solid #1f2937" }}>
+                    {p.thumbnail_url
+                      ? <img src={p.thumbnail_url} style={{ width: 48, height: 48, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} alt="" onError={e => { e.target.style.display="none"; e.target.nextSibling && (e.target.nextSibling.style.display="flex"); }} />
+                      : null}
+                    <div style={{ width: 48, height: 48, borderRadius: 6, background: "#1f2937", display: p.thumbnail_url ? "none" : "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🎬</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                      <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>{new Date(p.created_at).toLocaleDateString()}</div>
+                    </div>
+                    {selectedProject?.id === p.id && <span style={{ color: "#3b82f6", fontSize: 16 }}>✓</span>}
+                  </div>
+                ))}
+              </div>
+          }
         </div>
 
-        <div id="pubMsg" class="auth-msg" style="margin-top:12px"></div>
+        {selectedProject && (
+          <div style={card}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 16 }}>Compose</div>
+            <div style={{ marginBottom: 14, padding: "10px 14px", background: "#111827", borderRadius: 8, border: "1px solid #1f2937" }}>
+              <div style={{ fontSize: 12, color: "#64748b" }}>
+                Publishing: <span style={{ color: "#93c5fd", fontWeight: 600 }}>{selectedProject.title}</span>
+                {selectedBrand && <span style={{ color: "#a78bfa", marginLeft: 8 }}>as {selectedBrand.brand_label}</span>}
+                {selectedPlatforms.length > 0 && <span style={{ color: "#64748b", marginLeft: 8 }}>→ {selectedPlatforms.join(", ")}</span>}
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, color: "#94a3b8" }}>Describe your reel...</label>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <input style={{ ...inputS, marginTop: 0, flex: 1 }} value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} placeholder="e.g. A product reveal for a new coffee brand targeting millennials" />
+                <button onClick={generateCaption} disabled={generatingCaption || !aiPrompt.trim()} style={{ padding: "10px 16px", borderRadius: 8, border: "none", background: (generatingCaption || !aiPrompt.trim()) ? "#374151" : "linear-gradient(135deg, #7c3aed, #1d4ed8)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: (generatingCaption || !aiPrompt.trim()) ? "not-allowed" : "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                  {generatingCaption ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />Generating...</span> : "✨ Generate Caption & Hashtags"}
+                </button>
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, color: "#94a3b8" }}>Caption</label>
+              <textarea style={{ ...inputS, minHeight: 80, resize: "vertical" }} value={caption} onChange={e => setCaption(e.target.value)} placeholder="Write a caption..." />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, color: "#94a3b8" }}>Hashtags</label>
+              <input style={inputS} value={hashtags} onChange={e => setHashtags(e.target.value)} placeholder="#reels #viral #ai" />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 12, color: "#94a3b8" }}>Schedule time (leave blank to publish now)</label>
+              <input type="datetime-local" style={inputS} value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
+            </div>
+            {msg.text && (
+              <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14, fontSize: 13, fontWeight: 600, background: msg.type === "success" ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`, color: msg.type === "success" ? "#4ade80" : "#f87171" }}>{msg.text}</div>
+            )}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={handlePublishNow} disabled={!canSubmit} style={{ padding: "12px 24px", borderRadius: 8, border: "none", background: canSubmit ? "linear-gradient(135deg, #1d4ed8, #7c3aed)" : "#374151", color: "#fff", fontWeight: 700, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
+                {submitting ? "Publishing..." : "🚀 Publish Now"}
+              </button>
+              <button onClick={handleSchedule} disabled={!canSubmit} style={{ padding: "12px 24px", borderRadius: 8, border: "1px solid #2b3442", background: "#111827", color: canSubmit ? "#94a3b8" : "#475569", fontWeight: 600, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
+                {submitting ? "Scheduling..." : "🕐 Schedule"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div style={card}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 14 }}>Recent Posts</div>
+          {posts.length === 0
+            ? <div style={{ color: "#475569", fontSize: 13 }}>No posts yet.</div>
+            : posts.map(post => {
+                const st = STATUS_STYLES[post.status] || STATUS_STYLES.scheduled;
+                const plat = PLATFORMS.find(p => p.id === post.platform);
+                return (
+                  <div key={post.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px 0", borderBottom: "1px solid #1f2937" }}>
+                    <div style={{ fontSize: 22, flexShrink: 0 }}>{plat?.icon || "📤"}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: plat?.color || "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>{plat?.label || post.platform}</span>
+                        <div style={{ fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: st.bg, color: st.color }}>{post.status}</div>
+                      </div>
+                      <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.caption?.slice(0, 80) || "No caption"}</div>
+                      <div style={{ fontSize: 11, color: "#475569", marginTop: 3 }}>
+                        🕐 {new Date(post.post_at || post.created_at).toLocaleString()}
+                        {post.brand_id && brands.find(b => b.id === post.brand_id) && <span style={{ marginLeft: 8, color: "#7c3aed" }}>· {brands.find(b => b.id === post.brand_id).brand_label}</span>}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+                      {post.status === "scheduled" && (
+                        <button onClick={async () => {
+                          if (!confirm("Cancel this scheduled post?")) return;
+                          const res = await fetch(`/api/publish/cancel/${post.id}`, {
+                            method: "DELETE",
+                            headers: { Authorization: `Bearer ${session?.access_token}` }
+                          });
+                          if (res.ok) setPosts(prev => prev.filter(p => p.id !== post.id));
+                          else alert("Failed to cancel post");
+                        }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #374151", background: "transparent", color: "#ef4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+          }
+        </div>
       </div>
-
-      <pre id="pubOut" style="margin-top:12px;white-space:pre-wrap;background:#11131a;border:1px solid #2a2f3a;border-radius:12px;padding:12px;min-height:160px"></pre>
     </div>
-  `;
-}
-
-export function bindPublishHandlers() {
-  const msg = document.getElementById("pubMsg");
-  const out = document.getElementById("pubOut");
-  const scheduleAt = document.getElementById("scheduleAt");
-  const setMsg = (t) => (msg.textContent = t || "");
-
-  const showPayload = (action, extra = {}) => {
-    const cur = getCurrent() || {};
-    const payload = {
-      action,
-      at: extra.at || null,
-      draftId: cur.draftId || null,
-      prompt: cur.prompt || "",
-      scenesCount: Array.isArray(cur.scenes) ? cur.scenes.length : 0,
-      voiceoverEnabled: !!cur.voiceover?.enabled,
-      timestamp: new Date().toISOString(),
-    };
-    out.textContent = JSON.stringify(payload, null, 2);
-  };
-
-  document.getElementById("scheduleBtn").onclick = () => {
-    const at = scheduleAt.value || null;
-    if (!at) {
-      setMsg("Pick a schedule time first.");
-      return;
-    }
-    setMsg("Scheduled (local simulation).");
-    showPayload("schedule", { at });
-  };
-
-  document.getElementById("publishBtn").onclick = () => {
-    setMsg("Published (local simulation).");
-    showPayload("publish_now");
-  };
-
-  showPayload("ready");
+  );
 }

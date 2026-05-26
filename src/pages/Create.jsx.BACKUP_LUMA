@@ -1,0 +1,189 @@
+import React, { useMemo, useState } from "react";
+import { generateStoryboardFromScript } from "../lib/createStoryboard";
+
+const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
+
+const THEMES = [
+  { value: "cinematic", label: "Cinematic" },
+  { value: "luxury", label: "Luxury" },
+  { value: "dark", label: "Dark & Moody" },
+  { value: "motivational", label: "Motivational" },
+  { value: "documentary", label: "Documentary" },
+  { value: "business", label: "Business" },
+  { value: "viral", label: "Viral Reels" },
+  { value: "minimal", label: "Minimal" },
+  { value: "travel", label: "Travel" },
+  { value: "realestate", label: "Real Estate" }
+];
+
+export default function CreatePage() {
+  const [script, setScript] = useState("");
+  const [theme, setTheme] = useState("cinematic");
+  const [loading, setLoading] = useState(false);
+  const [progressStep, setProgressStep] = useState("Idle");
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [error, setError] = useState("");
+
+  const canGenerate = useMemo(() => script.trim().length > 0 && !loading, [script, loading]);
+
+  async function handleGenerate() {
+    if (!script.trim()) return;
+
+    setLoading(true);
+    setError("");
+    setProgressStep("Preparing script");
+    setProgressPercent(0);
+
+    try {
+      const scenes = await generateStoryboardFromScript({
+        script,
+        theme,
+        onProgress: ({ step, percent }) => {
+          setProgressStep(step);
+          setProgressPercent(percent);
+        }
+      });
+
+      const snapshot = {
+        title: "Untitled Reel",
+        ratio: "9:16",
+        scenes,
+        activeScene: scenes[0]?.id ?? 0,
+        activeMenu: "storyboard",
+        visualsTab: "stock",
+        audioTab: "music",
+        voiceoverVolume: 1,
+        musicVolume: 0.4,
+        savedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(snapshot));
+      
+    } catch (err) {
+      setError(err?.message || "Failed to generate storyboard.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", padding: "40px 24px" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto" }}>
+        <h1 style={{ fontSize: 36, marginBottom: 10 }}>Create Reel</h1>
+        <p style={{ opacity: 0.8, marginBottom: 24 }}>
+          Paste a script or story idea, choose a theme, and generate a storyboard.
+        </p>
+
+        <div style={{ display: "grid", gap: 20 }}>
+          <div>
+            <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>
+              Script or story idea
+            </label>
+            <textarea
+              value={script}
+              onChange={(e) => setScript(e.target.value)}
+              rows={14}
+              placeholder="Paste your script or story idea here..."
+              style={{
+                width: "100%",
+                padding: 16,
+                borderRadius: 14,
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "#0c1016",
+                color: "#fff",
+                resize: "vertical",
+                outline: "none"
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>
+              Visual theme
+            </label>
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              style={{
+                width: 260,
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "#0c1016",
+                color: "#fff"
+              }}
+            >
+              {THEMES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <button
+              onClick={handleGenerate}
+              disabled={!canGenerate}
+              style={{
+                padding: "14px 22px",
+                borderRadius: 12,
+                border: "none",
+                background: canGenerate ? "#00d2ff" : "#33414d",
+                color: "#041018",
+                fontWeight: 700,
+                cursor: canGenerate ? "pointer" : "not-allowed"
+              }}
+            >
+              {loading ? "Generating..." : "Generate"}
+            </button>
+          </div>
+
+          {loading && (
+            <div
+              style={{
+                padding: 16,
+                borderRadius: 14,
+                background: "#0c1016",
+                border: "1px solid rgba(255,255,255,0.08)"
+              }}
+            >
+              <div style={{ marginBottom: 10, fontWeight: 600 }}>{progressStep}</div>
+              <div
+                style={{
+                  height: 10,
+                  width: "100%",
+                  borderRadius: 999,
+                  background: "rgba(255,255,255,0.08)",
+                  overflow: "hidden"
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${progressPercent}%`,
+                    background: "#00d2ff"
+                  }}
+                />
+              </div>
+              <div style={{ marginTop: 8, opacity: 0.8 }}>{progressPercent}%</div>
+            </div>
+          )}
+
+          {error ? (
+            <div
+              style={{
+                padding: 14,
+                borderRadius: 12,
+                background: "rgba(255, 70, 70, 0.08)",
+                border: "1px solid rgba(255, 70, 70, 0.2)",
+                color: "#ff8c8c"
+              }}
+            >
+              {error}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}

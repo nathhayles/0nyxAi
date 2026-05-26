@@ -1,0 +1,113 @@
+import { useEffect, useState } from "react"
+import { supabase } from "../supabaseClient"
+import SupportPanel from "../components/SupportPanel"
+import SubscriptionPanel from "../components/SubscriptionPanel"
+import UsagePanel from "../components/UsagePanel"
+import NotificationsPanel from "../components/NotificationsPanel"
+export default function Account(){
+
+const [user,setUser] = useState(null)
+const [username,setUsername] = useState("")
+
+useEffect(()=>{
+
+async function load(){
+
+const { data } = await supabase.auth.getUser()
+
+if(!data?.user) return
+
+setUser(data.user)
+
+const { data:profile } = await supabase
+.from("users")
+.select("username")
+.eq("id",data.user.id)
+.single()
+
+if(profile){
+setUsername(profile.username)
+}
+
+}
+
+load()
+
+},[])
+
+async function updateUsername(){
+
+await supabase
+.from("users")
+.update({username})
+.eq("id",user.id)
+
+alert("Username updated")
+
+}
+
+async function changePassword(){
+
+const newPass = prompt("Enter new password")
+
+if(!newPass) return
+
+await supabase.auth.updateUser({
+password:newPass
+})
+
+alert("Password updated")
+
+}
+
+return(
+
+<div style={{
+minHeight:"100vh",
+background:"#06070a",
+color:"#fff",
+padding:40
+}}>
+
+<h1>Account</h1>
+
+<div style={{
+marginTop:30,
+maxWidth:500,
+background:"#0c1016",
+padding:30,
+borderRadius:12
+}}>
+
+<h3>Profile</h3>
+
+<input
+value={username}
+readOnly
+style={{
+width:"100%",
+padding:10,
+marginTop:10,
+borderRadius:6,
+border:"1px solid rgba(255,255,255,0.1)",
+background:"#06070a",
+color:"#fff"
+}}
+/>
+
+
+<hr style={{margin:"30px 0"}}/>
+
+<h3>Security</h3>
+
+<button onClick={changePassword}>
+Change Password
+</button>
+
+</div>
+
+</div>
+
+)
+
+}

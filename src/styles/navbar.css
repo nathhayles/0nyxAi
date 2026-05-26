@@ -1,0 +1,32 @@
+.nav{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:18px 28px;
+background:#050b18;
+}
+
+.logo{
+font-weight:700;
+color:white;
+}
+
+.menu{
+display:flex;
+gap:24px;
+align-items:center;
+}
+
+.menu a{
+color:white;
+text-decoration:none;
+}
+
+.menu button{
+background:#1e2b4a;
+border:none;
+color:white;
+padding:6px 12px;
+border-radius:6px;
+cursor:pointer;
+}

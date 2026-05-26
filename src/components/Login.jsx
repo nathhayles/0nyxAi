@@ -1,66 +1,19 @@
-import { supabase } from "../supabaseClient.js";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../supabaseClient";
 
-export default function Login() {
-  return `
-    <div class="auth">
-      <div class="auth-card">
-        <h1>Login</h1>
-        <p class="auth-subtitle">Sign in to access the app.</p>
+export default function Login({ goHome }) {
 
-        <form id="loginForm">
-          <label class="auth-label">Email</label>
-          <input
-            id="authEmail"
-            class="auth-input"
-            type="email"
-            placeholder="you@example.com"
-            required
-          />
+  const navigate = useNavigate();
 
-          <label class="auth-label">Password</label>
-          <input
-            id="authPassword"
-            class="auth-input"
-            type="password"
-            placeholder="••••••••"
-            required
-          />
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [msg, setMsg] = useState("");
 
-          <button type="submit" class="btn primary auth-btn">
-            Login
-          </button>
-        </form>
-
-        <button id="forgotBtn" class="btn secondary auth-btn">
-          Forgot password
-        </button>
-
-        <div id="authMsg" class="auth-msg"></div>
-
-        <button id="backHome" class="btn ghost auth-back">Back</button>
-      </div>
-    </div>
-  `;
-}
-
-export function bindLoginHandlers({ goHome, goApp }) {
-  const form = document.getElementById("loginForm");
-  const msg = document.getElementById("authMsg");
-
-  const setMsg = (text) => {
-    msg.textContent = text || "";
-  };
-
-  // Back button
-  document.getElementById("backHome").onclick = () => goHome();
-
-  // LOGIN (Enter key + button)
-  form.addEventListener("submit", async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    setMsg("Logging in...");
 
-    const email = document.getElementById("authEmail").value.trim();
-    const password = document.getElementById("authPassword").value;
+    setMsg("Logging in...");
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -73,12 +26,10 @@ export function bindLoginHandlers({ goHome, goApp }) {
     }
 
     setMsg("Success. Redirecting...");
-    goApp();
-  });
+    navigate("/dashboard");
+  };
 
-  // FORGOT PASSWORD (CRITICAL FIX)
-  document.getElementById("forgotBtn").onclick = async () => {
-    const email = document.getElementById("authEmail").value.trim();
+  const handleForgot = async () => {
 
     if (!email) {
       setMsg("Enter your email first.");
@@ -88,7 +39,7 @@ export function bindLoginHandlers({ goHome, goApp }) {
     setMsg("Sending recovery email...");
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "http://localhost:5173/reset-password",
+      redirectTo: "https://onyx-reelz.com/reset-password",
     });
 
     if (error) {
@@ -98,5 +49,65 @@ export function bindLoginHandlers({ goHome, goApp }) {
 
     setMsg("Recovery email sent. Check your inbox.");
   };
-}
 
+  return (
+    <div className="auth">
+      <div className="auth-card">
+
+        <h1>Login</h1>
+        <p className="auth-subtitle">Sign in to access the app.</p>
+
+        <form onSubmit={handleLogin}>
+
+          <label className="auth-label">Email</label>
+          <input
+            className="auth-input"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e)=>setEmail(e.target.value)}
+            required
+          />
+
+          <label className="auth-label">Password</label>
+          <input
+            className="auth-input"
+            type="password"
+            placeholder="••••••••"
+            value={password}
+            onChange={(e)=>setPassword(e.target.value)}
+            required
+          />
+
+          <button
+            type="submit"
+            className="btn primary auth-btn"
+          >
+            Login
+          </button>
+
+        </form>
+<p style={{marginTop:20}}>Don't have an account? <a href="/signup" style={{color:"#7eb3ff"}}>Create one</a></p>
+
+        <button
+          onClick={handleForgot}
+          className="btn secondary auth-btn"
+        >
+          Forgot password
+        </button>
+
+        <div className="auth-msg">
+          {msg}
+        </div>
+
+        <button
+          onClick={()=>goHome && goHome()}
+          className="btn ghost auth-back"
+        >
+          Back
+        </button>
+
+      </div>
+    </div>
+  );
+}

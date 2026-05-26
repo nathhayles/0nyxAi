@@ -3,7 +3,7 @@ import React from "react";
 import TopBar from "./components/TopBar.jsx";
 import Editor from "./pages/Editor.jsx";
 import Pricing from "./pages/Pricing.jsx";
-import SchedulerPage from "./pages/SchedulerPage.jsx";
+import Publish from "./pages/Publish.jsx";
 import ProjectsPage from "./pages/ProjectsPage.jsx";
 
 function Landing() {
@@ -23,7 +23,7 @@ export default function Router({ path }) {
 
   if (path === "/pricing") page = <Pricing />;
   else if (path === "/projects") page = <ProjectsPage />;
-  else if (path === "/scheduler") page = <SchedulerPage />;
+  else if (path === "/scheduler") page = <Publish />;
   else if (path.startsWith("/app/editor")) page = <EditorPage />;
   else page = <Landing />;
 

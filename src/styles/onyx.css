@@ -25,14 +25,6 @@ a {
 * {
   box-sizing: border-box;
 }
-.editorSidebar {
-  background: linear-gradient(
-    180deg,
-    var(--onyx-850),
-    var(--onyx-900)
-  );
-  border-right: 1px solid var(--border-subtle);
-}
 
 .sidebarIcon {
   color: var(--ink-400);
@@ -43,11 +35,6 @@ a {
   color: var(--ink-100);
 }
 
-.editorToolPanel {
-  background: var(--onyx-850);
-  border-right: 1px solid var(--border-subtle);
-}
-
 .toolTab {
   color: var(--ink-400);
 }
@@ -56,6 +43,7 @@ a {
   color: var(--ink-100);
   border-color: var(--accent);
 }
+
 .editorPreview {
   background:
     radial-gradient(
@@ -82,26 +70,6 @@ a {
 .editorScenes button:hover {
   border-color: var(--accent);
 }
-.editorRoot {
-  display: flex;
-  height: calc(100vh - 48px);
-}
-
-.editorSidebar {
-  flex-shrink: 0;
-}
-
-.editorToolPanel {
-  width: 320px;
-  transition: width 0.2s ease, opacity 0.2s ease;
-}
-
-.editorToolPanel.collapsed {
-  width: 0;
-  padding: 0;
-  overflow: hidden;
-  opacity: 0;
-}
 
 .collapseBtn {
   position: absolute;
@@ -119,30 +87,6 @@ a {
   justify-content: center;
 }
 
-/* --- Editor layout fix --- */
-.editorRoot {
-  height: calc(100vh - 64px); /* account for top nav */
-  width: 100vw;
-  overflow: hidden;
-}
-
-.editorToolPanel {
-  background: linear-gradient(
-    180deg,
-    var(--onyx-800),
-    var(--onyx-850)
-  );
-  color: var(--ink-100);
-  min-width: 320px;
-  max-width: 320px;
-  position: relative;
-  z-index: 10;
-}
-
-.editorToolPanel h3 {
-  color: var(--ink-100);
-}
-
 .editorPreview {
   flex: 1;
   min-height: 0;
@@ -153,52 +97,8 @@ a {
   flex-shrink: 0;
 }
 
-.editorSidebar {
-  background: var(--onyx-900);
-}
-
-.editorToolPanel.collapsed {
-  min-width: 0;
-  max-width: 0;
-}
-
-.editorToolPanel,
-.editorToolPanel * {
-  background-color: transparent;
-  color: var(--ink-100);
-}
-
-.editorToolPanel {
-  background: linear-gradient(
-    180deg,
-    var(--onyx-800),
-    var(--onyx-900)
-  );
-}
-
 .toolBody {
   color: var(--ink-400);
-}
-
-/* === HARD ONYX OVERRIDES === */
-.editorToolPanel,
-.editorToolPanel *,
-.editorToolPanel div,
-.editorToolPanel h3 {
-  background: transparent !important;
-  color: var(--ink-100) !important;
-}
-
-.editorToolPanel {
-  background: linear-gradient(
-    180deg,
-    var(--onyx-800),
-    var(--onyx-900)
-  ) !important;
-}
-
-.editorSidebar {
-  background: var(--onyx-900) !important;
 }
 
 .toolTabs {
@@ -285,13 +185,6 @@ body {
   pointer-events: auto;
 }
 
-.editorToolPanel,
-.editorSidebar,
-.editorScenes {
-  pointer-events: auto;
-  z-index: 10;
-}
-
 /* emergency click unblocking */
 * {
   pointer-events: auto;
@@ -303,11 +196,6 @@ body {
 .editorSplitter,
 .editorSplitter * {
   pointer-events: none !important;
-}
-
-/* --- HARD: ensure editor area is clickable --- */
-.editorRoot, .editorRoot * {
-  pointer-events: auto !important;
 }
 
 /* --- Preview Stage --- */
@@ -467,58 +355,6 @@ body {
   margin-left: 8px;
 }
 
-/* ===== HARD LAYOUT OVERRIDES (must win) ===== */
-.editorRoot{
-  display:flex !important;
-  flex-direction:column !important;
-  height:calc(100vh - 56px) !important;
-  min-height:0 !important;
-}
-
-.editorTopBar{
-  order:0 !important;
-  width:100% !important;
-  display:flex !important;
-  justify-content:space-between !important;
-  align-items:center !important;
-  flex:0 0 auto !important;
-}
-
-.editorBody{
-  order:1 !important;
-  flex:1 1 auto !important;
-  min-height:0 !important;
-  display:flex !important;
-  overflow:hidden !important;
-}
-
-.editorSidebar{
-  width:56px !important;
-  flex:0 0 56px !important;
-}
-
-.editorToolPanel{
-  width:320px !important;
-  flex:0 0 320px !important;
-}
-
-.editorPreview{
-  flex:1 1 auto !important;
-  min-width:0 !important;
-}
-
-.editorScenes{
-  order:2 !important;
-  width:100% !important;
-  flex:0 0 auto !important;
-  display:flex !important;
-  align-items:center !important;
-  gap:8px !important;
-  overflow-x:auto !important;
-  white-space:nowrap !important;
-  padding:10px 16px !important;
-}
-
 /* Main navigation */
 .mainNav {
   height: 56px;
@@ -658,49 +494,6 @@ body {
   display: block;
 }
 
-/* ===== HARD OVERRIDE: THUMBNAILS MUST RENDER ===== */
-.editorToolPanel .visualsGrid {
-  grid-auto-rows: 80px !important;
-}
-
-.editorToolPanel .mediaCard {
-  height: 80px !important;
-  min-height: 80px !important;
-  overflow: hidden !important;
-}
-
-.editorToolPanel .mediaCard img {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-}
-
-/* thumbnail must show */
-.editorToolPanel .visualsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  grid-auto-rows: 80px;
-  gap: 12px;
-}
-
-.editorToolPanel .mediaCard {
-  height: 80px;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #0b0f14;
-  border: 1px solid rgba(255,255,255,0.06);
-}
-
-.editorToolPanel .mediaCard img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
 /* LEFT TOOLBAR PANELS */
 .toolPanel { display: none; }
 .toolPanel.active { display: block; }
@@ -710,6 +503,3 @@ body {
   background: rgba(255,255,255,0.12);
   border-radius: 10px;
 }
-
-/* Keep tool panel from collapsing */
-.editorToolPanel { min-width: 320px; }
