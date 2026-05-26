@@ -28,6 +28,7 @@ import ScreenRecorder from "./pages/ScreenRecorder.jsx";
 import WebcamRecorder from "./pages/WebcamRecorder.jsx";
 import ViralHooks from "./pages/ViralHooks.jsx";
 import VideoToReel from "./pages/VideoToReel.jsx";
+import ProjectsPage from "./pages/ProjectsPage.jsx";
 
 import { getAuthHeaders } from "./utils/auth";
 
@@ -214,6 +215,7 @@ export default function App() {
         <Route path="/webcam-recorder" element={<ProtectedRoute><WebcamRecorder /></ProtectedRoute>} />
         <Route path="/viral-hooks" element={<ProtectedRoute><ViralHooks /></ProtectedRoute>} />
         <Route path="/video-to-reel" element={<ProtectedRoute><VideoToReel /></ProtectedRoute>} />
+        <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
 
       </Routes>
       {!isEditor && <ChatBot />}

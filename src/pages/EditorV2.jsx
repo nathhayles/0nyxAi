@@ -212,7 +212,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
       {/* Preview frame */}
       <div style={{ aspectRatio: cssRatio, height: "calc(100% - 168px)", width: "auto", maxWidth: "calc(100% - 48px)", flexShrink: 0, position: "relative", borderRadius: 16, overflow: "hidden", boxShadow: "0 32px 80px rgba(0,0,0,0.75), 0 0 0 0.5px rgba(255,255,255,0.07)", background: "linear-gradient(135deg,#0d1f38,#1a3260,#0a1628,#040d1a)" }}>
         {src
-          ? <video ref={videoRef} src={src} style={{ width: "100%", height: "100%", objectFit: "cover" }} playsInline/>
+          ? <video ref={videoRef} src={src} className="v2-preview-video" style={{ width: "100%", height: "100%", objectFit: "cover" }} playsInline/>
           : <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
               <div style={{ opacity: 0.15 }}><Glyph name="film" size={44} color="#4dd0ff"/></div>
               <span style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.18)", fontFamily: "monospace" }}>
@@ -453,6 +453,70 @@ export default function EditorV2() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [playhead, timelineState.selected, saveNow]);
+
+  // ── Playback engine (rAF master clock) ────────────────────────────────────
+  // Drives timelineState.playhead forward in real time when isPlaying=true.
+  // Also syncs the single PreviewCanvas <video> to the active scene's clip.
+  const playStartRef = useRef(null); // { wallTime, playheadAtStart }
+
+  useEffect(() => {
+    if (!isPlaying) {
+      playStartRef.current = null;
+      // Pause the preview video
+      const vid = document.querySelector(".v2-preview-video");
+      if (vid) vid.pause();
+      return;
+    }
+
+    // Stamp start position
+    playStartRef.current = {
+      wallTime:         performance.now() / 1000,
+      playheadAtStart:  timelineState.playhead ?? 0,
+    };
+
+    let rafId;
+
+    function tick() {
+      const now     = performance.now() / 1000;
+      const elapsed = now - playStartRef.current.wallTime;
+      const newPH   = playStartRef.current.playheadAtStart + elapsed;
+
+      // Stop at end
+      if (newPH >= totalSec) {
+        dispatch({ type: "SEEK", time: 0 });
+        setIsPlaying(false);
+        return;
+      }
+
+      dispatch({ type: "SEEK", time: newPH });
+
+      // Sync preview video to active scene clip on video track
+      const vid = document.querySelector(".v2-preview-video");
+      if (vid) {
+        const videoTrack = timelineState.tracks.find(t => t.key === "video");
+        const clip = videoTrack?.clips.find(c =>
+          newPH >= c.startTime && newPH < c.startTime + (c.trimEnd - c.trimStart)
+        );
+        if (clip) {
+          const localTime = newPH - clip.startTime + clip.trimStart;
+          if (Math.abs(vid.currentTime - localTime) > 0.2) {
+            vid.currentTime = localTime;
+          }
+          if (vid.paused) vid.play().catch(() => {});
+        } else {
+          if (!vid.paused) vid.pause();
+        }
+      }
+
+      rafId = requestAnimationFrame(tick);
+    }
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  // Intentionally excludes playhead from deps — clock reads elapsed wall time,
+  // not React state, to avoid restarting the loop every tick.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, totalSec]);
 
   const updateScene = useCallback((id, changes) => {
     setScenes(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
