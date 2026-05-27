@@ -205,78 +205,80 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
   }, [isPlaying, src]);
 
   return (
-    <div style={{ flex: 1, minWidth: 0, position: "relative", background: "#010306", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{
+      flex: 1, minWidth: 0, display: "flex", flexDirection: "column",
+      background: "#010306", overflow: "hidden", position: "relative",
+    }}>
       {/* Ambient glow */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse 55% 55% at 50% 42%, rgba(77,208,255,0.05), transparent 70%)" }}/>
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
+        background: "radial-gradient(ellipse 55% 55% at 50% 42%, rgba(77,208,255,0.05), transparent 70%)" }}/>
 
-      {/* Preview frame */}
-      <div style={{ aspectRatio: cssRatio, height: "calc(100% - 168px)", width: "auto", maxWidth: "calc(100% - 48px)", flexShrink: 0, position: "relative", borderRadius: 16, overflow: "hidden", boxShadow: "0 32px 80px rgba(0,0,0,0.75), 0 0 0 0.5px rgba(255,255,255,0.07)", background: "linear-gradient(135deg,#0d1f38,#1a3260,#0a1628,#040d1a)" }}>
-        {src
-          ? <video ref={videoRef} src={src} className="v2-preview-video" style={{ width: "100%", height: "100%", objectFit: "cover" }} playsInline/>
-          : <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
-              <div style={{ opacity: 0.15 }}><Glyph name="film" size={44} color="#4dd0ff"/></div>
-              <span style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.18)", fontFamily: "monospace" }}>
-                {scenes.length ? "Scene " + ((activeIdx >= 0 ? activeIdx : 0) + 1) + " of " + scenes.length : "No scenes yet"}
-              </span>
+      {/* Frame area — takes all space above dock */}
+      <div style={{
+        flex: 1, minHeight: 0, display: "flex",
+        alignItems: "center", justifyContent: "center",
+        padding: "12px 24px 8px", position: "relative", zIndex: 1,
+      }}>
+        {/* Preview frame — constrained by both axes */}
+        <div style={{
+          aspectRatio: cssRatio,
+          maxWidth: "100%",
+          maxHeight: "100%",
+          width: ratio === "9:16" ? "auto" : "100%",
+          height: ratio === "9:16" ? "100%" : "auto",
+          flexShrink: 0, position: "relative", borderRadius: 12, overflow: "hidden",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.75), 0 0 0 0.5px rgba(255,255,255,0.07)",
+          background: "linear-gradient(135deg,#0d1f38,#1a3260,#0a1628,#040d1a)",
+        }}>
+          {src
+            ? <video ref={videoRef} src={src} className="v2-preview-video"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }} playsInline/>
+            : <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                <div style={{ opacity: 0.15 }}><Glyph name="film" size={44} color="#4dd0ff"/></div>
+                <span style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.18)", fontFamily: "monospace" }}>
+                  {scenes.length ? "Scene " + ((activeIdx >= 0 ? activeIdx : 0) + 1) + " of " + scenes.length : "No scenes yet"}
+                </span>
+              </div>
+          }
+          {scene?.narration && (
+            <div style={{ position: "absolute", bottom: 8, left: 12, right: 12, textAlign: "center", fontWeight: 700, fontSize: ratio === "9:16" ? 18 : 15, color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,0.8)", letterSpacing: "-0.01em", lineHeight: 1.3, pointerEvents: "none" }}>
+              {scene.narration.split(" ").slice(0, 10).join(" ")}
             </div>
-        }
-        {scene?.narration && (
-          <div style={{ position: "absolute", bottom: 52, left: 16, right: 16, textAlign: "center", fontWeight: 700, fontSize: ratio === "9:16" ? 20 : 16, color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,0.8)", letterSpacing: "-0.01em", lineHeight: 1.3 }}>
-            {scene.narration.split(" ").slice(0, 10).join(" ")}
+          )}
+          {/* Scrub bar */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "rgba(255,255,255,0.08)", cursor: "pointer" }}
+            onClick={e => { const r = e.currentTarget.getBoundingClientRect(); onSeek(((e.clientX - r.left) / r.width) * totalSec); }}>
+            <div style={{ height: "100%", width: progress + "%", background: "#4dd0ff", transition: "width 0.1s linear" }}/>
           </div>
-        )}
-        {/* Scrub bar */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "rgba(255,255,255,0.08)", cursor: "pointer" }}
-          onClick={e => { const r = e.currentTarget.getBoundingClientRect(); onSeek(((e.clientX - r.left) / r.width) * totalSec); }}>
-          <div style={{ height: "100%", width: progress + "%", background: "#4dd0ff", transition: "width 0.1s linear" }}/>
         </div>
       </div>
 
-      {/* Scene strip */}
-      {scenes.length > 0 && (
-        <div style={{ position: "absolute", bottom: 84, left: 24, right: 24, display: "flex", gap: 6, height: 66, overflowX: "auto", alignItems: "stretch" }}
-          className="no-scroll">
-          {scenes.map((s, i) => {
-            const dur = Number(s.duration) || 3;
-            const active = s.id === activeScene;
-            return (
-              <div key={s.id} onClick={() => setActiveScene(s.id)}
-                style={{ flex: dur + " 0 auto", minWidth: 44, maxWidth: 96, borderRadius: 8, overflow: "hidden", cursor: "pointer", border: active ? "1.5px solid #4dd0ff" : "0.5px solid rgba(255,255,255,0.12)", background: s.thumbnail ? "url(" + s.thumbnail + ") center/cover" : "linear-gradient(135deg,hsl(" + (200 + i * 22) + ",45%,22%),hsl(" + (215 - i * 8) + ",35%,10%))", position: "relative", boxShadow: active ? "0 0 0 2px rgba(77,208,255,0.3)" : "none" }}>
-                <div style={{ position: "absolute", inset: 0, background: active ? "rgba(77,208,255,0.12)" : "rgba(0,0,0,0.25)" }}/>
-                <div style={{ position: "absolute", bottom: 4, left: 5, fontSize: 9, fontFamily: "monospace", color: "rgba(255,255,255,0.9)", fontWeight: 600 }}>
-                  {String(i + 1).padStart(2, "0")} · {dur}s
-                </div>
-              </div>
-            );
-          })}
-          <div onClick={() => window.dispatchEvent(new CustomEvent("onyx-add-scene"))}
-            style={{ width: 44, flexShrink: 0, borderRadius: 8, border: "1px dashed rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "rgba(255,255,255,0.3)" }}>
-            <Glyph name="plus" size={18} color="rgba(255,255,255,0.3)"/>
-          </div>
-        </div>
-      )}
-
-      {/* Floating quick-tools dock */}
-      <div style={{ position: "absolute", bottom: 22, left: "50%", transform: "translateX(-50%)", background: "var(--onyx-surface,rgba(20,26,38,0.85))", backdropFilter: "blur(28px) saturate(140%)", WebkitBackdropFilter: "blur(28px) saturate(140%)", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", borderRadius: 14, padding: "4px 6px", display: "flex", alignItems: "center", gap: 2 }}>
-        <button onClick={onPlayPause} style={{ width: 34, height: 34, borderRadius: 9, border: "none", cursor: "pointer", background: isPlaying ? "rgba(77,208,255,0.12)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Glyph name={isPlaying ? "pause" : "play"} size={16} color="#4dd0ff"/>
-        </button>
-        <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(241,245,251,0.6)", padding: "0 8px", minWidth: 88, textAlign: "center" }}>
-          {fmtTime(playhead)} / {fmtTime(totalSec)}
-        </span>
-        <div style={{ width: 0.5, height: 20, background: "rgba(255,255,255,0.1)" }}/>
-        {[
-          { icon: "scissors", label: "Split", color: "rgba(241,245,251,0.55)" },
-          { icon: "mic",      label: "VO",    color: "rgba(241,245,251,0.55)" },
-          { icon: "music",    label: "Music", color: "#b48dff" },
-          { icon: "sparkle",  label: "AI",    color: "#ffb547" },
-        ].map(t => (
-          <button key={t.label} style={{ height: 34, padding: "0 9px", borderRadius: 9, border: "none", cursor: "pointer", background: "transparent", color: t.color, display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontFamily: "inherit" }}
-            onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
-            onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-            <Glyph name={t.icon} size={13} color={t.color}/>{t.label}
+      {/* Transport dock — normal flow, never overlaps video */}
+      <div style={{
+        flexShrink: 0, display: "flex", justifyContent: "center",
+        padding: "6px 0 10px", position: "relative", zIndex: 1,
+      }}>
+        <div style={{ background: "var(--onyx-surface,rgba(20,26,38,0.85))", backdropFilter: "blur(28px) saturate(140%)", WebkitBackdropFilter: "blur(28px) saturate(140%)", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", borderRadius: 14, padding: "4px 6px", display: "flex", alignItems: "center", gap: 2 }}>
+          <button onClick={onPlayPause} style={{ width: 34, height: 34, borderRadius: 9, border: "none", cursor: "pointer", background: isPlaying ? "rgba(77,208,255,0.12)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Glyph name={isPlaying ? "pause" : "play"} size={16} color="#4dd0ff"/>
           </button>
-        ))}
+          <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(241,245,251,0.6)", padding: "0 8px", minWidth: 88, textAlign: "center" }}>
+            {fmtTime(playhead)} / {fmtTime(totalSec)}
+          </span>
+          <div style={{ width: 0.5, height: 20, background: "rgba(255,255,255,0.1)" }}/>
+          {[
+            { icon: "scissors", label: "Split", color: "rgba(241,245,251,0.55)" },
+            { icon: "mic",      label: "VO",    color: "rgba(241,245,251,0.55)" },
+            { icon: "music",    label: "Music", color: "#b48dff" },
+            { icon: "sparkle",  label: "AI",    color: "#ffb547" },
+          ].map(t => (
+            <button key={t.label} style={{ height: 34, padding: "0 9px", borderRadius: 9, border: "none", cursor: "pointer", background: "transparent", color: t.color, display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontFamily: "inherit" }}
+              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+              <Glyph name={t.icon} size={13} color={t.color}/>{t.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -348,6 +350,17 @@ function ISL({ label, value, onChange, displayVal }) {
 const µL = { fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--onyx-text-faint,rgba(241,245,251,0.40))", marginBottom: 8 };
 
 // ── Main ──────────────────────────────────────────────────────────────────────
+function probeVideoDuration(url) {
+  return new Promise(resolve => {
+    if (!url) return resolve(null);
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.onloadedmetadata = () => { const d = isFinite(v.duration) ? v.duration : null; v.src = ""; resolve(d); };
+    v.onerror = () => resolve(null);
+    v.src = url;
+  });
+}
+
 export default function EditorV2() {
   const [theme, setTheme] = useState(() => localStorage.getItem("onyx_theme") || "onyx");
   useEffect(() => {
@@ -379,6 +392,7 @@ export default function EditorV2() {
   const [aiStudioItems,    setAiStudioItems]    = useState([]);
   const [visualsTab,      setVisualsTab]      = useState("stock");
   const [audioTab,        setAudioTab]        = useState("uploads");
+  const sceneStripRef = useRef(null);
 
   const totalSec = useMemo(() => { try { return calcTotalDuration(timelineState) || 0; } catch { return 0; } }, [timelineState]);
   const playhead = timelineState.playhead ?? 0;
@@ -392,6 +406,17 @@ export default function EditorV2() {
   useEffect(() => {
     if (!activeScene && scenes.length > 0) setActiveScene(scenes[0].id);
   }, [scenes, activeScene]);
+
+  // Keep active scene card centered in the filmstrip
+  useEffect(() => {
+    const container = sceneStripRef.current;
+    if (!container) return;
+    const card = container.querySelector(`[data-scene-id="${activeScene}"]`);
+    if (!card) return;
+    const cr = container.getBoundingClientRect();
+    const dr = card.getBoundingClientRect();
+    container.scrollTo({ left: container.scrollLeft + (dr.left - cr.left) - cr.width / 2 + dr.width / 2, behavior: "smooth" });
+  }, [activeScene]);
 
   useEffect(() => { supabase.auth.getUser().then(({ data }) => { if (data?.user) setCurrentUser(data.user); }); }, []);
   useEffect(() => {
@@ -410,10 +435,12 @@ export default function EditorV2() {
         if (d?.ratio) setRatio(d.ratio);
         const raw = Array.isArray(d?.scenes) ? d.scenes : [];
         const norm = raw.map((sc, i) => ({ id: sc.id ?? i + 1, duration: 3, ...sc }));
-        setScenes(norm);
-        if (norm.length) setActiveScene(norm[0].id);
-        if (norm.length) dispatch({ type: "IMPORT_SCENES", scenes: norm, globalMusicUrl: d.globalMusicUrl || "", globalMusicName: d.globalMusicName || "" });
-        setSavedMsg(norm.length ? "Loaded" : "Loaded (no scenes)");
+        const probed = await Promise.all(norm.map(sc => probeVideoDuration(sc.mediaUrl || sc.url || "")));
+        const normWithDur = norm.map((sc, i) => probed[i] != null ? { ...sc, videoDuration: probed[i] } : sc);
+        setScenes(normWithDur);
+        if (normWithDur.length) setActiveScene(normWithDur[0].id);
+        if (normWithDur.length) dispatch({ type: "IMPORT_SCENES", scenes: normWithDur, globalMusicUrl: d.globalMusicUrl || "", globalMusicName: d.globalMusicName || "" });
+        setSavedMsg(normWithDur.length ? "Loaded" : "Loaded (no scenes)");
       } catch (e) { console.error("[EditorV2] load", e); }
     }
     load();
@@ -592,13 +619,63 @@ export default function EditorV2() {
           </Sidebar>
 
           {/* Preview */}
-          <PreviewCanvas
-            scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene}
-            isPlaying={isPlaying} playhead={playhead} totalSec={totalSec||1}
-            onSeek={t => dispatch({type:"SEEK",time:Math.max(0,t)})}
-            onPlayPause={() => setIsPlaying(p=>!p)}
-            ratio={ratio}
-          />
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+            <PreviewCanvas
+              scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene}
+              isPlaying={isPlaying} playhead={playhead} totalSec={totalSec||1}
+              onSeek={t => dispatch({type:"SEEK",time:Math.max(0,t)})}
+              onPlayPause={() => setIsPlaying(p=>!p)}
+              ratio={ratio}
+            />
+            {/* Scene strip — centered filmstrip below preview */}
+            {scenes.length > 0 && (() => {
+              const [rW, rH] = (RATIOS[ratio]?.css || "9/16").split("/").map(Number);
+              const cardH = 48;
+              const cardW = Math.max(27, Math.round(cardH * rW / rH));
+              return (
+                <div ref={sceneStripRef} style={{
+                  height: 64, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: "0 16px", overflowX: "auto",
+                  background: "rgba(0,0,0,0.45)",
+                  borderTop: "0.5px solid rgba(255,255,255,0.07)",
+                  borderBottom: "0.5px solid rgba(255,255,255,0.07)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                    {scenes.map((s, i) => {
+                      const active = s.id === activeScene;
+                      return (
+                        <div key={s.id} data-scene-id={s.id} onClick={() => setActiveScene(s.id)}
+                          style={{
+                            width: cardW, height: cardH, flexShrink: 0,
+                            borderRadius: 5, overflow: "hidden", cursor: "pointer",
+                            border: active ? "1.5px solid #4dd0ff" : "0.5px solid rgba(255,255,255,0.12)",
+                            background: s.thumbnail ? `url(${s.thumbnail}) center/cover no-repeat` : `linear-gradient(135deg,hsl(${200 + i * 22},45%,22%),hsl(${215 - i * 8},35%,10%))`,
+                            position: "relative",
+                            boxShadow: active ? "0 0 0 2px rgba(77,208,255,0.22), 0 2px 10px rgba(0,0,0,0.7)" : "0 1px 5px rgba(0,0,0,0.55)",
+                            transition: "border-color 0.15s, box-shadow 0.15s",
+                          }}>
+                          <div style={{ position: "absolute", inset: 0, background: active ? "rgba(77,208,255,0.1)" : "rgba(0,0,0,0.18)" }}/>
+                          <div style={{ position: "absolute", bottom: 2, left: 3, fontSize: 8, fontFamily: "monospace", color: "rgba(255,255,255,0.85)", fontWeight: 700, lineHeight: 1 }}>
+                            {String(i + 1).padStart(2, "0")}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div onClick={() => window.dispatchEvent(new CustomEvent("onyx-add-scene"))}
+                      style={{
+                        width: Math.max(cardW, 32), height: cardH, flexShrink: 0,
+                        borderRadius: 5, border: "1px dashed rgba(255,255,255,0.15)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        cursor: "pointer", background: "rgba(255,255,255,0.02)",
+                      }}>
+                      <Glyph name="plus" size={14} color="rgba(255,255,255,0.3)"/>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
 
           {/* Inspector */}
           <Inspector
