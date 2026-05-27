@@ -491,9 +491,9 @@ export default function EditorV2() {
   useEffect(() => {
     if (!isPlaying) {
       playStartRef.current = null;
-      // Pause the preview video
+      // Pause the preview video and restore visibility
       const vid = document.querySelector(".v2-preview-video");
-      if (vid) vid.pause();
+      if (vid) { vid.pause(); vid.style.visibility = "visible"; }
       return;
     }
 
@@ -527,6 +527,7 @@ export default function EditorV2() {
           newPH >= c.startTime && newPH < c.startTime + (c.trimEnd - c.trimStart)
         );
         if (clip) {
+          vid.style.visibility = "visible";
           const localTime = newPH - clip.startTime + clip.trimStart;
           if (Math.abs(vid.currentTime - localTime) > 0.2) {
             vid.currentTime = localTime;
@@ -534,6 +535,8 @@ export default function EditorV2() {
           if (vid.paused) vid.play().catch(() => {});
         } else {
           if (!vid.paused) vid.pause();
+          vid.currentTime = 0;
+          vid.style.visibility = "hidden";
         }
       }
 
