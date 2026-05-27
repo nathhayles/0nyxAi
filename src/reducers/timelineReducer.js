@@ -93,7 +93,9 @@ export function importFromScenes(scenes = [], globalMusicUrl = "", globalMusicNa
   const musicTrack     = state.tracks.find(t => t.key === "music");
 
   scenes.forEach((sc, i) => {
-    const dur = Number(sc.videoDuration) || Number(sc.duration) || 3;
+    // Use sc.duration (intended play time) for clip width and cursor.
+    // sc.videoDuration is the full file length — used only by trim handles.
+    const dur = Number(sc.duration) || 3;
     const clip = makeClip({
       trackKey:        "video",
       startTime:       cursor,

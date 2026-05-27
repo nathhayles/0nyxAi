@@ -521,23 +521,24 @@ export default function EditorV2() {
 
       // Sync preview video to active scene clip on video track
       const vid = document.querySelector(".v2-preview-video");
-      if (vid) {
-        const videoTrack = timelineState.tracks.find(t => t.key === "video");
-        const clip = videoTrack?.clips.find(c =>
-          newPH >= c.startTime && newPH < c.startTime + (c.trimEnd - c.trimStart)
-        );
-        if (clip) {
+      const videoTrack = timelineState.tracks.find(t => t.key === "video");
+      const clip = videoTrack?.clips.find(c =>
+        newPH >= c.startTime && newPH < c.startTime + (c.trimEnd - c.trimStart)
+      );
+      if (clip) {
+        // Switch active scene if playhead crossed into a different clip
+        if (clip.sceneId != null) setActiveScene(clip.sceneId);
+        if (vid) {
           vid.style.visibility = "visible";
           const localTime = newPH - clip.startTime + clip.trimStart;
           if (Math.abs(vid.currentTime - localTime) > 0.2) {
             vid.currentTime = localTime;
           }
           if (vid.paused) vid.play().catch(() => {});
-        } else {
-          if (!vid.paused) vid.pause();
-          vid.currentTime = 0;
-          vid.style.visibility = "hidden";
         }
+      } else {
+        // Gap between clips — blank the preview
+        if (vid) { vid.pause(); vid.currentTime = 0; vid.style.visibility = "hidden"; }
       }
 
       rafId = requestAnimationFrame(tick);
