@@ -487,6 +487,8 @@ export default function EditorV2() {
   // Drives timelineState.playhead forward in real time when isPlaying=true.
   // Also syncs the single PreviewCanvas <video> to the active scene's clip.
   const playStartRef = useRef(null); // { wallTime, playheadAtStart }
+  const tracksRef = useRef(timelineState.tracks);
+  useEffect(() => { tracksRef.current = timelineState.tracks; }, [timelineState.tracks]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -521,7 +523,7 @@ export default function EditorV2() {
 
       // Sync preview video to active scene clip on video track
       const vid = document.querySelector(".v2-preview-video");
-      const videoTrack = timelineState.tracks.find(t => t.key === "video");
+      const videoTrack = tracksRef.current.find(t => t.key === "video");
       const clip = videoTrack?.clips.find(c =>
         newPH >= c.startTime && newPH < c.startTime + (c.trimEnd - c.trimStart)
       );
