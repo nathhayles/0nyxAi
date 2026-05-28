@@ -101,6 +101,83 @@ function TrialBanner() {
   );
 }
 
+function MobileBanner() {
+  const [isMobile, setIsMobile] = useState(false);
+  const [dismissed, setDismissed] = useState(() => sessionStorage.getItem("mobile_banner_dismissed") === "1");
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const dismiss = () => {
+    sessionStorage.setItem("mobile_banner_dismissed", "1");
+    setDismissed(true);
+  };
+
+  const submitEmail = async (e) => {
+    e.preventDefault();
+    if (!email) return;
+    try {
+      await supabase.from("mobile_waitlist").insert({ email });
+    } catch {}
+    setSubmitted(true);
+    setTimeout(dismiss, 1800);
+  };
+
+  if (!isMobile || dismissed) return null;
+
+  return (
+    <div style={{ background: "linear-gradient(135deg, #1a0a2e, #0f2040)", borderBottom: "2px solid rgba(251,191,36,0.4)", padding: "14px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, fontSize: 13, color: "#e2e8f0", textAlign: "center", position: "relative" }}>
+      <button onClick={dismiss} style={{ position: "absolute", top: 10, right: 14, background: "none", border: "none", color: "#94a3b8", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>×</button>
+      <span style={{ fontSize: 20 }}>💻</span>
+      <p style={{ margin: 0, lineHeight: 1.5 }}>
+        <strong style={{ color: "#fbbf24" }}>Best on desktop.</strong> This app is optimised for larger screens — some features may be limited on mobile. You can still sign up and access your account here.
+      </p>
+      {!showEmailForm && !submitted && (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+          <button
+            onClick={() => setShowEmailForm(true)}
+            style={{ padding: "7px 16px", borderRadius: 6, border: "1px solid #fbbf24", background: "rgba(251,191,36,0.15)", color: "#fbbf24", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+          >
+            Notify me when mobile launches
+          </button>
+          <button
+            onClick={dismiss}
+            style={{ padding: "7px 16px", borderRadius: 6, border: "1px solid rgba(148,163,184,0.4)", background: "transparent", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}
+          >
+            Continue anyway
+          </button>
+        </div>
+      )}
+      {showEmailForm && !submitted && (
+        <form onSubmit={submitEmail} style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="your@email.com"
+            required
+            style={{ padding: "7px 12px", borderRadius: 6, border: "1px solid rgba(251,191,36,0.4)", background: "rgba(255,255,255,0.07)", color: "#e2e8f0", fontSize: 13, minWidth: 200 }}
+          />
+          <button type="submit" style={{ padding: "7px 14px", borderRadius: 6, border: "none", background: "#fbbf24", color: "#0f172a", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+            Notify me
+          </button>
+          <button type="button" onClick={dismiss} style={{ padding: "7px 12px", borderRadius: 6, border: "1px solid rgba(148,163,184,0.3)", background: "transparent", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}>
+            Skip
+          </button>
+        </form>
+      )}
+      {submitted && <p style={{ margin: 0, color: "#4ade80", fontWeight: 600 }}>You're on the list! We'll let you know when mobile launches.</p>}
+    </div>
+  );
+}
+
 export default function App() {
   const location = useLocation();
   const isEditor = location.pathname.startsWith("/editor") || location.pathname.startsWith("/preview");
@@ -125,6 +202,7 @@ export default function App() {
     <div>
       {!isEditor && location.pathname !== "/" && <Navbar session={session} />}
       {!isEditor && location.pathname !== "/" && <TrialBanner />}
+      {!isEditor && <MobileBanner />}
 
       <Routes>
 
