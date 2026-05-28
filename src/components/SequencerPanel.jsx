@@ -190,7 +190,7 @@ function ClipBlock({ clip, zoom, selected, onSelect, onTrimStart, onTrimEnd, onD
           <svg width={Math.max(0, w - 28)} height={28} viewBox={`0 0 ${w - 28} 28`}
             style={{ position: "absolute", left: 10, opacity: 0.3, pointerEvents: "none" }}>
             {Array.from({ length: Math.floor((w - 28) / 3) }).map((_, i) => {
-              const h = 4 + Math.sin(i * 0.7 + clip.id.charCodeAt(2)) * 8 + Math.random() * 6;
+              const h = Math.max(1, 4 + Math.sin(i * 0.7 + clip.id.charCodeAt(2)) * 8 + Math.random() * 6);
               return <rect key={i} x={i * 3} y={(28 - h) / 2} width={2} height={h}
                 fill={trackColor} rx={1}/>;
             })}

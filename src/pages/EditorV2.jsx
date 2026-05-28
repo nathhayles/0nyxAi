@@ -390,6 +390,11 @@ export default function EditorV2() {
   const [globalMusicName,  setGlobalMusicName]  = useState("");
   const [musicVolume,      setMusicVolume]      = useState(60);
   const [voiceoverVolume,  setVoiceoverVolume]  = useState(100);
+  const audioElementsRef   = useRef(new Map());   // clipId → HTMLAudioElement
+  const musicVolumeRef     = useRef(60);
+  const voiceoverVolumeRef = useRef(100);
+  useEffect(() => { musicVolumeRef.current     = musicVolume / 100;     }, [musicVolume]);
+  useEffect(() => { voiceoverVolumeRef.current = voiceoverVolume / 100; }, [voiceoverVolume]);
   const [creditBalance,    setCreditBalance]    = useState(null);
   const [currentUser,      setCurrentUser]      = useState(null);
   const [brand,            setBrand]            = useState({});
@@ -519,6 +524,8 @@ export default function EditorV2() {
       // Pause the preview video and restore visibility
       const vid = document.querySelector(".v2-preview-video");
       if (vid) { vid.pause(); vid.style.visibility = "visible"; }
+      // Pause all audio elements
+      audioElementsRef.current.forEach(el => el.pause());
       return;
     }
 
@@ -572,6 +579,36 @@ export default function EditorV2() {
         if (vid) { vid.pause(); vid.currentTime = 0; vid.style.visibility = "hidden"; }
       }
 
+      // Sync audio tracks (voiceover, music, sfx)
+      const AUDIO_TRACKS = [
+        { key: "voiceover", volRef: voiceoverVolumeRef },
+        { key: "music",     volRef: musicVolumeRef },
+        { key: "sfx",       volRef: musicVolumeRef },
+      ];
+      AUDIO_TRACKS.forEach(({ key, volRef }) => {
+        const track = tracksRef.current.find(t => t.key === key);
+        if (!track) return;
+        track.clips.forEach(clip => {
+          if (!clip.src) return;
+          const clipDur = clip.trimEnd - clip.trimStart;
+          const inRange = newPH >= clip.startTime && newPH < clip.startTime + clipDur;
+          let el = audioElementsRef.current.get(clip.id);
+          if (!el) {
+            el = new Audio(clip.src);
+            el.preload = "auto";
+            audioElementsRef.current.set(clip.id, el);
+          }
+          el.volume = Math.min(1, Math.max(0, volRef.current));
+          if (inRange) {
+            const localTime = newPH - clip.startTime + clip.trimStart;
+            if (Math.abs(el.currentTime - localTime) > 0.25) el.currentTime = localTime;
+            if (el.paused) el.play().catch(() => {});
+          } else {
+            if (!el.paused) el.pause();
+          }
+        });
+      });
+
       rafId = requestAnimationFrame(tick);
     }
 
@@ -581,6 +618,22 @@ export default function EditorV2() {
   // not React state, to avoid restarting the loop every tick.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, totalSec]);
+
+  // Keep audioElementsRef pool in sync — dispose elements whose clip no longer exists
+  useEffect(() => {
+    const liveIds = new Set(
+      timelineState.tracks
+        .flatMap(t => t.clips)
+        .filter(c => c.src)
+        .map(c => c.id)
+    );
+    audioElementsRef.current.forEach((el, id) => {
+      if (!liveIds.has(id)) {
+        el.pause();
+        audioElementsRef.current.delete(id);
+      }
+    });
+  }, [timelineState.tracks]);
 
   const updateScene = useCallback((id, changes) => {
     setScenes(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
