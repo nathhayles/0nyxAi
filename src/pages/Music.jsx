@@ -288,6 +288,7 @@ export default function Music() {
   // Fadr Tools state
   const [fadrFile, setFadrFile] = useState(null);
   const [fadrFileUrl, setFadrFileUrl] = useState("");
+  const [fadrDuration, setFadrDuration] = useState(null); // seconds, null = unknown
   const [fadrOp, setFadrOp] = useState(null); // "analyse" | "stems" | "instrumental"
   const [fadrLoading, setFadrLoading] = useState(false);
   const [fadrResult, setFadrResult] = useState(null);
@@ -913,7 +914,15 @@ export default function Music() {
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: "block", padding: "28px 20px", borderRadius: 12, border: `2px dashed ${fadrFile ? "#7c3aed" : "#1f2937"}`, background: fadrFile ? "rgba(124,58,237,0.06)" : "#0c1016", cursor: "pointer", textAlign: "center" }}>
                 <input type="file" accept="audio/*" style={{ display: "none" }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) { setFadrFile(f); setFadrResult(null); setFadrError(""); } }} />
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    setFadrFile(f); setFadrResult(null); setFadrError(""); setFadrDuration(null);
+                    const audio = new Audio();
+                    const url = URL.createObjectURL(f);
+                    audio.addEventListener("loadedmetadata", () => { setFadrDuration(audio.duration); URL.revokeObjectURL(url); });
+                    audio.src = url;
+                  }} />
                 {fadrFile
                   ? <><div style={{ fontSize: 24, marginBottom: 6 }}>🎵</div><div style={{ fontSize: 13, fontWeight: 600, color: "#c4b5fd" }}>{fadrFile.name}</div><div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>{(fadrFile.size / 1024 / 1024).toFixed(1)} MB — click to change</div></>
                   : <><div style={{ fontSize: 28, marginBottom: 6 }}>📂</div><div style={{ fontSize: 13, color: "#475569" }}>Click to upload an audio file</div><div style={{ fontSize: 11, color: "#334155", marginTop: 4 }}>MP3 · WAV · M4A · OGG</div></>}
@@ -929,50 +938,68 @@ export default function Music() {
             <input
               type="url" placeholder="https://example.com/track.mp3"
               value={fadrFileUrl}
-              onChange={e => { setFadrFileUrl(e.target.value); if (e.target.value) { setFadrFile(null); setFadrResult(null); setFadrError(""); } }}
+              onChange={e => { setFadrFileUrl(e.target.value); if (e.target.value) { setFadrFile(null); setFadrDuration(null); setFadrResult(null); setFadrError(""); } }}
               style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, background: "#0c1016", border: "1px solid #1f2937", color: "#f1f5f9", fontSize: 13, marginBottom: 24, outline: "none" }}
             />
 
             {/* Operation buttons */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 24 }}>
-              {[
-                { op: "analyse",       icon: "🔍", label: "Analyse",       desc: "BPM + key + mode" },
-                { op: "instrumental",  icon: "🎸", label: "Remove Vocals",  desc: "Returns instrumental stem" },
-                { op: "stems",         icon: "🥁", label: "Separate Stems", desc: "Vocals, drums, bass, melody" },
-              ].map(({ op, icon, label, desc }) => (
-                <button key={op}
-                  disabled={fadrLoading || (!fadrFile && !fadrFileUrl.trim())}
-                  onClick={async () => {
-                    if (!fadrFile && !fadrFileUrl.trim()) return;
-                    setFadrOp(op);
-                    setFadrLoading(true);
-                    setFadrResult(null);
-                    setFadrError("");
-                    try {
-                      const token = session?.access_token;
-                      const form = new FormData();
-                      if (fadrFile) { form.append("file", fadrFile); }
-                      else { form.append("url", fadrFileUrl.trim()); }
-                      const res = await fetch(`/api/music/fadr/${op}`, {
-                        method: "POST",
-                        headers: token ? { Authorization: `Bearer ${token}` } : {},
-                        body: form,
-                      });
-                      const data = await res.json();
-                      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-                      setFadrResult({ op, ...data });
-                    } catch (e) {
-                      setFadrError(e.message);
-                    } finally {
-                      setFadrLoading(false);
-                    }
-                  }}
-                  style={{ padding: "14px 10px", borderRadius: 10, border: `1px solid ${fadrOp === op && fadrLoading ? "#7c3aed" : "#1f2937"}`, background: fadrOp === op && fadrLoading ? "rgba(124,58,237,0.12)" : "#0c1016", color: (!fadrFile && !fadrFileUrl.trim()) ? "#334155" : "#e2e8f0", cursor: (!fadrFile && !fadrFileUrl.trim()) ? "default" : "pointer", textAlign: "center" }}>
-                  <div style={{ fontSize: 22, marginBottom: 5 }}>{icon}</div>
-                  <div style={{ fontSize: 12, fontWeight: 600 }}>{label}</div>
-                  <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{desc}</div>
-                </button>
-              ))}
+              {(() => {
+                const durationMin = fadrDuration != null ? fadrDuration / 60 : null;
+                const creditCost = {
+                  analyse:      2,
+                  instrumental: durationMin != null ? Math.ceil(durationMin * 5) : null,
+                  stems:        durationMin != null ? Math.ceil(durationMin * 8) : null,
+                };
+                const hasSource = fadrFile || fadrFileUrl.trim();
+                return [
+                  { op: "analyse",      icon: "🔍", label: "Analyse",        desc: "BPM + key + mode" },
+                  { op: "instrumental", icon: "🎸", label: "Remove Vocals",   desc: "Returns instrumental stem" },
+                  { op: "stems",        icon: "🥁", label: "Separate Stems",  desc: "Vocals, drums, bass, melody" },
+                ].map(({ op, icon, label, desc }) => {
+                  const cost = creditCost[op];
+                  const costLabel = !hasSource ? null
+                    : cost != null ? `${cost} credit${cost !== 1 ? "s" : ""}`
+                    : op === "analyse" ? "2 credits"
+                    : `≥${op === "instrumental" ? 5 : 8} credits`;
+                  return (
+                    <button key={op}
+                      disabled={fadrLoading || !hasSource}
+                      onClick={async () => {
+                        if (!hasSource) return;
+                        setFadrOp(op);
+                        setFadrLoading(true);
+                        setFadrResult(null);
+                        setFadrError("");
+                        try {
+                          const token = session?.access_token;
+                          const form = new FormData();
+                          if (fadrFile) { form.append("file", fadrFile); }
+                          else { form.append("url", fadrFileUrl.trim()); }
+                          if (fadrDuration != null) form.append("durationSeconds", String(fadrDuration));
+                          const res = await fetch(`/api/music/fadr/${op}`, {
+                            method: "POST",
+                            headers: token ? { Authorization: `Bearer ${token}` } : {},
+                            body: form,
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+                          setFadrResult({ op, ...data });
+                        } catch (e) {
+                          setFadrError(e.message);
+                        } finally {
+                          setFadrLoading(false);
+                        }
+                      }}
+                      style={{ padding: "14px 10px", borderRadius: 10, border: `1px solid ${fadrOp === op && fadrLoading ? "#7c3aed" : "#1f2937"}`, background: fadrOp === op && fadrLoading ? "rgba(124,58,237,0.12)" : "#0c1016", color: !hasSource ? "#334155" : "#e2e8f0", cursor: !hasSource ? "default" : "pointer", textAlign: "center" }}>
+                      <div style={{ fontSize: 22, marginBottom: 5 }}>{icon}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{label}</div>
+                      <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{desc}</div>
+                      {costLabel && <div style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: "#a78bfa", background: "rgba(124,58,237,0.15)", borderRadius: 4, padding: "2px 6px", display: "inline-block" }}>{costLabel}</div>}
+                    </button>
+                  );
+                });
+              })()}
             </div>
 
             {/* Loading state */}

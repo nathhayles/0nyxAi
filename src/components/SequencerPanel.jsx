@@ -7,6 +7,7 @@ import React, {
   useRef, useState, useCallback, useEffect, useMemo, useLayoutEffect,
 } from "react";
 import HelpTooltip from "./HelpTooltip.jsx";
+import { getAuthHeaders } from "../utils/auth.js";
 import {
   TRACK_TYPES, makeClip, totalDuration, snapTargets, nearestSnap,
 } from "../reducers/timelineReducer.js";
@@ -390,12 +391,22 @@ export default function SequencerPanel({
   const selected  = timelineState.selected;
   const snapEnabled = timelineState.snap;
 
+  // ── BPM detection state ───────────────────────────────────────────────────
+  const [beatBpm,     setBeatBpm]     = useState(null);
+  const [bpmAnalysing, setBpmAnalysing] = useState(false);
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollLeft = scrollLeft;
   }, [scrollLeft]);
 
-  const snapTgts = useMemo(() =>
-    snapTargets(timelineState, selected), [timelineState, selected]);
+  const snapTgts = useMemo(() => {
+    const base = snapTargets(timelineState, selected);
+    if (!beatBpm || !snapEnabled) return base;
+    const interval = 60 / beatBpm;
+    const grid = [];
+    for (let t = 0; t <= totalSec + 4; t += interval) grid.push(t);
+    return [...new Set([...base, ...grid])].sort((a, b) => a - b);
+  }, [timelineState, selected, beatBpm, snapEnabled, totalSec]);
 
   // ── auto-scroll playhead into view ────────────────────────────────────────
   useEffect(() => {
@@ -426,6 +437,24 @@ export default function SequencerPanel({
       volume:    100,
     });
     dispatch({ type: "ADD_CLIP", clip });
+
+    // Background BPM detection when a music clip is dropped
+    const src = media.url || media.mediaUrl;
+    if (trackKey === "music" && src) {
+      setBeatBpm(null);
+      setBpmAnalysing(true);
+      (async () => {
+        try {
+          const headers = await getAuthHeaders();
+          const form = new FormData();
+          form.append("url", src);
+          const res = await fetch("/api/music/fadr/analyse", { method: "POST", headers, body: form });
+          const data = await res.json();
+          if (res.ok && data.bpm) setBeatBpm(Math.round(data.bpm));
+        } catch { /* silent — BPM snap is a bonus, not critical */ }
+        finally { setBpmAnalysing(false); }
+      })();
+    }
   }, [dispatch]);
 
   // ── scrub ─────────────────────────────────────────────────────────────────
@@ -537,6 +566,23 @@ export default function SequencerPanel({
         <span style={{ fontSize: 10.5, fontFamily: "monospace", color: "#4dd0ff", letterSpacing: "0.04em" }}>
           {fmtTime(playhead)} / {fmtTime(totalSec)}
         </span>
+
+        <Div/>
+
+        {/* BPM indicator — shown after music clip drop + Fadr analysis */}
+        {bpmAnalysing && (
+          <span style={{ fontSize: 9.5, color: "rgba(167,139,250,0.6)", fontFamily: "monospace" }} title="Detecting BPM…">
+            ♩ …
+          </span>
+        )}
+        {beatBpm && !bpmAnalysing && (
+          <span
+            onClick={() => setBeatBpm(null)}
+            title={`Beat grid: ${beatBpm} BPM — click to clear`}
+            style={{ fontSize: 9.5, fontFamily: "monospace", color: "#a78bfa", background: "rgba(124,58,237,0.18)", border: "0.5px solid rgba(124,58,237,0.4)", borderRadius: 4, padding: "1px 6px", cursor: "pointer" }}>
+            ♩ {beatBpm}
+          </span>
+        )}
 
         <Div/>
 
