@@ -815,6 +815,14 @@ export default function EditorV2() {
           ratio={ratio} onRatioChange={setRatio}
           onExport={async () => {
               try {
+                // Check trial/plan gate same as V1
+                const meRes = await fetch("/api/user/me", { headers: await getAuthHeaders() });
+                const me = await meRes.json();
+                if (me.trial_expired || (!me.has_paid_plan && !me.is_trial)) {
+                  setSavedMsg("Upgrade to export");
+                  alert("Please upgrade your plan to export reels.");
+                  return;
+                }
                 const h = await getAuthHeaders();
                 h["Content-Type"] = "application/json";
                 const payload = buildV2RenderRequest({
@@ -823,20 +831,31 @@ export default function EditorV2() {
                 });
                 if (!payload.scenes.length) { alert("No scenes to export."); return; }
                 setSavedMsg("Rendering…");
+                // Show visible rendering indicator
+                const ind = document.createElement("div");
+                ind.id = "v2-render-indicator";
+                ind.textContent = "⏳ Rendering your reel… this may take a minute";
+                ind.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(6,9,15,0.95);border:1px solid rgba(77,208,255,0.4);color:#4dd0ff;padding:20px 32px;border-radius:12px;font-weight:600;font-size:14px;z-index:99999;box-shadow:0 8px 40px rgba(0,0,0,0.6);text-align:center;";
+                document.body.appendChild(ind);
                 const res = await fetch("/api/render", { method: "POST", headers: h, body: JSON.stringify(payload) });
                 const data = await res.json();
-                const dlUrl = data.url || data.downloadUrl;
-                if (dlUrl) {
+                const rawUrl = data.url || data.downloadUrl;
+                if (rawUrl) {
                   setSavedMsg("✓ Downloading…");
+                  // Make absolute — backend returns relative /storage/renders/...
+                  const dlUrl = rawUrl.startsWith("http") ? rawUrl : window.location.origin + rawUrl;
                   const a = document.createElement("a");
                   a.href = dlUrl;
-                  a.download = (title || "reel") + ".mp4";
+                  a.download = (title || "reel").replace(/[^a-z0-9]/gi, "_") + ".mp4";
+                  a.rel = "noopener";
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
                   setTimeout(() => setSavedMsg("Saved"), 3000);
+                  document.getElementById("v2-render-indicator")?.remove();
                 } else {
                   setSavedMsg("✗ Render failed");
+                  document.getElementById("v2-render-indicator")?.remove();
                   console.error("[Export]", data);
                 }
               } catch(e) {
