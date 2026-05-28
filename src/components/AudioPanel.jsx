@@ -229,10 +229,6 @@ export default function AudioPanel({
     if (!prefs || typeof prefs !== "object") return;
 
     if (typeof prefs.voiceTier === "string") setVoiceTier(prefs.voiceTier);
-    if (typeof prefs.language === "string") setLanguage(prefs.language);
-    if (typeof prefs.gender === "string") setGender(prefs.gender);
-    if (typeof prefs.accent === "string") setAccent(prefs.accent);
-    if (typeof prefs.search === "string") setSearch(prefs.search);
     if (typeof prefs.speed === "number") setSpeed(prefs.speed);
     if (typeof prefs.selectedVoiceId === "string") setSelectedVoiceId(prefs.selectedVoiceId);
   }, []);
@@ -504,6 +500,17 @@ export default function AudioPanel({
       return;
     }
     const url = `/api/tts/voice-preview?voice_id=${voice.id}`;
+    // Create and start audio immediately to preserve user gesture context
+    const audio = new Audio();
+    audio.volume = Math.max(0, Math.min(1, (voiceoverVolume || 100) / 100));
+    previewAudioRef.current = audio;
+    audio.onended = () => { setPlayingPreviewId(null); previewAudioRef.current = null; };
+    audio.onerror = () => { setPlayingPreviewId(null); setPreviewLoadingId(null); previewAudioRef.current = null; };
+    audio.src = url;
+    audio.play().catch(() => { setPlayingPreviewId(null); setPreviewLoadingId(null); });
+    setPlayingPreviewId(voice.id);
+    setPreviewLoadingId(null);
+    return;
     setPreviewLoadingId(voice.id);
     setPlayingPreviewId(null);
     try {
@@ -700,7 +707,7 @@ export default function AudioPanel({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
               <label style={{ fontSize: 12, color: "#b0b8c8" }}>
                 Tier
-                <select value={voiceTier} onChange={(e) => setVoiceTier(e.target.value)}
+                <select value={voiceTier} onChange={(e) => { setVoiceTier(e.target.value); setLanguage("all"); setGender("all"); setAccent("all"); setSearch(""); }}
                   style={{ width: "100%", marginTop: 6, background: "#0f141b", border: "1px solid #2b3442", color: "#e2e8f0", borderRadius: 4, padding: "7px 10px", fontSize: 12 }}>
                   <option value="standard">Standard</option>
                   <option value="premium">Premium</option>

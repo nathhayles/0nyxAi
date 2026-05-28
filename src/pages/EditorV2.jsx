@@ -392,8 +392,6 @@ export default function EditorV2() {
   const [aiStudioItems,    setAiStudioItems]    = useState([]);
   const [visualsTab,      setVisualsTab]      = useState("stock");
   const [audioTab,        setAudioTab]        = useState("uploads");
-  const sceneStripRef = useRef(null);
-
   const totalSec = useMemo(() => { try { return calcTotalDuration(timelineState) || 0; } catch { return 0; } }, [timelineState]);
   const playhead = timelineState.playhead ?? 0;
   const playbackProgress = totalSec > 0 ? playhead / totalSec : 0;
@@ -407,15 +405,19 @@ export default function EditorV2() {
     if (!activeScene && scenes.length > 0) setActiveScene(scenes[0].id);
   }, [scenes, activeScene]);
 
-  // Keep active scene card centered in the filmstrip
+  // Scene strip — keep active card centered
+  const stripRef = useRef(null);
+  const cardRefs = useRef({});
   useEffect(() => {
-    const container = sceneStripRef.current;
-    if (!container) return;
-    const card = container.querySelector(`[data-scene-id="${activeScene}"]`);
-    if (!card) return;
-    const cr = container.getBoundingClientRect();
-    const dr = card.getBoundingClientRect();
-    container.scrollTo({ left: container.scrollLeft + (dr.left - cr.left) - cr.width / 2 + dr.width / 2, behavior: "smooth" });
+    const container = stripRef.current;
+    if (!container || !activeScene) return;
+    requestAnimationFrame(() => {
+      const card = cardRefs.current[activeScene];
+      if (!card) return;
+      const cr = container.getBoundingClientRect();
+      const dr = card.getBoundingClientRect();
+      container.scrollTo({ left: container.scrollLeft + (dr.left - cr.left) - cr.width / 2 + dr.width / 2, behavior: "smooth" });
+    });
   }, [activeScene]);
 
   useEffect(() => { supabase.auth.getUser().then(({ data }) => { if (data?.user) setCurrentUser(data.user); }); }, []);
@@ -489,6 +491,8 @@ export default function EditorV2() {
   const playStartRef = useRef(null); // { wallTime, playheadAtStart }
   const tracksRef = useRef(timelineState.tracks);
   useEffect(() => { tracksRef.current = timelineState.tracks; }, [timelineState.tracks]);
+  const activeSceneRef = useRef(activeScene);
+  useEffect(() => { activeSceneRef.current = activeScene; }, [activeScene]);
 
   useEffect(() => {
     if (!isPlaying) {
@@ -529,9 +533,15 @@ export default function EditorV2() {
       );
       if (clip) {
         // Switch active scene if playhead crossed into a different clip
-        if (clip.sceneId != null) setActiveScene(clip.sceneId);
+        if (clip.sceneId != null && clip.sceneId !== activeSceneRef.current) {
+          setActiveScene(clip.sceneId);
+          if (vid) {
+            vid.style.visibility = "hidden";
+            vid.oncanplay = () => { vid.style.visibility = "visible"; vid.oncanplay = null; };
+          }
+        }
         if (vid) {
-          vid.style.visibility = "visible";
+          if (!vid.oncanplay) vid.style.visibility = "visible";
           const localTime = newPH - clip.startTime + clip.trimStart;
           if (Math.abs(vid.currentTime - localTime) > 0.2) {
             vid.currentTime = localTime;
@@ -639,19 +649,20 @@ export default function EditorV2() {
               const cardH = 48;
               const cardW = Math.max(27, Math.round(cardH * rW / rH));
               return (
-                <div ref={sceneStripRef} style={{
+                <div ref={stripRef} style={{
                   height: 64, flexShrink: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   padding: "0 16px", overflowX: "auto",
                   background: "rgba(0,0,0,0.45)",
                   borderTop: "0.5px solid rgba(255,255,255,0.07)",
                   borderBottom: "0.5px solid rgba(255,255,255,0.07)",
+                  scrollbarWidth: "none",
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
                     {scenes.map((s, i) => {
                       const active = s.id === activeScene;
                       return (
-                        <div key={s.id} data-scene-id={s.id} onClick={() => setActiveScene(s.id)}
+                        <div key={s.id} data-scene-id={s.id} ref={el => { if (el) cardRefs.current[s.id] = el; else delete cardRefs.current[s.id]; }} onClick={() => setActiveScene(s.id)}
                           style={{
                             width: cardW, height: cardH, flexShrink: 0,
                             borderRadius: 5, overflow: "hidden", cursor: "pointer",
