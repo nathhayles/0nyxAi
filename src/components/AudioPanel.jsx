@@ -1,6 +1,7 @@
 // AudioPanel.jsx
 console.log("AUDIO PANEL FIX LIVE");
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import HelpTooltip from "./HelpTooltip.jsx";
 import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 
@@ -602,6 +603,7 @@ export default function AudioPanel({
           <button className={tab === "uploads" ? "active" : ""} onClick={() => setTab("uploads")}>Uploads</button>
           <button className={tab === "stock" ? "active" : ""} onClick={() => setTab("stock")}>Stock</button>
           <button className={tab === "voiceovers" ? "active" : ""} onClick={() => setTab("voiceovers")}>AI Voice</button>
+          <HelpTooltip topic="voiceover" />
         </div>
       </div>
 

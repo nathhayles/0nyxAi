@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
+import HelpTooltip from "../components/HelpTooltip.jsx";
 
 const TOOLS = [
   {
@@ -162,9 +163,12 @@ export default function Studio() {
 
         {/* Header */}
         <div style={{ marginBottom: 48 }}>
-          <h1 style={{ fontSize: 40, fontWeight: 800, margin: "0 0 8px", background: "linear-gradient(90deg, #fff, #94a3b8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            What will you create today{user?.email ? `, ${user.email.split("@")[0]}` : ""}?
-          </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, background: "linear-gradient(90deg, #fff, #94a3b8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              What will you create today{user?.email ? `, ${user.email.split("@")[0]}` : ""}?
+            </h1>
+            <HelpTooltip topic="create" />
+          </div>
           <p style={{ fontSize: 16, color: "#94a3b8", margin: 0 }}>
             Choose a tool to get started
           </p>

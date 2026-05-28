@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Navigate, Link, useNavigate } from "react-router-dom";
+import HelpTooltip from "../components/HelpTooltip.jsx";
 import { generateStoryboardFromScript } from "../lib/createStoryboard";
 import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
@@ -286,7 +287,10 @@ export default function CreatePage() {
           ← Back to Projects
         </Link>
 
-        <h1 style={{ fontSize: 36, marginBottom: 10 }}>Create Reel</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <h1 style={{ fontSize: 36, margin: 0 }}>Create Reel</h1>
+          <HelpTooltip topic="create" />
+        </div>
 
         <p style={{ opacity: 0.8, marginBottom: 10 }}>
           Paste a script or story idea, configure settings, and generate your storyboard.

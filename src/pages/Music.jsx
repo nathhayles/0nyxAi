@@ -285,6 +285,14 @@ export default function Music() {
   const [appliedId, setAppliedId] = useState(null);
   const [applyMsg, setApplyMsg] = useState("");
 
+  // Fadr Tools state
+  const [fadrFile, setFadrFile] = useState(null);
+  const [fadrFileUrl, setFadrFileUrl] = useState("");
+  const [fadrOp, setFadrOp] = useState(null); // "analyse" | "stems" | "instrumental"
+  const [fadrLoading, setFadrLoading] = useState(false);
+  const [fadrResult, setFadrResult] = useState(null);
+  const [fadrError, setFadrError] = useState("");
+
   // Reel picker
   const [showReelPicker, setShowReelPicker] = useState(false);
   const [reels, setReels] = useState([]);
@@ -628,9 +636,12 @@ export default function Music() {
 
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
-          <h1 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 8px", background: "linear-gradient(90deg, #ec4899, #8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-            🎵 Music Studio
-          </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0, background: "linear-gradient(90deg, #ec4899, #8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              🎵 Music Studio
+            </h1>
+            <HelpTooltip topic="music" />
+          </div>
           <p style={{ color: "#94a3b8", margin: 0, fontSize: 14 }}>
             Generate original AI music, browse the library, or hum into your mic to create a song.
           </p>
@@ -652,6 +663,7 @@ export default function Music() {
             { id: "generate", label: "✨ Generate" },
             { id: "library", label: "🎧 Music Library" },
             { id: "saved", label: "💾 My Music" },
+            { id: "tools", label: "🎛️ Tools" },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               style={{ flex: 1, padding: "9px 8px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: tab === t.id ? "#1f2937" : "transparent", border: "none", color: tab === t.id ? "#f1f5f9" : "#475569", transition: "all 0.15s" }}>
@@ -884,6 +896,166 @@ export default function Music() {
                 <TrackCard key={track.id} track={track} onApply={applyTrack} appliedId={appliedId} savedIds={savedIds} onRename={renameTrack} />
               ))}
             </div>
+          </div>
+        )}
+
+        {/* ======================== TOOLS TAB (Fadr) ======================== */}
+        {tab === "tools" && (
+          <div style={{ maxWidth: 720, margin: "0 auto" }}>
+
+            {/* Header */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Audio Tools — powered by Fadr</div>
+              <div style={{ fontSize: 13, color: "#64748b" }}>Upload a track (MP3, WAV, M4A) to detect BPM &amp; key, remove vocals, or separate stems. ~$0.05/min of audio.</div>
+            </div>
+
+            {/* File drop zone */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", padding: "28px 20px", borderRadius: 12, border: `2px dashed ${fadrFile ? "#7c3aed" : "#1f2937"}`, background: fadrFile ? "rgba(124,58,237,0.06)" : "#0c1016", cursor: "pointer", textAlign: "center" }}>
+                <input type="file" accept="audio/*" style={{ display: "none" }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) { setFadrFile(f); setFadrResult(null); setFadrError(""); } }} />
+                {fadrFile
+                  ? <><div style={{ fontSize: 24, marginBottom: 6 }}>🎵</div><div style={{ fontSize: 13, fontWeight: 600, color: "#c4b5fd" }}>{fadrFile.name}</div><div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>{(fadrFile.size / 1024 / 1024).toFixed(1)} MB — click to change</div></>
+                  : <><div style={{ fontSize: 28, marginBottom: 6 }}>📂</div><div style={{ fontSize: 13, color: "#475569" }}>Click to upload an audio file</div><div style={{ fontSize: 11, color: "#334155", marginTop: 4 }}>MP3 · WAV · M4A · OGG</div></>}
+              </label>
+            </div>
+
+            {/* Or paste URL */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 24, alignItems: "center" }}>
+              <div style={{ flex: 1, height: 1, background: "#1f2937" }}/>
+              <span style={{ fontSize: 11, color: "#374151" }}>or paste URL</span>
+              <div style={{ flex: 1, height: 1, background: "#1f2937" }}/>
+            </div>
+            <input
+              type="url" placeholder="https://example.com/track.mp3"
+              value={fadrFileUrl}
+              onChange={e => { setFadrFileUrl(e.target.value); if (e.target.value) { setFadrFile(null); setFadrResult(null); setFadrError(""); } }}
+              style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, background: "#0c1016", border: "1px solid #1f2937", color: "#f1f5f9", fontSize: 13, marginBottom: 24, outline: "none" }}
+            />
+
+            {/* Operation buttons */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 24 }}>
+              {[
+                { op: "analyse",       icon: "🔍", label: "Analyse",       desc: "BPM + key + mode" },
+                { op: "instrumental",  icon: "🎸", label: "Remove Vocals",  desc: "Returns instrumental stem" },
+                { op: "stems",         icon: "🥁", label: "Separate Stems", desc: "Vocals, drums, bass, melody" },
+              ].map(({ op, icon, label, desc }) => (
+                <button key={op}
+                  disabled={fadrLoading || (!fadrFile && !fadrFileUrl.trim())}
+                  onClick={async () => {
+                    if (!fadrFile && !fadrFileUrl.trim()) return;
+                    setFadrOp(op);
+                    setFadrLoading(true);
+                    setFadrResult(null);
+                    setFadrError("");
+                    try {
+                      const token = session?.access_token;
+                      const form = new FormData();
+                      if (fadrFile) { form.append("file", fadrFile); }
+                      else { form.append("url", fadrFileUrl.trim()); }
+                      const res = await fetch(`/api/music/fadr/${op}`, {
+                        method: "POST",
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        body: form,
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+                      setFadrResult({ op, ...data });
+                    } catch (e) {
+                      setFadrError(e.message);
+                    } finally {
+                      setFadrLoading(false);
+                    }
+                  }}
+                  style={{ padding: "14px 10px", borderRadius: 10, border: `1px solid ${fadrOp === op && fadrLoading ? "#7c3aed" : "#1f2937"}`, background: fadrOp === op && fadrLoading ? "rgba(124,58,237,0.12)" : "#0c1016", color: (!fadrFile && !fadrFileUrl.trim()) ? "#334155" : "#e2e8f0", cursor: (!fadrFile && !fadrFileUrl.trim()) ? "default" : "pointer", textAlign: "center" }}>
+                  <div style={{ fontSize: 22, marginBottom: 5 }}>{icon}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>{label}</div>
+                  <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{desc}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Loading state */}
+            {fadrLoading && (
+              <div style={{ textAlign: "center", padding: "40px 20px", border: "1px solid #1f2937", borderRadius: 12, background: "#0c1016" }}>
+                <div style={{ fontSize: 28, marginBottom: 10 }}>⏳</div>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Processing…</div>
+                <div style={{ fontSize: 12, color: "#64748b" }}>Fadr is analysing your audio. This usually takes 30–90 seconds.</div>
+              </div>
+            )}
+
+            {/* Error */}
+            {fadrError && !fadrLoading && (
+              <div style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", fontSize: 13 }}>
+                ⚠️ {fadrError}
+              </div>
+            )}
+
+            {/* Results */}
+            {fadrResult && !fadrLoading && (
+              <div style={{ padding: 20, borderRadius: 12, background: "#0c1016", border: "1px solid #1f2937" }}>
+
+                {/* BPM / Key always shown when present */}
+                {(fadrResult.bpm || fadrResult.key) && (
+                  <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+                    {fadrResult.bpm && <span style={{ padding: "4px 12px", borderRadius: 999, background: "rgba(124,58,237,0.15)", border: "1px solid rgba(124,58,237,0.35)", color: "#c4b5fd", fontSize: 12, fontWeight: 600 }}>♩ {Math.round(fadrResult.bpm)} BPM</span>}
+                    {fadrResult.key && <span style={{ padding: "4px 12px", borderRadius: 999, background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd", fontSize: 12, fontWeight: 600 }}>🎵 {fadrResult.key}{fadrResult.mode ? ` ${fadrResult.mode}` : ""}</span>}
+                  </div>
+                )}
+
+                {/* Instrumental download */}
+                {fadrResult.op === "instrumental" && fadrResult.instrumental && (
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>🎸 Instrumental (vocals removed)</div>
+                    <a href={fadrResult.instrumental} download target="_blank" rel="noreferrer"
+                      style={{ padding: "7px 16px", borderRadius: 8, background: "#7c3aed", border: "none", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", cursor: "pointer" }}>
+                      ⬇️ Download
+                    </a>
+                    <button onClick={() => applyTrackToEditor({ url: fadrResult.instrumental, name: "Instrumental", title: "Instrumental" })}
+                      style={{ padding: "7px 16px", borderRadius: 8, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#86efac", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                      Apply to Reel
+                    </button>
+                  </div>
+                )}
+
+                {/* Stems downloads */}
+                {fadrResult.op === "stems" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {[
+                      { key: "vocals",       icon: "🎤", label: "Vocals" },
+                      { key: "drums",        icon: "🥁", label: "Drums" },
+                      { key: "bass",         icon: "🎸", label: "Bass" },
+                      { key: "melody",       icon: "🎹", label: "Melody" },
+                      { key: "instrumental", icon: "🎵", label: "Instrumental" },
+                    ].filter(s => fadrResult[s.key]).map(s => (
+                      <div key={s.key} style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 14px", borderRadius: 8, background: "#0f1623", border: "1px solid #1f2937" }}>
+                        <span style={{ fontSize: 16 }}>{s.icon}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{s.label}</span>
+                        <a href={fadrResult[s.key]} download target="_blank" rel="noreferrer"
+                          style={{ padding: "5px 14px", borderRadius: 7, background: "#7c3aed", color: "#fff", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>
+                          ⬇️ Download
+                        </a>
+                        {(s.key === "instrumental" || s.key === "vocals") && (
+                          <button onClick={() => applyTrackToEditor({ url: fadrResult[s.key], name: s.label, title: s.label })}
+                            style={{ padding: "5px 14px", borderRadius: 7, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#86efac", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                            Apply to Reel
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {Object.values({ vocals: fadrResult.vocals, drums: fadrResult.drums, bass: fadrResult.bass, melody: fadrResult.melody, instrumental: fadrResult.instrumental }).every(v => !v) && (
+                      <div style={{ fontSize: 13, color: "#64748b", textAlign: "center", padding: 16 }}>Stem URLs not returned — check server logs for raw response shape.</div>
+                    )}
+                  </div>
+                )}
+
+                {fadrResult.op === "analyse" && !fadrResult.bpm && !fadrResult.key && (
+                  <div style={{ fontSize: 13, color: "#64748b", textAlign: "center", padding: 12 }}>No BPM/key data returned. The file may be too short or in an unsupported format.</div>
+                )}
+
+              </div>
+            )}
+
           </div>
         )}
 

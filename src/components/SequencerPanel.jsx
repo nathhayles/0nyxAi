@@ -6,6 +6,7 @@
 import React, {
   useRef, useState, useCallback, useEffect, useMemo, useLayoutEffect,
 } from "react";
+import HelpTooltip from "./HelpTooltip.jsx";
 import {
   TRACK_TYPES, makeClip, totalDuration, snapTargets, nearestSnap,
 } from "../reducers/timelineReducer.js";
@@ -549,6 +550,8 @@ export default function SequencerPanel({
             <span style={{ fontSize: 11 }}>{label}</span>
           </TlBtn>
         ))}
+
+        <HelpTooltip topic="sequencer" />
 
         {selectedClip && (
           <>

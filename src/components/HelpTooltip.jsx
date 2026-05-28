@@ -48,6 +48,74 @@ const CONTENT = {
       }
     ]
   },
+  sequencer: {
+    title: "Sequencer — How It Works",
+    sections: [
+      { heading: "Tracks", body: "VIDEO — your main scene clips. B-ROLL — overlays and cutaways. FX — visual effects. VOICE — AI voiceover per scene. MUSIC — background music. SFX — sound effects." },
+      { heading: "Clip editing", items: ["Drag clips left/right to reposition", "Drag the edges to trim", "Click a clip to select it, then use the toolbar to split, delete or mute", "Ctrl+scroll to zoom in/out on the timeline"] },
+      { heading: "Height modes", body: "Use the ▁▄█ buttons in the toolbar to collapse, resize or expand the sequencer to fit your workflow." },
+      { heading: "Keyboard shortcuts", items: ["Space — play/pause", "[ — toggle sidebar", "] — toggle inspector", "Cmd+S — save now", "Delete — remove selected clip"] },
+    ],
+  },
+  inspector: {
+    title: "Inspector Panel",
+    sections: [
+      { heading: "What it does", body: "The Inspector shows properties for the currently selected scene. Changes here update the scene in real time." },
+      { heading: "Sliders", items: ["Duration — how long the scene plays (3s–10s recommended)", "Motion — controls camera movement speed in AI-generated clips", "Brightness / Contrast / Saturation — basic colour grade applied at render time"] },
+      { heading: "Style chips", body: "Cinematic, Studio, Documentary etc. are prompt style hints used when regenerating AI scenes." },
+      { heading: "Regenerate", body: "Re-runs the AI video generation for this scene using the current prompt. Costs 10 credits per scene." },
+    ],
+  },
+  export: {
+    title: "Exporting Your Reel",
+    sections: [
+      { heading: "What Export does", body: "Renders all your scenes, voiceover, music and captions into a single MP4 file and downloads it to your device." },
+      { heading: "Requirements", items: ["A paid plan or active trial is required to export", "Your reel must have at least one scene with a video clip", "Rendering usually takes 30–120 seconds depending on reel length"] },
+      { heading: "After export", body: "Use Share to copy a preview link, or Publish to post directly to YouTube, LinkedIn and more." },
+    ],
+  },
+  voiceover: {
+    title: "AI Voiceover Guide",
+    sections: [
+      { heading: "Standard voices (free)", body: "Powered by OpenAI TTS. 6 voices: Alloy, Echo, Fable, Onyx, Nova, Shimmer. No credits required — counts against your monthly TTS minutes." },
+      { heading: "Premium voices (credits)", body: "Powered by ElevenLabs. 11+ voices with accents, emotions and styles. Costs 3 credits per scene." },
+      { heading: "How to apply", items: ["Select a voice with the ▶ preview button", "Click Apply to generate voiceover for the active scene", "The clip appears on the VOICE track in the sequencer", "Re-apply after editing the narration text to regenerate"] },
+    ],
+  },
+  broll: {
+    title: "B-Roll & Media",
+    sections: [
+      { heading: "What is B-Roll?", body: "B-Roll sits on the B-ROLL track and plays over your main video — useful for cutaways, product shots, text overlays and images." },
+      { heading: "Adding B-Roll", items: ["Go to Media tab → Uploads or Stock", "Drag a clip or image onto the B-ROLL track in the sequencer", "Position and trim it to cover the moment you want"] },
+      { heading: "Stock footage", body: "Pexels stock clips are always free. AI Studio clips (Kling AI generated) cost 10 credits per scene." },
+    ],
+  },
+  music: {
+    title: "Music Studio Guide",
+    sections: [
+      { heading: "Stock music", body: "Free Pixabay tracks. Search by mood or genre, preview, then click Apply to add to your reel's MUSIC track." },
+      { heading: "AI-generated music", body: "Powered by Google Lyria. Generate a track matched to your reel's mood. Costs 10 credits and returns 2 track options." },
+      { heading: "Score My Reel", body: "Auto-generates music perfectly matched to your reel's content and length. 10 credits. Find it in the Music Studio page." },
+      { heading: "Volume", body: "Use the Music Volume slider in the Audio panel to balance music against voiceover. 20–40% is usually right when voiceover is present." },
+    ],
+  },
+  create: {
+    title: "Creating a Reel",
+    sections: [
+      { heading: "How it works", body: "Type what your business does → AI writes a script → generates scenes with voiceover, visuals and music → ready to publish. Under 10 minutes." },
+      { heading: "Creation flows", items: ["Create — AI script from scratch", "Video to Reel — upload your own clips", "URL to Video — paste a webpage URL", "Audio to Video — upload a podcast or audio file"] },
+      { heading: "Tips", items: ["Be specific in your brief — mention your niche, tone and audience", "Use 3–5 scenes for social media, 8–12 for longer content", "Choose 9:16 for TikTok/Reels/Shorts, 16:9 for YouTube"] },
+    ],
+  },
+  dashboard: {
+    title: "Your Projects Dashboard",
+    sections: [
+      { heading: "Reels", body: "All your saved reels appear here. Click any reel to open it in the editor. Use folders to organise campaigns." },
+      { heading: "Status badges", items: ["Draft — saved but not published", "Rendered — ready to download or share", "Published — live on at least one platform"] },
+      { heading: "Quick actions", body: "The ··· menu on each reel card lets you rename, duplicate, move to folder or delete." },
+    ],
+  },
+
   lyria: {
     title: "Google Lyria — Music Prompting Guide",
     sections: [

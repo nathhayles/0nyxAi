@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
 import PaywallModal from "../components/PaywallModal.jsx";
+import HelpTooltip from "../components/HelpTooltip.jsx";
 
 const ADMIN_UUIDS = ["d7c733c8-31dd-49b2-bffa-655b7d13ce11"];
 
@@ -105,7 +106,10 @@ export default function Dashboard() {
     <div style={{minHeight:"100vh",color:"#fff",padding:"40px"}} onClick={() => setMenuOpen(null)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
         <div>
-          <h1 style={{margin:0,fontSize:28}}>Your Projects</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h1 style={{margin:0,fontSize:28}}>Your Projects</h1>
+            <HelpTooltip topic="dashboard" />
+          </div>
           <p style={{margin:"6px 0 0",opacity:0.4,fontSize:13}}>Drafts, scheduled videos, and published reels.</p>
         </div>
         <button onClick={() => window.location.href="/studio"} style={{background:"#2563eb",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:14}}>+ New Reel</button>

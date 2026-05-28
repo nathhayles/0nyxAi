@@ -19,6 +19,7 @@ import YouTubePublishModal from "../components/YouTubePublishModal.jsx";
 import AudioPanel from "../components/AudioPanelBoundary.jsx";
 import AvatarPanel from "../components/AvatarPanel.jsx";
 import BrandingPanel from "../components/BrandingPanel.jsx";
+import HelpTooltip from "../components/HelpTooltip.jsx";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -181,6 +182,7 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, ratio, onR
       <button onClick={onExport} style={{ background: "linear-gradient(180deg,#5edcff,#2db8ee)", border: "0.5px solid rgba(255,255,255,0.45)", borderRadius: 8, padding: "6px 14px", cursor: "pointer", color: "#06121b", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 1px 0 rgba(255,255,255,0.4) inset,0 4px 14px rgba(77,208,255,0.35)" }}>
         <Glyph name="download" size={13} color="#06121b"/> Export
       </button>
+      <HelpTooltip topic="export" />
     </div>
   );
 }
@@ -310,6 +312,7 @@ function Inspector({ scene, onUpdateScene, onRegenerate, generating, open }) {
           <Glyph name="sparkle" size={13} color="#1f1100" stroke={2}/>
         </div>
         <span style={{ fontSize: 13, fontWeight: 600 }}>Inspector</span>
+        <HelpTooltip topic="inspector" />
         <div style={{ flex: 1 }}/>
         {scene && <span style={{ padding: "2px 8px", borderRadius: 999, fontSize: 9.5, background: "rgba(77,208,255,0.1)", border: "0.5px solid rgba(77,208,255,0.3)", color: "#4dd0ff" }}>Scene {(scene._index ?? 0) + 1}</span>}
       </div>
