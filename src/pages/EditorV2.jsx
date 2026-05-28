@@ -17,6 +17,8 @@ import TextPanel        from "../components/TextPanel.jsx";
 import ElementsPanel    from "../components/ElementsPanel.jsx";
 import YouTubePublishModal from "../components/YouTubePublishModal.jsx";
 import AudioPanel from "../components/AudioPanelBoundary.jsx";
+import AvatarPanel from "../components/AvatarPanel.jsx";
+import BrandingPanel from "../components/BrandingPanel.jsx";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -67,6 +69,8 @@ const SIDEBAR_TABS = [
   { key: "text",       label: "Text",    icon: "T"   },
   { key: "elements",   label: "FX",      icon: "✨"  },
   { key: "styles",     label: "Style",   icon: "🎨"  },
+  { key: "branding",   label: "Brand",   icon: "🏷"  },
+  { key: "avatar",     label: "Avatar",  icon: "🧑"  },
 ];
 
 // ── Glyph (SVG icons) ─────────────────────────────────────────────────────────
@@ -389,6 +393,9 @@ export default function EditorV2() {
   const [creditBalance,    setCreditBalance]    = useState(null);
   const [currentUser,      setCurrentUser]      = useState(null);
   const [brand,            setBrand]            = useState({});
+  const [brands,           setBrands]           = useState([]);
+  const [selectedBrandId,  setSelectedBrandId]  = useState(null);
+  const [reelVideoUrl,     setReelVideoUrl]     = useState(null);
   const [aiStudioItems,    setAiStudioItems]    = useState([]);
   const [visualsTab,      setVisualsTab]      = useState("stock");
   const [audioTab,        setAudioTab]        = useState("uploads");
@@ -424,6 +431,18 @@ export default function EditorV2() {
   useEffect(() => {
     if (!currentUser) return;
     getAuthHeaders().then(h => fetch("/api/credits/balance", { headers: h })).then(r => r.json()).then(d => setCreditBalance(d.balance ?? d.credits ?? null)).catch(() => {});
+    async function loadBrands() {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch("/api/brands", { headers });
+        const data = await res.json();
+        const list = data.brands || [];
+        setBrands(list);
+        const def = list.find(b => b.is_default) || list[0];
+        if (def) { setSelectedBrandId(def.id); setBrand(b => ({ ...b, ...def })); }
+      } catch (e) { console.error("Brands load error:", e); }
+    }
+    loadBrands();
   }, [currentUser]);
 
   useEffect(() => {
@@ -632,6 +651,60 @@ export default function EditorV2() {
             {activeMenu==="text"       && <Safe name="TextPanel"><TextPanel scenes={scenes} activeScene={activeScene} onUpdateScene={updateScene}/></Safe>}
             {activeMenu==="elements"   && <Safe name="ElementsPanel"><ElementsPanel scenes={scenes} activeScene={activeScene} onUpdateScene={updateScene}/></Safe>}
             {activeMenu==="styles"     && <Safe name="StylesPanel"><StylesPanel scenes={scenes} activeScene={activeScene} onUpdateScene={updateScene}/></Safe>}
+            {activeMenu==="branding"   && <Safe name="BrandingPanel">
+              <div style={{ padding: "16px 12px", display: "flex", flexDirection: "column", gap: 12, height: "100%", overflowY: "auto" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.5px" }}>Brand Kit</div>
+                {brands.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "#475569", textAlign: "center", padding: "16px 0" }}>
+                    No brands set up yet.<br />
+                    <a href="/branding" style={{ color: "#7c3aed", fontSize: 12, marginTop: 8, display: "inline-block" }}>Create a brand →</a>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {brands.map(b => {
+                      const isActive = selectedBrandId === b.id;
+                      return (
+                        <div key={b.id} onClick={() => { setSelectedBrandId(b.id); setBrand(prev => ({ ...prev, ...b })); }} style={{
+                          padding: "10px 12px", borderRadius: 8, cursor: "pointer",
+                          background: isActive ? "rgba(124,58,237,0.15)" : "#111827",
+                          border: isActive ? "1px solid rgba(124,58,237,0.4)" : "1px solid #1f2937",
+                          display: "flex", alignItems: "center", gap: 8,
+                        }}>
+                          <div style={{ width: 10, height: 10, borderRadius: "50%", background: b.primary_color || "#6366f1", flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? "#a78bfa" : "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {b.brand_label || b.brand_name || "Unnamed"}
+                            </div>
+                            {b.is_default && <div style={{ fontSize: 9, color: "#4ade80", fontWeight: 700 }}>★ DEFAULT</div>}
+                          </div>
+                          {isActive && <span style={{ color: "#a78bfa", fontSize: 14 }}>✓</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <a href="/branding" style={{
+                  display: "block", padding: "8px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  textAlign: "center", textDecoration: "none",
+                  background: "transparent", border: "1px dashed #2b3442", color: "#7c3aed", marginTop: 4,
+                }}>✏️ Edit Brands →</a>
+                {selectedBrandId && brand.default_avatar_id && (
+                  <div style={{ padding: "8px 10px", borderRadius: 6, fontSize: 11, color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
+                    ⚡ This brand uses an avatar preset. Credits will be charged per scene when rendered.
+                  </div>
+                )}
+                {selectedBrandId && brand.default_voice_provider === "elevenlabs" && (
+                  <div style={{ padding: "8px 10px", borderRadius: 6, fontSize: 11, color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
+                    ⚡ This brand uses a premium voice. Credits will be charged per scene when rendered.
+                  </div>
+                )}
+              </div>
+            </Safe>}
+            {activeMenu==="avatar"     && <Safe name="AvatarPanel"><AvatarPanel
+              scenes={scenes} setScenes={setScenes}
+              activeScene={activeScene}
+              reelVideoUrl={reelVideoUrl}
+            /></Safe>}
           </Sidebar>
 
           {/* Preview */}
