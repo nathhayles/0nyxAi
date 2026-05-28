@@ -499,7 +499,10 @@ export default function AudioPanel({
       setPlayingPreviewId(null);
       return;
     }
-    const url = `/api/tts/voice-preview?voice_id=${voice.id}`;
+    const isStandard = voice.provider === "openai" || voiceTier === "standard";
+    const url = isStandard
+      ? `/api/tts/voice-preview-standard?voice=${encodeURIComponent(voice.id)}`
+      : `/api/tts/voice-preview?voice_id=${voice.id}`;
     // Create and start audio immediately to preserve user gesture context
     const audio = new Audio();
     audio.volume = Math.max(0, Math.min(1, (voiceoverVolume || 100) / 100));

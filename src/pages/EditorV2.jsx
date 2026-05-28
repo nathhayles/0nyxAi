@@ -177,7 +177,7 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, ratio, onR
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 function Sidebar({ open, activeTab, setActiveTab, children }) {
   return (
-    <div style={{ width: open ? 264 : 48, flexShrink: 0, borderRight: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", background: "var(--panel-bg,rgba(6,9,15,0.5))", display: "flex", flexDirection: "column", transition: "width 0.2s ease", overflow: "hidden", position: "relative", zIndex: 10 }}>
+    <div style={{ width: open ? 320 : 48, flexShrink: 0, borderRight: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", background: "var(--panel-bg,rgba(6,9,15,0.5))", display: "flex", flexDirection: "column", transition: "width 0.2s ease", overflow: "hidden", position: "relative", zIndex: 10 }}>
       {/* Icon rail */}
       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 48, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 8, gap: 2, borderRight: open ? "0.5px solid var(--onyx-hairline,rgba(255,255,255,0.07))" : "none" }}>
         {SIDEBAR_TABS.map(t => (
@@ -293,7 +293,7 @@ function Inspector({ scene, onUpdateScene, onRegenerate, generating, open }) {
   const [motionVal, setMotionVal] = useState(50);
   if (!open) return null;
   return (
-    <div style={{ width: 280, flexShrink: 0, borderLeft: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", background: "var(--panel-bg,rgba(6,9,15,0.5))", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ width: open ? 288 : 0, flexShrink: 0, borderLeft: open ? "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))" : "none", background: "var(--panel-bg,rgba(6,9,15,0.5))", display: "flex", flexDirection: "column", overflow: "hidden", transition: "width 0.2s ease" }}>
       <div style={{ padding: "11px 14px", borderBottom: "0.5px solid var(--onyx-hairline,rgba(255,255,255,0.07))", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
         <div style={{ width: 26, height: 26, borderRadius: 7, background: "linear-gradient(135deg,#ffcb6f,#c97a20)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Glyph name="sparkle" size={13} color="#1f1100" stroke={2}/>
@@ -765,6 +765,17 @@ export default function EditorV2() {
                 </div>
               );
             })()}
+          </div>
+
+          {/* Inspector toggle tab */}
+          <div onClick={() => setInspectorOpen(p => !p)} style={{
+            width: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", background: "var(--panel-bg,rgba(6,9,15,0.5))",
+            borderLeft: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))",
+            color: "var(--onyx-text-faint,rgba(241,245,251,0.40))", fontSize: 10,
+            userSelect: "none",
+          }} title={inspectorOpen ? "Hide inspector (])" : "Show inspector (])"}>
+            {inspectorOpen ? "›" : "‹"}
           </div>
 
           {/* Inspector */}
