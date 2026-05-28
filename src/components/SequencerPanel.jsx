@@ -358,6 +358,12 @@ function TrackRow({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
 }
 
 // ─── Main SequencerPanel ──────────────────────────────────────────────────────
+const SEQUENCER_HEIGHTS = {
+  mini:   36,   // toolbar only — collapsed
+  normal: 220,  // ~4 tracks visible, scrollable
+  full:   420,  // all tracks + breathing room
+};
+
 export default function SequencerPanel({
   timelineState, dispatch,
   isPlaying, onPlayPause,
@@ -370,7 +376,9 @@ export default function SequencerPanel({
 }) {
   const [zoom, setZoom]           = useState(DEFAULT_ZOOM);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [seqSize, setSeqSize]       = useState("normal"); // 'mini' | 'normal' | 'full'
   const scrollRef   = useRef(null);
+  const headerRef   = useRef(null);
   const containerRef = useRef(null);
 
   const totalSec  = useMemo(() => {
@@ -475,9 +483,10 @@ export default function SequencerPanel({
         background: "#080c14",
         borderTop: "0.5px solid rgba(255,255,255,0.1)",
         userSelect: "none",
-        height: 260,
+        height: SEQUENCER_HEIGHTS[seqSize],
         flexShrink: 0,
         position: "relative",
+        transition: "height 0.2s ease",
       }}
     >
       {/* ── top toolbar ──────────────────────────────────────────────────── */}
@@ -528,6 +537,19 @@ export default function SequencerPanel({
           {fmtTime(playhead)} / {fmtTime(totalSec)}
         </span>
 
+        <Div/>
+
+        {/* Height controls */}
+        {[
+          { key: "mini",   label: "▁", title: "Collapse sequencer" },
+          { key: "normal", label: "▄", title: "Normal view" },
+          { key: "full",   label: "█", title: "Full view" },
+        ].map(({ key, label, title }) => (
+          <TlBtn key={key} onClick={() => setSeqSize(key)} active={seqSize === key} title={title}>
+            <span style={{ fontSize: 11 }}>{label}</span>
+          </TlBtn>
+        ))}
+
         {selectedClip && (
           <>
             <Div/>
@@ -549,11 +571,12 @@ export default function SequencerPanel({
       {/* ── body: header col + scrollable area ──────────────────────────── */}
       <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
 
-        {/* Track header column */}
-        <div style={{
+        {/* Track header column — scrolls in sync with track area */}
+        <div ref={headerRef} style={{
           width: HEADER_W, flexShrink: 0,
           borderRight: "0.5px solid rgba(255,255,255,0.08)",
           display: "flex", flexDirection: "column",
+          overflowY: "hidden",  // driven by JS sync, not user scroll
         }}>
           <div style={{ height: RULER_H, flexShrink: 0, borderBottom: "0.5px solid rgba(255,255,255,0.08)" }}/>
 
@@ -581,9 +604,12 @@ export default function SequencerPanel({
         {/* Scrollable tracks area */}
         <div
           ref={scrollRef}
-          onScroll={e => setScrollLeft(e.currentTarget.scrollLeft)}
+          onScroll={e => {
+            setScrollLeft(e.currentTarget.scrollLeft);
+            if (headerRef.current) headerRef.current.scrollTop = e.currentTarget.scrollTop;
+          }}
           style={{
-            flex: 1, overflow: "auto", position: "relative",
+            flex: 1, overflowX: "auto", overflowY: "auto", position: "relative",
             scrollbarWidth: "thin",
             scrollbarColor: "rgba(255,255,255,0.1) transparent",
           }}
