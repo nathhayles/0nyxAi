@@ -141,7 +141,7 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, ratio, onR
             style={{ background: "var(--input-bg,rgba(0,0,0,0.35))", border: "0.5px solid var(--onyx-cyan,#4dd0ff)", borderRadius: 5, padding: "3px 8px", fontSize: 13, fontWeight: 600, color: "var(--onyx-text,#f1f5fb)", fontFamily: "inherit", outline: "none", minWidth: 160 }}/>
         : <span onClick={() => setEditing(true)} style={{ fontSize: 13, fontWeight: 600, cursor: "text", color: "var(--onyx-text,#f1f5fb)" }}>{title}</span>
       }
-      <span style={{ fontSize: 10.5, color: "var(--onyx-text-mute,rgba(241,245,251,0.28))" }}>{saved}</span>
+      {saved && <span style={{ fontSize: 12, fontWeight: 600, color: saved.startsWith("✗") ? "#ff6b6b" : saved.startsWith("✓") || saved === "Saved" ? "#4dd0ff" : "rgba(241,245,251,0.75)", background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 9px", whiteSpace: "nowrap" }}>{saved}</span>}
 
       <div style={{ flex: 1 }}/>
 
@@ -535,12 +535,14 @@ export default function EditorV2() {
           if (musicClip?.src) {
             setGlobalMusicUrl(musicClip.src);
             setGlobalMusicName(musicClip.label || "Music");
-          } else if (d.globalMusicUrl) {
-            setGlobalMusicUrl(d.globalMusicUrl);
-            setGlobalMusicName(d.globalMusicName || "");
+          } else if (d.global_music_url || d.globalMusicUrl) {
+            setGlobalMusicUrl(d.global_music_url || d.globalMusicUrl);
+            setGlobalMusicName(d.global_music_name || d.globalMusicName || "");
           }
         } else if (normWithDur.length) {
-          dispatch({ type: "IMPORT_SCENES", scenes: normWithDur, globalMusicUrl: d.globalMusicUrl || "", globalMusicName: d.globalMusicName || "" });
+          const gmu = d.global_music_url || d.globalMusicUrl || "";
+          const gmn = d.global_music_name || d.globalMusicName || "";
+          dispatch({ type: "IMPORT_SCENES", scenes: normWithDur, globalMusicUrl: gmu, globalMusicName: gmn });
         }
         setSavedMsg(normWithDur.length ? "Loaded" : "Loaded (no scenes)");
       } catch (e) { console.error("[EditorV2] load", e); }
