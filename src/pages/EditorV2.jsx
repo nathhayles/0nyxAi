@@ -4,7 +4,7 @@
 import React, {
   useReducer, useState, useEffect, useCallback, useRef, useMemo,
 } from "react";
-import { timelineReducer, makeInitialState } from "../reducers/timelineReducer.js";
+import { timelineReducer, makeInitialState, makeClip } from "../reducers/timelineReducer.js";
 import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import "../styles/editor.css";
@@ -591,6 +591,32 @@ export default function EditorV2() {
   const handleSetScenes = useCallback((updater) => {
     setScenes(prev => { const next = typeof updater === "function" ? updater(prev) : updater; return Array.isArray(next) ? next : prev; });
   }, []);
+
+  // Sync globalMusicUrl into the Music track whenever Apply is clicked in AudioPanel
+  useEffect(() => {
+    if (!globalMusicUrl) return;
+    const musicTrack = timelineState.tracks.find(t => t.key === "music");
+    if (!musicTrack) return;
+    musicTrack.clips.forEach(c => dispatch({ type: "DELETE_CLIP", clipId: c.id }));
+    const totalDur = timelineState.tracks
+      .find(t => t.key === "video")
+      ?.clips.reduce((max, c) => Math.max(max, c.startTime + (c.trimEnd - c.trimStart)), 0) || 60;
+    dispatch({
+      type: "ADD_CLIP",
+      clip: makeClip({
+        trackKey:  "music",
+        startTime: 0,
+        duration:  totalDur,
+        trimStart: 0,
+        trimEnd:   totalDur,
+        src:       globalMusicUrl,
+        type:      "audio",
+        volume:    musicVolume ?? 60,
+        label:     globalMusicName || "Music",
+      }),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [globalMusicUrl]);
 
   const moveScene      = useCallback((from, to) => { setScenes(prev => { const n=[...prev]; const [m]=n.splice(from,1); n.splice(to,0,m); return n; }); }, []);
   const deleteScene    = useCallback((id) => { setScenes(prev => prev.filter(s => s.id !== id)); const c = timelineState.tracks?.flatMap(t=>t.clips).find(c=>c.sceneId===id); if(c) dispatch({type:"DELETE_CLIP",clipId:c.id}); }, [timelineState.tracks]);
