@@ -576,8 +576,8 @@ export default function AudioPanel({
   return (
     <div className="panelStickyShell">
       <div className="panelStickyTop">
-        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, color: "#b0b8c8", marginBottom: 6 }}>Voiceover Volume</div>
             <input type="range" min="0" max="100" step="1"
               value={typeof voiceoverVolume === "number" ? voiceoverVolume : 100}
@@ -585,7 +585,7 @@ export default function AudioPanel({
               style={{ width: "100%" }}
             />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, color: "#b0b8c8", marginBottom: 6 }}>Music Volume</div>
             <input type="range" min="0" max="100" step="1"
               value={typeof musicVolume === "number" ? musicVolume : 60}

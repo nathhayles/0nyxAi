@@ -798,8 +798,7 @@ textarea {
 }
 
 .panelStickyTop {
-  position: sticky;
-  top: -10px;
+  flex-shrink: 0;
   z-index: 20;
   background: #0f141b;
   padding-top: 10px;
@@ -810,6 +809,7 @@ textarea {
 .panelStickyContent {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
   padding-top: 2px;
 }
 
