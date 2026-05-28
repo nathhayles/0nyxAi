@@ -85,6 +85,7 @@ function Glyph({ name, size, color, stroke }) {
     sun:     "M12 3v1M12 20v1M4.22 4.22l.7.7M19.07 19.07l.71.71M3 12h1M20 12h1M4.22 19.78l.7-.7M19.07 4.93l.71-.71M12 7a5 5 0 100 10 5 5 0 000-10z",
     moon:    "M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z",
     download:"M12 17V4M7 12l5 5 5-5M4 17v3a1 1 0 001 1h14a1 1 0 001-1v-3",
+    upload:  "M12 4v13M7 9l5-5 5 5M4 17v3a1 1 0 001 1h14a1 1 0 001-1v-3",
     plus:    "M12 5v14M5 12h14",
     film:    "M3 3h18v18H3zM7 3v18M17 3v18M3 8h4M3 12h4M3 16h4M17 8h4M17 12h4M17 16h4",
     scissors:"M6 6a3 3 0 106 0 3 3 0 00-6 0M6 18a3 3 0 106 0 3 3 0 00-6 0M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12",
@@ -116,7 +117,7 @@ function OnyxMark() {
 }
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
-function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, ratio, onRatioChange, onExport, isPlaying, onPlayPause, activeMode, setActiveMode }) {
+function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, ratio, onRatioChange, onExport, onShare, onPublish, isPlaying, onPlayPause, activeMode, setActiveMode }) {
   const [editing, setEditing] = useState(false);
   return (
     <div style={{
@@ -164,6 +165,16 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, ratio, onR
       <button onClick={onThemeToggle} style={{ background: "var(--chip-bg,rgba(255,255,255,0.06))", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: "var(--onyx-text-dim)", fontSize: 11, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
         <Glyph name={theme === "onyx" ? "sun" : "moon"} size={12} color="var(--onyx-cyan,#4dd0ff)"/>
         {theme === "onyx" ? "Opal" : "Onyx"}
+      </button>
+
+      {/* Share */}
+      <button onClick={onShare} style={{ background: "var(--chip-bg,rgba(255,255,255,0.06))", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", borderRadius: 8, padding: "6px 13px", cursor: "pointer", color: "var(--onyx-text,#f1f5fb)", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
+        <Glyph name="share" size={13} color="var(--onyx-cyan,#4dd0ff)"/> Share
+      </button>
+
+      {/* Publish */}
+      <button onClick={onPublish} style={{ background: "var(--chip-bg,rgba(255,255,255,0.06))", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", borderRadius: 8, padding: "6px 13px", cursor: "pointer", color: "var(--onyx-text,#f1f5fb)", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
+        <Glyph name="upload" size={13} color="var(--onyx-cyan,#4dd0ff)"/> Publish
       </button>
 
       {/* Export */}
@@ -353,6 +364,58 @@ function ISL({ label, value, onChange, displayVal }) {
 
 const µL = { fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--onyx-text-faint,rgba(241,245,251,0.40))", marginBottom: 8 };
 
+// ── V2 render serializer ─────────────────────────────────────────────────────
+function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMusicName,
+  musicVolume, voiceoverVolume, ratio, brand, reelId }) {
+  const videoTrack = timelineState.tracks.find(t => t.key === "video");
+  const voiceTrack = timelineState.tracks.find(t => t.key === "voiceover");
+  const musicTrack = timelineState.tracks.find(t => t.key === "music");
+  function isVid(url) {
+    if (!url) return false;
+    const ext = url.split("?")[0].split(".").pop().toLowerCase();
+    return ["mp4","webm","mov","m4v"].includes(ext);
+  }
+  const renderable = (videoTrack?.clips || []).map(clip => {
+    const scene = scenes.find(s => s.id === clip.sceneId) || {};
+    const voClip = (voiceTrack?.clips || []).find(c =>
+      c.sceneId === clip.sceneId || Math.abs(c.startTime - clip.startTime) < 0.1
+    );
+    const url = clip.src || scene.mediaUrl || scene.url || "";
+    return {
+      type:              isVid(url) ? "video" : "image",
+      url,
+      duration:          clip.trimEnd - clip.trimStart,
+      trimStart:         clip.trimStart || null,
+      trimEnd:           clip.trimEnd || null,
+      voiceoverUrl:      voClip?.src || scene.voiceoverUrl || null,
+      voiceoverVolume:   voiceoverVolume ?? 100,
+      sourceAudioVolume: scene.sourceAudioVolume ?? 100,
+      sourceAudioMuted:  scene.sourceAudioMuted ?? false,
+      narration:         clip.narration || scene.narration || scene.action || null,
+      captionsEnabled:   clip.captionsEnabled !== false,
+      caption_color:     scene.caption_color || brand?.caption_color || "#ffffff",
+      caption_bg_color:  scene.caption_bg_color || brand?.caption_bg_color || "rgba(0,0,0,0.82)",
+      caption_font:      scene.caption_font || brand?.caption_font || "sans-serif",
+      caption_size:      scene.caption_size || brand?.caption_size || 16,
+      caption_position:  scene.caption_position || brand?.caption_position || "bottom",
+      transitionToNext:  scene.transitionToNext || "cut",
+    };
+  });
+  const musicClip = musicTrack?.clips?.[0];
+  const resolvedMusicUrl = musicClip?.src || globalMusicUrl || null;
+  return {
+    scenes:          renderable,
+    musicUrl:        resolvedMusicUrl,
+    musicVolume:     musicVolume ?? 60,
+    voiceoverVolume: voiceoverVolume ?? 100,
+    renderMode:      "download",
+    brand:           brand || {},
+    reelId:          reelId || null,
+    theme_id:        null,
+    aspectRatio:     ratio,
+  };
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 function probeVideoDuration(url) {
   return new Promise(resolve => {
@@ -465,7 +528,20 @@ export default function EditorV2() {
         const normWithDur = norm.map((sc, i) => probed[i] != null ? { ...sc, videoDuration: probed[i] } : sc);
         setScenes(normWithDur);
         if (normWithDur.length) setActiveScene(normWithDur[0].id);
-        if (normWithDur.length) dispatch({ type: "IMPORT_SCENES", scenes: normWithDur, globalMusicUrl: d.globalMusicUrl || "", globalMusicName: d.globalMusicName || "" });
+        if (d?.timeline?.tracks?.some(t => t.clips?.length)) {
+          dispatch({ type: "LOAD_STATE", state: d.timeline });
+          const musicTrack = d.timeline.tracks?.find(t => t.key === "music");
+          const musicClip = musicTrack?.clips?.[0];
+          if (musicClip?.src) {
+            setGlobalMusicUrl(musicClip.src);
+            setGlobalMusicName(musicClip.label || "Music");
+          } else if (d.globalMusicUrl) {
+            setGlobalMusicUrl(d.globalMusicUrl);
+            setGlobalMusicName(d.globalMusicName || "");
+          }
+        } else if (normWithDur.length) {
+          dispatch({ type: "IMPORT_SCENES", scenes: normWithDur, globalMusicUrl: d.globalMusicUrl || "", globalMusicName: d.globalMusicName || "" });
+        }
         setSavedMsg(normWithDur.length ? "Loaded" : "Loaded (no scenes)");
       } catch (e) { console.error("[EditorV2] load", e); }
     }
@@ -475,7 +551,7 @@ export default function EditorV2() {
   const saveNow = useCallback(async () => {
     try {
       const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
-      const body = JSON.stringify({ title, scenes, timeline: timelineState, ratio, status: "draft" });
+      const body = JSON.stringify({ title, scenes, timeline: timelineState, ratio, status: "draft", globalMusicUrl, globalMusicName });
       if (reelId) {
         await fetch("/api/reels/" + reelId, { method: "PUT", headers: h, body });
       } else {
@@ -489,7 +565,7 @@ export default function EditorV2() {
       }
       setSavedMsg("Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     } catch { setSavedMsg("Save failed"); }
-  }, [title, scenes, timelineState, ratio, reelId]);
+  }, [title, scenes, timelineState, ratio, reelId, globalMusicUrl, globalMusicName]);
 
   useEffect(() => { const id = setInterval(saveNow, 30000); return () => clearInterval(id); }, [saveNow]);
 
@@ -642,8 +718,49 @@ export default function EditorV2() {
   }, [timelineState.tracks]);
 
   const handleSetScenes = useCallback((updater) => {
-    setScenes(prev => { const next = typeof updater === "function" ? updater(prev) : updater; return Array.isArray(next) ? next : prev; });
-  }, []);
+    setScenes(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      if (!Array.isArray(next)) return prev;
+
+      // Sync voiceover clips into the Voice track for any scene whose voiceoverUrl changed
+      const voTrack = timelineState.tracks.find(t => t.key === "voiceover");
+      const vidTrack = timelineState.tracks.find(t => t.key === "video");
+      next.forEach(scene => {
+        const old = prev.find(s => s.id === scene.id);
+        if (!old || old.voiceoverUrl === scene.voiceoverUrl) return;
+
+        // Remove any existing voiceover clip for this scene
+        const existing = voTrack?.clips.find(c => c.sceneId === scene.id);
+        if (existing) dispatch({ type: "DELETE_CLIP", clipId: existing.id });
+
+        if (!scene.voiceoverUrl) return;
+
+        // Mirror the position/duration of the matching video clip
+        const vidClip = vidTrack?.clips.find(c => c.sceneId === scene.id);
+        const startTime = vidClip?.startTime ?? 0;
+        const duration  = scene.voiceoverDuration
+          || (vidClip ? vidClip.trimEnd - vidClip.trimStart : 3);
+
+        dispatch({
+          type: "ADD_CLIP",
+          clip: makeClip({
+            trackKey:  "voiceover",
+            sceneId:   scene.id,
+            startTime,
+            duration,
+            trimStart: 0,
+            trimEnd:   duration,
+            src:       scene.voiceoverUrl,
+            type:      "audio",
+            volume:    voiceoverVolume ?? 100,
+            label:     "VO",
+          }),
+        });
+      });
+
+      return next;
+    });
+  }, [timelineState.tracks, voiceoverVolume]);
 
   // Sync globalMusicUrl into the Music track whenever Apply is clicked in AudioPanel
   useEffect(() => {
@@ -696,7 +813,64 @@ export default function EditorV2() {
           title={title} onTitleChange={setTitle} saved={savedMsg}
           theme={theme} onThemeToggle={() => setTheme(t => t==="onyx"?"opal":"onyx")}
           ratio={ratio} onRatioChange={setRatio}
-          onExport={() => {}}
+          onExport={async () => {
+              try {
+                const h = await getAuthHeaders();
+                h["Content-Type"] = "application/json";
+                const payload = buildV2RenderRequest({
+                  timelineState, scenes, globalMusicUrl, globalMusicName,
+                  musicVolume, voiceoverVolume, ratio, brand, reelId,
+                });
+                if (!payload.scenes.length) { alert("No scenes to export."); return; }
+                setSavedMsg("Rendering…");
+                const res = await fetch("/api/render", { method: "POST", headers: h, body: JSON.stringify(payload) });
+                const data = await res.json();
+                const dlUrl = data.url || data.downloadUrl;
+                if (dlUrl) {
+                  setSavedMsg("✓ Downloading…");
+                  const a = document.createElement("a");
+                  a.href = dlUrl;
+                  a.download = (title || "reel") + ".mp4";
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  setTimeout(() => setSavedMsg("Saved"), 3000);
+                } else {
+                  setSavedMsg("✗ Render failed");
+                  console.error("[Export]", data);
+                }
+              } catch(e) {
+                setSavedMsg("Render error");
+                console.error("[Export]", e);
+              }
+            }}
+          onPublish={() => {
+              const url = "/publish" + (reelId ? "?reelId=" + reelId : "");
+              window.location.href = url;
+            }}
+          onShare={async () => {
+              try {
+                if (!reelId) { setSavedMsg("Save your reel first."); return; }
+                const h = await getAuthHeaders();
+                setSavedMsg("Building share link…");
+                const res = await fetch(`/api/reels/${reelId}/renders`, { headers: h });
+                const data = await res.json();
+                if (!data.url) { setSavedMsg("Export your reel first, then share."); return; }
+                const username = currentUser?.user_metadata?.username || currentUser?.email?.split("@")[0] || "onyx";
+                const encoded = btoa(data.url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+                const shareUrl = `${window.location.origin}/preview/${encoded}?ref=${encodeURIComponent(username)}`;
+                navigator.clipboard.writeText(shareUrl).catch(() => {
+                  const ta = document.createElement("textarea");
+                  ta.value = shareUrl; ta.style.position = "fixed"; ta.style.opacity = "0";
+                  document.body.appendChild(ta); ta.focus(); ta.select();
+                  document.execCommand("copy"); document.body.removeChild(ta);
+                });
+                setSavedMsg("Share link copied!");
+              } catch(e) {
+                setSavedMsg("Share failed");
+                console.error("[Share]", e);
+              }
+            }}
           isPlaying={isPlaying} onPlayPause={() => setIsPlaying(p=>!p)}
           activeMode={activeMode} setActiveMode={setActiveMode}
         />
