@@ -11,16 +11,31 @@ export default function ResetPassword() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Check if we already have a recovery session (token exchanged before listener registered)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setReady(true);
-    });
+    let done = false;
+    const markReady = () => { if (!done) { done = true; setReady(true); } };
 
+    // Auth listener — catches PASSWORD_RECOVERY event when SDK processes the URL hash
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) setReady(true);
+      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) markReady();
     });
 
-    return () => subscription.unsubscribe();
+    // Fallback: session may already exist (e.g. token exchanged before listener registered)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) markReady();
+    });
+
+    // Last-resort fallback: if the URL contains a recovery token but the SDK
+    // fires the event before our listener is attached, show the form anyway.
+    // The updateUser call will fail gracefully if there's no valid session.
+    const hash = window.location.hash;
+    if (hash.includes("type=recovery") || hash.includes("access_token")) {
+      markReady();
+    }
+
+    // Hard timeout: never leave user stuck on "Verifying..." forever
+    const t = setTimeout(markReady, 3000);
+
+    return () => { subscription.unsubscribe(); clearTimeout(t); };
   }, []);
 
   async function handleReset(e) {

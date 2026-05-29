@@ -81,12 +81,14 @@ function Ruler({ zoom, scrollLeft, totalSec, onScrub, playhead }) {
 
   function handleClick(e) {
     if (!ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const x = e.clientX - rect.left + scrollLeft;
+    // Use the scroll container's left edge (stable) + scrollLeft for canvas-relative x
+    const containerRect = ref.current.closest('[data-sequencer-scroll]')?.getBoundingClientRect()
+      ?? ref.current.getBoundingClientRect();
+    const x = e.clientX - containerRect.left + scrollLeft;
     onScrub(Math.max(0, x / zoom));
   }
 
-  const playheadPx = playhead * zoom - scrollLeft;
+  const playheadPx = playhead * zoom;
 
   return (
     <div ref={ref} onClick={handleClick} style={{
@@ -96,7 +98,7 @@ function Ruler({ zoom, scrollLeft, totalSec, onScrub, playhead }) {
     }}>
       <svg width="100%" height={RULER_H} style={{ display: "block", overflow: "visible" }}>
         {ticks.map(({ t, x, major, label }) => (
-          <g key={t} transform={`translate(${x - scrollLeft},0)`}>
+          <g key={t} transform={`translate(${x},0)`}>
             <line x1={0} y1={major ? 0 : RULER_H * 0.5} x2={0} y2={RULER_H}
               stroke="rgba(255,255,255,0.15)" strokeWidth={major ? 0.5 : 0.5}/>
             {major && (
@@ -665,6 +667,7 @@ export default function SequencerPanel({
         {/* Scrollable tracks area */}
         <div
           ref={scrollRef}
+          data-sequencer-scroll
           onScroll={e => {
             setScrollLeft(e.currentTarget.scrollLeft);
             if (headerRef.current) headerRef.current.scrollTop = e.currentTarget.scrollTop;
