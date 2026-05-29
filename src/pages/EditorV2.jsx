@@ -207,9 +207,21 @@ function Sidebar({ open, activeTab, setActiveTab, children }) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks }) {
   const activeIdx = scenes.findIndex(s => s.id === activeScene);
   const scene = scenes[activeIdx >= 0 ? activeIdx : 0] || null;
+
+  // Caption scene — derived from playhead position, not activeScene (which lags during playback)
+  const captionScene = React.useMemo(() => {
+    if (!tracks?.length) return scene;
+    const videoTrack = tracks.find(t => t.key === "video");
+    if (!videoTrack?.clips?.length) return scene;
+    const clip = videoTrack.clips.find(c =>
+      playhead >= c.startTime && playhead < c.startTime + (c.trimEnd - c.trimStart)
+    );
+    if (!clip?.sceneId) return scene;
+    return scenes.find(s => s.id === clip.sceneId) || scene;
+  }, [playhead, tracks, scenes, scene]);
   const cssRatio = RATIOS[ratio]?.css || "9/16";
   const progress = totalSec > 0 ? (playhead / totalSec) * 100 : 0;
 
@@ -252,7 +264,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
           <video className="v2-preview-video-b"
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 2, opacity: 0, visibility: "hidden" }} playsInline/>
           {(() => {
-            if (!captionsVisible || !scene?.narration || scene?.captionsEnabled === false) return null;
+            if (!captionsVisible || !captionScene?.narration || captionScene?.captionsEnabled === false) return null;
             const cColor = scene.caption_color || brand?.caption_color || "#ffffff";
             const cBg    = scene.caption_bg_color || brand?.caption_bg_color || "rgba(0,0,0,0.82)";
             const cFont  = scene.caption_font || brand?.caption_font || "sans-serif";
@@ -274,7 +286,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                 borderRadius: 6, padding: "6px 10px",
                 lineHeight: 1.4, pointerEvents: "none", zIndex: 10,
               }}>
-                {scene.narration}
+                {captionScene.narration}
               </div>
             );
           })()}
@@ -1200,6 +1212,7 @@ export default function EditorV2() {
               onPlayPause={() => setIsPlaying(p=>!p)}
               ratio={ratio}
               captionsVisible={activeMode === "Captions"}
+              tracks={timelineState.tracks}
               brand={brand}
             />
           </div>
