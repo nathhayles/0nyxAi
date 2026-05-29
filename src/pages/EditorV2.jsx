@@ -207,7 +207,7 @@ function Sidebar({ open, activeTab, setActiveTab, children }) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand }) {
   const activeIdx = scenes.findIndex(s => s.id === activeScene);
   const scene = scenes[activeIdx >= 0 ? activeIdx : 0] || null;
   const cssRatio = RATIOS[ratio]?.css || "9/16";
@@ -251,11 +251,33 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 2, opacity: 1, visibility: "hidden" }} playsInline/>
           <video className="v2-preview-video-b"
               style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 2, opacity: 0, visibility: "hidden" }} playsInline/>
-          {scene?.narration && (
-            <div style={{ position: "absolute", bottom: 8, left: 12, right: 12, textAlign: "center", fontWeight: 700, fontSize: ratio === "9:16" ? 18 : 15, color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,0.8)", letterSpacing: "-0.01em", lineHeight: 1.3, pointerEvents: "none" }}>
-              {scene.narration.split(" ").slice(0, 10).join(" ")}
-            </div>
-          )}
+          {(() => {
+            if (!captionsVisible || !scene?.narration || scene?.captionsEnabled === false) return null;
+            const cColor = scene.caption_color || brand?.caption_color || "#ffffff";
+            const cBg    = scene.caption_bg_color || brand?.caption_bg_color || "rgba(0,0,0,0.82)";
+            const cFont  = scene.caption_font || brand?.caption_font || "sans-serif";
+            const cSize  = Number(scene.caption_size || brand?.caption_size || (ratio === "9:16" ? 18 : 15));
+            const cPos   = scene.caption_position || brand?.caption_position || "bottom";
+            const posStyle = cPos === "top"
+              ? { top: 14 }
+              : cPos === "center"
+              ? { top: "50%", transform: "translateY(-50%)" }
+              : { bottom: 14 };
+            return (
+              <div style={{
+                position: "absolute", ...posStyle,
+                left: 12, right: 12,
+                textAlign: "center", fontWeight: 700,
+                fontSize: cSize, color: cColor,
+                fontFamily: cFont,
+                background: cBg,
+                borderRadius: 6, padding: "6px 10px",
+                lineHeight: 1.4, pointerEvents: "none", zIndex: 10,
+              }}>
+                {scene.narration}
+              </div>
+            );
+          })()}
           {/* Scrub bar */}
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: "rgba(255,255,255,0.08)", cursor: "pointer" }}
             onClick={e => { const r = e.currentTarget.getBoundingClientRect(); onSeek(((e.clientX - r.left) / r.width) * totalSec); }}>
@@ -296,9 +318,17 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
 }
 
 // ── Inspector ─────────────────────────────────────────────────────────────────
-function Inspector({ scene, onUpdateScene, onRegenerate, generating, open }) {
+function Inspector({ scene, onUpdateScene, onRegenerate, generating, open, activeMode, brand }) {
   const [motionVal, setMotionVal] = useState(50);
   if (!open) return null;
+
+  const captionsEnabled = scene?.captionsEnabled !== false;
+  const cColor = scene?.caption_color || brand?.caption_color || "#ffffff";
+  const cBg    = scene?.caption_bg_color || brand?.caption_bg_color || "rgba(0,0,0,0.82)";
+  const cFont  = scene?.caption_font || brand?.caption_font || "sans-serif";
+  const cSize  = Number(scene?.caption_size || brand?.caption_size || 16);
+  const cPos   = scene?.caption_position || brand?.caption_position || "bottom";
+
   return (
     <div style={{ width: open ? 288 : 0, flexShrink: 0, borderLeft: open ? "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))" : "none", background: "var(--panel-bg,rgba(6,9,15,0.5))", display: "flex", flexDirection: "column", overflow: "hidden", transition: "width 0.2s ease" }}>
       <div style={{ padding: "11px 14px", borderBottom: "0.5px solid var(--onyx-hairline,rgba(255,255,255,0.07))", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -312,6 +342,76 @@ function Inspector({ scene, onUpdateScene, onRegenerate, generating, open }) {
       </div>
       {!scene
         ? <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--onyx-text-faint,rgba(241,245,251,0.40))", fontSize: 12 }}>Select a scene</div>
+        : activeMode === "Captions"
+        ? <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Enabled toggle */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={µL}>Captions</span>
+              <button onClick={() => onUpdateScene?.(scene.id, { captionsEnabled: !captionsEnabled })}
+                style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer",
+                  background: captionsEnabled ? "rgba(77,208,255,0.15)" : "rgba(255,255,255,0.06)",
+                  color: captionsEnabled ? "#4dd0ff" : "rgba(241,245,251,0.4)" }}>
+                {captionsEnabled ? "On" : "Off"}
+              </button>
+            </div>
+            {/* Narration preview */}
+            {scene.narration && (
+              <div style={{ fontSize: 11, color: "var(--onyx-text-dim,rgba(241,245,251,0.62))", background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: "8px 10px", lineHeight: 1.5 }}>
+                {scene.narration}
+              </div>
+            )}
+            {/* Color */}
+            <div>
+              <div style={µL}>Text colour</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="color" value={cColor} onChange={e => onUpdateScene?.(scene.id, { caption_color: e.target.value })}
+                  style={{ width: 32, height: 24, border: "none", background: "none", cursor: "pointer", padding: 0 }}/>
+                <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--onyx-text-dim,rgba(241,245,251,0.62))" }}>{cColor}</span>
+              </div>
+            </div>
+            {/* Background */}
+            <div>
+              <div style={µL}>Background</div>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                {[["None","transparent"],["Dark","rgba(0,0,0,0.82)"],["Mid","rgba(0,0,0,0.45)"],["Blur","rgba(10,10,20,0.72)"]].map(([l, v]) => (
+                  <span key={l} onClick={() => onUpdateScene?.(scene.id, { caption_bg_color: v })}
+                    style={{ padding: "3px 9px", borderRadius: 999, fontSize: 10.5, cursor: "pointer",
+                      background: cBg === v ? "rgba(77,208,255,0.12)" : "var(--chip-bg,rgba(255,255,255,0.06))",
+                      border: cBg === v ? "0.5px solid rgba(77,208,255,0.4)" : "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))",
+                      color: cBg === v ? "#4dd0ff" : "var(--onyx-text-dim,rgba(241,245,251,0.62))" }}>{l}</span>
+                ))}
+              </div>
+            </div>
+            {/* Font */}
+            <div>
+              <div style={µL}>Font</div>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                {[["Sans","sans-serif"],["Serif","serif"],["Mono","monospace"]].map(([l, v]) => (
+                  <span key={l} onClick={() => onUpdateScene?.(scene.id, { caption_font: v })}
+                    style={{ padding: "3px 9px", borderRadius: 999, fontSize: 10.5, cursor: "pointer", fontFamily: v,
+                      background: cFont === v ? "rgba(77,208,255,0.12)" : "var(--chip-bg,rgba(255,255,255,0.06))",
+                      border: cFont === v ? "0.5px solid rgba(77,208,255,0.4)" : "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))",
+                      color: cFont === v ? "#4dd0ff" : "var(--onyx-text-dim,rgba(241,245,251,0.62))" }}>{l}</span>
+                ))}
+              </div>
+            </div>
+            {/* Size */}
+            <ISL label="Size" value={Math.round(((cSize - 10) / 30) * 100)} displayVal={cSize + "px"}
+              onChange={v => onUpdateScene?.(scene.id, { caption_size: Math.round(10 + (v / 100) * 30) })}/>
+            {/* Position */}
+            <div>
+              <div style={µL}>Position</div>
+              <div style={{ display: "flex", gap: 5 }}>
+                {["top","center","bottom"].map(p => (
+                  <span key={p} onClick={() => onUpdateScene?.(scene.id, { caption_position: p })}
+                    style={{ padding: "3px 9px", borderRadius: 999, fontSize: 10.5, cursor: "pointer", textTransform: "capitalize",
+                      background: cPos === p ? "rgba(77,208,255,0.12)" : "var(--chip-bg,rgba(255,255,255,0.06))",
+                      border: cPos === p ? "0.5px solid rgba(77,208,255,0.4)" : "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))",
+                      color: cPos === p ? "#4dd0ff" : "var(--onyx-text-dim,rgba(241,245,251,0.62))" }}>{p}</span>
+                ))}
+              </div>
+            </div>
+          </div>
         : <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
               <div style={µL}>Prompt</div>
@@ -477,26 +577,6 @@ export default function EditorV2() {
     if (!activeScene && scenes.length > 0) setActiveScene(scenes[0].id);
   }, [scenes, activeScene]);
 
-  // Scene strip — keep active card centered
-  const stripRef = useRef(null);
-  const cardRefs = useRef({});
-  useEffect(() => {
-    const container = stripRef.current;
-    if (!container || !activeScene) return;
-    const idx = scenes.findIndex(s => s.id === activeScene);
-    if (idx < 0) return;
-    requestAnimationFrame(() => {
-      const card = cardRefs.current[activeScene];
-      if (!card) return;
-      const cardW = card.offsetWidth;
-      // 16px strip padding-left + idx cards of (cardW + 5px gap)
-      const cardLeft = 16 + idx * (cardW + 5);
-      container.scrollTo({
-        left: Math.max(0, cardLeft - (container.clientWidth - cardW) / 2),
-        behavior: "smooth",
-      });
-    });
-  }, [activeScene, scenes]);
 
   useEffect(() => { supabase.auth.getUser().then(({ data }) => { if (data?.user) setCurrentUser(data.user); }); }, []);
   useEffect(() => {
@@ -1119,56 +1199,9 @@ export default function EditorV2() {
               onSeek={t => dispatch({type:"SEEK",time:Math.max(0,t)})}
               onPlayPause={() => setIsPlaying(p=>!p)}
               ratio={ratio}
+              captionsVisible={activeMode === "Captions"}
+              brand={brand}
             />
-            {/* Scene strip — centered filmstrip below preview */}
-            {scenes.length > 0 && (() => {
-              const [rW, rH] = (RATIOS[ratio]?.css || "9/16").split("/").map(Number);
-              const cardH = 48;
-              const cardW = Math.max(27, Math.round(cardH * rW / rH));
-              return (
-                <div ref={stripRef} style={{
-                  height: 64, flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  padding: "0 16px", overflowX: "auto",
-                  background: "rgba(0,0,0,0.45)",
-                  borderTop: "0.5px solid rgba(255,255,255,0.07)",
-                  borderBottom: "0.5px solid rgba(255,255,255,0.07)",
-                  scrollbarWidth: "none",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-                    {scenes.map((s, i) => {
-                      const active = s.id === activeScene;
-                      return (
-                        <div key={s.id} data-scene-id={s.id} ref={el => { if (el) cardRefs.current[s.id] = el; else delete cardRefs.current[s.id]; }} onClick={() => setActiveScene(s.id)}
-                          style={{
-                            width: cardW, height: cardH, flexShrink: 0,
-                            borderRadius: 5, overflow: "hidden", cursor: "pointer",
-                            border: active ? "1.5px solid #4dd0ff" : "0.5px solid rgba(255,255,255,0.12)",
-                            background: s.thumbnail ? `url(${s.thumbnail}) center/cover no-repeat` : `linear-gradient(135deg,hsl(${200 + i * 22},45%,22%),hsl(${215 - i * 8},35%,10%))`,
-                            position: "relative",
-                            boxShadow: active ? "0 0 0 2px rgba(77,208,255,0.22), 0 2px 10px rgba(0,0,0,0.7)" : "0 1px 5px rgba(0,0,0,0.55)",
-                            transition: "border-color 0.15s, box-shadow 0.15s",
-                          }}>
-                          <div style={{ position: "absolute", inset: 0, background: active ? "rgba(77,208,255,0.1)" : "rgba(0,0,0,0.18)" }}/>
-                          <div style={{ position: "absolute", bottom: 2, left: 3, fontSize: 8, fontFamily: "monospace", color: "rgba(255,255,255,0.85)", fontWeight: 700, lineHeight: 1 }}>
-                            {String(i + 1).padStart(2, "0")}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div onClick={() => window.dispatchEvent(new CustomEvent("onyx-add-scene"))}
-                      style={{
-                        width: Math.max(cardW, 32), height: cardH, flexShrink: 0,
-                        borderRadius: 5, border: "1px dashed rgba(255,255,255,0.15)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        cursor: "pointer", background: "rgba(255,255,255,0.02)",
-                      }}>
-                      <Glyph name="plus" size={14} color="rgba(255,255,255,0.3)"/>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
           </div>
 
           {/* Inspector toggle tab */}
@@ -1187,6 +1220,7 @@ export default function EditorV2() {
             scene={activeSceneObj} open={inspectorOpen}
             onUpdateScene={updateScene} onRegenerate={regenerateScene}
             generating={!!generatingScenes[activeScene]}
+            activeMode={activeMode} brand={brand}
           />
         </div>
 

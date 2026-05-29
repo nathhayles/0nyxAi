@@ -689,8 +689,8 @@ export default function AudioPanel({
               {tracks.map((track) => (
                 <div key={track.id || track.url} style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, background: "rgba(0,0,0,0.18)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 8 }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 13 }}>{track.name}</div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{track.name}</div>
                       <div style={{ fontSize: 12, color: "#94a3b8" }}>{formatDuration(track.duration)}</div>
                     </div>
                     <button type="button" onClick={() => applyMusicToReel(track.url || track.remoteUrl, track.name)}
