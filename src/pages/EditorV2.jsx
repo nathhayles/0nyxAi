@@ -489,14 +489,20 @@ export default function EditorV2() {
   useEffect(() => {
     const container = stripRef.current;
     if (!container || !activeScene) return;
+    const idx = scenes.findIndex(s => s.id === activeScene);
+    if (idx < 0) return;
     requestAnimationFrame(() => {
       const card = cardRefs.current[activeScene];
       if (!card) return;
-      const cr = container.getBoundingClientRect();
-      const dr = card.getBoundingClientRect();
-      container.scrollTo({ left: container.scrollLeft + (dr.left - cr.left) - cr.width / 2 + dr.width / 2, behavior: "smooth" });
+      const cardW = card.offsetWidth;
+      // 16px strip padding-left + idx cards of (cardW + 5px gap)
+      const cardLeft = 16 + idx * (cardW + 5);
+      container.scrollTo({
+        left: Math.max(0, cardLeft - (container.clientWidth - cardW) / 2),
+        behavior: "smooth",
+      });
     });
-  }, [activeScene]);
+  }, [activeScene, scenes]);
 
   useEffect(() => { supabase.auth.getUser().then(({ data }) => { if (data?.user) setCurrentUser(data.user); }); }, []);
   useEffect(() => {
@@ -594,6 +600,7 @@ export default function EditorV2() {
   // Drives timelineState.playhead forward in real time when isPlaying=true.
   // Also syncs the single PreviewCanvas <video> to the active scene's clip.
   const playStartRef = useRef(null); // { wallTime, playheadAtStart }
+  const previewSrcRef = useRef(null); // last src assigned to the preview <video>
   const tracksRef = useRef(timelineState.tracks);
   useEffect(() => { tracksRef.current = timelineState.tracks; }, [timelineState.tracks]);
   const activeSceneRef = useRef(activeScene);
@@ -602,6 +609,7 @@ export default function EditorV2() {
   useEffect(() => {
     if (!isPlaying) {
       playStartRef.current = null;
+      previewSrcRef.current = null; // force src re-sync on next play
       // Pause the preview video and restore visibility
       const vid = document.querySelector(".v2-preview-video");
       if (vid) { vid.pause(); vid.style.visibility = "visible"; }
@@ -632,20 +640,25 @@ export default function EditorV2() {
 
       dispatch({ type: "SEEK", time: newPH });
 
-      // Sync preview video to active scene clip on video track
+      // Sync preview video — broll takes priority over video when both overlap
       const vid = document.querySelector(".v2-preview-video");
-      const videoTrack = tracksRef.current.find(t => t.key === "video");
-      const clip = videoTrack?.clips.find(c =>
-        newPH >= c.startTime && newPH < c.startTime + (c.trimEnd - c.trimStart)
-      );
+      const findActive = (key) => tracksRef.current
+        .find(t => t.key === key)?.clips
+        .find(c => newPH >= c.startTime && newPH < c.startTime + (c.trimEnd - c.trimStart));
+      const clip = findActive("broll") ?? findActive("video");
       if (clip) {
+        // Swap src when the active clip changes (e.g. video → broll or broll → video)
+        if (vid && clip.src && previewSrcRef.current !== clip.src) {
+          previewSrcRef.current = clip.src;
+          vid.pause();
+          vid.src = clip.src;
+          vid.load();
+          vid.style.visibility = "hidden";
+          vid.oncanplay = () => { vid.style.visibility = "visible"; vid.oncanplay = null; };
+        }
         // Switch active scene if playhead crossed into a different clip
         if (clip.sceneId != null && clip.sceneId !== activeSceneRef.current) {
           setActiveScene(clip.sceneId);
-          if (vid) {
-            vid.style.visibility = "hidden";
-            vid.oncanplay = () => { vid.style.visibility = "visible"; vid.oncanplay = null; };
-          }
         }
         if (vid) {
           if (!vid.oncanplay) vid.style.visibility = "visible";
