@@ -157,7 +157,7 @@ function AudioPreview({ src, volume = 70 }) {
 // TRACK CARD COMPONENT
 // ===========================
 
-function TrackCard({ track, onApply, onSave, onExtend, onRename, appliedId, savedIds = [], saving = false, extending = false, extendStatus = "" }) {
+function TrackCard({ track, onApply, onSave, onExtend, onRename, onUseInTools, appliedId, savedIds = [], saving = false, extending = false, extendStatus = "" }) {
   const applied = appliedId === (track.id || track.url);
   const saved = savedIds.includes(track.id);
   const [editing, setEditing] = useState(false);
@@ -227,9 +227,15 @@ function TrackCard({ track, onApply, onSave, onExtend, onRename, appliedId, save
           </button>
         )}
         <button onClick={() => onApply(track)}
-          style={{ flex: 2, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: applied ? "rgba(139,92,246,0.2)" : "rgba(37,99,235,0.15)", border: applied ? "1px solid #8b5cf6" : "1px solid rgba(37,99,235,0.4)", color: applied ? "#c4b5fd" : "#93c5fd" }}>
+          style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: applied ? "rgba(139,92,246,0.2)" : "rgba(37,99,235,0.15)", border: applied ? "1px solid #8b5cf6" : "1px solid rgba(37,99,235,0.4)", color: applied ? "#c4b5fd" : "#93c5fd" }}>
           {applied ? "✓ Applied" : "Apply"}
         </button>
+        {onUseInTools && (
+          <button onClick={() => onUseInTools(track)}
+            style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.3)", color: "#c4b5fd" }}>
+            🎛️ Tools
+          </button>
+        )}
       </div>
       {extendStatus && <div style={{ marginTop: 6, fontSize: 11, color: "#60a5fa" }}>{extendStatus}</div>}
     </div>
@@ -894,7 +900,8 @@ export default function Music() {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
               {savedTracks.map(track => (
-                <TrackCard key={track.id} track={track} onApply={applyTrack} appliedId={appliedId} savedIds={savedIds} onRename={renameTrack} />
+                <TrackCard key={track.id} track={track} onApply={applyTrack} appliedId={appliedId} savedIds={savedIds} onRename={renameTrack}
+                  onUseInTools={t => { const rawUrl = t.url || t.remoteUrl || ""; const absUrl = rawUrl.startsWith("http") ? rawUrl : window.location.origin + rawUrl; setFadrFileUrl(absUrl); setFadrFile(null); setFadrResult(null); setFadrError(""); setTab("tools"); }} />
               ))}
             </div>
           </div>
@@ -991,9 +998,9 @@ export default function Music() {
                           setFadrLoading(false);
                         }
                       }}
-                      style={{ padding: "14px 10px", borderRadius: 10, border: `1px solid ${fadrOp === op && fadrLoading ? "#7c3aed" : "#1f2937"}`, background: fadrOp === op && fadrLoading ? "rgba(124,58,237,0.12)" : "#0c1016", color: !hasSource ? "#334155" : "#e2e8f0", cursor: !hasSource ? "default" : "pointer", textAlign: "center" }}>
-                      <div style={{ fontSize: 22, marginBottom: 5 }}>{icon}</div>
-                      <div style={{ fontSize: 12, fontWeight: 600 }}>{label}</div>
+                      style={{ padding: "10px 8px", borderRadius: 10, border: `1px solid ${fadrOp === op && fadrLoading ? "#7c3aed" : "#1f2937"}`, background: fadrOp === op && fadrLoading ? "rgba(124,58,237,0.12)" : "#0c1016", color: !hasSource ? "#334155" : "#e2e8f0", cursor: !hasSource ? "default" : "pointer", textAlign: "center" }}>
+                      <div style={{ fontSize: 18, marginBottom: 4 }}>{icon}</div>
+                      <div style={{ fontSize: 11, fontWeight: 600 }}>{label}</div>
                       <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{desc}</div>
                       {costLabel && <div style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: "#a78bfa", background: "rgba(124,58,237,0.15)", borderRadius: 4, padding: "2px 6px", display: "inline-block" }}>{costLabel}</div>}
                     </button>

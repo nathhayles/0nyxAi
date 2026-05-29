@@ -11,9 +11,16 @@ export default function ResetPassword() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") setReady(true);
+    // Check if we already have a recovery session (token exchanged before listener registered)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true);
     });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) setReady(true);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   async function handleReset(e) {
