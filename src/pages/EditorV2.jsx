@@ -613,6 +613,7 @@ export default function EditorV2() {
   const transitioningRef   = useRef(false); // true during the 150 ms crossfade
   const tracksRef = useRef(timelineState.tracks);
   useEffect(() => { tracksRef.current = timelineState.tracks; }, [timelineState.tracks]);
+  const seekingRef = useRef(false); // true for 300ms after manual seek — suppresses tick
   const activeSceneRef = useRef(activeScene);
   useEffect(() => { activeSceneRef.current = activeScene; }, [activeScene]);
 
@@ -703,6 +704,7 @@ export default function EditorV2() {
     function tick() {
       const now     = performance.now() / 1000;
       const elapsed = now - playStartRef.current.wallTime;
+      if (seekingRef.current) return; // manual seek in progress — skip tick
       const newPH   = playStartRef.current.playheadAtStart + elapsed;
 
       // Stop at end
@@ -1199,7 +1201,11 @@ export default function EditorV2() {
               globalMusicUrl={globalMusicUrl} globalMusicName={globalMusicName}
               musicVolume={musicVolume} voiceoverVolume={voiceoverVolume}
               totalDuration={totalSec}
-              onSeek={p => dispatch({ type: "SEEK", time: p * totalSec })}
+              onSeek={p => {
+                seekingRef.current = true;
+                setTimeout(() => { seekingRef.current = false; }, 300);
+                dispatch({ type: "SEEK", time: p * totalSec });
+              }}
             />
           </Safe>
         </div>

@@ -79,8 +79,12 @@ function Ruler({ zoom, scrollLeft, totalSec, onScrub, playhead }) {
     return result;
   }, [zoom, totalSec]);
 
+  const lastScrubRef = React.useRef(0);
   function handleClick(e) {
     if (!ref.current) return;
+    const now = Date.now();
+    if (now - lastScrubRef.current < 150) return; // debounce rapid clicks
+    lastScrubRef.current = now;
     // Use the scroll container's left edge (stable) + scrollLeft for canvas-relative x
     const containerRect = ref.current.closest('[data-sequencer-scroll]')?.getBoundingClientRect()
       ?? ref.current.getBoundingClientRect();
