@@ -4,7 +4,7 @@
 import React, {
   useReducer, useState, useEffect, useCallback, useRef, useMemo,
 } from "react";
-import { timelineReducer, makeInitialState, makeClip } from "../reducers/timelineReducer.js";
+import { timelineReducer, makeInitialState, makeClip, importFromScenes } from "../reducers/timelineReducer.js";
 import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import "../styles/editor.css";
@@ -208,18 +208,10 @@ function Sidebar({ open, activeTab, setActiveTab, children }) {
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
 function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio }) {
-  const videoRef = useRef(null);
   const activeIdx = scenes.findIndex(s => s.id === activeScene);
   const scene = scenes[activeIdx >= 0 ? activeIdx : 0] || null;
-  const src = scene?.mediaUrl || scene?.url || "";
   const cssRatio = RATIOS[ratio]?.css || "9/16";
   const progress = totalSec > 0 ? (playhead / totalSec) * 100 : 0;
-
-  useEffect(() => {
-    if (!videoRef.current || !src) return;
-    if (isPlaying) videoRef.current.play().catch(() => {});
-    else videoRef.current.pause();
-  }, [isPlaying, src]);
 
   return (
     <div style={{
@@ -247,16 +239,18 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
           boxShadow: "0 24px 64px rgba(0,0,0,0.75), 0 0 0 0.5px rgba(255,255,255,0.07)",
           background: "linear-gradient(135deg,#0d1f38,#1a3260,#0a1628,#040d1a)",
         }}>
-          {src
-            ? <video ref={videoRef} src={src} className="v2-preview-video"
-                style={{ width: "100%", height: "100%", objectFit: "cover" }} playsInline/>
-            : <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+          {/* Placeholder — always behind video, visible through transparent unsourced video */}
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, zIndex: 0 }}>
                 <div style={{ opacity: 0.15 }}><Glyph name="film" size={44} color="#4dd0ff"/></div>
                 <span style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.18)", fontFamily: "monospace" }}>
                   {scenes.length ? "Scene " + ((activeIdx >= 0 ? activeIdx : 0) + 1) + " of " + scenes.length : "No scenes yet"}
                 </span>
               </div>
-          }
+          {/* Dual-buffer: two stacked videos; tick/scrub effects manage src entirely */}
+          <video className="v2-preview-video-a"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 2, opacity: 1, visibility: "hidden" }} playsInline/>
+          <video className="v2-preview-video-b"
+              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 2, opacity: 0, visibility: "hidden" }} playsInline/>
           {scene?.narration && (
             <div style={{ position: "absolute", bottom: 8, left: 12, right: 12, textAlign: "center", fontWeight: 700, fontSize: ratio === "9:16" ? 18 : 15, color: "#fff", textShadow: "0 2px 12px rgba(0,0,0,0.8)", letterSpacing: "-0.01em", lineHeight: 1.3, pointerEvents: "none" }}>
               {scene.narration.split(" ").slice(0, 10).join(" ")}
@@ -538,7 +532,21 @@ export default function EditorV2() {
         setScenes(normWithDur);
         if (normWithDur.length) setActiveScene(normWithDur[0].id);
         if (d?.timeline?.tracks?.some(t => t.clips?.length)) {
-          dispatch({ type: "LOAD_STATE", state: d.timeline });
+          // If the saved video track is empty (e.g. only broll was added before save),
+          // backfill video/voiceover from scenes so the main track isn't blank.
+          const savedTracks  = d.timeline.tracks;
+          const videoIsEmpty = !savedTracks?.find(t => t.key === "video")?.clips?.length;
+          let timelineToLoad = d.timeline;
+          if (videoIsEmpty && normWithDur.length) {
+            const base = importFromScenes(normWithDur, "", "");
+            const mergedTracks = savedTracks.map(st => {
+              if (st.key === "video" || st.key === "voiceover")
+                return base.tracks.find(bt => bt.key === st.key) ?? st;
+              return st;
+            });
+            timelineToLoad = { ...d.timeline, tracks: mergedTracks };
+          }
+          dispatch({ type: "LOAD_STATE", state: timelineToLoad });
           const musicTrack = d.timeline.tracks?.find(t => t.key === "music");
           const musicClip = musicTrack?.clips?.[0];
           if (musicClip?.src) {
@@ -600,19 +608,85 @@ export default function EditorV2() {
   // Drives timelineState.playhead forward in real time when isPlaying=true.
   // Also syncs the single PreviewCanvas <video> to the active scene's clip.
   const playStartRef = useRef(null); // { wallTime, playheadAtStart }
-  const previewSrcRef = useRef(null); // last src assigned to the preview <video>
+  const previewSrcRef     = useRef(null); // last src assigned to the preview <video>
+  const activeVideoSlotRef = useRef("a");  // "a" | "b" — which buffer is currently showing
+  const transitioningRef   = useRef(false); // true during the 150 ms crossfade
   const tracksRef = useRef(timelineState.tracks);
   useEffect(() => { tracksRef.current = timelineState.tracks; }, [timelineState.tracks]);
   const activeSceneRef = useRef(activeScene);
   useEffect(() => { activeSceneRef.current = activeScene; }, [activeScene]);
 
+  // Sync preview on scrub (not playing) — dual-buffer crossfade, no black frame.
+  useEffect(() => {
+    if (isPlaying) return;
+    const getSlots = () => {
+      const a = document.querySelector(".v2-preview-video-a");
+      const b = document.querySelector(".v2-preview-video-b");
+      return activeVideoSlotRef.current === "a" ? { cur: a, nxt: b } : { cur: b, nxt: a };
+    };
+    const { cur, nxt } = getSlots();
+    if (!cur || !nxt) return;
+    const ph = playhead;
+    const findAt = (key) => tracksRef.current
+      .find(t => t.key === key)?.clips
+      .find(c => ph >= c.startTime && ph < c.startTime + (c.trimEnd - c.trimStart));
+    const clip = findAt("broll") ?? findAt("video");
+    const targetSrc = clip?.src || scenes.find(s => s.id === activeScene)?.mediaUrl || "";
+
+    if (!targetSrc) { cur.style.visibility = "hidden"; return; }
+
+    const localTime = clip ? Math.max(0, ph - clip.startTime + clip.trimStart) : 0;
+
+    // Same src — just seek
+    if (cur.getAttribute("data-src") === targetSrc) {
+      cur.currentTime = localTime;
+      cur.style.visibility = "visible";
+      return;
+    }
+
+    // New src — load into nxt, crossfade when ready; cur stays visible until then
+    if (transitioningRef.current) return; // don't stack transitions
+    transitioningRef.current = true;
+    nxt.oncanplay = null;
+    nxt.src = targetSrc;
+    nxt.setAttribute("data-src", targetSrc);
+    nxt.muted = true;
+    nxt.style.zIndex = 3;
+    cur.style.zIndex = 2;
+
+    nxt.oncanplay = () => {
+      nxt.oncanplay = null;
+      nxt.currentTime = localTime;
+      nxt.style.opacity = "0";
+      nxt.style.visibility = "visible";
+      requestAnimationFrame(() => {
+        nxt.style.transition = "opacity 0.15s ease";
+        nxt.style.opacity = "1";
+        cur.style.transition = "opacity 0.15s ease";
+        cur.style.opacity = "0";
+        setTimeout(() => {
+          cur.style.visibility = "hidden";
+          cur.style.opacity = "0";
+          cur.style.transition = "";
+          cur.style.zIndex = 2;
+          nxt.style.transition = "";
+          nxt.style.zIndex = 2;
+          activeVideoSlotRef.current = activeVideoSlotRef.current === "a" ? "b" : "a";
+          transitioningRef.current = false;
+        }, 180);
+      });
+    };
+    nxt.load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playhead, timelineState.tracks, isPlaying]);
+
   useEffect(() => {
     if (!isPlaying) {
       playStartRef.current = null;
       previewSrcRef.current = null; // force src re-sync on next play
-      // Pause the preview video and restore visibility
-      const vid = document.querySelector(".v2-preview-video");
-      if (vid) { vid.pause(); vid.style.visibility = "visible"; }
+      // Pause both preview video slots
+      document.querySelectorAll(".v2-preview-video-a, .v2-preview-video-b").forEach(v => v.pause());
+      transitioningRef.current = false;
       // Pause all audio elements
       audioElementsRef.current.forEach(el => el.pause());
       return;
@@ -641,36 +715,74 @@ export default function EditorV2() {
       dispatch({ type: "SEEK", time: newPH });
 
       // Sync preview video — broll takes priority over video when both overlap
-      const vid = document.querySelector(".v2-preview-video");
+      const getSlotsTick = () => {
+        const a = document.querySelector(".v2-preview-video-a");
+        const b = document.querySelector(".v2-preview-video-b");
+        return activeVideoSlotRef.current === "a" ? { cur: a, nxt: b } : { cur: b, nxt: a };
+      };
       const findActive = (key) => tracksRef.current
         .find(t => t.key === key)?.clips
         .find(c => newPH >= c.startTime && newPH < c.startTime + (c.trimEnd - c.trimStart));
       const clip = findActive("broll") ?? findActive("video");
       if (clip) {
-        // Swap src when the active clip changes (e.g. video → broll or broll → video)
-        if (vid && clip.src && previewSrcRef.current !== clip.src) {
+        // Dual-buffer src swap — cur keeps playing while nxt preloads (no black frame)
+        if (clip.src && previewSrcRef.current !== clip.src && !transitioningRef.current) {
           previewSrcRef.current = clip.src;
-          vid.pause();
-          vid.src = clip.src;
-          vid.load();
-          vid.style.visibility = "hidden";
-          vid.oncanplay = () => { vid.style.visibility = "visible"; vid.oncanplay = null; };
+          transitioningRef.current = true;
+          const { cur, nxt } = getSlotsTick();
+          if (cur && nxt) {
+            cur.pause(); // freeze outgoing frame so it can't play to end-of-file black
+            nxt.oncanplay = null;
+            nxt.src = clip.src;
+            nxt.setAttribute("data-src", clip.src);
+            nxt.muted = true;
+            nxt.style.zIndex = 3;
+            cur.style.zIndex = 2;
+            nxt.oncanplay = () => {
+              nxt.oncanplay = null;
+              nxt.currentTime = Math.max(0, newPH - clip.startTime + clip.trimStart);
+              nxt.style.opacity = "0";
+              nxt.style.visibility = "visible";
+              nxt.play().catch(() => {});
+              requestAnimationFrame(() => {
+                nxt.style.transition = "opacity 0.12s ease";
+                nxt.style.opacity = "1";
+                cur.style.transition = "opacity 0.12s ease";
+                cur.style.opacity = "0";
+                setTimeout(() => {
+                  cur.pause();
+                  cur.style.visibility = "hidden";
+                  cur.style.opacity = "0";
+                  cur.style.transition = "";
+                  cur.style.zIndex = 2;
+                  nxt.style.transition = "";
+                  nxt.style.zIndex = 2;
+                  activeVideoSlotRef.current = activeVideoSlotRef.current === "a" ? "b" : "a";
+                  transitioningRef.current = false;
+                }, 150);
+              });
+            };
+            nxt.load();
+          }
         }
         // Switch active scene if playhead crossed into a different clip
         if (clip.sceneId != null && clip.sceneId !== activeSceneRef.current) {
           setActiveScene(clip.sceneId);
         }
-        if (vid) {
-          if (!vid.oncanplay) vid.style.visibility = "visible";
-          const localTime = newPH - clip.startTime + clip.trimStart;
-          if (Math.abs(vid.currentTime - localTime) > 0.2) {
-            vid.currentTime = localTime;
+        // Sync currentTime and play on the current (active) slot
+        if (!transitioningRef.current) {
+          const { cur } = getSlotsTick();
+          if (cur) {
+            cur.style.visibility = "visible";
+            const localTime = newPH - clip.startTime + clip.trimStart;
+            if (Math.abs(cur.currentTime - localTime) > 0.2) cur.currentTime = localTime;
+            if (cur.paused) cur.play().catch(() => {});
           }
-          if (vid.paused) vid.play().catch(() => {});
         }
       } else {
         // Gap between clips — blank the preview
-        if (vid) { vid.pause(); vid.currentTime = 0; vid.style.visibility = "hidden"; }
+        const { cur } = getSlotsTick();
+        if (cur) { cur.pause(); cur.currentTime = 0; cur.style.visibility = "hidden"; }
       }
 
       // Sync audio tracks (voiceover, music, sfx)

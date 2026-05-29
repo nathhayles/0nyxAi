@@ -236,12 +236,18 @@ function TrackRow({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
     const startTime = clip.startTime;
 
     function onMove(ev) {
-      const dx      = ev.clientX - startX;
-      const dSec    = dx / zoom;
-      let newStart  = Math.max(0, startTime + dSec);
+      const dx       = ev.clientX - startX;
+      const dSec     = dx / zoom;
+      let newStart   = Math.max(0, startTime + dSec);
       if (snapEnabled) {
-        const snapped = nearestSnap(newStart, snapTgts, SNAP_PX / zoom);
-        if (snapped !== null) newStart = snapped;
+        const dur      = clip.trimEnd - clip.trimStart;
+        const thresh   = SNAP_PX / zoom;
+        const snapL    = nearestSnap(newStart, snapTgts, thresh);
+        const snapR    = nearestSnap(newStart + dur, snapTgts, thresh);
+        const distL    = snapL !== null ? Math.abs(newStart - snapL) : Infinity;
+        const distR    = snapR !== null ? Math.abs(newStart + dur - snapR) : Infinity;
+        if (distL <= distR && snapL !== null) newStart = snapL;
+        else if (snapR !== null)              newStart = Math.max(0, snapR - dur);
       }
       dispatch({ type: "MOVE_CLIP", clipId: clip.id, startTime: newStart });
     }
@@ -305,6 +311,7 @@ function TrackRow({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
     e.preventDefault();
     if (!trackRef.current) return;
     const raw = e.dataTransfer.getData("application/onyx-media");
+    console.log("[sequencer] raw drop data:", raw?.slice(0, 200));
     if (!raw) return;
     try {
       const media = JSON.parse(raw);
@@ -312,7 +319,7 @@ function TrackRow({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
       const x     = e.clientX - rect.left + scrollLeft;
       const time  = Math.max(0, x / zoom);
       onDrop(track.key, time, media);
-    } catch {}
+    } catch (err) { console.error("[sequencer] drop parse error:", err); }
   }
 
   // ── click on empty track area to seek ─────────────────────────────────────
@@ -395,10 +402,6 @@ export default function SequencerPanel({
   const [beatBpm,     setBeatBpm]     = useState(null);
   const [bpmAnalysing, setBpmAnalysing] = useState(false);
 
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollLeft = scrollLeft;
-  }, [scrollLeft]);
-
   const snapTgts = useMemo(() => {
     const base = snapTargets(timelineState, selected);
     if (!beatBpm || !snapEnabled) return base;
@@ -415,7 +418,9 @@ export default function SequencerPanel({
     const phPx = playhead * zoom;
     const { scrollLeft: sl, clientWidth: cw } = el;
     if (phPx < sl + 20 || phPx > sl + cw - 20) {
-      el.scrollLeft = phPx - cw / 2;
+      const next = Math.max(0, phPx - cw / 2);
+      el.scrollLeft = next;
+      setScrollLeft(next);
     }
   }, [playhead, zoom]);
 
@@ -423,6 +428,7 @@ export default function SequencerPanel({
 
   // ── handle drop from VisualsPanel / media panel ────────────────────────────
   const handleDrop = useCallback((trackKey, startTime, media) => {
+    console.log("[sequencer] drop media keys:", Object.keys(media), "url:", media.url, "mediaUrl:", media.mediaUrl, "src:", media.src);
     const dur = media.duration || 5;
     const clip = makeClip({
       trackKey,
@@ -463,19 +469,26 @@ export default function SequencerPanel({
     onSeek?.(time / Math.max(totalSec, 1));
   }, [dispatch, onSeek, totalSec]);
 
-  // ── zoom wheel ────────────────────────────────────────────────────────────
-  function onWheel(e) {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      setZoom(z => clamp(z * (e.deltaY < 0 ? 1.15 : 0.87), MIN_ZOOM, MAX_ZOOM));
-    } else {
-      setScrollLeft(sl => {
-        const next = Math.max(0, sl + e.deltaX + e.deltaY * 0.5);
-        if (scrollRef.current) scrollRef.current.scrollLeft = next;
-        return next;
-      });
+  // ── zoom wheel — native listener so preventDefault works on passive scroll ──
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    function handleWheel(e) {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        setZoom(z => clamp(z * (e.deltaY < 0 ? 1.15 : 0.87), MIN_ZOOM, MAX_ZOOM));
+      } else {
+        e.preventDefault();
+        if (scrollRef.current) {
+          const next = Math.max(0, scrollRef.current.scrollLeft + e.deltaX + e.deltaY * 0.5);
+          scrollRef.current.scrollLeft = next;
+          setScrollLeft(next);
+        }
+      }
     }
-  }
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
 
   const playheadPx = playhead * zoom - scrollLeft;
 
@@ -507,7 +520,6 @@ export default function SequencerPanel({
   return (
     <div
       ref={containerRef}
-      onWheel={onWheel}
       style={{
         display: "flex", flexDirection: "column",
         background: "#080c14",
