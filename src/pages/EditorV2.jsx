@@ -704,7 +704,7 @@ export default function EditorV2() {
     function tick() {
       const now     = performance.now() / 1000;
       const elapsed = now - playStartRef.current.wallTime;
-      if (seekingRef.current) return; // manual seek in progress — skip tick
+      if (seekingRef.current && !playStartRef.current) return; // only suppress tick when paused
       const newPH   = playStartRef.current.playheadAtStart + elapsed;
 
       // Stop at end
@@ -1202,9 +1202,15 @@ export default function EditorV2() {
               musicVolume={musicVolume} voiceoverVolume={voiceoverVolume}
               totalDuration={totalSec}
               onSeek={p => {
+                const t = p * totalSec;
+                dispatch({ type: "SEEK", time: t });
+                // If playing, restart the play clock from the new position so the tick stays in sync
+                if (playStartRef.current) {
+                  playStartRef.current = { wallTime: performance.now() / 1000, playheadAtStart: t };
+                }
+                // Brief seek lock to prevent double-fire jitter (but don't suppress if playing)
                 seekingRef.current = true;
-                setTimeout(() => { seekingRef.current = false; }, 300);
-                dispatch({ type: "SEEK", time: p * totalSec });
+                setTimeout(() => { seekingRef.current = false; }, 80);
               }}
             />
           </Safe>
