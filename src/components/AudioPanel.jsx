@@ -474,6 +474,29 @@ export default function AudioPanel({
         })
       );
 
+      // Non-blocking: fetch word-level timings for karaoke captions
+      data.results
+        .filter(item => item?.url)
+        .forEach(async (item) => {
+          const idx = Number(item?.sceneIndex ?? -1);
+          if (!uniqueIndexes.includes(idx)) return;
+          try {
+            const twRes = await fetch('/api/tts/transcribe-words', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...await getAuthHeaders() },
+              body: JSON.stringify({ voiceoverUrl: item.url }),
+            });
+            const twData = await twRes.json();
+            if (twData.words?.length) {
+              setScenes?.(prev => prev.map((s, i) =>
+                i === idx ? { ...s, wordTimings: twData.words } : s
+              ));
+            }
+          } catch (e) {
+            console.warn('[karaoke] transcribe-words failed, captions fall back to full text', e);
+          }
+        });
+
       if (!isAuto) {
         const matchedVoice = voiceCatalog.find((voice) => voice.id === voiceId);
         setAppliedVoiceName(matchedVoice?.name || voiceId);

@@ -188,6 +188,21 @@ export function nearestSnap(value, targets, thresholdSec = 0.15) {
   return bestDist <= thresholdSec ? best : null;
 }
 
+/** Teleport a single VO clip's startTime to match its paired VIDEO clip */
+function snapVoToScene(tracks, voClipId) {
+  const voiceTrack = tracks.find(t => t.key === "voiceover");
+  const videoTrack = tracks.find(t => t.key === "video");
+  if (!voiceTrack || !videoTrack) return tracks;
+  const voClip = voiceTrack.clips.find(c => c.id === voClipId);
+  if (!voClip || !voClip.sceneId) return tracks;
+  const videoClip = videoTrack.clips.find(c => c.sceneId === voClip.sceneId);
+  if (!videoClip) return tracks;
+  return tracks.map(t => {
+    if (t.key !== "voiceover") return t;
+    return { ...t, clips: t.clips.map(c => c.id === voClipId ? { ...c, startTime: videoClip.startTime } : c) };
+  });
+}
+
 // ─── reducer ─────────────────────────────────────────────────────────────────
 
 export function timelineReducer(state, action) {
@@ -387,6 +402,19 @@ export function timelineReducer(state, action) {
       return { ...state, snap: !state.snap };
     }
 
+    case "SNAP_VO_TO_SCENE": {
+      // action: { clipId }
+      return { ...state, tracks: snapVoToScene(state.tracks, action.clipId) };
+    }
+
+    case "SNAP_ALL_VO_TO_SCENES": {
+      const voiceTrack = state.tracks.find(t => t.key === "voiceover");
+      if (!voiceTrack) return state;
+      let tracks = state.tracks;
+      for (const c of voiceTrack.clips) { tracks = snapVoToScene(tracks, c.id); }
+      return { ...state, tracks };
+    }
+
     // ── bulk import ────────────────────────────────────────────────────────
 
     case "IMPORT_SCENES": {
@@ -396,7 +424,49 @@ export function timelineReducer(state, action) {
 
     case "LOAD_STATE": {
       // action: { state } — hydrate from backend JSON
-      return { ...makeInitialState(), ...action.state };
+      // Normalize stem tracks saved by backend (use id field) to frontend format (key field).
+      const loadedTracks = (action.state?.tracks || []).map(t => {
+        if (!t.key && t.id) return { ...t, key: t.id };
+        return t;
+      });
+      console.log('[LOAD_STATE] tracks being set:', loadedTracks.map(t => t.key || t.id));
+      return { ...makeInitialState(), ...action.state, tracks: loadedTracks };
+    }
+
+    case "ADD_STEM_TRACKS": {
+      // action.stems = [{ type, label, color, url, duration? }]
+      // Replaces any existing stem tracks, inserts after music track.
+      const nonStemTracks = state.tracks.filter(t => !t.key.startsWith("stem-"));
+      const stemTracks = action.stems.map(stem => ({
+        key:      `stem-${stem.type}`,
+        label:    stem.label,
+        icon:     stem.label.split(" ")[0],
+        color:    stem.color,
+        kind:     "audio",
+        type:     "stem",
+        stemType: stem.type,
+        clips:    [makeClip({
+          trackKey:  `stem-${stem.type}`,
+          startTime: 0,
+          duration:  stem.duration || 180,
+          trimStart: 0,
+          trimEnd:   stem.duration || 180,
+          src:       stem.url,
+          type:      "audio",
+          volume:    100,
+          label:     stem.label,
+        })],
+      }));
+      const musicIdx = nonStemTracks.findIndex(t => t.key === "music");
+      const insertAt = musicIdx >= 0 ? musicIdx + 1 : nonStemTracks.length;
+      return {
+        ...state,
+        tracks: [
+          ...nonStemTracks.slice(0, insertAt),
+          ...stemTracks,
+          ...nonStemTracks.slice(insertAt),
+        ],
+      };
     }
 
     default:

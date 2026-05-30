@@ -1,127 +1,185 @@
-import { useEffect, useState } from "react"
-import { supabase } from "../supabaseClient"
+import { useState, useEffect } from 'react';
+import { getAuthHeaders } from '../utils/auth';
 
-export default function Admin(){
+export default function AdminPanel() {
+  const [data, setData] = useState(null);
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState({ key: 'joined', dir: 'desc' });
+  const [loading, setLoading] = useState(true);
+  const [grantingCredits, setGrantingCredits] = useState({});
 
-const [users,setUsers] = useState([])
-const [stats,setStats] = useState({
-users:0,
-subscriptions:0,
-usage:0
-})
+  useEffect(() => {
+    fetch('/api/admin/users', { headers: getAuthHeaders() })
+      .then(r => r.json())
+      .then(d => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
 
-useEffect(()=>{
+  const grantCredits = async (userId, amount) => {
+    setGrantingCredits(g => ({ ...g, [userId]: true }));
+    await fetch(`/api/admin/users/${userId}/credits`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: Number(amount) }),
+    });
+    const fresh = await fetch('/api/admin/users', { headers: getAuthHeaders() }).then(r => r.json());
+    setData(fresh);
+    setGrantingCredits(g => ({ ...g, [userId]: false }));
+  };
 
-async function load(){
+  if (loading) return <div style={s.page}><p style={{ color: '#4dd0ff' }}>Loading...</p></div>;
+  if (!data) return <div style={s.page}><p style={{ color: '#f87171' }}>Access denied or error.</p></div>;
 
-const { data:usersData } = await supabase
-.from("users")
-.select("*")
+  const { stats, users } = data;
 
-setUsers(usersData || [])
+  const filtered = users
+    .filter(u => !search ||
+      u.email?.toLowerCase().includes(search.toLowerCase()) ||
+      u.id?.includes(search)
+    )
+    .sort((a, b) => {
+      const av = a[sort.key] ?? 0;
+      const bv = b[sort.key] ?? 0;
+      return sort.dir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+    });
 
-const { count:userCount } = await supabase
-.from("users")
-.select("*",{count:"exact",head:true})
+  const Col = ({ k, label }) => (
+    <th onClick={() => setSort(s => ({ key: k, dir: s.key === k && s.dir === 'desc' ? 'asc' : 'desc' }))}
+      style={{ ...s.th, color: sort.key === k ? '#4dd0ff' : '#64748b', cursor: 'pointer' }}>
+      {label} {sort.key === k ? (sort.dir === 'desc' ? '↓' : '↑') : ''}
+    </th>
+  );
 
-const { count:subCount } = await supabase
-.from("subscriptions")
-.select("*",{count:"exact",head:true})
+  return (
+    <div style={s.page}>
+      <div style={s.header}>
+        <h1 style={s.title}>Onyx Admin</h1>
+        <p style={s.sub}>Internal dashboard — Onyx staff only</p>
+      </div>
 
-const { count:usageCount } = await supabase
-.from("usage")
-.select("*",{count:"exact",head:true})
+      <div style={s.statsGrid}>
+        {[
+          { label: 'Total Users',   value: stats.total_users },
+          { label: 'Active Subs',   value: stats.active_subscriptions },
+          { label: 'Total Reels',   value: stats.total_reels },
+          { label: 'Total Exports', value: stats.total_renders },
+          { label: 'Total Revenue', value: `$${(stats.total_revenue/100).toFixed(2)}` },
+        ].map(card => (
+          <div key={card.label} style={s.statCard}>
+            <div style={s.statVal}>{card.value}</div>
+            <div style={s.statLabel}>{card.label}</div>
+          </div>
+        ))}
+      </div>
 
-setStats({
-users:userCount || 0,
-subscriptions:subCount || 0,
-usage:usageCount || 0
-})
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Search by email or user ID..."
+        style={s.search}
+      />
 
+      <div style={{ overflowX: 'auto' }}>
+        <table style={s.table}>
+          <thead>
+            <tr>
+              <Col k="email"               label="Email" />
+              <Col k="plan"                label="Plan" />
+              <Col k="subscription_status" label="Sub Status" />
+              <Col k="credits"             label="Credits" />
+              <Col k="reels"               label="Reels" />
+              <Col k="renders"             label="Exports" />
+              <Col k="publishes"           label="Publishes" />
+              <Col k="referral_signups"    label="Referrals" />
+              <Col k="joined"              label="Joined" />
+              <th style={s.th}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(u => (
+              <UserRow key={u.id} user={u} onGrant={grantCredits} granting={grantingCredits[u.id]} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
-load()
+function UserRow({ user: u, onGrant, granting }) {
+  const [credAmt, setCredAmt] = useState('');
 
-},[])
+  const planColor = { pro: '#4ade80', creator: '#4dd0ff', free: '#64748b' }[u.plan] || '#64748b';
+  const subColor = u.subscription_status === 'active' ? '#4ade80' : '#f87171';
 
-async function grantCredits(userId){
-const amount = prompt("Credits to grant:")
-if(!amount) return
-await supabase.from("subscriptions").update({credits:amount}).eq("user_id",userId)
-alert("Credits updated")
+  return (
+    <tr style={s.row}>
+      <td style={s.td}>
+        <div style={{ color: '#e2e8f0', fontSize: 13 }}>{u.email || '—'}</div>
+        <div style={{ color: '#334155', fontSize: 10, fontFamily: 'monospace' }}>{u.id?.slice(0,8)}...</div>
+      </td>
+      <td style={s.td}>
+        <span style={{ ...s.badge, background: planColor + '22', color: planColor }}>
+          {u.plan}
+        </span>
+      </td>
+      <td style={s.td}>
+        <span style={{ ...s.badge, background: subColor + '22', color: subColor }}>
+          {u.subscription_status}
+        </span>
+      </td>
+      <td style={{ ...s.td, color: '#fbbf24', fontWeight: 600 }}>{u.credits}</td>
+      <td style={s.td}>{u.reels}</td>
+      <td style={s.td}>{u.renders}</td>
+      <td style={s.td}>{u.publishes}</td>
+      <td style={s.td}>
+        {u.referral_code ? (
+          <div>
+            <div style={{ color: '#a78bfa', fontSize: 12 }}>{u.referral_code}</div>
+            <div style={{ color: '#64748b', fontSize: 11 }}>{u.referral_signups} signups</div>
+          </div>
+        ) : '—'}
+      </td>
+      <td style={{ ...s.td, color: '#64748b', fontSize: 12 }}>
+        {new Date(u.joined).toLocaleDateString()}
+      </td>
+      <td style={s.td}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input
+            value={credAmt}
+            onChange={e => setCredAmt(e.target.value)}
+            placeholder="±credits"
+            style={s.credInput}
+            type="number"
+          />
+          <button
+            onClick={() => { onGrant(u.id, credAmt); setCredAmt(''); }}
+            disabled={!credAmt || granting}
+            style={s.grantBtn}
+          >
+            {granting ? '...' : '+'}
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
 }
 
-async function promoteUser(userId){
-await supabase.from("users").update({role:"admin"}).eq("id",userId)
-alert("User promoted")
-}
-
-async function disableUser(userId){
-await supabase.from("users").update({disabled:true}).eq("id",userId)
-alert("User disabled")
-}
-
-return(
-
-<div style={{background:"#06070a",color:"#fff",padding:40,minHeight:"100vh"}}>
-
-<h1>Admin Panel</h1>
-
-<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20,marginBottom:40}}>
-
-<div style={{background:"#0c1016",padding:20,borderRadius:10}}>
-<h3>Total Users</h3>
-<p>{stats.users}</p>
-</div>
-
-<div style={{background:"#0c1016",padding:20,borderRadius:10}}>
-<h3>Active Subscriptions</h3>
-<p>{stats.subscriptions}</p>
-</div>
-
-<div style={{background:"#0c1016",padding:20,borderRadius:10}}>
-<h3>Usage Records</h3>
-<p>{stats.usage}</p>
-</div>
-
-</div>
-
-<h2>Users</h2>
-
-<table style={{width:"100%",marginTop:20}}>
-<thead>
-<tr>
-<th>Username</th>
-<th>User ID</th>
-<th>Role</th>
-<th>Actions</th>
-</tr>
-</thead>
-
-<tbody>
-
-{users.map(u => (
-<tr key={u.id}>
-<td>{u.username}</td>
-<td>{u.id}</td>
-<td>{u.role}</td>
-<td>
-{u.role !== "superadmin" && (
-<>
-<button onClick={() => grantCredits(u.id)}>Credits</button>
-<button onClick={() => promoteUser(u.id)}>Role</button>
-<button onClick={() => disableUser(u.id)}>Disable</button>
-</>
-)}
-</td>
-</tr>
-))}
-
-</tbody>
-</table>
-
-</div>
-
-)
-
-}
+const s = {
+  page: { background: '#060d16', minHeight: '100vh', padding: '32px 24px', fontFamily: 'Inter, sans-serif', color: '#e2e8f0' },
+  header: { marginBottom: 28 },
+  title: { fontSize: 24, fontWeight: 800, color: '#4dd0ff', margin: 0 },
+  sub: { color: '#334155', fontSize: 13, marginTop: 4 },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 },
+  statCard: { background: '#0a131e', border: '1px solid #1e2a38', borderRadius: 10, padding: '16px 20px' },
+  statVal: { fontSize: 28, fontWeight: 800, color: '#4dd0ff' },
+  statLabel: { fontSize: 12, color: '#64748b', marginTop: 4 },
+  search: { width: '100%', padding: '10px 14px', background: '#0a131e', border: '1px solid #1e2a38', borderRadius: 8, color: '#e2e8f0', fontSize: 13, marginBottom: 16, boxSizing: 'border-box' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
+  th: { padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: '1px solid #1e2a38', whiteSpace: 'nowrap' },
+  row: { borderBottom: '1px solid #0d1825' },
+  td: { padding: '10px 12px', verticalAlign: 'middle' },
+  badge: { padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 },
+  credInput: { width: 70, padding: '5px 8px', background: '#0d1825', border: '1px solid #1e2a38', borderRadius: 6, color: '#e2e8f0', fontSize: 12 },
+  grantBtn: { padding: '5px 10px', background: '#4dd0ff22', border: '1px solid #4dd0ff44', borderRadius: 6, color: '#4dd0ff', cursor: 'pointer', fontWeight: 700 },
+};

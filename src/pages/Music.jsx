@@ -89,6 +89,14 @@ function applyTrackToEditor(track, reelKey = "onyx_editor_autosave_v2") {
   } catch {}
 }
 
+const STEM_META = {
+  vocals:       { label: "🎤 Vocals",       color: "#f472b6" },
+  drums:        { label: "🥁 Drums",        color: "#fb923c" },
+  bass:         { label: "🎸 Bass",         color: "#a78bfa" },
+  melody:       { label: "🎹 Melody",       color: "#2dd4bf" },
+  instrumental: { label: "🎵 Instrumental", color: "#4ade80" },
+};
+
 // ===========================
 // AUDIO PREVIEW COMPONENT
 // ===========================
@@ -299,6 +307,54 @@ export default function Music() {
   const [fadrLoading, setFadrLoading] = useState(false);
   const [fadrResult, setFadrResult] = useState(null);
   const [fadrError, setFadrError] = useState("");
+  // Stem reel picker
+  const [showStemReelPicker, setShowStemReelPicker] = useState(false);
+  const [stemSending, setStemSending] = useState(false);
+  const [sentConfirm, setSentConfirm] = useState(null); // { reelId, reelName }
+  const [resolvedStems, setResolvedStems] = useState(null);
+  const [loadingReels, setLoadingReels] = useState(false);
+
+  useEffect(() => {
+    if (fadrResult?.op !== 'stems') return;
+    const stems = Object.entries(STEM_META)
+      .filter(([k]) => fadrResult[k])
+      .map(([k, m]) => ({ type: k, url: fadrResult[k], duration: fadrResult.duration || 180, label: m.label, color: m.color }));
+    if (stems.length) setResolvedStems(stems);
+  }, [fadrResult]);
+
+  async function handleOpenReelPicker() {
+    setLoadingReels(true);
+    setShowStemReelPicker(true);
+    try {
+      const r = await fetch('/api/reels', { headers: await getAuthHeaders() });
+      const data = await r.json();
+      setReels(Array.isArray(data) ? data : (data.reels || []));
+    } catch (e) {
+      console.error('Failed to load reels', e);
+    } finally {
+      setLoadingReels(false);
+    }
+  }
+
+  async function handleAssignToReel(reelId, reelName) {
+    if (!resolvedStems?.length) return;
+    setStemSending(true);
+    try {
+      const res = await fetch(`/api/reels/${reelId}/stems`, {
+        method: 'POST',
+        headers: { ...await getAuthHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stems: resolvedStems }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      sessionStorage.setItem('onyx_pending_stems', JSON.stringify({ reelId, stems: resolvedStems }));
+      setShowStemReelPicker(false);
+      setSentConfirm({ reelId, reelName });
+    } catch (e) {
+      alert('Failed to assign stems to reel. Please try again.');
+    } finally {
+      setStemSending(false);
+    }
+  }
 
   // Reel picker
   const [showReelPicker, setShowReelPicker] = useState(false);
@@ -434,8 +490,43 @@ export default function Music() {
     setShowReelPicker(true);
   }
 
-  function confirmApplyToReel(reel) {
+  async function handleAssignStemsToReel(reel) {
+    try {
+      const res = await fetch(`/api/reels/${reel.id}/stems`, {
+        method: 'POST',
+        headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stems: resolvedStems }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      sessionStorage.setItem('onyx_pending_stems', JSON.stringify({ reelId: reel.id, stems: resolvedStems }));
+      setSentConfirm({ reelId: reel.id, reelName: reel.title || 'Untitled Reel' });
+    } catch {
+      alert('Failed to assign stems. Please try again.');
+    }
+  }
+
+  async function confirmApplyToReel(reel) {
     if (!pendingApplyTrack) return;
+    if (pendingApplyTrack?.isStems) {
+      setShowReelPicker(false);
+      setPendingApplyTrack(null);
+      try {
+        const res = await fetch(`/api/reels/${reel.id}/stems`, {
+          method: 'POST',
+          headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stems: resolvedStems }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        sessionStorage.setItem('onyx_pending_stems', JSON.stringify({ reelId: reel.id, stems: resolvedStems }));
+        setSentConfirm({ reelId: reel.id, reelName: reel.title || 'Untitled Reel' });
+      } catch (e) {
+        alert(`Failed to assign stems: ${e.message}`);
+      }
+      return;
+    }
     const reelKey = `onyx_editor_autosave_${reel.id}`;
     applyTrackToEditor(pendingApplyTrack, reelKey);
     setAppliedId(pendingApplyTrack.id || pendingApplyTrack.url);
@@ -901,7 +992,7 @@ export default function Music() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
               {savedTracks.map(track => (
                 <TrackCard key={track.id} track={track} onApply={applyTrack} appliedId={appliedId} savedIds={savedIds} onRename={renameTrack}
-                  onUseInTools={t => { const rawUrl = t.url || t.remoteUrl || ""; const absUrl = rawUrl.startsWith("http") ? rawUrl : window.location.origin + rawUrl; setFadrFileUrl(absUrl); setFadrFile(null); setFadrResult(null); setFadrError(""); setTab("tools"); }} />
+                  onUseInTools={t => { const rawUrl = t.url || t.remoteUrl || ""; const absUrl = rawUrl.startsWith("http") ? rawUrl : window.location.origin + rawUrl; setFadrFileUrl(absUrl); setFadrFile(null); setFadrResult(null); setFadrError(""); setResolvedStems(null); setSentConfirm(null); setTab("tools"); }} />
               ))}
             </div>
           </div>
@@ -924,7 +1015,7 @@ export default function Music() {
                   onChange={e => {
                     const f = e.target.files?.[0];
                     if (!f) return;
-                    setFadrFile(f); setFadrResult(null); setFadrError(""); setFadrDuration(null);
+                    setFadrFile(f); setFadrResult(null); setFadrError(""); setFadrDuration(null); setResolvedStems(null); setSentConfirm(null);
                     const audio = new Audio();
                     const url = URL.createObjectURL(f);
                     audio.addEventListener("loadedmetadata", () => { setFadrDuration(audio.duration); URL.revokeObjectURL(url); });
@@ -945,7 +1036,7 @@ export default function Music() {
             <input
               type="url" placeholder="https://example.com/track.mp3"
               value={fadrFileUrl}
-              onChange={e => { setFadrFileUrl(e.target.value); if (e.target.value) { setFadrFile(null); setFadrDuration(null); setFadrResult(null); setFadrError(""); } }}
+              onChange={e => { setFadrFileUrl(e.target.value); if (e.target.value) { setFadrFile(null); setFadrDuration(null); setFadrResult(null); setFadrError(""); setResolvedStems(null); setSentConfirm(null); } }}
               style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, background: "#0c1016", border: "1px solid #1f2937", color: "#f1f5f9", fontSize: 13, marginBottom: 24, outline: "none" }}
             />
 
@@ -978,6 +1069,8 @@ export default function Music() {
                         setFadrLoading(true);
                         setFadrResult(null);
                         setFadrError("");
+                        setResolvedStems(null);
+                        setSentConfirm(null);
                         try {
                           const token = session?.access_token;
                           const form = new FormData();
@@ -992,6 +1085,13 @@ export default function Music() {
                           const data = await res.json();
                           if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
                           setFadrResult({ op, ...data });
+                          if (op === 'stems') {
+                            setResolvedStems(
+                              Object.entries(STEM_META)
+                                .filter(([k]) => data[k])
+                                .map(([k, m]) => ({ type: k, url: data[k], label: m.label, color: m.color }))
+                            );
+                          }
                         } catch (e) {
                           setFadrError(e.message);
                         } finally {
@@ -1055,29 +1155,46 @@ export default function Music() {
                 {/* Stems downloads */}
                 {fadrResult.op === "stems" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {[
-                      { key: "vocals",       icon: "🎤", label: "Vocals" },
-                      { key: "drums",        icon: "🥁", label: "Drums" },
-                      { key: "bass",         icon: "🎸", label: "Bass" },
-                      { key: "melody",       icon: "🎹", label: "Melody" },
-                      { key: "instrumental", icon: "🎵", label: "Instrumental" },
-                    ].filter(s => fadrResult[s.key]).map(s => (
-                      <div key={s.key} style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 14px", borderRadius: 8, background: "#0f1623", border: "1px solid #1f2937" }}>
-                        <span style={{ fontSize: 16 }}>{s.icon}</span>
-                        <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{s.label}</span>
-                        <a href={fadrResult[s.key]} download target="_blank" rel="noreferrer"
+                    {sentConfirm && (
+                      <div style={{
+                        background: '#0d2a1a', border: '1px solid #4ade80',
+                        borderRadius: 10, padding: '14px 18px',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                      }}>
+                        <span style={{ color: '#4ade80', fontSize: 14 }}>
+                          ✓ Stems assigned to <b>{sentConfirm.reelName}</b>
+                        </span>
+                        <a
+                          href={`/editor-v2?reelId=${sentConfirm.reelId}`}
+                          style={{
+                            background: '#4ade80', color: '#060d16',
+                            padding: '7px 16px', borderRadius: 6,
+                            fontWeight: 700, fontSize: 13, textDecoration: 'none'
+                          }}
+                        >
+                          Open Editor →
+                        </a>
+                      </div>
+                    )}
+                    {Object.entries(STEM_META).filter(([k]) => fadrResult[k]).map(([k, m]) => (
+                      <div key={k} style={{ display: "flex", gap: 10, alignItems: "center", padding: "10px 14px", borderRadius: 8, background: "#0f1623", border: `1px solid ${m.color}33` }}>
+                        <span style={{ fontSize: 16 }}>{m.label.split(" ")[0]}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, flex: 1, color: m.color }}>{m.label.split(" ").slice(1).join(" ")}</span>
+                        <AudioPreview src={fadrResult[k]} />
+                        <a href={fadrResult[k]} download target="_blank" rel="noreferrer"
                           style={{ padding: "5px 14px", borderRadius: 7, background: "#7c3aed", color: "#fff", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>
                           ⬇️ Download
                         </a>
-                        {(s.key === "instrumental" || s.key === "vocals") && (
-                          <button onClick={() => applyTrackToEditor({ url: fadrResult[s.key], name: s.label, title: s.label })}
-                            style={{ padding: "5px 14px", borderRadius: 7, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#86efac", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                            Apply to Reel
-                          </button>
-                        )}
                       </div>
                     ))}
-                    {Object.values({ vocals: fadrResult.vocals, drums: fadrResult.drums, bass: fadrResult.bass, melody: fadrResult.melody, instrumental: fadrResult.instrumental }).every(v => !v) && (
+                    {resolvedStems?.length > 0 && !sentConfirm && (
+                      <button
+                        onClick={() => { setPendingApplyTrack({ url: '__stems__', name: 'Stem Tracks', isStems: true }); loadReels(); setShowReelPicker(true); }}
+                        style={{ marginTop: 4, width: "100%", padding: "12px 0", background: "linear-gradient(135deg, #7dd3fc, #4ade80)", border: "none", borderRadius: 8, color: "#060d16", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                        📥 Assign All Stems to Reel
+                      </button>
+                    )}
+                    {Object.keys(STEM_META).every(k => !fadrResult[k]) && (
                       <div style={{ fontSize: 13, color: "#64748b", textAlign: "center", padding: 16 }}>Stem URLs not returned — check server logs for raw response shape.</div>
                     )}
                   </div>
@@ -1145,6 +1262,72 @@ export default function Music() {
                 💾 Save to My Music instead
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stem Reel Picker Modal */}
+      {showStemReelPicker && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }}>
+          <div style={{
+            background: '#0a131e', border: '1px solid #1e2a38',
+            borderRadius: 14, padding: 28, width: 400,
+            maxHeight: '70vh', overflowY: 'auto',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.6)'
+          }}>
+            <h3 style={{ color: '#e2e8f0', marginBottom: 6, fontSize: 17 }}>
+              Assign stems to which reel?
+            </h3>
+            <p style={{ color: '#64748b', fontSize: 12, marginBottom: 18 }}>
+              This will add {resolvedStems?.length} stem tracks to the reel&apos;s sequencer.
+            </p>
+
+            {loadingReels && (
+              <p style={{ color: '#4a6a8a', textAlign: 'center' }}>Loading your reels…</p>
+            )}
+
+            {!loadingReels && reels.length === 0 && (
+              <p style={{ color: '#64748b', textAlign: 'center' }}>No reels found. Create one first.</p>
+            )}
+
+            {reels.map(reel => (
+              <div
+                key={reel.id}
+                onClick={() => !stemSending && handleAssignToReel(reel.id, reel.title || 'Untitled Reel')}
+                style={{
+                  padding: '13px 16px', borderRadius: 8, marginBottom: 8,
+                  background: stemSending ? '#0a0f1a' : '#0d1f30',
+                  border: '1px solid #1e2a38',
+                  cursor: stemSending ? 'wait' : 'pointer',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  transition: 'border-color 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#7dd3fc'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#1e2a38'}
+              >
+                <span style={{ color: '#e2e8f0', fontWeight: 600 }}>
+                  {reel.title || 'Untitled Reel'}
+                </span>
+                <span style={{ color: '#4a6a8a', fontSize: 11 }}>
+                  {new Date(reel.created_at).toLocaleDateString()}
+                </span>
+              </div>
+            ))}
+
+            <button
+              onClick={() => setShowStemReelPicker(false)}
+              disabled={stemSending}
+              style={{
+                marginTop: 12, width: '100%', padding: '10px 0',
+                background: 'transparent', border: '1px solid #1e2a38',
+                borderRadius: 8, color: '#64748b', cursor: 'pointer', fontSize: 13
+              }}
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

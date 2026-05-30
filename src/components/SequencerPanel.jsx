@@ -32,6 +32,18 @@ const TRACK_META = {
   sfx:       { label: "SFX",    color: "#f59e0b", dimColor: "rgba(245,158,11,0.18)", icon: "◉" },
 };
 
+// Returns display meta for any track — built-in or dynamic (stem).
+function trackMeta(track) {
+  if (TRACK_META[track.key]) return TRACK_META[track.key];
+  const color = track.color || "#8b5cf6";
+  return {
+    label:    track.label || track.key,
+    icon:     track.icon  || "♪",
+    color,
+    dimColor: color + "2e",
+  };
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function fmtTime(s) {
   const t = Math.max(0, Number(s) || 0);
@@ -232,7 +244,7 @@ function ClipBlock({ clip, zoom, selected, onSelect, onTrimStart, onTrimEnd, onD
 // ─── Track row ────────────────────────────────────────────────────────────────
 function TrackRow({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
                     onScrub, onDrop, dispatch, snapEnabled, snapTgts }) {
-  const meta = TRACK_META[track.key] || TRACK_META.video;
+  const meta = trackMeta(track);
   const trackRef = useRef(null);
 
   // ── drag-move clip ──────────────────────────────────────────────────────────
@@ -376,7 +388,7 @@ function TrackRow({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
 const SEQUENCER_HEIGHTS = {
   mini:   36,   // toolbar only — collapsed
   normal: 220,  // ~4 tracks visible, scrollable
-  full:   420,  // all tracks + breathing room
+  full:   680,  // all tracks + breathing room
 };
 
 export default function SequencerPanel({
@@ -519,9 +531,12 @@ export default function SequencerPanel({
     timelineState.tracks.flatMap(t => t.clips).find(c => c.id === selected) || null,
   [timelineState.tracks, selected]);
 
-  const tracks = useMemo(() =>
-    TRACK_ORDER.map(key => timelineState.tracks.find(t => t.key === key)).filter(Boolean),
-  [timelineState.tracks]);
+  const tracks = useMemo(() => {
+    const base = TRACK_ORDER.map(key => timelineState.tracks.find(t => t.key === key)).filter(Boolean);
+    const stems = timelineState.tracks.filter(t => t.key?.startsWith("stem-") || t.type === "stem");
+    console.log('[SEQUENCER] all tracks:', timelineState.tracks.map(t => t.key || t.id), 'stem tracks found:', stems.length);
+    return [...base, ...stems];
+  }, [timelineState.tracks]);
 
   return (
     <div
@@ -568,6 +583,12 @@ export default function SequencerPanel({
           active={snapEnabled}
         >
           <MagnetIcon/>
+        </TlBtn>
+        <TlBtn
+          onClick={() => dispatch({ type: "SNAP_ALL_VO_TO_SCENES" })}
+          title="Snap all voiceovers back to their scenes"
+        >
+          <span style={{ fontSize: 11 }}>🔗</span>
         </TlBtn>
 
         <Div/>
@@ -631,6 +652,14 @@ export default function SequencerPanel({
             <span style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontFamily: "monospace", minWidth: 22 }}>
               {selectedClip.volume ?? 100}%
             </span>
+            {selectedClip.trackKey === "voiceover" && selectedClip.sceneId && (
+              <TlBtn
+                onClick={() => dispatch({ type: "SNAP_VO_TO_SCENE", clipId: selected })}
+                title={`Snap voiceover to scene ${selectedClip.sceneId}`}
+              >
+                <span style={{ fontSize: 11 }}>🔗</span>
+              </TlBtn>
+            )}
           </>
         )}
       </div>
@@ -648,7 +677,7 @@ export default function SequencerPanel({
           <div style={{ height: RULER_H, flexShrink: 0, borderBottom: "0.5px solid rgba(255,255,255,0.08)" }}/>
 
           {tracks.map(track => {
-            const meta = TRACK_META[track.key] || TRACK_META.video;
+            const meta = trackMeta(track);
             return (
               <div key={track.key} style={{
                 height: TRACK_H, flexShrink: 0, display: "flex", alignItems: "center",

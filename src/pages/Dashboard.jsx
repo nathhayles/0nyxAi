@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import PaywallModal from "../components/PaywallModal.jsx";
 import HelpTooltip from "../components/HelpTooltip.jsx";
 
+const isMobileDevice = () =>
+  window.innerWidth < 1024 ||
+  /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
+
 const ADMIN_UUIDS = ["d7c733c8-31dd-49b2-bffa-655b7d13ce11"];
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [reels, setReels] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +64,20 @@ export default function Dashboard() {
   }
 
   useEffect(() => { load(); }, []);
+
+  // On mobile, redirect to brand setup if no default brand exists yet
+  useEffect(() => {
+    if (!isMobileDevice()) return;
+    getHeaders().then(headers => {
+      fetch('/api/brands', { headers })
+        .then(r => r.json())
+        .then(data => {
+          const brands = Array.isArray(data) ? data : (data.brands || []);
+          if (!brands.some(b => b.is_default)) navigate('/brand-setup?next=/dashboard');
+        })
+        .catch(() => {});
+    });
+  }, []);
 
   async function deleteReel(id) {
     if (!confirm("Delete this reel?")) return;

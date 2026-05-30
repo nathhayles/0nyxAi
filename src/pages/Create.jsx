@@ -53,12 +53,17 @@ function normalizeGeneratedScene(scene, index) {
   };
 }
 
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent) || window.innerWidth < 768;
+}
+
 export default function CreatePage() {
   const navigate = useNavigate();
 
   // Auth — must be declared before any conditional returns
   const [session, setSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
 
   // Credits from API
   const [credits, setCredits] = useState(null);
@@ -88,6 +93,12 @@ export default function CreatePage() {
       setSession(data.session ?? null);
       setSessionLoading(false);
     });
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
   }, []);
 
   useEffect(() => {
@@ -269,7 +280,11 @@ export default function CreatePage() {
       };
 
       localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(snapshot));
-      navigate("/editor");
+      if (isMobileDevice() && snapshot.pipelineId) {
+        navigate(`/preview/${snapshot.pipelineId}`);
+      } else {
+        navigate(`/editor-v2`);
+      }
     } catch (err) {
       setError(err?.message || "Failed to generate storyboard.");
       setProgressStep("Failed");
@@ -281,7 +296,7 @@ export default function CreatePage() {
   const displayCredits = credits === null ? "..." : credits;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", padding: "40px 24px" }}>
+    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", padding: isMobile ? "16px" : "40px 24px", maxWidth: "100vw", overflowX: "hidden", boxSizing: "border-box" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <Link to="/dashboard" style={{ color: "#00d2ff" }}>
           ← Back to Projects
@@ -351,7 +366,7 @@ export default function CreatePage() {
           </b>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 32 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "320px 1fr", gap: isMobile ? 20 : 32 }}>
           <div>
             <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>Brand</label>
 
@@ -371,7 +386,9 @@ export default function CreatePage() {
                 border: "1px solid rgba(255,255,255,0.12)",
                 background: "#0c1016",
                 color: "#fff",
-                marginBottom: 20
+                marginBottom: 20,
+                maxWidth: "100%",
+                boxSizing: "border-box"
               }}
             >
               {THEMES.map((item) => (
@@ -395,7 +412,9 @@ export default function CreatePage() {
                 border: "1px solid rgba(255,255,255,0.12)",
                 background: "#0c1016",
                 color: "#fff",
-                marginBottom: 20
+                marginBottom: 20,
+                maxWidth: "100%",
+                boxSizing: "border-box"
               }}
             >
               <option value="standard">Standard Storyboard</option>
@@ -414,7 +433,9 @@ export default function CreatePage() {
                 border: "1px solid rgba(255,255,255,0.12)",
                 background: "#0c1016",
                 color: "#fff",
-                marginBottom: 20
+                marginBottom: 20,
+                maxWidth: "100%",
+                boxSizing: "border-box"
               }}
             >
               <option value="16:9">16:9 — Landscape (YouTube, Facebook)</option>

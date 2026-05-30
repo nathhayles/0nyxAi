@@ -24,6 +24,7 @@ import PptToVideo from "./pages/PptToVideo";
 import AudioToVideo from "./pages/AudioToVideo";
 import Publish from "./pages/Publish";
 import BrandingPanel from "./components/BrandingPanel";
+import BrandSetupWizard from "./pages/BrandSetupWizard";
 import ScreenRecorder from "./pages/ScreenRecorder.jsx";
 import WebcamRecorder from "./pages/WebcamRecorder.jsx";
 import ViralHooks from "./pages/ViralHooks.jsx";
@@ -250,6 +251,7 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
         <Route path="/branding" element={<ProtectedRoute><BrandingPanel /></ProtectedRoute>} />
+        <Route path="/brand-setup" element={<ProtectedRoute><BrandSetupWizard /></ProtectedRoute>} />
 
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />

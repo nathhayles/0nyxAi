@@ -206,6 +206,82 @@ function Sidebar({ open, activeTab, setActiveTab, children }) {
   );
 }
 
+// ── Preview transition helper ────────────────────────────────────────────────
+function applyTransition(type, cur, nxt, onDone) {
+  const DUR = 0.5;
+  nxt.style.visibility = "visible";
+  nxt.style.transform = "";
+  cur.style.transform = "";
+
+  if (type === "cut") {
+    nxt.style.opacity = "1";
+    nxt.style.transition = "";
+    cur.style.visibility = "hidden";
+    cur.style.opacity = "0";
+    cur.style.transition = "";
+    onDone();
+    return;
+  }
+  if (type === "slide") {
+    nxt.style.opacity = "1";
+    nxt.style.transform = "translateX(100%)";
+    nxt.style.transition = "";
+    cur.style.transition = "";
+    requestAnimationFrame(() => {
+      nxt.style.transition = `transform ${DUR}s ease`;
+      nxt.style.transform = "translateX(0)";
+      cur.style.transition = `transform ${DUR}s ease`;
+      cur.style.transform = "translateX(-100%)";
+      setTimeout(() => {
+        cur.style.visibility = "hidden";
+        cur.style.opacity = "0";
+        cur.style.transform = "";
+        cur.style.transition = "";
+        nxt.style.transform = "";
+        nxt.style.transition = "";
+        onDone();
+      }, DUR * 1000 + 30);
+    });
+    return;
+  }
+  if (type === "zoom") {
+    nxt.style.opacity = "0";
+    nxt.style.transition = "";
+    cur.style.transition = "";
+    requestAnimationFrame(() => {
+      cur.style.transition = `transform ${DUR}s ease, opacity ${DUR}s ease`;
+      cur.style.transform = "scale(1.15)";
+      cur.style.opacity = "0";
+      nxt.style.transition = `opacity ${DUR}s ease`;
+      nxt.style.opacity = "1";
+      setTimeout(() => {
+        cur.style.visibility = "hidden";
+        cur.style.opacity = "0";
+        cur.style.transform = "";
+        cur.style.transition = "";
+        nxt.style.transition = "";
+        onDone();
+      }, DUR * 1000 + 30);
+    });
+    return;
+  }
+  // fade (default)
+  nxt.style.opacity = "0";
+  requestAnimationFrame(() => {
+    nxt.style.transition = `opacity ${DUR}s ease`;
+    nxt.style.opacity = "1";
+    cur.style.transition = `opacity ${DUR}s ease`;
+    cur.style.opacity = "0";
+    setTimeout(() => {
+      cur.style.visibility = "hidden";
+      cur.style.opacity = "0";
+      cur.style.transition = "";
+      nxt.style.transition = "";
+      onDone();
+    }, DUR * 1000 + 30);
+  });
+}
+
 // ── Preview canvas ────────────────────────────────────────────────────────────
 function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks }) {
   const activeIdx = scenes.findIndex(s => s.id === activeScene);
@@ -286,7 +362,35 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                 borderRadius: 6, padding: "6px 10px",
                 lineHeight: 1.4, pointerEvents: "none", zIndex: 10,
               }}>
-                {captionScene.narration}
+                {(() => {
+                  const timings = captionScene.wordTimings;
+                  if (!timings?.length) return captionScene.narration;
+                  const videoTrack = tracks?.find(t => t.key === "video");
+                  const activeClip = videoTrack?.clips?.find(c =>
+                    playhead >= c.startTime && playhead < c.startTime + (c.trimEnd - c.trimStart)
+                  );
+                  const offset = playhead - (activeClip?.startTime ?? 0);
+                  const highlightColor = brand?.caption_highlight_color || '#ffe566';
+
+                  // Last word whose start time has passed — fills gaps, no unlit frames
+                  const activeIdx = timings.reduce((best, w, i) =>
+                    offset >= w.start ? i : best, -1);
+                  const lastWord = timings[timings.length - 1];
+                  const pastEnd = offset > (lastWord?.end ?? Infinity);
+
+                  return timings.map((w, i) => {
+                    const isActive = !pastEnd && i === activeIdx;
+                    return (
+                      <span key={i} style={{
+                        color: isActive ? highlightColor : 'inherit',
+                        fontWeight: isActive ? 700 : 'inherit',
+                        transition: 'color 0.08s ease',
+                        marginRight: '0.25em',
+                        display: 'inline-block',
+                      }}>{w.word}</span>
+                    );
+                  });
+                })()}
               </div>
             );
           })()}
@@ -332,7 +436,6 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
 // ── Inspector ─────────────────────────────────────────────────────────────────
 function Inspector({ scene, onUpdateScene, onRegenerate, generating, open, activeMode, brand }) {
   const [motionVal, setMotionVal] = useState(50);
-  if (!open) return null;
 
   const captionsEnabled = scene?.captionsEnabled !== false;
   const cColor = scene?.caption_color || brand?.caption_color || "#ffffff";
@@ -449,6 +552,54 @@ function Inspector({ scene, onUpdateScene, onRegenerate, generating, open, activ
               style={{ width: "100%", padding: "10px 14px", borderRadius: 8, cursor: generating?"wait":"pointer", fontWeight: 600, fontSize: 13, fontFamily: "inherit", border: "0.5px solid rgba(255,200,120,0.6)", background: generating?"rgba(255,140,40,0.35)":"linear-gradient(180deg,rgba(255,181,71,0.95),rgba(255,140,40,0.95))", color: "#1f1100", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               <Glyph name="sparkle" size={14} color="#1f1100"/>{generating?"Generating…":"Regenerate"}
             </button>
+            {/* TRANSITION */}
+            {scene && (
+              <div style={{ padding: '16px 0 0' }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
+                  color: 'rgba(241,245,251,0.4)', textTransform: 'uppercase', marginBottom: 10
+                }}>
+                  TRANSITION TO NEXT
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                  {[
+                    { value: 'cut',   label: '✂️ Cut',   desc: 'Instant' },
+                    { value: 'fade',  label: '🌅 Fade',  desc: 'Cross-fade' },
+                    { value: 'slide', label: '➡️ Slide', desc: 'Slide left' },
+                    { value: 'zoom',  label: '🔍 Zoom',  desc: 'Zoom in' },
+                  ].map(t => {
+                    const active = (scene.transitionToNext || 'cut') === t.value;
+                    return (
+                      <div
+                        key={t.value}
+                        onClick={() => onUpdateScene?.(scene.id, { transitionToNext: t.value })}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: 8,
+                          border: `1.5px solid ${active ? '#4dd0ff' : 'rgba(255,255,255,0.08)'}`,
+                          background: active ? 'rgba(77,208,255,0.1)' : 'rgba(255,255,255,0.03)',
+                          cursor: 'pointer',
+                          transition: 'border-color 0.15s, background 0.15s',
+                        }}
+                      >
+                        <div style={{ fontSize: 13, color: active ? '#4dd0ff' : '#e2e8f0', fontWeight: active ? 600 : 400 }}>
+                          {t.label}
+                        </div>
+                        <div style={{ fontSize: 10, color: 'rgba(241,245,251,0.4)', marginTop: 2 }}>
+                          {t.desc}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{
+                  marginTop: 8, fontSize: 11, color: 'rgba(241,245,251,0.3)',
+                  paddingBottom: 16
+                }}>
+                  Applied at end of this scene during export
+                </div>
+              </div>
+            )}
           </div>
       }
     </div>
@@ -508,6 +659,7 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       caption_size:      scene.caption_size || brand?.caption_size || 16,
       caption_position:  scene.caption_position || brand?.caption_position || "bottom",
       transitionToNext:  scene.transitionToNext || "cut",
+      wordTimings:       scene.wordTimings || [],
     };
   });
   const musicClip = musicTrack?.clips?.[0];
@@ -545,11 +697,34 @@ export default function EditorV2() {
   }, [theme]);
 
   const [timelineState, dispatch] = useReducer(timelineReducer, null, makeInitialState);
+
   const [scenes,           setScenes]           = useState([]);
   const [activeScene,      setActiveScene]      = useState(null);
   const [title,            setTitle]            = useState("Untitled Reel");
   const [ratio,            setRatio]            = useState("9:16");
   const [reelId,           setReelId]           = useState(() => new URLSearchParams(window.location.search).get("reelId"));
+
+  // Apply any stems queued from Music Studio → sessionStorage (same tab or cross-tab)
+  // Must be after reelId is declared — dependency array references it directly.
+  useEffect(() => {
+    function applyPending() {
+      try {
+        const raw = sessionStorage.getItem("onyx_pending_stems");
+        if (!raw) return;
+        const { reelId: pendingReelId, stems } = JSON.parse(raw);
+        if (pendingReelId === reelId && Array.isArray(stems) && stems.length) {
+          dispatch({ type: "ADD_STEM_TRACKS", stems });
+          sessionStorage.removeItem("onyx_pending_stems");
+        }
+      } catch {}
+    }
+    applyPending();
+    const onStorage = (e) => {
+      if (e.key === "onyx_pending_stems" && e.newValue) applyPending();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [reelId]);
   const [isPlaying,        setIsPlaying]        = useState(false);
   const [activeMenu,       setActiveMenu]       = useState("storyboard");
   const [activeMode,       setActiveMode]       = useState("Edit");
@@ -576,6 +751,7 @@ export default function EditorV2() {
   const [aiStudioItems,    setAiStudioItems]    = useState([]);
   const [visualsTab,      setVisualsTab]      = useState("stock");
   const [audioTab,        setAudioTab]        = useState("uploads");
+  const [reelLoaded,      setReelLoaded]      = useState(false);
   const totalSec = useMemo(() => { try { return calcTotalDuration(timelineState) || 0; } catch { return 0; } }, [timelineState]);
   const playhead = timelineState.playhead ?? 0;
   const playbackProgress = totalSec > 0 ? playhead / totalSec : 0;
@@ -609,7 +785,7 @@ export default function EditorV2() {
   }, [currentUser]);
 
   useEffect(() => {
-    if (!reelId) return;
+    if (!reelId) { setReelLoaded(true); return; }
     async function load() {
       try {
         const h = await getAuthHeaders();
@@ -654,12 +830,14 @@ export default function EditorV2() {
           dispatch({ type: "IMPORT_SCENES", scenes: normWithDur, globalMusicUrl: gmu, globalMusicName: gmn });
         }
         setSavedMsg(normWithDur.length ? "Loaded" : "Loaded (no scenes)");
+        setReelLoaded(true);
       } catch (e) { console.error("[EditorV2] load", e); }
     }
     load();
   }, [reelId]);
 
   const saveNow = useCallback(async () => {
+    if (!reelLoaded) return;
     try {
       const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
       const body = JSON.stringify({ title, scenes, timeline: timelineState, ratio, status: "draft", globalMusicUrl, globalMusicName });
@@ -676,7 +854,7 @@ export default function EditorV2() {
       }
       setSavedMsg("Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     } catch { setSavedMsg("Save failed"); }
-  }, [title, scenes, timelineState, ratio, reelId, globalMusicUrl, globalMusicName]);
+  }, [reelLoaded, title, scenes, timelineState, ratio, reelId, globalMusicUrl, globalMusicName]);
 
   useEffect(() => { const id = setInterval(saveNow, 30000); return () => clearInterval(id); }, [saveNow]);
 
@@ -705,6 +883,8 @@ export default function EditorV2() {
   const transitioningRef   = useRef(false); // true during the 150 ms crossfade
   const tracksRef = useRef(timelineState.tracks);
   useEffect(() => { tracksRef.current = timelineState.tracks; }, [timelineState.tracks]);
+  const scenesRef = useRef(scenes);
+  useEffect(() => { scenesRef.current = scenes; }, [scenes]);
   const seekingRef = useRef(false); // true for 300ms after manual seek — suppresses tick
   const activeSceneRef = useRef(activeScene);
   useEffect(() => { activeSceneRef.current = activeScene; }, [activeScene]);
@@ -750,23 +930,12 @@ export default function EditorV2() {
     nxt.oncanplay = () => {
       nxt.oncanplay = null;
       nxt.currentTime = localTime;
-      nxt.style.opacity = "0";
-      nxt.style.visibility = "visible";
-      requestAnimationFrame(() => {
-        nxt.style.transition = "opacity 0.15s ease";
-        nxt.style.opacity = "1";
-        cur.style.transition = "opacity 0.15s ease";
-        cur.style.opacity = "0";
-        setTimeout(() => {
-          cur.style.visibility = "hidden";
-          cur.style.opacity = "0";
-          cur.style.transition = "";
-          cur.style.zIndex = 2;
-          nxt.style.transition = "";
-          nxt.style.zIndex = 2;
-          activeVideoSlotRef.current = activeVideoSlotRef.current === "a" ? "b" : "a";
-          transitioningRef.current = false;
-        }, 180);
+      const transType = clip ? (scenesRef.current.find(s => s.id === clip.sceneId)?.transitionToNext || "cut") : "cut";
+      applyTransition(transType, cur, nxt, () => {
+        cur.style.zIndex = 2;
+        nxt.style.zIndex = 2;
+        activeVideoSlotRef.current = activeVideoSlotRef.current === "a" ? "b" : "a";
+        transitioningRef.current = false;
       });
     };
     nxt.load();
@@ -835,25 +1004,14 @@ export default function EditorV2() {
             nxt.oncanplay = () => {
               nxt.oncanplay = null;
               nxt.currentTime = Math.max(0, newPH - clip.startTime + clip.trimStart);
-              nxt.style.opacity = "0";
-              nxt.style.visibility = "visible";
               nxt.play().catch(() => {});
-              requestAnimationFrame(() => {
-                nxt.style.transition = "opacity 0.12s ease";
-                nxt.style.opacity = "1";
-                cur.style.transition = "opacity 0.12s ease";
-                cur.style.opacity = "0";
-                setTimeout(() => {
-                  cur.pause();
-                  cur.style.visibility = "hidden";
-                  cur.style.opacity = "0";
-                  cur.style.transition = "";
-                  cur.style.zIndex = 2;
-                  nxt.style.transition = "";
-                  nxt.style.zIndex = 2;
-                  activeVideoSlotRef.current = activeVideoSlotRef.current === "a" ? "b" : "a";
-                  transitioningRef.current = false;
-                }, 150);
+              const transType = scenesRef.current.find(s => s.id === clip.sceneId)?.transitionToNext || "cut";
+              applyTransition(transType, cur, nxt, () => {
+                cur.pause();
+                cur.style.zIndex = 2;
+                nxt.style.zIndex = 2;
+                activeVideoSlotRef.current = activeVideoSlotRef.current === "a" ? "b" : "a";
+                transitioningRef.current = false;
               });
             };
             nxt.load();
@@ -1026,6 +1184,17 @@ export default function EditorV2() {
     } catch(e) { console.error("[EditorV2] regen", e); }
     finally { setGeneratingScenes(p => ({ ...p, [id]: false })); }
   }, [scenes, ratio, updateScene]);
+
+  if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent)) {
+    return (
+      <div style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, background: "#0b0f17", color: "#f1f5fb", fontFamily: "-apple-system,system-ui,sans-serif", textAlign: "center", padding: 32 }}>
+        <div style={{ fontSize: 48 }}>🖥️</div>
+        <div style={{ fontSize: 20, fontWeight: 700 }}>Editor requires a desktop browser</div>
+        <div style={{ fontSize: 14, color: "rgba(241,245,251,0.5)", maxWidth: 300 }}>The Onyx Reelz editor needs a screen at least 1024px wide. Please open it on a laptop or desktop.</div>
+        <a href="/dashboard" style={{ marginTop: 8, padding: "10px 24px", borderRadius: 8, background: "#4dd0ff", color: "#0b0f17", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>Back to Dashboard</a>
+      </div>
+    );
+  }
 
   return (
     <div data-theme={theme} style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", background: "var(--onyx-bg-2,#0b0f17)", color: "var(--onyx-text,#f1f5fb)", fontFamily: "var(--onyx-font,-apple-system,system-ui,sans-serif)", overflow: "hidden" }}>
@@ -1202,6 +1371,17 @@ export default function EditorV2() {
               reelVideoUrl={reelVideoUrl}
             /></Safe>}
           </Sidebar>
+
+          {/* Sidebar collapse tab */}
+          <div onClick={() => setSidebarOpen(p => !p)} style={{
+            width: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", background: "var(--panel-bg,rgba(6,9,15,0.5))",
+            borderRight: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))",
+            color: "var(--onyx-text-faint,rgba(241,245,251,0.40))", fontSize: 10,
+            userSelect: "none",
+          }} title={sidebarOpen ? "Collapse sidebar ([)" : "Expand sidebar ([)"}>
+            {sidebarOpen ? "‹" : "›"}
+          </div>
 
           {/* Preview */}
           <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
