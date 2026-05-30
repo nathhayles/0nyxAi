@@ -78,7 +78,7 @@ const CONTENT = {
     title: "AI Voiceover Guide",
     sections: [
       { heading: "Standard voices (free)", body: "Powered by OpenAI TTS. 6 voices: Alloy, Echo, Fable, Onyx, Nova, Shimmer. No credits required — counts against your monthly TTS minutes." },
-      { heading: "Premium voices (credits)", body: "Powered by ElevenLabs. 11+ voices with accents, emotions and styles. Costs 3 credits per scene." },
+      { heading: "Premium voices (credits)", body: "Powered by ElevenLabs. Hundreds of voices with accents, emotions and styles. Costs 3 credits per scene." },
       { heading: "How to apply", items: ["Select a voice with the ▶ preview button", "Click Apply to generate voiceover for the active scene", "The clip appears on the VOICE track in the sequencer", "Re-apply after editing the narration text to regenerate"] },
     ],
   },

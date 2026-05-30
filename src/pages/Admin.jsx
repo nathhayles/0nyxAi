@@ -9,20 +9,25 @@ export default function AdminPanel() {
   const [grantingCredits, setGrantingCredits] = useState({});
 
   useEffect(() => {
-    fetch('/api/admin/users', { headers: getAuthHeaders() })
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+    (async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const d = await fetch('/api/admin/users', { headers }).then(r => r.json());
+        setData(d);
+      } catch {}
+      setLoading(false);
+    })();
   }, []);
 
   const grantCredits = async (userId, amount) => {
     setGrantingCredits(g => ({ ...g, [userId]: true }));
+    const headers = await getAuthHeaders();
     await fetch(`/api/admin/users/${userId}/credits`, {
       method: 'POST',
-      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount: Number(amount) }),
     });
-    const fresh = await fetch('/api/admin/users', { headers: getAuthHeaders() }).then(r => r.json());
+    const fresh = await fetch('/api/admin/users', { headers }).then(r => r.json());
     setData(fresh);
     setGrantingCredits(g => ({ ...g, [userId]: false }));
   };
@@ -108,60 +113,206 @@ export default function AdminPanel() {
 
 function UserRow({ user: u, onGrant, granting }) {
   const [credAmt, setCredAmt] = useState('');
+  const [expanded, setExpanded] = useState(false);
+  const [detail, setDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const planColor = { pro: '#4ade80', creator: '#4dd0ff', free: '#64748b' }[u.plan] || '#64748b';
   const subColor = u.subscription_status === 'active' ? '#4ade80' : '#f87171';
 
+  const loadDetail = async () => {
+    if (detail) { setExpanded(e => !e); return; }
+    setLoadingDetail(true);
+    setExpanded(true);
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}`, { headers: await getAuthHeaders() });
+      setDetail(await res.json());
+    } catch {}
+    setLoadingDetail(false);
+  };
+
   return (
-    <tr style={s.row}>
-      <td style={s.td}>
-        <div style={{ color: '#e2e8f0', fontSize: 13 }}>{u.email || '—'}</div>
-        <div style={{ color: '#334155', fontSize: 10, fontFamily: 'monospace' }}>{u.id?.slice(0,8)}...</div>
-      </td>
-      <td style={s.td}>
-        <span style={{ ...s.badge, background: planColor + '22', color: planColor }}>
-          {u.plan}
-        </span>
-      </td>
-      <td style={s.td}>
-        <span style={{ ...s.badge, background: subColor + '22', color: subColor }}>
-          {u.subscription_status}
-        </span>
-      </td>
-      <td style={{ ...s.td, color: '#fbbf24', fontWeight: 600 }}>{u.credits}</td>
-      <td style={s.td}>{u.reels}</td>
-      <td style={s.td}>{u.renders}</td>
-      <td style={s.td}>{u.publishes}</td>
-      <td style={s.td}>
-        {u.referral_code ? (
-          <div>
-            <div style={{ color: '#a78bfa', fontSize: 12 }}>{u.referral_code}</div>
-            <div style={{ color: '#64748b', fontSize: 11 }}>{u.referral_signups} signups</div>
+    <>
+      <tr onClick={loadDetail} style={{ ...s.row, cursor: 'pointer' }}>
+        <td style={s.td}>
+          <div style={{ color: '#e2e8f0', fontSize: 13 }}>{u.email || '—'}</div>
+          <div style={{ color: '#334155', fontSize: 10, fontFamily: 'monospace' }}>{u.id?.slice(0,8)}...</div>
+        </td>
+        <td style={s.td}>
+          <span style={{ ...s.badge, background: planColor + '22', color: planColor }}>
+            {u.plan}
+          </span>
+        </td>
+        <td style={s.td}>
+          <span style={{ ...s.badge, background: subColor + '22', color: subColor }}>
+            {u.subscription_status}
+          </span>
+        </td>
+        <td style={{ ...s.td, color: '#fbbf24', fontWeight: 600 }}>{u.credits}</td>
+        <td style={s.td}>{u.reels}</td>
+        <td style={s.td}>{u.renders}</td>
+        <td style={s.td}>{u.publishes}</td>
+        <td style={s.td}>
+          {u.referral_code ? (
+            <div>
+              <div style={{ color: '#a78bfa', fontSize: 12 }}>{u.referral_code}</div>
+              <div style={{ color: '#64748b', fontSize: 11 }}>{u.referral_signups} signups</div>
+            </div>
+          ) : '—'}
+        </td>
+        <td style={{ ...s.td, color: '#64748b', fontSize: 12 }}>
+          {new Date(u.joined).toLocaleDateString()}
+        </td>
+        <td style={s.td} onClick={e => e.stopPropagation()}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input
+              value={credAmt}
+              onChange={e => setCredAmt(e.target.value)}
+              placeholder="±credits"
+              style={s.credInput}
+              type="number"
+            />
+            <button
+              onClick={() => { onGrant(u.id, credAmt); setCredAmt(''); }}
+              disabled={!credAmt || granting}
+              style={s.grantBtn}
+            >
+              {granting ? '...' : '+'}
+            </button>
           </div>
-        ) : '—'}
-      </td>
-      <td style={{ ...s.td, color: '#64748b', fontSize: 12 }}>
-        {new Date(u.joined).toLocaleDateString()}
-      </td>
-      <td style={s.td}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input
-            value={credAmt}
-            onChange={e => setCredAmt(e.target.value)}
-            placeholder="±credits"
-            style={s.credInput}
-            type="number"
-          />
-          <button
-            onClick={() => { onGrant(u.id, credAmt); setCredAmt(''); }}
-            disabled={!credAmt || granting}
-            style={s.grantBtn}
-          >
-            {granting ? '...' : '+'}
-          </button>
-        </div>
-      </td>
-    </tr>
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={10} style={{ background: '#060d16', padding: '0 12px 16px' }}>
+            {loadingDetail ? (
+              <p style={{ color: '#4dd0ff', padding: 16 }}>Loading...</p>
+            ) : detail ? (
+              <UserDetail user={u} detail={detail} />
+            ) : null}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function UserDetail({ user: u, detail: d }) {
+  if (!d) return null;
+  const auth = d.auth || {};
+  const sub = d.subscription || {};
+  const aff = d.affiliate || {};
+
+  return (
+    <div style={{ background: '#0a131e', border: '1px solid #1e2a38', borderRadius: 10, padding: 20, marginTop: 8 }}>
+
+      {/* Row 1: Account + Auth */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
+        <Section title="Account">
+          <Row label="User ID"        value={u.id} mono />
+          <Row label="Email"          value={auth.email || u.email || '—'} />
+          <Row label="Role"           value={u.role || 'user'} />
+          <Row label="Plan"           value={u.plan || 'free'} />
+          <Row label="Stripe ID"      value={d.profile?.stripe_customer_id || '—'} mono />
+          <Row label="Email Verified" value={auth.email_confirmed_at ? '✅ ' + new Date(auth.email_confirmed_at).toLocaleDateString() : '❌ Not verified'} />
+        </Section>
+
+        <Section title="Activity">
+          <Row label="Signed Up"    value={auth.created_at ? new Date(auth.created_at).toLocaleString() : '—'} />
+          <Row label="Last Sign In" value={auth.last_sign_in_at ? new Date(auth.last_sign_in_at).toLocaleString() : '—'} highlight />
+          <Row label="Total Reels"  value={d.recent_reels?.length >= 20 ? '20+' : d.recent_reels?.length || 0} />
+          <Row label="Exports"      value={d.recent_renders?.length || 0} />
+          <Row label="Publishes"    value={d.recent_publishes?.length || 0} />
+          <Row label="YouTube"      value={d.youtube_connected ? '✅ Connected' : '— Not connected'} />
+        </Section>
+
+        <Section title="Subscription & Credits">
+          <Row label="Credits"       value={d.credits?.balance ?? u.credits} highlight />
+          <Row label="Sub Status"    value={sub.status || 'none'} />
+          <Row label="Sub Plan"      value={sub.plan || '—'} />
+          <Row label="Amount"        value={sub.amount ? `$${(sub.amount/100).toFixed(2)}/mo` : '—'} />
+          <Row label="Renews"        value={sub.current_period_end ? new Date(sub.current_period_end * 1000).toLocaleDateString() : '—'} />
+          <Row label="Trial Ends"    value={sub.trial_end ? new Date(sub.trial_end * 1000).toLocaleDateString() : '—'} />
+          <Row label="Sub Since"     value={sub.created_at ? new Date(sub.created_at).toLocaleDateString() : '—'} />
+        </Section>
+      </div>
+
+      {/* Row 2: Referrals + Recent Reels + Recent Publishes */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 20 }}>
+        <Section title="Referrals">
+          <Row label="Code"    value={aff.code || '—'} mono />
+          <Row label="Clicks"  value={aff.clicks || 0} />
+          <Row label="Signups" value={aff.signups || 0} />
+        </Section>
+
+        <Section title="Recent Reels">
+          {d.recent_reels?.slice(0, 8).map(r => (
+            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 12 }}>
+              <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+                📹 {r.title || 'Untitled'}
+              </span>
+              <span style={{ color: '#334155', fontSize: 11, flexShrink: 0, marginLeft: 8 }}>
+                {r.ratio || '16:9'} · {new Date(r.created_at).toLocaleDateString()}
+              </span>
+            </div>
+          ))}
+          {!d.recent_reels?.length && <span style={{ color: '#334155', fontSize: 12 }}>No reels yet</span>}
+        </Section>
+
+        <Section title="Recent Publishes">
+          {d.recent_publishes?.slice(0, 6).map(p => (
+            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 12 }}>
+              <span style={{ color: '#e2e8f0' }}>📤 {p.platform || 'Unknown'}</span>
+              <span style={{ color: '#334155', fontSize: 11 }}>{new Date(p.created_at).toLocaleDateString()}</span>
+            </div>
+          ))}
+          {!d.recent_publishes?.length && <span style={{ color: '#334155', fontSize: 12 }}>No publishes yet</span>}
+        </Section>
+      </div>
+
+      {/* Row 3: Credit History */}
+      <div style={{ marginTop: 20 }}>
+        <Section title="Credit History">
+          {d.credit_transactions?.map((t, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 12 }}>
+              <span style={{ color: t.amount > 0 ? '#4ade80' : '#f87171' }}>
+                {t.amount > 0 ? '+' : ''}{t.amount} — {t.reason}
+              </span>
+              <span style={{ color: '#334155', fontSize: 11 }}>
+                {t.balance_after != null ? `bal: ${t.balance_after} · ` : ''}{new Date(t.created_at).toLocaleDateString()}
+              </span>
+            </div>
+          ))}
+          {!d.credit_transactions?.length && <span style={{ color: '#334155', fontSize: 12 }}>No transactions yet</span>}
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <div>
+      <h4 style={{ color: '#4dd0ff', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12, margin: '0 0 12px 0' }}>
+        {title}
+      </h4>
+      {children}
+    </div>
+  );
+}
+
+function Row({ label, value, mono, highlight }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12 }}>
+      <span style={{ color: '#64748b', flexShrink: 0 }}>{label}</span>
+      <span style={{
+        color: highlight ? '#fbbf24' : '#e2e8f0',
+        fontFamily: mono ? 'monospace' : 'inherit',
+        fontSize: mono ? 10 : 12,
+        maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap', textAlign: 'right', marginLeft: 8
+      }}>{String(value ?? '—')}</span>
+    </div>
   );
 }
 

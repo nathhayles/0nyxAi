@@ -231,7 +231,7 @@ export default function App() {
           path="/editor"
           element={
             <ProtectedRoute>
-              <Editor />
+              <EditorV2 />
             </ProtectedRoute>
           }
         />
