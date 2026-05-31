@@ -14,7 +14,7 @@ import {
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const TRACK_H       = 48;   // px per track row
-const HEADER_W      = 72;   // px for track label column
+const HEADER_W      = 116;  // px for track label column
 const RULER_H       = 28;   // px for time ruler
 const MIN_ZOOM      = 20;   // px per second (zoomed out)
 const MAX_ZOOM      = 400;  // px per second (zoomed in)
@@ -508,6 +508,11 @@ export default function SequencerPanel({
     return () => el.removeEventListener("wheel", handleWheel);
   }, []);
 
+  // When height mode changes, reset scroll to top
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [seqSize]);
+
   const playheadPx = playhead * zoom - scrollLeft;
 
   function splitAtPlayhead() {
@@ -678,20 +683,47 @@ export default function SequencerPanel({
 
           {tracks.map(track => {
             const meta = trackMeta(track);
+            const vol  = track.volume ?? 100;
+            const muted = !!track.muted;
             return (
               <div key={track.key} style={{
-                height: TRACK_H, flexShrink: 0, display: "flex", alignItems: "center",
-                padding: "0 8px 0 10px", gap: 6,
+                height: TRACK_H, flexShrink: 0, display: "flex", flexDirection: "column",
+                justifyContent: "center",
+                padding: "4px 6px 4px 8px", gap: 2,
                 borderBottom: "0.5px solid rgba(255,255,255,0.05)",
                 background: "rgba(0,0,0,0.2)",
               }}>
-                <span style={{ fontSize: 13, opacity: 0.6 }}>{meta.icon}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.06em",
-                  textTransform: "uppercase", color: meta.color, opacity: 0.9,
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>
-                  {meta.label}
-                </span>
+                {/* icon + label */}
+                <div style={{ display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
+                  <span style={{ fontSize: 12, opacity: 0.6, flexShrink: 0 }}>{meta.icon}</span>
+                  <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.06em",
+                    textTransform: "uppercase", color: meta.color, opacity: 0.9,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {meta.label}
+                  </span>
+                </div>
+                {/* mute + volume */}
+                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); dispatch({ type: "TRACK_MUTE", trackKey: track.key }); }}
+                    title={muted ? "Unmute track" : "Mute track"}
+                    style={{
+                      width: 18, height: 14, borderRadius: 3, border: "none", padding: 0,
+                      background: muted ? "rgba(239,68,68,0.75)" : "rgba(255,255,255,0.1)",
+                      color: muted ? "#fff" : "rgba(255,255,255,0.45)",
+                      cursor: "pointer", fontSize: 8, fontWeight: 700, flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}
+                  >M</button>
+                  <input
+                    type="range" min={0} max={100} step={1}
+                    value={vol}
+                    onChange={e => dispatch({ type: "TRACK_VOLUME", trackKey: track.key, volume: Number(e.target.value) })}
+                    title={`Track volume: ${vol}%`}
+                    style={{ flex: 1, height: 3, cursor: "pointer", accentColor: meta.color, minWidth: 0 }}
+                  />
+                </div>
               </div>
             );
           })}

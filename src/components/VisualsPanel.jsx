@@ -147,7 +147,11 @@ function MediaTile({
       ? item.duration
       : formatDuration(item?.duration);
 
+  const initialDurationSec =
+    typeof item?.duration === "number" && item.duration > 0 ? item.duration : 0;
+
   const [videoDuration, setVideoDuration] = useState(initialDuration);
+  const [durationSec, setDurationSec] = useState(initialDurationSec);
   const [hovering, setHovering] = useState(false);
   const [thumbFailed, setThumbFailed] = useState(false);
   const videoRef = useRef(null);
@@ -164,7 +168,10 @@ function MediaTile({
     vid.preload = "metadata";
     vid.src = full || thumb;
 
-    const onLoaded = () => setVideoDuration(formatDuration(vid.duration));
+    const onLoaded = () => {
+      setVideoDuration(formatDuration(vid.duration));
+      setDurationSec(vid.duration);
+    };
     const onError = () => setVideoDuration("");
 
     vid.addEventListener("loadedmetadata", onLoaded);
@@ -185,6 +192,7 @@ function MediaTile({
     mediaType: type,
     thumb,
     url: full,
+    duration: durationSec || initialDurationSec || 5,
   };
 
   const handleDoubleClick = () => {

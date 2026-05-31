@@ -116,6 +116,32 @@ function UserRow({ user: u, onGrant, granting }) {
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [msgOpen, setMsgOpen] = useState(false);
+  const [msgSubject, setMsgSubject] = useState('');
+  const [msgBody, setMsgBody] = useState('');
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgResult, setMsgResult] = useState(null); // { ok, error }
+
+  const sendMessage = async () => {
+    setMsgSending(true);
+    setMsgResult(null);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/api/admin/users/${u.id}/message`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject: msgSubject, body: msgBody }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Send failed');
+      setMsgResult({ ok: true, to: data.sent_to });
+      setMsgSubject('');
+      setMsgBody('');
+    } catch (e) {
+      setMsgResult({ error: e.message });
+    }
+    setMsgSending(false);
+  };
 
   const planColor = { pro: '#4ade80', creator: '#4dd0ff', free: '#64748b' }[u.plan] || '#64748b';
   const subColor = u.subscription_status === 'active' ? '#4ade80' : '#f87171';
@@ -179,9 +205,54 @@ function UserRow({ user: u, onGrant, granting }) {
             >
               {granting ? '...' : '+'}
             </button>
+            <button
+              onClick={() => { setMsgOpen(o => !o); setMsgResult(null); }}
+              style={{ ...s.grantBtn, background: '#7c3aed22', borderColor: '#7c3aed66', color: '#a78bfa', fontSize: 14, lineHeight: 1 }}
+              title="Send email to user"
+            >
+              ✉
+            </button>
           </div>
         </td>
       </tr>
+      {msgOpen && (
+        <tr>
+          <td colSpan={10} style={{ background: '#0a0818', padding: '0 12px 14px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ background: '#0d0e1f', border: '1px solid #2d1f6e', borderRadius: 8, padding: 16, marginTop: 4, maxWidth: 560 }}>
+              <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 700, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Email {u.email}
+              </div>
+              <input
+                value={msgSubject}
+                onChange={e => setMsgSubject(e.target.value)}
+                placeholder="Subject"
+                style={{ ...s.credInput, width: '100%', marginBottom: 8, boxSizing: 'border-box', background: '#0a0818', borderColor: '#2d1f6e', color: '#e2e8f0' }}
+              />
+              <textarea
+                value={msgBody}
+                onChange={e => setMsgBody(e.target.value)}
+                placeholder="Message body..."
+                rows={4}
+                style={{ width: '100%', padding: '8px 10px', background: '#0a0818', border: '1px solid #2d1f6e', borderRadius: 6, color: '#e2e8f0', fontSize: 12, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 8 }}
+              />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  onClick={sendMessage}
+                  disabled={!msgSubject.trim() || !msgBody.trim() || msgSending}
+                  style={{ ...s.grantBtn, background: '#7c3aed44', borderColor: '#7c3aed', color: '#a78bfa', padding: '6px 14px', fontSize: 12 }}
+                >
+                  {msgSending ? 'Sending...' : 'Send Email'}
+                </button>
+                <button onClick={() => setMsgOpen(false)} style={{ ...s.grantBtn, background: 'transparent', borderColor: '#334155', color: '#64748b', padding: '6px 12px', fontSize: 12 }}>
+                  Cancel
+                </button>
+                {msgResult?.ok && <span style={{ color: '#4ade80', fontSize: 12 }}>Sent to {msgResult.to}</span>}
+                {msgResult?.error && <span style={{ color: '#f87171', fontSize: 12 }}>{msgResult.error}</span>}
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
       {expanded && (
         <tr>
           <td colSpan={10} style={{ background: '#060d16', padding: '0 12px 16px' }}>
@@ -220,10 +291,16 @@ function UserDetail({ user: u, detail: d }) {
         <Section title="Activity">
           <Row label="Signed Up"    value={auth.created_at ? new Date(auth.created_at).toLocaleString() : '—'} />
           <Row label="Last Sign In" value={auth.last_sign_in_at ? new Date(auth.last_sign_in_at).toLocaleString() : '—'} highlight />
-          <Row label="Total Reels"  value={d.recent_reels?.length >= 20 ? '20+' : d.recent_reels?.length || 0} />
-          <Row label="Exports"      value={d.recent_renders?.length || 0} />
+          <Row label="Total Reels"  value={d.reels_count ?? 0} />
+          <Row label="Exports"      value={d.render_count ?? 0} />
           <Row label="Publishes"    value={d.recent_publishes?.length || 0} />
-          <Row label="YouTube"      value={d.youtube_connected ? '✅ Connected' : '— Not connected'} />
+          <Row label="YouTube"      value={
+            d.youtube?.connected
+              ? `✅ ${d.youtube.channel_name || 'Connected'}${d.youtube.expired ? ' ⚠️ Token expired' : ''}`
+              : '— Not connected'
+          } />
+          <Row label="LinkedIn"     value="— Not tracked yet" />
+          <Row label="Instagram"    value="— Not tracked yet" />
         </Section>
 
         <Section title="Subscription & Credits">

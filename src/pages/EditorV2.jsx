@@ -740,6 +740,7 @@ export default function EditorV2() {
   const audioElementsRef   = useRef(new Map());   // clipId → HTMLAudioElement
   const musicVolumeRef     = useRef(60);
   const voiceoverVolumeRef = useRef(100);
+  const hasStemTracks      = useRef(false);
   useEffect(() => { musicVolumeRef.current     = musicVolume / 100;     }, [musicVolume]);
   useEffect(() => { voiceoverVolumeRef.current = voiceoverVolume / 100; }, [voiceoverVolume]);
   const [creditBalance,    setCreditBalance]    = useState(null);
@@ -815,6 +816,7 @@ export default function EditorV2() {
             timelineToLoad = { ...d.timeline, tracks: mergedTracks };
           }
           dispatch({ type: "LOAD_STATE", state: timelineToLoad });
+          if (timelineToLoad.tracks?.some(t => t.key?.startsWith("stem-"))) hasStemTracks.current = true;
           const musicTrack = d.timeline.tracks?.find(t => t.key === "music");
           const musicClip = musicTrack?.clips?.[0];
           if (musicClip?.src) {
@@ -838,6 +840,20 @@ export default function EditorV2() {
 
   const saveNow = useCallback(async () => {
     if (!reelLoaded) return;
+
+    const tracks = timelineState.tracks || [];
+    const REQUIRED_BASE = ['video', 'broll', 'fx', 'voiceover', 'music', 'sfx'];
+    const missingBase = REQUIRED_BASE.filter(k => !tracks.find(t => (t.key || t.id) === k));
+    if (missingBase.length > 0) {
+      console.warn('[saveNow] aborted — missing base tracks:', missingBase);
+      return;
+    }
+
+    if (hasStemTracks.current && !tracks.some(t => (t.key || t.id || '').startsWith('stem-'))) {
+      console.warn('[saveNow] aborted — stems were loaded but are now missing');
+      return;
+    }
+
     try {
       const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
       const body = JSON.stringify({ title, scenes, timeline: timelineState, ratio, status: "draft", globalMusicUrl, globalMusicName });

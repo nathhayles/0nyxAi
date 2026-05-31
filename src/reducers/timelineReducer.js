@@ -68,6 +68,8 @@ export function makeInitialState() {
       color:  t.color,
       kind:   t.kind,
       clips:  [],
+      volume: 100,
+      muted:  false,
     })),
     joins:    [],               // transition objects
     playhead: 0,                // seconds
@@ -355,6 +357,22 @@ export function timelineReducer(state, action) {
       });
     }
 
+    case "TRACK_VOLUME": {
+      // action: { trackKey, volume }
+      const tracks = state.tracks.map(t =>
+        t.key === action.trackKey ? { ...t, volume: action.volume } : t
+      );
+      return { ...state, tracks };
+    }
+
+    case "TRACK_MUTE": {
+      // action: { trackKey }
+      const tracks = state.tracks.map(t =>
+        t.key === action.trackKey ? { ...t, muted: !t.muted } : t
+      );
+      return { ...state, tracks };
+    }
+
     case "SPEED_CLIP": {
       // action: { clipId, speed } — adjusts effective duration
       const speed = action.speed;
@@ -425,10 +443,27 @@ export function timelineReducer(state, action) {
     case "LOAD_STATE": {
       // action: { state } — hydrate from backend JSON
       // Normalize stem tracks saved by backend (use id field) to frontend format (key field).
-      const loadedTracks = (action.state?.tracks || []).map(t => {
+      const incoming = (action.state?.tracks || []).map(t => {
         if (!t.key && t.id) return { ...t, key: t.id };
         return t;
       });
+
+      // Ensure all 6 base tracks always exist — seed empty defaults if missing from DB.
+      // This prevents a stem-only save from wiping base tracks on reload.
+      const BASE_DEFAULTS = {
+        video:     { key:'video',     id:'video',     label:'VIDEO',  type:'video',  clips:[], volume:100, muted:false },
+        broll:     { key:'broll',     id:'broll',     label:'B-ROLL', type:'broll',  clips:[], volume:100, muted:false },
+        fx:        { key:'fx',        id:'fx',        label:'FX',     type:'fx',     clips:[], volume:100, muted:false },
+        voiceover: { key:'voiceover', id:'voiceover', label:'VOICE',  type:'audio',  clips:[], volume:100, muted:false },
+        music:     { key:'music',     id:'music',     label:'MUSIC',  type:'audio',  clips:[], volume:100, muted:false },
+        sfx:       { key:'sfx',       id:'sfx',       label:'SFX',    type:'audio',  clips:[], volume:100, muted:false },
+      };
+      const REQUIRED_BASES = ['video','broll','fx','voiceover','music','sfx'];
+      const stemTracks = incoming.filter(t => (t.key || '').startsWith('stem-') || t.type === 'stem');
+      const baseTracks = REQUIRED_BASES.map(k => incoming.find(t => t.key === k) || BASE_DEFAULTS[k]);
+      // stems sit after music (index 4), sfx stays last
+      const loadedTracks = [...baseTracks.slice(0,5), ...stemTracks, baseTracks[5]];
+
       console.log('[LOAD_STATE] tracks being set:', loadedTracks.map(t => t.key || t.id));
       return { ...makeInitialState(), ...action.state, tracks: loadedTracks };
     }
@@ -445,6 +480,8 @@ export function timelineReducer(state, action) {
         kind:     "audio",
         type:     "stem",
         stemType: stem.type,
+        volume:   100,
+        muted:    false,
         clips:    [makeClip({
           trackKey:  `stem-${stem.type}`,
           startTime: 0,
