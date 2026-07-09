@@ -10,6 +10,13 @@ export default function Preview() {
   const intervalRef = useRef(null)
   const videoRef = useRef(null)
 
+  // Decode the base64 id to recover the original URL
+  function decodeId(raw) {
+    try {
+      return atob(raw.replace(/-/g, '+').replace(/_/g, '/'))
+    } catch { return null }
+  }
+
   async function fetchToken() {
     const { data: { session } } = await supabase.auth.getSession()
     const headers = session ? { Authorization: `Bearer ${session.access_token}` } : {}
@@ -41,6 +48,13 @@ export default function Preview() {
   useEffect(() => {
     let cancelled = false
 
+    const decoded = decodeId(id)
+    // R2 renders are public URLs — use them directly, no stream proxy needed
+    if (decoded && /^https?:\/\//i.test(decoded)) {
+      if (!cancelled) setVideoSrc(decoded)
+      return () => { cancelled = true }
+    }
+
     fetchToken()
       .then(token => {
         if (!cancelled) setVideoSrc(`/api/stream/${id}?token=${token}`)
@@ -65,9 +79,9 @@ export default function Preview() {
           href={`https://onyx-reelz.com/signup${refParam ? `?ref=${refParam}` : ''}`}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: '#fff', fontWeight: 800, fontSize: '22px', textDecoration: 'underline', cursor: 'pointer', letterSpacing: '0.5px', textShadow: '0 0 20px rgba(139,92,246,0.8)' }}
+          style={{ color: '#fff', fontWeight: 800, fontSize: '22px', textDecoration: 'underline', cursor: 'pointer', letterSpacing: '0.5px', textShadow: '0 0 20px rgba(77,208,255,0.8)' }}
         >
-          ✨ Create your own AI Reel at onyx-reelz.com
+          Create your own AI Reel at onyx-reelz.com
         </a>
       </div>
 
@@ -83,7 +97,7 @@ export default function Preview() {
             <div style={{ color: '#aaa', textAlign: 'center' }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🔒</div>
               <div style={{ fontSize: 16, marginBottom: 8 }}>Sign in to watch this reel</div>
-              <a href={`https://onyx-reelz.com/login${refParam ? `?ref=${refParam}` : ''}`} style={{ color: '#a78bfa', fontSize: 14 }}>
+              <a href={`https://onyx-reelz.com/login${refParam ? `?ref=${refParam}` : ''}`} style={{ color: '#7de0ff', fontSize: 14 }}>
                 Log in to Onyx Reelz
               </a>
             </div>

@@ -59,7 +59,7 @@ export default function ProjectsPage() {
   if (loading) return <div style={{color:"#fff",padding:40}}>Loading projects...</div>;
 
   return (
-    <div style={{minHeight:"100vh",background:"#0f141b",color:"#fff",padding:"40px"}}>
+    <div style={{minHeight:"100vh",background:"var(--onyx-bg-2)",color:"var(--onyx-text)",padding:"40px"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:32}}>
         <h1 style={{margin:0,fontSize:28}}>My Projects</h1>
         <button onClick={newReel} style={{background:"#2b3442",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:14}}>+ New Reel</button>
@@ -67,19 +67,19 @@ export default function ProjectsPage() {
       {reels.length === 0 ? (
         <div style={{textAlign:"center",opacity:0.5,marginTop:80}}>
           <p style={{fontSize:18}}>No projects yet.</p>
-          <button onClick={newReel} style={{background:"#1f2937",color:"#fff",border:"1px solid #333",borderRadius:8,padding:"12px 24px",cursor:"pointer",marginTop:16}}>Create your first reel</button>
+          <button onClick={newReel} style={{background:"var(--onyx-surface-2)",color:"#fff",border:"1px solid var(--onyx-hairline-strong)",borderRadius:8,padding:"12px 24px",cursor:"pointer",marginTop:16}}>Create your first reel</button>
         </div>
       ) : (
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:20}}>
           {reels.map(r => {
             const platforms = publishHistory[r.id] || [];
             return (
-              <div key={r.id} onClick={() => openReel(r.id)} style={{background:"#1a2030",borderRadius:12,overflow:"hidden",cursor:"pointer",border:"1px solid #2b3442"}}>
+              <div key={r.id} onClick={() => openReel(r.id)} style={{background:"var(--onyx-surface)",borderRadius:12,overflow:"hidden",cursor:"pointer",border:"1px solid var(--onyx-hairline-strong)"}}>
                 <div style={{height:120,background:"#111",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",position:"relative"}}>
                   {r.thumbnail_url
                     ? <img src={r.thumbnail_url} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e => { e.target.style.display="none"; e.target.nextSibling && (e.target.nextSibling.style.display="flex"); }} />
                     : null}
-                  <div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#0f141b 0%,#1a2030 50%,#0d1520 100%)",display:r.thumbnail_url ? "none" : "flex",alignItems:"center",justifyContent:"center"}}>
+                  <div style={{width:"100%",height:"100%",background:"var(--onyx-surface-2)",display:r.thumbnail_url ? "none" : "flex",alignItems:"center",justifyContent:"center"}}>
                     <img src="/onyx-reelz-icon-1024.png" style={{width:40,height:40,opacity:0.25,objectFit:"contain"}} />
                   </div>
                 </div>

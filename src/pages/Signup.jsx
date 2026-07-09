@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { supabase } from "../supabaseClient"
 import { useNavigate } from "react-router-dom"
+import SEO from "../components/SEO"
 
 export default function Signup() {
   const [username, setUsername] = useState("")
@@ -44,20 +45,21 @@ export default function Signup() {
 
   return (
     <div style={{
-      minHeight: "100vh", background: "#06070a", display: "flex",
+      minHeight: "100vh", background: "var(--onyx-bg)", display: "flex",
       alignItems: "center", justifyContent: "center", fontFamily: "sans-serif"
     }}>
+      <SEO title="Sign Up" description="Create a free Onyx Reelz account to start making AI-generated videos." path="/signup" />
       <div style={{
-        width: 380, background: "#0c1016", padding: 40,
+        width: 380, background: "var(--onyx-bg-2)", padding: 40,
         borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)"
       }}>
-        <h1 style={{ color: "#fff", marginBottom: 8, fontSize: 24, fontWeight: 700 }}>Create Account</h1>
-        <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 16 }}>
+        <h1 style={{ color: "var(--onyx-text)", marginBottom: 8, fontSize: 24, fontWeight: 700 }}>Create Account</h1>
+        <p style={{ color: "var(--onyx-text-faint)", fontSize: 13, marginBottom: 16 }}>
           Start your free 14-day trial. No credit card required.
         </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24, padding: "12px 16px", background: "rgba(139,92,246,0.08)", borderRadius: 8, border: "1px solid rgba(139,92,246,0.2)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24, padding: "12px 16px", background: "rgba(77,208,255,0.08)", borderRadius: 8, border: "1px solid rgba(77,208,255,0.2)" }}>
           {["Full access to all features", "AI video, music & voiceover included", "Cancel any time — no charge"].map(item => (
-            <div key={item} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#a78bfa" }}>
+            <div key={item} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--onyx-cyan)" }}>
               <span style={{ color: "#22c55e", fontWeight: 700 }}>✓</span> {item}
             </div>
           ))}
@@ -80,8 +82,8 @@ export default function Signup() {
             onChange={e => setUsername(e.target.value)}
             style={{
               padding: "12px 16px", borderRadius: 8, fontSize: 14,
-              background: "#111827", border: "1px solid #1f2937",
-              color: "#f1f5f9", outline: "none", width: "100%", boxSizing: "border-box"
+              background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)",
+              color: "var(--onyx-text)", outline: "none", width: "100%", boxSizing: "border-box"
             }}
           />
           <input
@@ -92,8 +94,8 @@ export default function Signup() {
             onKeyDown={e => e.key === "Enter" && handleSignup()}
             style={{
               padding: "12px 16px", borderRadius: 8, fontSize: 14,
-              background: "#111827", border: "1px solid #1f2937",
-              color: "#f1f5f9", outline: "none", width: "100%", boxSizing: "border-box"
+              background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)",
+              color: "var(--onyx-text)", outline: "none", width: "100%", boxSizing: "border-box"
             }}
           />
           <input
@@ -104,8 +106,8 @@ export default function Signup() {
             onKeyDown={e => e.key === "Enter" && handleSignup()}
             style={{
               padding: "12px 16px", borderRadius: 8, fontSize: 14,
-              background: "#111827", border: "1px solid #1f2937",
-              color: "#f1f5f9", outline: "none", width: "100%", boxSizing: "border-box"
+              background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)",
+              color: "var(--onyx-text)", outline: "none", width: "100%", boxSizing: "border-box"
             }}
           />
 
@@ -114,7 +116,7 @@ export default function Signup() {
             disabled={loading}
             style={{
               padding: "13px", borderRadius: 8, fontSize: 15, fontWeight: 700,
-              background: loading ? "#374151" : "linear-gradient(135deg, #7c3aed, #ec4899)",
+              background: loading ? "#374151" : "linear-gradient(135deg, #4dd0ff, #ec4899)",
               border: "none", color: "#fff", cursor: loading ? "not-allowed" : "pointer",
               marginTop: 4,
             }}
@@ -122,9 +124,9 @@ export default function Signup() {
             {loading ? "Creating account..." : "Create Account"}
           </button>
 
-          <p style={{ textAlign: "center", color: "#94a3b8", fontSize: 13, marginTop: 8 }}>
+          <p style={{ textAlign: "center", color: "var(--onyx-text-faint)", fontSize: 13, marginTop: 8 }}>
             Already have an account?{" "}
-            <a href="/login" style={{ color: "#a78bfa", textDecoration: "none" }}>Sign in</a>
+            <a href="/login" style={{ color: "var(--onyx-cyan)", textDecoration: "none" }}>Sign in</a>
           </p>
         </div>
       </div>

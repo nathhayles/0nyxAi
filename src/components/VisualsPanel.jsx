@@ -1,29 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
-
-function extOf(nameOrUrl = "") {
-  const clean = String(nameOrUrl).split("?")[0].split("#")[0];
-  const parts = clean.split(".");
-  return parts.length > 1 ? parts.pop().toLowerCase() : "";
-}
-
-function isVideo(nameOrUrl = "") {
-  const ext = extOf(nameOrUrl);
-  return ["mp4", "webm", "mov", "m4v"].includes(ext);
-}
-
-function isImage(nameOrUrl = "") {
-  const ext = extOf(nameOrUrl);
-  return ["png", "jpg", "jpeg", "gif", "webp"].includes(ext);
-}
-
-function normalizeUrl(url, apiBase) {
-  if (!url) return "";
-  if (/^https?:\/\//i.test(url)) return url;
-  if (url.startsWith("/")) return `${apiBase}${url}`;
-  return `${apiBase}/${url}`;
-}
+import { isVideo } from "../utils/mediaType.js";
 
 function formatDuration(seconds) {
   const n = Number(seconds);
@@ -39,7 +17,7 @@ function deriveSceneQuery(scene) {
   if (saved) return saved;
 
   const source = String(scene?.action || scene?.narration || "").trim();
-  if (!source) return "mountains";
+  if (!source) return "";
 
   return (
     source
@@ -50,7 +28,7 @@ function deriveSceneQuery(scene) {
       .trim()
       .split(/\s+/)
       .slice(0, 8)
-      .join(" ") || "mountains"
+      .join(" ") || ""
   );
 }
 
@@ -134,6 +112,7 @@ function MediaTile({
   onDelete,
   showDelete = false,
   pinned = false,
+  onClick,
 }) {
   const thumb = item?.thumb || item?.url || "";
   const full = item?.full || item?.url || "";
@@ -227,10 +206,11 @@ function MediaTile({
       className="mediaTile"
       draggable
       onDragStart={(e) => onDragStartPayload(e, payload)}
+      onClick={onClick}
       onDoubleClick={handleDoubleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      title="Drag to canvas or double-click to use"
+      title="Drag to canvas or click to assign to active scene"
       style={{
         position: "relative",
         border: pinned ? "1px solid rgba(59,130,246,0.9)" : undefined,
@@ -288,7 +268,7 @@ function MediaTile({
           position: "relative",
           overflow: "hidden",
           borderRadius: 12,
-          background: "#0b1220",
+          background: "var(--onyx-surface)",
         }}
       >
         {showImageThumb ? (
@@ -383,12 +363,8 @@ export default function VisualsPanel({
   activeSceneObj,
 }) {
   const [aiStudioItems, setAiStudioItems] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadErr, setUploadErr] = useState("");
-  const [uploadedItems, setUploadedItems] = useState([]);
-  const fileInputRef = useRef(null);
 
-  const [q, setQ] = useState("mountains");
+  const [q, setQ] = useState("");
   const [stockLoading, setStockLoading] = useState(false);
   const [stockErr, setStockErr] = useState("");
   const [stockItems, setStockItems] = useState([]);
@@ -416,117 +392,68 @@ export default function VisualsPanel({
     });
   }, [activeSceneObj]);
 
-  const refreshAiStudio = () => {
-    const raw = localStorage.getItem(libraryKey);
-    const list = (() => {
-      try {
-        const parsed = JSON.parse(raw || "[]");
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    })();
-
-    setAiStudioItems(list);
-  };
-
-  const fetchUploads = async () => {
+  const refreshAiStudio = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/media`, { cache: "no-store", headers: await getAuthHeaders() });
-      const json = await res.json().catch(() => []);
-      const items = Array.isArray(json)
-        ? json
-        : Array.isArray(json?.items)
-        ? json.items
-        : [];
-
-      setUploadedItems(
-        items.map((it) => ({
-          name: it?.name || it?.fileName || it?.filename || "media",
-          url: normalizeUrl(
-            it?.url || it?.publicUrl || it?.publicPath,
-            apiBase
-          ),
-          deleteUrl: it?.url || it?.publicUrl || it?.publicPath || "",
-          thumb: normalizeUrl(
-            it?.thumbnail ||
-              it?.thumb ||
-              it?.preview ||
-              it?.poster ||
-              it?.url ||
-              it?.publicUrl ||
-              it?.publicPath,
-            apiBase
-          ),
-          type:
-            it?.type ||
-            (isVideo(it?.url || it?.publicUrl || "") ? "video" : "image"),
-          duration: it?.duration || "",
-        }))
-      );
-    } catch (e) {
-      console.error("Failed to load uploads", e);
+      const h = await getAuthHeaders();
+      const res = await fetch("/api/ai-studio-library", { headers: h, cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const items = data.map(d => ({
+            id: d.id,
+            name: d.name || "AI Scene",
+            url: d.url,
+            thumbnail: d.thumbnail_url || d.url,
+            mediaType: d.media_type || "video",
+            duration: d.duration || 5,
+            createdAt: d.created_at,
+            source: "ai",
+          }));
+          setAiStudioItems(items);
+          // Migrate any localStorage items not yet in DB
+          try {
+            const raw = localStorage.getItem(libraryKey);
+            const local = JSON.parse(raw || "[]");
+            const dbUrls = new Set(items.map(i => i.url));
+            const toMigrate = local.filter(l => !dbUrls.has(l.url));
+            for (const l of toMigrate) {
+              await fetch("/api/ai-studio-library", {
+                method: "POST",
+                headers: { ...h, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  url: l.url,
+                  thumbnail_url: l.thumbnail || l.url,
+                  name: l.name || "AI Scene",
+                  media_type: l.mediaType || "video",
+                  duration: l.duration || 5,
+                }),
+              });
+            }
+            if (toMigrate.length) localStorage.removeItem(libraryKey);
+          } catch {}
+          return;
+        }
+      }
+    } catch {}
+    // Fallback to localStorage
+    try {
+      const raw = localStorage.getItem(libraryKey);
+      const list = JSON.parse(raw || "[]");
+      setAiStudioItems(Array.isArray(list) ? list : []);
+    } catch {
+      setAiStudioItems([]);
     }
   };
 
   useEffect(() => {
     refreshAiStudio();
-    if (tab === "uploads") fetchUploads();
   }, [tab, libraryKey]);
 
-  const handleUploadPicked = async (files) => {
-    if (!files || files.length === 0) return;
-
-    setUploadErr("");
-    setUploading(true);
-
-    try {
-      const form = new FormData();
-      for (const file of files) form.append("files", file);
-
-      const res = await fetch(`${apiBase}/api/media/upload`, {
-        method: "POST",
-        headers: await getAuthHeaders(),
-        body: form,
-      });
-
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json?.error || `Upload failed (${res.status})`);
-
-      await fetchUploads();
-    } catch (e) {
-      setUploadErr(e?.message || "Upload failed");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const onUploadsDrop = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!e.dataTransfer?.files || e.dataTransfer.files.length === 0) return;
-    await handleUploadPicked(Array.from(e.dataTransfer.files));
-  };
-
-  const deleteUploadedItem = async (item) => {
-    try {
-      const target = item?.deleteUrl || item?.url || "";
-      if (target) {
-        await fetch(
-          `${apiBase}/api/media?url=${encodeURIComponent(target)}&name=${encodeURIComponent(
-            item?.name || ""
-          )}`,
-          {
-            method: "DELETE",
-            headers: await getAuthHeaders(),
-          }
-        ).catch(() => null);
-      }
-    } catch (_) {}
-
-    setUploadedItems((prev) => prev.filter((x) => x.url !== item.url));
-  };
+  useEffect(() => {
+    const handler = () => { refreshAiStudio(); setTab("aistudio"); };
+    window.addEventListener("onyx:ai-studio-save", handler);
+    return () => window.removeEventListener("onyx:ai-studio-save", handler);
+  }, [libraryKey]);
 
   const searchStock = async (nextQuery = q) => {
     const query = String(nextQuery || "").trim();
@@ -551,8 +478,6 @@ export default function VisualsPanel({
       const imgJson = await imgRes.json().catch(() => ({}));
       const vidJson = await vidRes.json().catch(() => ({}));
 
-      console.log("stock images raw:", imgJson);
-      console.log("stock videos raw:", vidJson);
 
       if (!imgRes.ok) {
         throw new Error(
@@ -594,16 +519,14 @@ export default function VisualsPanel({
         .filter((item) => item.url);
 
       let videos = rawVideos
-        .map((vid, index) => ({
-          id: `vid_${vid.id || index}`,
-          thumb:
-            vid.thumb ||
-            vid.preview ||
-            vid.thumbnail ||
-            vid.poster ||
-            vid.image ||
-            "",
-          full:
+        .map((vid, index) => {
+          const vfLink =
+            (Array.isArray(vid.video_files) && vid.video_files.length > 0)
+              ? (vid.video_files.find(f => f?.quality === "hd")?.link ||
+                 vid.video_files.find(f => f?.file_type === "video/mp4")?.link ||
+                 vid.video_files[0]?.link)
+              : null;
+          const resolvedUrl =
             vid.full ||
             vid.url ||
             vid.video ||
@@ -611,20 +534,24 @@ export default function VisualsPanel({
             vid.file ||
             vid.playbackUrl ||
             vid.streamUrl ||
-            "",
-          url:
-            vid.full ||
-            vid.url ||
-            vid.video ||
-            vid.videoUrl ||
-            vid.file ||
-            vid.playbackUrl ||
-            vid.streamUrl ||
-            "",
-          type: "video",
-          duration: vid.duration || vid.length || "",
-          raw: vid,
-        }))
+            vfLink ||
+            "";
+          return {
+            id: `vid_${vid.id || index}`,
+            thumb:
+              vid.thumb ||
+              vid.preview ||
+              vid.thumbnail ||
+              vid.poster ||
+              vid.image ||
+              "",
+            full: resolvedUrl,
+            url: resolvedUrl,
+            type: "video",
+            duration: vid.duration || vid.length || "",
+            raw: vid,
+          };
+        })
         .filter((item) => item.url);
 
       if (!videos.length) {
@@ -638,7 +565,6 @@ export default function VisualsPanel({
 
           const retryJson = await retryRes.json().catch(() => ({}));
 
-          console.log("stock videos retry raw:", retryJson);
 
           if (retryRes.ok) {
             const retryVideos = Array.isArray(retryJson?.videos)
@@ -650,16 +576,14 @@ export default function VisualsPanel({
               : [];
 
             videos = retryVideos
-              .map((vid, index) => ({
-                id: `vid_${vid.id || index}`,
-                thumb:
-                  vid.thumb ||
-                  vid.preview ||
-                  vid.thumbnail ||
-                  vid.poster ||
-                  vid.image ||
-                  "",
-                full:
+              .map((vid, index) => {
+                const vfLink =
+                  (Array.isArray(vid.video_files) && vid.video_files.length > 0)
+                    ? (vid.video_files.find(f => f?.quality === "hd")?.link ||
+                       vid.video_files.find(f => f?.file_type === "video/mp4")?.link ||
+                       vid.video_files[0]?.link)
+                    : null;
+                const resolvedUrl =
                   vid.full ||
                   vid.url ||
                   vid.video ||
@@ -667,20 +591,24 @@ export default function VisualsPanel({
                   vid.file ||
                   vid.playbackUrl ||
                   vid.streamUrl ||
-                  "",
-                url:
-                  vid.full ||
-                  vid.url ||
-                  vid.video ||
-                  vid.videoUrl ||
-                  vid.file ||
-                  vid.playbackUrl ||
-                  vid.streamUrl ||
-                  "",
-                type: "video",
-                duration: vid.duration || vid.length || "",
-                raw: vid,
-              }))
+                  vfLink ||
+                  "";
+                return {
+                  id: `vid_${vid.id || index}`,
+                  thumb:
+                    vid.thumb ||
+                    vid.preview ||
+                    vid.thumbnail ||
+                    vid.poster ||
+                    vid.image ||
+                    "",
+                  full: resolvedUrl,
+                  url: resolvedUrl,
+                  type: "video",
+                  duration: vid.duration || vid.length || "",
+                  raw: vid,
+                };
+              })
               .filter((item) => item.url);
           }
         }
@@ -691,9 +619,6 @@ export default function VisualsPanel({
       const sceneMinDuration = sceneNarrationWords > 0 ? Math.max(4, Math.ceil(sceneNarrationWords / 2.2)) : 0;
       const sorted = sortStockResults(merged, query, sceneMinDuration);
 
-      console.log("mapped videos:", videos);
-      console.log("mapped images:", images);
-      console.log("final sorted stock items:", sorted);
 
       setStockItems(sorted);
 
@@ -711,7 +636,8 @@ export default function VisualsPanel({
   useEffect(() => {
     if (tab !== "stock") return;
 
-    const next = currentSceneQuery || "mountains";
+    const next = currentSceneQuery || "";
+    if (!next.trim()) return;
     if (next === lastAutoQueryRef.current) return;
 
     lastAutoQueryRef.current = next;
@@ -768,12 +694,6 @@ export default function VisualsPanel({
       <div className="panelStickyTop">
         <div className="panelTabs">
           <button
-            className={tab === "uploads" ? "active" : ""}
-            onClick={() => setTab("uploads")}
-          >
-            Uploads
-          </button>
-          <button
             className={tab === "stock" ? "active" : ""}
             onClick={() => setTab("stock")}
           >
@@ -786,19 +706,10 @@ export default function VisualsPanel({
             AI Studio
           </button>
           <div className="panelTabsSpacer" />
-          <button className="smallBtn" onClick={refreshAiStudio}>
-            Refresh
-          </button>
         </div>
 
         {tab === "stock" ? (
           <div style={{ marginTop: 10 }}>
-            <div className="panelTitle">Stock Library</div>
-            <div className="panelMuted">
-              Search stock images and videos. The current scene search is loaded
-              automatically when you switch scenes.
-            </div>
-
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
               <input
                 value={q}
@@ -819,63 +730,11 @@ export default function VisualsPanel({
               </button>
             </div>
 
-            {activeSceneObj ? (
-              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.8 }}>
-                Scene {activeSceneObj.id} query: <b>{currentSceneQuery || "(none)"}</b>
-              </div>
-            ) : null}
-
             {stockErr ? (
               <div style={{ marginTop: 10, color: "#f87171", fontSize: 12 }}>
                 {stockErr}
               </div>
             ) : null}
-          </div>
-        ) : null}
-
-        {tab === "uploads" ? (
-          <div style={{ marginTop: 10 }}>
-            <div className="panelTitle">Uploads</div>
-            <div className="panelMuted">
-              Upload files or drag-drop into this box. Then drag thumbnails to the
-              canvas or double-click to use on the highlighted scene.
-            </div>
-
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-              <button
-                className="smallBtn primary"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                type="button"
-              >
-                {uploading ? "Uploading..." : "Upload"}
-              </button>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                style={{ display: "none" }}
-                onChange={(e) =>
-                  handleUploadPicked(Array.from(e.target.files || []))
-                }
-              />
-
-              {uploadErr ? (
-                <div style={{ color: "#f87171", fontSize: 12 }}>{uploadErr}</div>
-              ) : null}
-            </div>
-
-            <div
-              className="uploadDrop"
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "copy";
-              }}
-              onDrop={onUploadsDrop}
-            >
-              Drop media here
-            </div>
           </div>
         ) : null}
 
@@ -887,29 +746,6 @@ export default function VisualsPanel({
       </div>
 
       <div className="panelStickyContent">
-        {tab === "uploads" && (
-          <div className="panelBlock" style={{ marginTop: 12 }}>
-            <div className="mediaGrid" style={{ marginTop: 10 }}>
-              {uploadedItems.length === 0 ? (
-                <div className="emptyState">No uploads yet.</div>
-              ) : (
-                uploadedItems.map((it, idx) => (
-                  <MediaTile
-                    key={`${it.url || it.name || "upload"}_${idx}`}
-                    item={it}
-                    label="uploads"
-                    query=""
-                    onSelect={onSelect}
-                    onDragStartPayload={onDragStartPayload}
-                    onDelete={deleteUploadedItem}
-                    showDelete
-                  />
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
         {tab === "stock" && (
           <div className="panelBlock" style={{ marginTop: 12 }}>
             {pinnedStockItem ? (
@@ -994,11 +830,20 @@ export default function VisualsPanel({
           <div className="panelBlock" style={{ marginTop: 12 }}>
             {aiStudioItems.length ? (
               <div className="mediaGrid">
-                {aiStudioItems.map((item) => (
+                {aiStudioItems.map((item) => {
+                  const aiPayload = {
+                    kind: "media",
+                    source: "ai",
+                    mediaType: item.mediaType || "video",
+                    thumb: item.thumbnail || item.url,
+                    url: item.url,
+                    duration: item.duration || 5,
+                  };
+                  return (
                   <div
                     key={item.id}
                     className="mediaTile"
-                    style={{ cursor: "grab" }}
+                    style={{ cursor: "pointer" }}
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData("application/onyx-media", JSON.stringify({
@@ -1011,14 +856,15 @@ export default function VisualsPanel({
                         stockThumb: item.thumbnail || item.url,
                       }));
                     }}
-                    onDoubleClick={() => onUseAiStudioItem?.(item)}
+                    onClick={() => onSelect?.(aiPayload)}
+                    onDoubleClick={() => onSelect?.(aiPayload)}
                   >
                     <div
                       className="mediaThumb"
                       style={{
                         borderRadius: 12,
                         overflow: "hidden",
-                        background: "#0b1220",
+                        background: "var(--onyx-surface)",
                       }}
                     >
                       {item.thumbnail ? (
@@ -1044,12 +890,27 @@ export default function VisualsPanel({
                     <button
                       className="smallBtn primary"
                       style={{ marginTop: 8 }}
-                      onClick={() => onUseAiStudioItem?.(item)}
+                      onClick={(e) => { e.stopPropagation(); onSelect?.(aiPayload); }}
                     >
                       Use on Scene
                     </button>
+                    <button
+                      className="smallBtn"
+                      style={{ marginTop: 4, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171" }}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        setAiStudioItems(prev => prev.filter(i => i.id !== item.id));
+                        try {
+                          const h = await getAuthHeaders();
+                          await fetch(`/api/ai-studio-library/${item.id}`, { method: "DELETE", headers: h });
+                        } catch {}
+                      }}
+                    >
+                      Remove
+                    </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="emptyState">No AI Studio items saved yet.</div>

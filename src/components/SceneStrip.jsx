@@ -107,7 +107,7 @@ export default function SceneStrip({
                 {/* Indicators */}
                 <div style={{ position:"absolute", top:4, right:4, display:"flex", flexDirection:"column", gap:2 }}>
                   {hasVO    && <div style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e" }} title="Has voiceover" />}
-                  {hasMusic && <div style={{ width:6, height:6, borderRadius:"50%", background:"#3b82f6" }} title="Has music" />}
+                  {hasMusic && <div style={{ width:6, height:6, borderRadius:"50%", background:"var(--onyx-cyan)" }} title="Has music" />}
                   {sc.isAiGenerated && <div style={{ width:6, height:6, borderRadius:"50%", background:"#f59e0b" }} title="AI generated" />}
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { getAuthHeaders } from "../utils/auth.js";
 import HelpTooltip from "./HelpTooltip.jsx";
 
@@ -26,7 +26,7 @@ const LANGUAGES = [
 ];
 
 const inputStyle = {
-  width: "100%", background: "#0f141b", border: "1px solid #2b3442",
+  width: "100%", background: "var(--input-bg)", border: "0.5px solid var(--onyx-hairline-strong)",
   color: "#e2e8f0", borderRadius: 4, padding: "7px 10px", fontSize: 13,
   boxSizing: "border-box",
 };
@@ -34,14 +34,14 @@ const inputStyle = {
 const btnStyle = (active) => ({
   flex: 1, padding: "6px 8px", borderRadius: 4, fontSize: 11,
   cursor: "pointer", fontWeight: 600,
-  background: active ? "#1e3a5f" : "#1f2937",
-  border: active ? "1px solid #2563eb" : "1px solid #2b3442",
+  background: active ? "var(--chip-bg-strong)" : "var(--chip-bg)",
+  border: active ? "1px solid var(--onyx-cyan)" : "0.5px solid var(--onyx-hairline-strong)",
   color: active ? "#60a5fa" : "#64748b",
 });
 
 function Section({ title, children }) {
   return (
-    <div style={{ marginBottom: 16, padding: 12, background: "#111827", borderRadius: 6, border: "1px solid #1f2937" }}>
+    <div style={{ marginBottom: 16, padding: 12, background: "var(--onyx-surface-2)", borderRadius: 6, border: "0.5px solid var(--onyx-hairline)" }}>
       <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", marginBottom: 10, textTransform: "uppercase", letterSpacing: "1.5px" }}>
         {title}
       </div>
@@ -50,7 +50,7 @@ function Section({ title, children }) {
   );
 }
 
-export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoUrl }) {
+export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoUrl, timelineTracks }) {
   const [tab, setTab] = useState("stock");
   const [avatars, setAvatars] = useState([]);
   const [loadingAvatars, setLoadingAvatars] = useState(false);
@@ -68,38 +68,7 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
 
   const activeSceneObj = scenes?.find(s => s.id === activeScene);
 
-  useEffect(() => {
-    const processingScenes = scenes?.filter(s => s.avatar_status === "processing" && s.avatar_video_id);
-    if (!processingScenes?.length) return;
-
-    const poll = setInterval(async () => {
-      const headers = await getAuthHeaders();
-
-      for (const scene of processingScenes) {
-        try {
-          const res = await fetch(`/api/heygen/status/${scene.avatar_video_id}`, { headers });
-          const data = await res.json();
-
-          if (data.status === "completed" && data.video_url) {
-            setScenes(prev => prev.map(s => s.id === scene.id ? {
-              ...s,
-              avatar_status: "completed",
-              avatar_video_url: data.video_url,
-            } : s));
-          } else if (data.status === "failed") {
-            setScenes(prev => prev.map(s => s.id === scene.id ? {
-              ...s,
-              avatar_status: "failed",
-            } : s));
-          }
-        } catch (err) {
-          console.error("Avatar poll error:", err);
-        }
-      }
-    }, 5000);
-
-    return () => clearInterval(poll);
-  }, [scenes, setScenes]);
+  // Avatar status polling now lives in EditorV2 (persists across sidebar tab switches).
 
   useEffect(() => {
     setLoadingAvatars(true);
@@ -207,7 +176,7 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
   };
 
   return (
-    <div style={{ padding: 12, overflowY: "auto", height: "100%", boxSizing: "border-box" }}>
+    <div style={{ padding: 12, overflowY: "auto", height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.5px" }}>
           Avatar & Presenter
@@ -241,15 +210,15 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
             {loadingAvatars ? (
               <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", padding: 10 }}>Loading avatars...</div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, maxHeight: 300, overflowY: "auto" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, maxHeight: 180, overflowY: "auto" }}>
                 {filteredAvatars.map(avatar => (
                   <div
                     key={avatar.avatar_id}
                     onClick={() => setSelectedAvatar(avatar)}
                     style={{
                       cursor: "pointer", borderRadius: 6, overflow: "hidden",
-                      border: selectedAvatar?.avatar_id === avatar.avatar_id ? "2px solid #2563eb" : "2px solid transparent",
-                      background: "#0f141b",
+                      border: selectedAvatar?.avatar_id === avatar.avatar_id ? "2px solid var(--onyx-cyan)" : "2px solid transparent",
+                      background: "var(--onyx-surface)",
                     }}
                   >
                     <img
@@ -267,21 +236,12 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
             )}
           </Section>
 
-          <Section title="Quality">
-            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-              <button onClick={() => setAvatarIV(false)} style={btnStyle(!avatarIV)}>
-                Standard <span style={{ fontSize: 9, color: "#94a3b8" }}>(200 credits/min)</span>
-              </button>
-              <button onClick={() => setAvatarIV(true)} style={btnStyle(avatarIV)}>
-                Avatar IV ✦ <span style={{ fontSize: 9, color: "#94a3b8" }}>(600 credits/min)</span>
-              </button>
-            </div>
-            {avatarIV && (
-              <div style={{ fontSize: 11, color: "#f59e0b", padding: "6px 8px", background: "rgba(245,158,11,0.1)", borderRadius: 4 }}>
-                Avatar IV uses photorealistic motion capture with natural expressions and gestures.
-              </div>
-            )}
-          </Section>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, padding: "6px 10px", background: "var(--onyx-surface-2)", borderRadius: 6, border: "0.5px solid var(--onyx-hairline)" }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.2px", flexShrink: 0 }}>Quality</span>
+            <button onClick={() => setAvatarIV(false)} style={{ ...btnStyle(!avatarIV), fontSize: 10, padding: "3px 8px" }}>Standard</button>
+            <button onClick={() => setAvatarIV(true)}  style={{ ...btnStyle(avatarIV),  fontSize: 10, padding: "3px 8px" }}>IV ✦</button>
+            <span style={{ fontSize: 10, color: "#64748b", marginLeft: "auto" }}>{avatarIV ? "600" : "200"} cr/min</span>
+          </div>
         </>
       )}
 
@@ -334,7 +294,7 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
           <button
             onClick={handleTranslate}
             disabled={translating || !reelVideoUrl}
-            style={{ width: "100%", padding: 10, background: translating || !reelVideoUrl ? "#374151" : "#1d4ed8", border: "1px solid #1e40af", color: "#fff", borderRadius: 4, cursor: translating || !reelVideoUrl ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600 }}
+            style={{ width: "100%", padding: 10, background: translating || !reelVideoUrl ? "var(--chip-bg-strong)" : "var(--btn-primary-grad)", border: "none", color: "var(--btn-primary-text)", borderRadius: 4, cursor: translating || !reelVideoUrl ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 600 }}
           >
             {translating ? "Starting translation..." : "Translate Reel"}
           </button>
@@ -354,20 +314,30 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
         </Section>
       )}
 
-      {/* Apply scope + generate */}
+      {/* Scrollable content spacer */}
+      <div style={{ flex: 1 }} />
+
+      {/* Apply scope + generate — sticky footer */}
       {tab !== "translate" && (
-        <Section title="Apply To">
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-            <button onClick={() => setScope("this")} style={btnStyle(scope === "this")}>This scene</button>
-            <button onClick={() => setScope("all")} style={btnStyle(scope === "all")}>All scenes</button>
+        <div style={{
+          position: "sticky", bottom: 0,
+          background: "var(--onyx-bg-2, #0b0f17)",
+          borderTop: "0.5px solid var(--onyx-hairline-strong)",
+          padding: "10px 0 4px",
+          marginTop: 4,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.2px", flexShrink: 0 }}>Apply To</span>
+            <button onClick={() => setScope("this")} style={{ ...btnStyle(scope === "this"), fontSize: 10, padding: "3px 8px" }}>This scene</button>
+            <button onClick={() => setScope("all")}  style={{ ...btnStyle(scope === "all"),  fontSize: 10, padding: "3px 8px" }}>All scenes</button>
           </div>
           <button
             onClick={handleGenerate}
             disabled={generating}
             style={{
               width: "100%", padding: 10, fontSize: 12, fontWeight: 700,
-              background: generating ? "#374151" : "#1d4ed8",
-              border: "1px solid #1e40af", color: "#fff", borderRadius: 4,
+              background: generating ? "var(--chip-bg-strong)" : "var(--btn-primary-grad)",
+              border: "none", color: "var(--btn-primary-text)", borderRadius: 4,
               cursor: generating ? "not-allowed" : "pointer",
               letterSpacing: "0.5px", textTransform: "uppercase",
             }}
@@ -375,21 +345,21 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
             {generating ? "Generating..." : `Generate Avatar${scope === "all" ? " (All Scenes)" : ""}`}
           </button>
           {activeSceneObj?.avatar_status === "processing" && (
-            <div style={{ marginTop: 8, fontSize: 11, color: "#f59e0b", textAlign: "center" }}>
+            <div style={{ marginTop: 6, fontSize: 11, color: "#f59e0b", textAlign: "center" }}>
               ⏳ Generating avatar... checking every 5s
             </div>
           )}
           {activeSceneObj?.avatar_status === "completed" && (
-            <div style={{ marginTop: 8, fontSize: 11, color: "#22c55e", textAlign: "center" }}>
+            <div style={{ marginTop: 6, fontSize: 11, color: "#22c55e", textAlign: "center" }}>
               ✓ Avatar ready — will appear in render
             </div>
           )}
           {activeSceneObj?.avatar_status === "failed" && (
-            <div style={{ marginTop: 8, fontSize: 11, color: "#f87171", textAlign: "center" }}>
+            <div style={{ marginTop: 6, fontSize: 11, color: "#f87171", textAlign: "center" }}>
               ✗ Generation failed — try again
             </div>
           )}
-        </Section>
+        </div>
       )}
     </div>
   );

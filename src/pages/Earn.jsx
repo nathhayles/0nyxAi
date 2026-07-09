@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react"
 import { supabase } from "../supabaseClient"
+import SEO from "../components/SEO"
 
 const TIERS = [
   { plan: "Starter", credits: 50, color: "#60a5fa" },
-  { plan: "Creator", credits: 150, color: "#a78bfa" },
+  { plan: "Creator", credits: 150, color: "#7de0ff" },
   { plan: "Pro / Agency", credits: 400, color: "#f59e0b" },
 ]
 
@@ -122,7 +123,12 @@ export default function Earn() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", fontFamily: "Arial, Helvetica, sans-serif" }}>
+    <div data-theme="onyx" style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)", fontFamily: "Arial, Helvetica, sans-serif" }}>
+      <SEO
+        title="Earn Credits - Affiliate Program"
+        description="Refer friends to Onyx Reelz and earn AI credits when they subscribe. Track your referral clicks and conversions from your dashboard."
+        path="/earn"
+      />
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "80px 24px" }}>
 
         {/* Hero */}
@@ -130,7 +136,7 @@ export default function Earn() {
           <h1 style={{ fontSize: "clamp(32px, 5vw, 52px)", fontWeight: 800, lineHeight: 1.1, marginBottom: 20, letterSpacing: "-0.02em" }}>
             Earn free credits
             <br />
-            <span style={{ background: "linear-gradient(90deg, #a78bfa, #60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            <span style={{ background: "linear-gradient(90deg, #7de0ff, #60a5fa)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               by sharing your reels
             </span>
           </h1>
@@ -144,9 +150,9 @@ export default function Earn() {
                 href="/login"
                 style={{
                   display: "inline-block", padding: "14px 38px", borderRadius: 10,
-                  background: "linear-gradient(135deg, #7c3aed, #3b82f6)", color: "#fff",
+                  background: "linear-gradient(135deg, #4dd0ff, #3b82f6)", color: "#fff",
                   fontWeight: 700, fontSize: 16, textDecoration: "none",
-                  boxShadow: "0 0 40px rgba(124,58,237,0.3)",
+                  boxShadow: "0 0 40px rgba(77,208,255,0.3)",
                 }}
               >
                 Sign up to get your link →
@@ -162,11 +168,11 @@ export default function Earn() {
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 18 }}>
             {STEPS.map((step) => (
-              <div key={step.num} style={{ background: "#0c1016", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "28px 24px" }}>
+              <div key={step.num} style={{ background: "var(--onyx-bg-2)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "28px 24px" }}>
                 <div style={{
-                  width: 34, height: 34, borderRadius: "50%", background: "rgba(124,58,237,0.15)",
-                  border: "1px solid rgba(124,58,237,0.35)", display: "flex", alignItems: "center",
-                  justifyContent: "center", fontWeight: 700, color: "#a78bfa", marginBottom: 18, fontSize: 14,
+                  width: 34, height: 34, borderRadius: "50%", background: "rgba(77,208,255,0.15)",
+                  border: "1px solid rgba(77,208,255,0.35)", display: "flex", alignItems: "center",
+                  justifyContent: "center", fontWeight: 700, color: "#7de0ff", marginBottom: 18, fontSize: 14,
                 }}>
                   {step.num}
                 </div>
@@ -189,7 +195,7 @@ export default function Earn() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 18 }}>
             {TIERS.map((tier) => (
               <div key={tier.plan} style={{
-                background: "#0c1016", border: `1px solid ${tier.color}25`,
+                background: "var(--onyx-bg-2)", border: `1px solid ${tier.color}25`,
                 borderRadius: 14, padding: "32px 24px", textAlign: "center",
               }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: tier.color, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>
@@ -210,14 +216,14 @@ export default function Earn() {
         ) : user ? (
           <>
             {/* Affiliate link */}
-            <div style={{ background: "#0c1016", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "28px 28px", marginBottom: 20 }}>
+            <div style={{ background: "var(--onyx-bg-2)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "28px 28px", marginBottom: 20 }}>
               <h3 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 18px" }}>Your affiliate link</h3>
               <div style={{ display: "flex", gap: 10 }}>
                 <input
                   readOnly
                   value={refLink}
                   style={{
-                    flex: 1, background: "#06070a", border: "1px solid rgba(255,255,255,0.09)",
+                    flex: 1, background: "var(--onyx-bg)", border: "1px solid rgba(255,255,255,0.09)",
                     borderRadius: 8, padding: "11px 14px", color: "rgba(255,255,255,0.7)",
                     fontSize: 14, outline: "none", minWidth: 0,
                   }}
@@ -226,7 +232,7 @@ export default function Earn() {
                   onClick={handleCopy}
                   style={{
                     padding: "11px 24px", borderRadius: 8,
-                    background: copied ? "#10b981" : "rgba(124,58,237,0.75)",
+                    background: copied ? "#10b981" : "rgba(77,208,255,0.75)",
                     color: "#fff", fontWeight: 700, fontSize: 14, border: "none",
                     cursor: "pointer", whiteSpace: "nowrap", transition: "background 0.15s", flexShrink: 0,
                   }}
@@ -241,19 +247,19 @@ export default function Earn() {
 
             {/* Stats */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 18 }}>
-              <div style={{ background: "#0c1016", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "28px" }}>
+              <div style={{ background: "var(--onyx-bg-2)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "28px" }}>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
                   Total Clicks
                 </div>
                 <div style={{ fontSize: 44, fontWeight: 800 }}>{clicks ?? "—"}</div>
               </div>
-              <div style={{ background: "#0c1016", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "28px" }}>
+              <div style={{ background: "var(--onyx-bg-2)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "28px" }}>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
                   Total Referrals
                 </div>
                 <div style={{ fontSize: 44, fontWeight: 800 }}>{referrals ?? "—"}</div>
               </div>
-              <div style={{ background: "#0c1016", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "28px" }}>
+              <div style={{ background: "var(--onyx-bg-2)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "28px" }}>
                 <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700 }}>
                   Credits Earned
                 </div>
@@ -262,7 +268,7 @@ export default function Earn() {
             </div>
           </>
         ) : (
-          <div style={{ background: "#0c1016", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "56px 24px", textAlign: "center" }}>
+          <div style={{ background: "var(--onyx-bg-2)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "56px 24px", textAlign: "center" }}>
             <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Get your affiliate link</h3>
             <p style={{ color: "rgba(255,255,255,0.4)", marginBottom: 30, fontSize: 15, lineHeight: 1.6 }}>
               Create a free account to receive your unique referral link
@@ -273,9 +279,9 @@ export default function Earn() {
               href="/login"
               style={{
                 display: "inline-block", padding: "14px 38px", borderRadius: 10,
-                background: "linear-gradient(135deg, #7c3aed, #3b82f6)", color: "#fff",
+                background: "linear-gradient(135deg, #4dd0ff, #3b82f6)", color: "#fff",
                 fontWeight: 700, fontSize: 16, textDecoration: "none",
-                boxShadow: "0 0 40px rgba(124,58,237,0.25)",
+                boxShadow: "0 0 40px rgba(77,208,255,0.25)",
               }}
             >
               Sign up for free →

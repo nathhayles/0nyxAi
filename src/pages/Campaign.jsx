@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
+import { useSpeechInput } from "../hooks/useSpeechInput.js";
+import { useCredits } from "../state/CreditsContext.jsx";
 
 const TONES = ["Professional", "Energetic", "Inspirational", "Humorous", "Urgent", "Conversational", "Luxury", "Educational"];
 const PLATFORMS = ["Instagram Reels", "TikTok", "YouTube Shorts", "Facebook", "LinkedIn"];
@@ -11,7 +13,7 @@ const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 export default function Campaign() {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
-  const [credits, setCredits] = useState(null);
+  const { balance: credits, refreshCredits } = useCredits();
 
   // Form
   const [brief, setBrief] = useState("");
@@ -23,6 +25,8 @@ export default function Campaign() {
   const [theme, setTheme] = useState("cinematic");
   const [brandId, setBrandId] = useState(null);
   const [brands, setBrands] = useState([]);
+  const onBriefSpeech = useCallback((text) => setBrief(prev => prev ? prev + " " + text : text), []);
+  const { listening: micListening, supported: micSupported, toggle: micToggle } = useSpeechInput(onBriefSpeech);
 
   // State
   const [loading, setLoading] = useState(false);
@@ -36,8 +40,6 @@ export default function Campaign() {
       if (!data.session) { navigate("/login"); return; }
       setSession(data.session);
       const headers = { Authorization: `Bearer ${data.session.access_token}` };
-      fetch("/api/credits/balance", { headers })
-        .then(r => r.json()).then(d => setCredits(d?.balance ?? 0)).catch(() => {});
       fetch("/api/brands", { headers })
         .then(r => r.json())
         .then(data => {
@@ -106,6 +108,7 @@ export default function Campaign() {
       setProgress({ step: "Campaign complete!", percent: 100 });
       setGeneratedReels(reels);
       setDone(true);
+      refreshCredits();
 
     } catch (err) {
       setError(err.message || "Campaign generation failed");
@@ -134,26 +137,34 @@ export default function Campaign() {
 
   const inputStyle = {
     width: "100%", padding: "12px 16px", borderRadius: 10,
-    background: "#0c1016", border: "1px solid #1f2937",
-    color: "#f1f5f9", fontSize: 14, boxSizing: "border-box",
+    background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)",
+    color: "var(--onyx-text)", fontSize: 14, boxSizing: "border-box",
   };
 
-  const labelStyle = { display: "block", fontSize: 12, fontWeight: 600, color: "#94a3b8", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px" };
+  const selectStyle = {
+    ...inputStyle,
+    appearance: "none", WebkitAppearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat", backgroundPosition: "right 14px center",
+    paddingRight: 36,
+  };
+
+  const labelStyle = { display: "block", fontSize: 12, fontWeight: 600, color: "var(--onyx-text-dim)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px" };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", padding: "40px 24px" }}>
+    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)", padding: "40px 24px" }}>
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
 
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
-          <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, marginBottom: 16, padding: 0 }}>
+          <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "var(--onyx-text-dim)", cursor: "pointer", fontSize: 13, marginBottom: 16, padding: 0 }}>
             ← Back to Studio
           </button>
-          <h1 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 8px" }}>⚡ Campaign Generator</h1>
-          <p style={{ color: "#94a3b8", margin: 0 }}>Generate {reelCount} unique reels from one campaign brief</p>
+          <h1 className="page-title">Campaign Generator</h1>
+          <p style={{ color: "var(--onyx-text-dim)", margin: 0 }}>Generate {reelCount} unique reels from one campaign brief</p>
           {credits !== null && (
             <div style={{ marginTop: 10, fontSize: 13, color: credits >= estimatedCredits ? "#22c55e" : "#ef4444" }}>
-              ⚡ {credits} AI credits available · Reel slots used from your monthly plan allowance
+              {credits} AI credits available · Reel slots used from your monthly plan allowance
             </div>
           )}
         </div>
@@ -172,14 +183,14 @@ export default function Campaign() {
               </div>
               <div>
                 <label style={labelStyle}>Tone</label>
-                <select style={inputStyle} value={tone} onChange={e => setTone(e.target.value)}>
-                  {TONES.map(t => <option key={t}>{t}</option>)}
+                <select style={selectStyle} value={tone} onChange={e => setTone(e.target.value)}>
+                  {TONES.map(t => <option key={t} style={{ background: "var(--onyx-bg-2)", color: "var(--onyx-text)" }}>{t}</option>)}
                 </select>
               </div>
               <div>
                 <label style={labelStyle}>Platform</label>
-                <select style={inputStyle} value={platform} onChange={e => setPlatform(e.target.value)}>
-                  {PLATFORMS.map(p => <option key={p}>{p}</option>)}
+                <select style={selectStyle} value={platform} onChange={e => setPlatform(e.target.value)}>
+                  {PLATFORMS.map(p => <option key={p} style={{ background: "var(--onyx-bg-2)", color: "var(--onyx-text)" }}>{p}</option>)}
                 </select>
               </div>
               <div>
@@ -188,9 +199,9 @@ export default function Campaign() {
                   {REEL_COUNTS.map(n => (
                     <button key={n} onClick={() => setReelCount(n)} style={{
                       flex: 1, padding: "10px", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer",
-                      background: reelCount === n ? "#2563eb" : "#0c1016",
-                      border: reelCount === n ? "1px solid #3b82f6" : "1px solid #1f2937",
-                      color: reelCount === n ? "#fff" : "#64748b",
+                      background: reelCount === n ? "var(--onyx-cyan)" : "var(--onyx-bg-2)",
+                      border: reelCount === n ? "1px solid var(--onyx-cyan)" : "1px solid var(--onyx-hairline-strong)",
+                      color: reelCount === n ? "#06121b" : "var(--onyx-text-faint)",
                     }}>{n}</button>
                   ))}
                 </div>
@@ -198,9 +209,9 @@ export default function Campaign() {
               {brands.length > 0 && (
                 <div>
                   <label style={labelStyle}>Brand</label>
-                  <select style={inputStyle} value={brandId ?? ""} onChange={e => setBrandId(e.target.value)}>
+                  <select style={selectStyle} value={brandId ?? ""} onChange={e => setBrandId(e.target.value)}>
                     {brands.map(b => (
-                      <option key={b.id} value={b.id}>{b.brand_label}{b.is_default ? " (default)" : ""}</option>
+                      <option key={b.id} value={b.id} style={{ background: "var(--onyx-bg-2)", color: "var(--onyx-text)" }}>{b.brand_label}{b.is_default ? " (default)" : ""}</option>
                     ))}
                   </select>
                 </div>
@@ -210,19 +221,33 @@ export default function Campaign() {
             {/* Right column */}
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Campaign Brief *</label>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <label style={{ ...labelStyle, marginBottom: 0 }}>Campaign Brief *</label>
+                  {micSupported && (
+                    <button type="button" onClick={micToggle} style={{
+                      display: "flex", alignItems: "center", gap: 5,
+                      padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                      border: `1px solid ${micListening ? "#ef4444" : "rgba(255,255,255,0.15)"}`,
+                      background: micListening ? "rgba(239,68,68,0.12)" : "transparent",
+                      color: micListening ? "#ef4444" : "var(--onyx-text-dim)",
+                    }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: micListening ? "#ef4444" : "var(--onyx-text-faint)", display: "inline-block", animation: micListening ? "pulse 1s infinite" : "none" }} />
+                      {micListening ? "Stop" : "Dictate"}
+                    </button>
+                  )}
+                </div>
                 <textarea
                   style={{ ...inputStyle, resize: "vertical", minHeight: 200, lineHeight: 1.6 }}
                   value={brief}
                   onChange={e => setBrief(e.target.value)}
-                  placeholder="Describe your campaign... What are you promoting? What's the key message? What action do you want viewers to take?"
+                  placeholder={micListening ? "Listening…" : "Describe your campaign... What are you promoting? What's the key message? What action do you want viewers to take?"}
                 />
               </div>
               <div>
                 <label style={labelStyle}>Visual Theme</label>
-                <select style={inputStyle} value={theme} onChange={e => setTheme(e.target.value)}>
+                <select style={selectStyle} value={theme} onChange={e => setTheme(e.target.value)}>
                   {["cinematic", "business", "energetic", "minimal", "documentary", "luxury", "tech", "wellness"].map(t => (
-                    <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                    <option key={t} value={t} style={{ background: "var(--onyx-bg-2)", color: "var(--onyx-text)" }}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
                   ))}
                 </select>
               </div>
@@ -232,12 +257,12 @@ export default function Campaign() {
 
         {/* Progress */}
         {loading && (
-          <div style={{ marginTop: 24, padding: 20, background: "#0c1016", border: "1px solid #1f2937", borderRadius: 12 }}>
-            <div style={{ fontSize: 14, color: "#94a3b8", marginBottom: 10 }}>{progress.step}</div>
-            <div style={{ height: 6, background: "#1f2937", borderRadius: 3, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${progress.percent}%`, background: "linear-gradient(90deg, #8b5cf6, #2563eb)", transition: "width 0.5s" }} />
+          <div style={{ marginTop: 24, padding: 20, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12 }}>
+            <div style={{ fontSize: 14, color: "var(--onyx-text-dim)", marginBottom: 10 }}>{progress.step}</div>
+            <div style={{ height: 6, background: "var(--onyx-surface-2)", borderRadius: 3, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${progress.percent}%`, background: "linear-gradient(90deg, #4dd0ff, #2563eb)", transition: "width 0.5s" }} />
             </div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 6 }}>{progress.percent}%</div>
+            <div style={{ fontSize: 12, color: "var(--onyx-text-dim)", marginTop: 6 }}>{progress.percent}%</div>
           </div>
         )}
 
@@ -249,14 +274,10 @@ export default function Campaign() {
           <button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            style={{
-              marginTop: 24, width: "100%", padding: "16px", fontSize: 15, fontWeight: 700,
-              background: canGenerate ? "linear-gradient(90deg, #8b5cf6, #2563eb)" : "#1f2937",
-              border: "none", borderRadius: 12, color: "#fff",
-              cursor: canGenerate ? "pointer" : "not-allowed",
-            }}
+            className="btn-teal"
+            style={{ marginTop: 24, width: "100%" }}
           >
-            {loading ? `Generating ${reelCount} reels...` : `⚡ Generate ${reelCount} Reels`}
+            {loading ? `Generating ${reelCount} reels...` : `Generate ${reelCount} Reels`}
           </button>
         )}
 
@@ -268,14 +289,14 @@ export default function Campaign() {
             </h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
               {generatedReels.map((reel, i) => (
-                <div key={i} style={{ background: "#0c1016", border: "1px solid #1f2937", borderRadius: 12, padding: 16 }}>
-                  <div style={{ fontSize: 11, color: "#8b5cf6", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Reel {i + 1}</div>
+                <div key={i} style={{ background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontSize: 11, color: "#4dd0ff", fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>Reel {i + 1}</div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f5f9", marginBottom: 6 }}>{reel.title}</div>
-                  <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12, lineHeight: 1.5 }}>{reel.hook}</div>
-                  <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 12 }}>{reel.scenes?.length || 0} scenes</div>
+                  <div style={{ fontSize: 12, color: "var(--onyx-text-dim)", marginBottom: 12, lineHeight: 1.5 }}>{reel.hook}</div>
+                  <div style={{ fontSize: 11, color: "var(--onyx-text-dim)", marginBottom: 12 }}>{reel.scenes?.length || 0} scenes</div>
                   <button
                     onClick={() => openReel(reel)}
-                    style={{ width: "100%", padding: "8px", fontSize: 12, fontWeight: 600, background: "#1e3a5f", border: "1px solid #2563eb", color: "#60a5fa", borderRadius: 6, cursor: "pointer" }}
+                    style={{ width: "100%", padding: "8px", fontSize: 12, fontWeight: 600, background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)", borderRadius: 6, cursor: "pointer" }}
                   >
                     Open in Editor →
                   </button>
@@ -283,7 +304,7 @@ export default function Campaign() {
               ))}
             </div>
             {done && (
-              <button onClick={() => { setDone(false); setGeneratedReels([]); setBrief(""); }} style={{ marginTop: 16, padding: "10px 20px", background: "none", border: "1px solid #1f2937", color: "#94a3b8", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>
+              <button onClick={() => { setDone(false); setGeneratedReels([]); setBrief(""); }} style={{ marginTop: 16, padding: "10px 20px", background: "none", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-dim)", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>
                 Generate Another Campaign
               </button>
             )}

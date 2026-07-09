@@ -1,8 +1,8 @@
 body{
   margin:0;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;
-  background:#0b0f19;
-  color:#fff;
+  background:var(--onyx-bg-2);
+  color:var(--onyx-text);
 }
 
 .page{
@@ -19,8 +19,8 @@ body{
 }
 
 .pricing-card{
-  background:#121826;
-  border:1px solid #2a3145;
+  background:var(--onyx-surface-2);
+  border:1px solid var(--onyx-hairline-strong);
   border-radius:12px;
   padding:24px;
 }

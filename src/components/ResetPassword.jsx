@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
+import SEO from "./SEO";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -14,25 +15,36 @@ export default function ResetPassword() {
     let done = false;
     const markReady = () => { if (!done) { done = true; setReady(true); } };
 
-    // Auth listener — catches PASSWORD_RECOVERY event when SDK processes the URL hash
+    // New Supabase email format sends token_hash as a query param — must exchange
+    // it for a session via verifyOtp before updateUser will work.
+    const params = new URLSearchParams(window.location.search);
+    const token_hash = params.get("token_hash");
+    const type = params.get("type");
+
+    if (token_hash && type === "recovery") {
+      supabase.auth.verifyOtp({ token_hash, type: "recovery" }).then(({ error }) => {
+        if (error) {
+          setMsg({ text: error.message, type: "error" });
+        }
+        markReady();
+      });
+      return;
+    }
+
+    // Legacy: Auth listener — catches PASSWORD_RECOVERY when SDK processes URL hash
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) markReady();
     });
 
-    // Fallback: session may already exist (e.g. token exchanged before listener registered)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) markReady();
     });
 
-    // Last-resort fallback: if the URL contains a recovery token but the SDK
-    // fires the event before our listener is attached, show the form anyway.
-    // The updateUser call will fail gracefully if there's no valid session.
     const hash = window.location.hash;
     if (hash.includes("type=recovery") || hash.includes("access_token")) {
       markReady();
     }
 
-    // Hard timeout: never leave user stuck on "Verifying..." forever
     const t = setTimeout(markReady, 3000);
 
     return () => { subscription.unsubscribe(); clearTimeout(t); };
@@ -60,33 +72,34 @@ export default function ResetPassword() {
 
   const inputS = {
     width: "100%", padding: "12px 16px", borderRadius: 8,
-    background: "#0f141b", border: "1px solid #2b3442",
-    color: "#e2e8f0", fontSize: 15, boxSizing: "border-box", outline: "none",
+    background: "var(--onyx-bg)", border: "1px solid var(--onyx-hairline-strong)",
+    color: "var(--onyx-text)", fontSize: 15, boxSizing: "border-box", outline: "none",
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#06070a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", padding: 24 }}>
-      <div style={{ width: "100%", maxWidth: 400, background: "#0c1016", border: "1px solid #1f2937", borderRadius: 16, padding: 32 }}>
+    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", padding: 24 }}>
+      <SEO title="Reset Password" description="Reset the password for your Onyx Reelz account." path="/reset-password" />
+      <div style={{ width: "100%", maxWidth: 400, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 16, padding: 32 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>🔐</div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#fff", margin: 0 }}>Reset Password</h1>
-          <p style={{ color: "#64748b", fontSize: 14, marginTop: 8 }}>Enter your new password below</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--onyx-text)", margin: 0 }}>Reset Password</h1>
+          <p style={{ color: "var(--onyx-text-faint)", fontSize: 14, marginTop: 8 }}>Enter your new password below</p>
         </div>
 
         {!ready ? (
-          <div style={{ textAlign: "center", color: "#64748b", fontSize: 14, padding: 20 }}>
+          <div style={{ textAlign: "center", color: "var(--onyx-text-faint)", fontSize: 14, padding: 20 }}>
             Verifying reset link...
           </div>
         ) : (
           <form onSubmit={handleReset} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
-              <label style={{ fontSize: 12, color: "#94a3b8", display: "block", marginBottom: 6 }}>New Password</label>
+              <label style={{ fontSize: 12, color: "var(--onyx-text-faint)", display: "block", marginBottom: 6 }}>New Password</label>
               <input type="password" style={inputS} value={password}
                 onChange={e => setPassword(e.target.value)} placeholder="Min. 8 characters" />
             </div>
 
             <div>
-              <label style={{ fontSize: 12, color: "#94a3b8", display: "block", marginBottom: 6 }}>Confirm Password</label>
+              <label style={{ fontSize: 12, color: "var(--onyx-text-faint)", display: "block", marginBottom: 6 }}>Confirm Password</label>
               <input type="password" style={inputS} value={confirm}
                 onChange={e => setConfirm(e.target.value)} placeholder="Repeat new password" />
             </div>
@@ -96,7 +109,7 @@ export default function ResetPassword() {
                 padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
                 background: msg.type === "success" ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
                 border: `1px solid ${msg.type === "success" ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
-                color: msg.type === "success" ? "#4ade80" : "#f87171",
+                color: msg.type === "success" ? "var(--onyx-success)" : "var(--onyx-rose)",
               }}>
                 {msg.text}
               </div>
@@ -104,8 +117,8 @@ export default function ResetPassword() {
 
             <button type="submit" disabled={loading} style={{
               padding: "13px", borderRadius: 8, border: "none",
-              background: loading ? "#374151" : "#1d4ed8",
-              color: "#fff", fontWeight: 700, fontSize: 15,
+              background: loading ? "var(--chip-bg-strong)" : "var(--btn-primary-grad)",
+              color: "var(--btn-primary-text)", fontWeight: 700, fontSize: 15,
               cursor: loading ? "not-allowed" : "pointer", marginTop: 4,
             }}>
               {loading ? "Updating..." : "Update Password"}
@@ -114,7 +127,7 @@ export default function ResetPassword() {
         )}
 
         <div style={{ textAlign: "center", marginTop: 20 }}>
-          <button onClick={() => navigate("/login")} style={{ background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer" }}>
+          <button onClick={() => navigate("/login")} style={{ background: "none", border: "none", color: "var(--onyx-text-faint)", fontSize: 13, cursor: "pointer" }}>
             ← Back to Login
           </button>
         </div>

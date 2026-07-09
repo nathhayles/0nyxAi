@@ -10,6 +10,8 @@ export default function PptToVideo() {
   const [error, setError] = useState("");
   const [preview, setPreview] = useState(null);
   const [brandId, setBrandId] = useState("");
+  const [applyingColors, setApplyingColors] = useState(false);
+  const [colorsApplied, setColorsApplied] = useState(false);
   const fileRef = useRef();
 
   async function handleUpload() {
@@ -51,29 +53,53 @@ export default function PptToVideo() {
       globalMusicUrl: "",
       savedAt: new Date().toISOString(),
       brandId,
+      // Fonts aren't auto-applied (they may not be available as web fonts) —
+      // just carried along so the editor/reel can surface them later.
+      metadata: preview.themeFonts ? { detected_fonts: preview.themeFonts } : {},
     }));
     window.open(`/editor?handoff=${handoffId}`, "_blank");
   }
 
+  async function handleApplyThemeColors() {
+    if (!brandId || !preview?.themeColors) return;
+    setApplyingColors(true);
+    setError("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const colors = Object.values(preview.themeColors).filter(Boolean);
+      const res = await fetch(`/api/brands/${brandId}/apply-theme-colors`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ colors }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to apply colours");
+      setColorsApplied(true);
+    } catch (err) {
+      setError(err.message);
+    }
+    setApplyingColors(false);
+  }
+
   return (
-    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", padding: "40px 24px", fontFamily: "sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)", padding: "40px 24px", fontFamily: "sans-serif" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, marginBottom: 24, padding: 0 }}>
           ← Back to Studio
         </button>
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>📊 PPT to Video</h1>
+        <h1 className="page-title">PPT to Video</h1>
         <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 32 }}>
           Upload a PowerPoint presentation and we'll convert each slide into a video scene with AI voiceover.
         </p>
 
         <div
           onClick={() => fileRef.current?.click()}
-          style={{ border: "2px dashed #2b3442", borderRadius: 12, padding: 40, textAlign: "center", cursor: "pointer", marginBottom: 16, background: file ? "rgba(124,58,237,0.05)" : "transparent" }}
+          style={{ border: "2px dashed #2b3442", borderRadius: 12, padding: 40, textAlign: "center", cursor: "pointer", marginBottom: 16, background: file ? "rgba(77,208,255,0.05)" : "transparent" }}
         >
           {file ? (
             <div>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
-              <div style={{ fontWeight: 600, color: "#a78bfa" }}>{file.name}</div>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>▦</div>
+              <div style={{ fontWeight: 600, color: "#7de0ff" }}>{file.name}</div>
               <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{(file.size / 1024 / 1024).toFixed(1)} MB</div>
             </div>
           ) : (
@@ -89,7 +115,8 @@ export default function PptToVideo() {
         <button
           onClick={handleUpload}
           disabled={!file || loading}
-          style={{ width: "100%", padding: "13px", borderRadius: 8, background: !file || loading ? "#374151" : "linear-gradient(135deg, #7c3aed, #ec4899)", border: "none", color: "#fff", fontWeight: 700, fontSize: 15, cursor: !file || loading ? "not-allowed" : "pointer", marginBottom: 16 }}
+          className="btn-teal"
+          style={{ width: "100%", marginBottom: 16 }}
         >
           {loading ? "Extracting slides..." : "Extract Slides"}
         </button>
@@ -101,20 +128,40 @@ export default function PptToVideo() {
         )}
 
         {preview && (
-          <div style={{ background: "#0c1016", border: "1px solid #1f2937", borderRadius: 12, padding: 24 }}>
+          <div style={{ background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, padding: 24 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>{preview.scenes?.length} slides extracted</h2>
             {preview.scenes?.map((scene, i) => (
-              <div key={i} style={{ padding: "10px 14px", background: "#111827", borderRadius: 8, marginBottom: 8, fontSize: 13 }}>
-                <div style={{ color: "#7c3aed", fontWeight: 600, marginBottom: 4 }}>Slide {i + 1}</div>
+              <div key={i} style={{ padding: "10px 14px", background: "var(--onyx-surface)", borderRadius: 8, marginBottom: 8, fontSize: 13 }}>
+                <div style={{ color: "#4dd0ff", fontWeight: 600, marginBottom: 4 }}>Slide {i + 1}</div>
                 <div style={{ color: "#94a3b8" }}>{scene.narration}</div>
               </div>
             ))}
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: "block", marginBottom: 8, fontWeight: 600, fontSize: 14, color: "#e2e8f0" }}>Brand (optional)</label>
-              <BrandSelector value={brandId} onChange={(id) => setBrandId(id)} />
+              <BrandSelector value={brandId} onChange={(id) => { setBrandId(id); setColorsApplied(false); }} />
             </div>
-            <button onClick={handleGenerate} style={{ width: "100%", marginTop: 16, padding: "13px", borderRadius: 8, background: "linear-gradient(135deg, #7c3aed, #ec4899)", border: "none", color: "#fff", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
-              ✨ Open in Editor
+
+            {preview.themeColors && (
+              <div style={{ marginBottom: 16, padding: "12px 14px", background: "var(--onyx-surface)", borderRadius: 8 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: "#e2e8f0", marginBottom: 8 }}>Theme colours found in this presentation</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  {Object.values(preview.themeColors).map((hex, i) => (
+                    <div key={i} title={hex} style={{ width: 28, height: 28, borderRadius: 6, background: hex, border: "1px solid rgba(255,255,255,0.15)" }} />
+                  ))}
+                </div>
+                <button
+                  onClick={handleApplyThemeColors}
+                  disabled={!brandId || applyingColors || colorsApplied}
+                  className="btn-teal"
+                  style={{ fontSize: 13, padding: "6px 12px" }}
+                >
+                  {colorsApplied ? "Applied to brand ✓" : applyingColors ? "Applying..." : brandId ? "Apply colours to brand" : "Select a brand to apply colours"}
+                </button>
+              </div>
+            )}
+
+            <button onClick={handleGenerate} className="btn-teal" style={{ width: "100%", marginTop: 16 }}>
+              Open in Editor
             </button>
           </div>
         )}

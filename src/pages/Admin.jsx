@@ -77,6 +77,8 @@ export default function AdminPanel() {
         ))}
       </div>
 
+      <ModelUsagePanel />
+
       <input
         value={search}
         onChange={e => setSearch(e.target.value)}
@@ -95,6 +97,7 @@ export default function AdminPanel() {
               <Col k="reels"               label="Reels" />
               <Col k="renders"             label="Exports" />
               <Col k="publishes"           label="Publishes" />
+              <th style={s.th}>YouTube</th>
               <Col k="referral_signups"    label="Referrals" />
               <Col k="joined"              label="Joined" />
               <th style={s.th}>Actions</th>
@@ -106,6 +109,165 @@ export default function AdminPanel() {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+const MODEL_LABELS = {
+  'wan-2.5': 'Wan 2.5',
+  'kling-2.6-pro': 'Kling 3 Pro',
+  'veo-3': 'Veo 3',
+  'seedance-1-pro': 'Seedance 1 Pro',
+  'vidu-q3-pro': 'Vidu Q3 Pro',
+};
+
+const PLAN_COLORS = {
+  free: '#64748b',
+  student: '#4dd0ff',
+  starter: '#4ade80',
+  creator: '#fbbf24',
+  pro: '#f472b6',
+  agency: '#a78bfa',
+  unknown: '#334155',
+};
+
+const USAGE_WINDOWS = [
+  { key: '7', label: '7d' },
+  { key: '30', label: '30d' },
+  { key: '90', label: '90d' },
+  { key: 'all', label: 'All time' },
+];
+
+function ModelUsagePanel() {
+  const [windowKey, setWindowKey] = useState('30');
+  const [usage, setUsage] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`/api/admin/analytics/model-usage?window=${windowKey}`, { headers });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Failed to load');
+        if (!cancelled) setUsage(d);
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [windowKey]);
+
+  const counts = usage?.counts || {};
+  const models = Object.keys(counts).sort();
+  const plans = Array.from(new Set(models.flatMap(m => Object.keys(counts[m])))).sort();
+  const maxTotal = Math.max(1, ...models.map(m => Object.values(counts[m]).reduce((a, b) => a + b, 0)));
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h3 style={{ color: '#4dd0ff', fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
+          Model Selection by Plan Tier
+        </h3>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {USAGE_WINDOWS.map(w => (
+            <button
+              key={w.key}
+              onClick={() => setWindowKey(w.key)}
+              style={{
+                ...s.grantBtn,
+                background: windowKey === w.key ? '#4dd0ff44' : 'transparent',
+                borderColor: windowKey === w.key ? '#4dd0ff' : 'var(--onyx-hairline-strong)',
+                color: windowKey === w.key ? '#7de0ff' : '#64748b',
+                fontSize: 11,
+                padding: '4px 10px',
+              }}
+            >
+              {w.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)', borderRadius: 10, padding: 20 }}>
+        {loading ? (
+          <p style={{ color: '#4dd0ff', fontSize: 13, margin: 0 }}>Loading...</p>
+        ) : error ? (
+          <p style={{ color: '#f87171', fontSize: 13, margin: 0 }}>Failed to load: {error}</p>
+        ) : models.length === 0 ? (
+          <p style={{ color: '#64748b', fontSize: 13, margin: 0 }}>No model selections recorded for this window.</p>
+        ) : (
+          <>
+            {models.map(model => {
+              const modelPlans = counts[model];
+              const total = Object.values(modelPlans).reduce((a, b) => a + b, 0);
+              return (
+                <div key={model} style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                    <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{MODEL_LABELS[model] || model}</span>
+                    <span style={{ color: '#64748b' }}>{total}</span>
+                  </div>
+                  <div style={{ display: 'flex', height: 18, width: '100%', borderRadius: 4, overflow: 'hidden', background: '#0d1825' }}>
+                    {plans.map(plan => {
+                      const count = modelPlans[plan] || 0;
+                      if (!count) return null;
+                      const pct = (count / maxTotal) * 100;
+                      return (
+                        <div
+                          key={plan}
+                          title={`${plan}: ${count}`}
+                          style={{ width: `${pct}%`, background: PLAN_COLORS[plan] || '#64748b' }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11, color: '#64748b', margin: '12px 0 20px' }}>
+              {plans.map(plan => (
+                <div key={plan} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: 2, background: PLAN_COLORS[plan] || '#64748b', display: 'inline-block' }} />
+                  {plan}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    <th style={s.th}>Model</th>
+                    {plans.map(plan => <th key={plan} style={{ ...s.th, textAlign: 'right' }}>{plan}</th>)}
+                    <th style={{ ...s.th, textAlign: 'right' }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {models.map(model => {
+                    const modelPlans = counts[model];
+                    const total = Object.values(modelPlans).reduce((a, b) => a + b, 0);
+                    return (
+                      <tr key={model} style={s.row}>
+                        <td style={s.td}>{MODEL_LABELS[model] || model}</td>
+                        {plans.map(plan => (
+                          <td key={plan} style={{ ...s.td, textAlign: 'right' }}>{modelPlans[plan] || 0}</td>
+                        ))}
+                        <td style={{ ...s.td, textAlign: 'right', fontWeight: 700, color: '#fbbf24' }}>{total}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -179,9 +341,17 @@ function UserRow({ user: u, onGrant, granting }) {
         <td style={s.td}>{u.renders}</td>
         <td style={s.td}>{u.publishes}</td>
         <td style={s.td}>
+          {u.youtube_token_status === 'expired' && (
+            <span style={{ ...s.badge, background: '#f8717122', color: '#f87171' }}>YT Expired</span>
+          )}
+          {u.youtube_token_status === 'expiring_soon' && (
+            <span style={{ ...s.badge, background: '#fbbf2422', color: '#fbbf24' }}>YT Expiring</span>
+          )}
+        </td>
+        <td style={s.td}>
           {u.referral_code ? (
             <div>
-              <div style={{ color: '#a78bfa', fontSize: 12 }}>{u.referral_code}</div>
+              <div style={{ color: '#7de0ff', fontSize: 12 }}>{u.referral_code}</div>
               <div style={{ color: '#64748b', fontSize: 11 }}>{u.referral_signups} signups</div>
             </div>
           ) : '—'}
@@ -207,39 +377,39 @@ function UserRow({ user: u, onGrant, granting }) {
             </button>
             <button
               onClick={() => { setMsgOpen(o => !o); setMsgResult(null); }}
-              style={{ ...s.grantBtn, background: '#7c3aed22', borderColor: '#7c3aed66', color: '#a78bfa', fontSize: 14, lineHeight: 1 }}
+              style={{ ...s.grantBtn, background: '#4dd0ff22', borderColor: '#4dd0ff66', color: '#7de0ff', fontSize: 14, lineHeight: 1 }}
               title="Send email to user"
             >
-              ✉
+              @
             </button>
           </div>
         </td>
       </tr>
       {msgOpen && (
         <tr>
-          <td colSpan={10} style={{ background: '#0a0818', padding: '0 12px 14px' }} onClick={e => e.stopPropagation()}>
-            <div style={{ background: '#0d0e1f', border: '1px solid #2d1f6e', borderRadius: 8, padding: 16, marginTop: 4, maxWidth: 560 }}>
-              <div style={{ fontSize: 11, color: '#a78bfa', fontWeight: 700, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <td colSpan={10} style={{ background: 'var(--onyx-bg-2)', padding: '0 12px 14px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ background: 'var(--onyx-bg-2)', border: '1px solid #2d1f6e', borderRadius: 8, padding: 16, marginTop: 4, maxWidth: 560 }}>
+              <div style={{ fontSize: 11, color: '#7de0ff', fontWeight: 700, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Email {u.email}
               </div>
               <input
                 value={msgSubject}
                 onChange={e => setMsgSubject(e.target.value)}
                 placeholder="Subject"
-                style={{ ...s.credInput, width: '100%', marginBottom: 8, boxSizing: 'border-box', background: '#0a0818', borderColor: '#2d1f6e', color: '#e2e8f0' }}
+                style={{ ...s.credInput, width: '100%', marginBottom: 8, boxSizing: 'border-box', background: 'var(--onyx-bg-2)', borderColor: '#2d1f6e', color: '#e2e8f0' }}
               />
               <textarea
                 value={msgBody}
                 onChange={e => setMsgBody(e.target.value)}
                 placeholder="Message body..."
                 rows={4}
-                style={{ width: '100%', padding: '8px 10px', background: '#0a0818', border: '1px solid #2d1f6e', borderRadius: 6, color: '#e2e8f0', fontSize: 12, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 8 }}
+                style={{ width: '100%', padding: '8px 10px', background: 'var(--onyx-bg-2)', border: '1px solid #2d1f6e', borderRadius: 6, color: '#e2e8f0', fontSize: 12, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 8 }}
               />
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <button
                   onClick={sendMessage}
                   disabled={!msgSubject.trim() || !msgBody.trim() || msgSending}
-                  style={{ ...s.grantBtn, background: '#7c3aed44', borderColor: '#7c3aed', color: '#a78bfa', padding: '6px 14px', fontSize: 12 }}
+                  style={{ ...s.grantBtn, background: '#4dd0ff44', borderColor: '#4dd0ff', color: '#7de0ff', padding: '6px 14px', fontSize: 12 }}
                 >
                   {msgSending ? 'Sending...' : 'Send Email'}
                 </button>
@@ -255,7 +425,7 @@ function UserRow({ user: u, onGrant, granting }) {
       )}
       {expanded && (
         <tr>
-          <td colSpan={10} style={{ background: '#060d16', padding: '0 12px 16px' }}>
+          <td colSpan={10} style={{ background: 'var(--onyx-bg)', padding: '0 12px 16px' }}>
             {loadingDetail ? (
               <p style={{ color: '#4dd0ff', padding: 16 }}>Loading...</p>
             ) : detail ? (
@@ -275,7 +445,7 @@ function UserDetail({ user: u, detail: d }) {
   const aff = d.affiliate || {};
 
   return (
-    <div style={{ background: '#0a131e', border: '1px solid #1e2a38', borderRadius: 10, padding: 20, marginTop: 8 }}>
+    <div style={{ background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)', borderRadius: 10, padding: 20, marginTop: 8 }}>
 
       {/* Row 1: Account + Auth */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
@@ -285,7 +455,7 @@ function UserDetail({ user: u, detail: d }) {
           <Row label="Role"           value={u.role || 'user'} />
           <Row label="Plan"           value={u.plan || 'free'} />
           <Row label="Stripe ID"      value={d.profile?.stripe_customer_id || '—'} mono />
-          <Row label="Email Verified" value={auth.email_confirmed_at ? '✅ ' + new Date(auth.email_confirmed_at).toLocaleDateString() : '❌ Not verified'} />
+          <Row label="Email Verified" value={auth.email_confirmed_at ? new Date(auth.email_confirmed_at).toLocaleDateString() : 'Not verified'} />
         </Section>
 
         <Section title="Activity">
@@ -296,7 +466,7 @@ function UserDetail({ user: u, detail: d }) {
           <Row label="Publishes"    value={d.recent_publishes?.length || 0} />
           <Row label="YouTube"      value={
             d.youtube?.connected
-              ? `✅ ${d.youtube.channel_name || 'Connected'}${d.youtube.expired ? ' ⚠️ Token expired' : ''}`
+              ? `${d.youtube.channel_name || 'Connected'}${d.youtube.expired ? ' (Token expired)' : ''}`
               : '— Not connected'
           } />
           <Row label="LinkedIn"     value="— Not tracked yet" />
@@ -326,7 +496,7 @@ function UserDetail({ user: u, detail: d }) {
           {d.recent_reels?.slice(0, 8).map(r => (
             <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 12 }}>
               <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
-                📹 {r.title || 'Untitled'}
+                {r.title || 'Untitled'}
               </span>
               <span style={{ color: '#334155', fontSize: 11, flexShrink: 0, marginLeft: 8 }}>
                 {r.ratio || '16:9'} · {new Date(r.created_at).toLocaleDateString()}
@@ -339,7 +509,7 @@ function UserDetail({ user: u, detail: d }) {
         <Section title="Recent Publishes">
           {d.recent_publishes?.slice(0, 6).map(p => (
             <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 12 }}>
-              <span style={{ color: '#e2e8f0' }}>📤 {p.platform || 'Unknown'}</span>
+              <span style={{ color: '#e2e8f0' }}>{p.platform || 'Unknown'}</span>
               <span style={{ color: '#334155', fontSize: 11 }}>{new Date(p.created_at).toLocaleDateString()}</span>
             </div>
           ))}
@@ -394,20 +564,20 @@ function Row({ label, value, mono, highlight }) {
 }
 
 const s = {
-  page: { background: '#060d16', minHeight: '100vh', padding: '32px 24px', fontFamily: 'Inter, sans-serif', color: '#e2e8f0' },
+  page: { background: 'var(--onyx-bg)', minHeight: '100vh', padding: '32px 24px', fontFamily: 'Inter, sans-serif', color: '#e2e8f0' },
   header: { marginBottom: 28 },
   title: { fontSize: 24, fontWeight: 800, color: '#4dd0ff', margin: 0 },
   sub: { color: '#334155', fontSize: 13, marginTop: 4 },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 },
-  statCard: { background: '#0a131e', border: '1px solid #1e2a38', borderRadius: 10, padding: '16px 20px' },
+  statCard: { background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)', borderRadius: 10, padding: '16px 20px' },
   statVal: { fontSize: 28, fontWeight: 800, color: '#4dd0ff' },
   statLabel: { fontSize: 12, color: '#64748b', marginTop: 4 },
-  search: { width: '100%', padding: '10px 14px', background: '#0a131e', border: '1px solid #1e2a38', borderRadius: 8, color: '#e2e8f0', fontSize: 13, marginBottom: 16, boxSizing: 'border-box' },
+  search: { width: '100%', padding: '10px 14px', background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)', borderRadius: 8, color: '#e2e8f0', fontSize: 13, marginBottom: 16, boxSizing: 'border-box' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
-  th: { padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: '1px solid #1e2a38', whiteSpace: 'nowrap' },
+  th: { padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: '1px solid var(--onyx-hairline-strong)', whiteSpace: 'nowrap' },
   row: { borderBottom: '1px solid #0d1825' },
   td: { padding: '10px 12px', verticalAlign: 'middle' },
   badge: { padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 },
-  credInput: { width: 70, padding: '5px 8px', background: '#0d1825', border: '1px solid #1e2a38', borderRadius: 6, color: '#e2e8f0', fontSize: 12 },
+  credInput: { width: 70, padding: '5px 8px', background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)', borderRadius: 6, color: '#e2e8f0', fontSize: 12 },
   grantBtn: { padding: '5px 10px', background: '#4dd0ff22', border: '1px solid #4dd0ff44', borderRadius: 6, color: '#4dd0ff', cursor: 'pointer', fontWeight: 700 },
 };

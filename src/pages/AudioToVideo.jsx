@@ -56,29 +56,29 @@ export default function AudioToVideo() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", padding: "40px 24px", fontFamily: "sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)", padding: "40px 24px", fontFamily: "sans-serif" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, marginBottom: 24, padding: 0 }}>
           ← Back to Studio
         </button>
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>🎙️ Audio to Video</h1>
+        <h1 className="page-title">Audio to Video</h1>
         <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 32 }}>
           Upload a voice recording or audio file. We'll transcribe it and turn it into a full video reel with matching visuals.
         </p>
 
         <div
           onClick={() => fileRef.current?.click()}
-          style={{ border: "2px dashed #2b3442", borderRadius: 12, padding: 40, textAlign: "center", cursor: "pointer", marginBottom: 16, background: file ? "rgba(124,58,237,0.05)" : "transparent" }}
+          style={{ border: "2px dashed #2b3442", borderRadius: 12, padding: 40, textAlign: "center", cursor: "pointer", marginBottom: 16, background: file ? "rgba(77,208,255,0.05)" : "transparent" }}
         >
           {file ? (
             <div>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>🎵</div>
-              <div style={{ fontWeight: 600, color: "#a78bfa" }}>{file.name}</div>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>♪</div>
+              <div style={{ fontWeight: 600, color: "#7de0ff" }}>{file.name}</div>
               <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{(file.size / 1024 / 1024).toFixed(1)} MB</div>
             </div>
           ) : (
             <div>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🎙️</div>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>↑</div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Drop your audio file here</div>
               <div style={{ fontSize: 13, color: "#94a3b8" }}>MP3, WAV, M4A, or OGG</div>
             </div>
@@ -89,7 +89,8 @@ export default function AudioToVideo() {
         <button
           onClick={handleTranscribe}
           disabled={!file || loading}
-          style={{ width: "100%", padding: "13px", borderRadius: 8, background: !file || loading ? "#374151" : "linear-gradient(135deg, #7c3aed, #ec4899)", border: "none", color: "#fff", fontWeight: 700, fontSize: 15, cursor: !file || loading ? "not-allowed" : "pointer", marginBottom: 16 }}
+          className="btn-teal"
+          style={{ width: "100%", marginBottom: 16 }}
         >
           {loading ? "Transcribing audio..." : "Transcribe & Generate Scenes"}
         </button>
@@ -101,23 +102,23 @@ export default function AudioToVideo() {
         )}
 
         {preview && (
-          <div style={{ background: "#0c1016", border: "1px solid #1f2937", borderRadius: 12, padding: 24 }}>
+          <div style={{ background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, padding: 24 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Transcript</h2>
             <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 20 }}>{preview.transcript}</p>
             <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>
               {preview.scenes?.length} scenes generated
             </div>
             {preview.scenes?.map((scene, i) => (
-              <div key={i} style={{ padding: "10px 14px", background: "#111827", borderRadius: 8, marginBottom: 8, fontSize: 13, color: "#94a3b8" }}>
-                <span style={{ color: "#7c3aed", fontWeight: 600 }}>Scene {i + 1}:</span> {scene.narration}
+              <div key={i} style={{ padding: "10px 14px", background: "var(--onyx-surface)", borderRadius: 8, marginBottom: 8, fontSize: 13, color: "#94a3b8" }}>
+                <span style={{ color: "#4dd0ff", fontWeight: 600 }}>Scene {i + 1}:</span> {scene.narration}
               </div>
             ))}
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: "block", marginBottom: 8, fontWeight: 600, fontSize: 14, color: "#e2e8f0" }}>Brand (optional)</label>
               <BrandSelector value={brandId} onChange={(id) => setBrandId(id)} />
             </div>
-            <button onClick={handleGenerate} style={{ width: "100%", marginTop: 16, padding: "13px", borderRadius: 8, background: "linear-gradient(135deg, #7c3aed, #ec4899)", border: "none", color: "#fff", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
-              ✨ Open in Editor
+            <button onClick={handleGenerate} className="btn-teal" style={{ width: "100%", marginTop: 16 }}>
+              Open in Editor
             </button>
           </div>
         )}

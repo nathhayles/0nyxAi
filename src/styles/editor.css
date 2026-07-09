@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@400;700&family=Anton&family=Righteous&family=Boogaloo&family=Fredoka+One&family=Alfa+Slab+One&family=Lobster&family=Passion+One:wght@400;700&family=Black+Han+Sans&family=Playfair+Display:wght@400;700&family=Merriweather:wght@400;700&family=Lora:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Abril+Fatface&family=Cormorant+Garamond:wght@400;700&family=EB+Garamond:wght@400;700&family=Vollkorn:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Montserrat:wght@400;700&family=Poppins:wght@400;700&family=Nunito:wght@400;700&family=Source+Sans+3:wght@400;700&family=Raleway:wght@400;700&family=Ubuntu:wght@400;700&family=Inter:wght@400;700&family=Outfit:wght@400;700&family=DM+Sans:wght@400;700&family=Exo+2:wght@400;700&family=Dosis:wght@400;700&family=Dancing+Script:wght@400;700&family=Pacifico&family=Caveat:wght@400;700&family=Sacramento&family=Satisfy&family=Kalam:wght@400;700&family=Courgette&family=Great+Vibes&family=Amatic+SC:wght@400;700&family=Shadows+Into+Light&family=Space+Mono:wght@400;700&family=Share+Tech+Mono&family=Fira+Code:wght@400;700&family=IBM+Plex+Mono:wght@400;700&family=Courier+Prime:wght@400;700&display=swap');
+
 /* ── EditorV2 design-token system ─────────────────────────────────────────── */
 :root,
 [data-theme="onyx"] {
@@ -66,8 +68,8 @@
 
 body {
   margin: 0;
-  background: #0e1117;
-  color: white;
+  background: var(--bg-page);
+  color: var(--onyx-text);
   font-family: sans-serif;
 }
 
@@ -80,13 +82,13 @@ body {
 
 .topNav {
   height: 52px;
-  background: #161b22;
+  background: var(--nav-bg);
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 10px;
   gap: 8px;
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 0.5px solid var(--onyx-hairline);
   flex-shrink: 0;
   min-width: 0;
   width: 100%;
@@ -107,9 +109,9 @@ body {
 .addSceneTopBtn {
   height: 30px;
   padding: 0 10px;
-  background: #1f2937;
-  color: white;
-  border: 1px solid #2b3442;
+  background: var(--chip-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
   cursor: pointer;
   border-radius: 6px;
 }
@@ -122,9 +124,9 @@ body {
 .titleInput {
   height: 30px;
   width: 120px;
-  background: #0f141b;
-  color: white;
-  border: 1px solid #2b3442;
+  background: var(--panel-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
   padding: 0 10px;
   border-radius: 6px;
 }
@@ -140,9 +142,9 @@ body {
 .topControls select,
 .topControls button {
   height: 30px;
-  background: #1f2937;
-  color: white;
-  border: 1px solid #2b3442;
+  background: var(--chip-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
   padding: 0 10px;
   border-radius: 6px;
 }
@@ -172,8 +174,8 @@ body {
   flex-direction: column;
   align-items: center;
   padding-top: 12px;
-  background: #111827;
-  border-right: 1px solid #1f2937;
+  background: var(--onyx-surface-2);
+  border-right: 0.5px solid var(--onyx-hairline);
 }
 
 .iconMenu div {
@@ -187,23 +189,23 @@ body {
 }
 
 .iconMenu div.active {
-  background: #1f2937;
-  border: 1px solid #2b3442;
+  background: var(--chip-bg);
+  border: 0.5px solid var(--onyx-hairline-strong);
 }
 
 .sidePanel {
   width: 320px;
-  min-width: 320px;
+  min-width: 0;
   flex-shrink: 0;
   height: 100%;
   overflow-y: auto;
-  background: #0f141b;
-  border-right: 1px solid #1f2937;
+  background: var(--panel-bg);
+  border-right: 0.5px solid var(--onyx-hairline);
   display: flex;
   flex-direction: column;
   position: relative !important;
   left: auto !important;
-  margin-left: 72px;
+  margin-left: 48px;
   margin-top: 0;
   z-index: 1;
 }
@@ -224,24 +226,25 @@ body {
 .panelTabs button {
   height: 30px;
   padding: 0 10px;
-  background: #1f2937;
-  color: white;
-  border: 1px solid #2b3442;
+  background: var(--chip-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 8px;
   cursor: pointer;
 }
 
 .panelTabs button.active {
-  background: #2563eb;
-  border-color: #1d4ed8;
+  background: var(--btn-primary-grad);
+  border: none;
+  color: var(--btn-primary-text);
 }
 
 .tabBtn {
   height: 34px;
   padding: 0 12px;
-  background: #1f2937;
-  color: white;
-  border: 1px solid #2b3442;
+  background: var(--chip-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 10px;
   cursor: pointer;
   font-weight: 700;
@@ -254,9 +257,10 @@ body {
 }
 
 .tabBtn.active {
-  background: #2563eb;
-  border-color: #1d4ed8;
-  color: #fff;
+  background: var(--btn-primary-grad);
+  border: none;
+  color: var(--btn-primary-text);
+  color: var(--onyx-text);
 }
 
 .panelTabsSpacer {
@@ -266,21 +270,22 @@ body {
 .smallBtn {
   height: 30px;
   padding: 0 10px;
-  background: #1f2937;
-  color: white;
-  border: 1px solid #2b3442;
+  background: var(--chip-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 8px;
   cursor: pointer;
 }
 
 .smallBtn.primary {
-  background: #2563eb;
-  border-color: #1d4ed8;
+  background: var(--btn-primary-grad);
+  border: none;
+  color: var(--btn-primary-text);
 }
 
 .panelBlock {
-  background: #111827;
-  border: 1px solid #2b3442;
+  background: var(--onyx-surface-2);
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 10px;
   padding: 10px;
   margin-bottom: 10px;
@@ -304,11 +309,11 @@ body {
 
 .uploadDrop {
   height: 120px;
-  border: 1px dashed #2b3442;
+  border: 1px dashed var(--onyx-hairline-strong);
   border-radius: 10px;
   display: grid;
   place-items: center;
-  background: #0f141b;
+  background: var(--panel-bg);
 }
 
 .stockGrid {
@@ -319,9 +324,9 @@ body {
 
 .stockTile {
   height: 76px;
-  border: 1px solid #2b3442;
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 10px;
-  background: #0f141b;
+  background: var(--panel-bg);
   display: grid;
   place-items: center;
   opacity: 0.85;
@@ -337,10 +342,10 @@ body {
   display: flex;
   gap: 10px;
   align-items: center;
-  border: 1px solid #2b3442;
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 10px;
   padding: 8px;
-  background: #0f141b;
+  background: var(--panel-bg);
 }
 
 .aiThumb {
@@ -348,8 +353,8 @@ body {
   height: 42px;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #2b3442;
-  background: #111827;
+  border: 0.5px solid var(--onyx-hairline-strong);
+  background: var(--onyx-surface-2);
   display: grid;
   place-items: center;
 }
@@ -402,12 +407,12 @@ body {
 }
 
 .canvas {
-  background: #1f2937;
+  background: transparent;
   display: flex;
   justify-content: center;
   align-items: center;
   border-radius: 14px;
-  border: 1px solid #2b3442;
+  border: 0.5px solid var(--onyx-hairline-strong);
   width: min(100%, 960px);
   max-width: 100%;
   max-height: calc(100vh - 52px - 220px - 8px);
@@ -446,8 +451,8 @@ body {
 }
 
 .canvasAudioBlock {
-  border: 1px solid #2b3442;
-  background: #0f141b;
+  border: 0.5px solid var(--onyx-hairline-strong);
+  background: var(--panel-bg);
   border-radius: 12px;
   padding: 10px;
 }
@@ -465,8 +470,8 @@ body {
   right: 0;
   height: 120px;
   z-index: 100;
-  background: #1a1a1a;
-  border-top: 1px solid #333;
+  background: var(--timeline-bg);
+  border-top: 1px solid var(--onyx-hairline-strong);
   overflow-x: auto;
   overflow-y: hidden;
   display: flex;
@@ -477,9 +482,9 @@ body {
   width: 180px;
   min-width: 180px;
   height: 100px;
-  border: 1px solid #2b3442;
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 12px;
-  background: #0f141b;
+  background: var(--panel-bg);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -497,7 +502,7 @@ body {
   padding: 6px 8px;
   align-items: center;
   background: rgba(255,255,255,0.03);
-  border-bottom: 1px solid #1f2937;
+  border-bottom: 0.5px solid var(--onyx-hairline);
 }
 
 .sceneThumbTitle {
@@ -516,9 +521,9 @@ body {
   height: 22px;
   padding: 0 8px;
   font-size: 12px;
-  background: #1f2937;
-  color: white;
-  border: 1px solid #2b3442;
+  background: var(--chip-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 8px;
   cursor: pointer;
 }
@@ -531,7 +536,7 @@ body {
 .sceneThumbMedia {
   flex: 1;
   position: relative;
-  background: #111827;
+  background: var(--onyx-surface-2);
 }
 
 .sceneThumbMedia img,
@@ -564,16 +569,16 @@ body {
   padding: 6px 8px;
   font-size: 12px;
   opacity: 0.8;
-  border-top: 1px solid #1f2937;
+  border-top: 0.5px solid var(--onyx-hairline);
 }
 
 .transitionChip {
   width: auto;
   min-width: 24px;
   height: 44px;
-  border: 1px solid #2b3442;
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 12px;
-  background: #0f141b;
+  background: var(--panel-bg);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -589,9 +594,9 @@ body {
 
 .transitionChip select {
   height: 30px;
-  background: #1f2937;
-  color: white;
-  border: 1px solid #2b3442;
+  background: var(--chip-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 10px;
   padding: 0 10px;
 }
@@ -599,19 +604,20 @@ body {
 .sceneCard {
   margin-bottom: 12px;
   padding: 10px;
-  background: #111827;
-  border: 1px solid #2b3442;
+  background: var(--onyx-surface-2);
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 10px;
   min-width: 0;
   overflow: hidden;
 }
 
 .sceneCard.active {
-  border-color: #2563eb;
+  border-color: var(--onyx-cyan);
 }
 
 .sceneHeaderRow {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
@@ -619,25 +625,24 @@ body {
 
 .sceneTitle {
   font-weight: bold;
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: break-word;
-  word-break: break-word;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .sceneSmallBtn {
   height: 26px;
   padding: 0 10px;
-  background: #1f2937;
-  color: white;
-  border: 1px solid #2b3442;
+  background: var(--chip-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
   cursor: pointer;
   border-radius: 8px;
 }
 
 .sceneSmallBtn.primary {
-  background: #2563eb;
-  border-color: #1d4ed8;
+  background: var(--btn-primary-grad);
+  border: none;
+  color: var(--btn-primary-text);
 }
 
 .sceneMetaRow {
@@ -652,9 +657,9 @@ textarea {
   width: 100%;
   min-height: 64px;
   margin-bottom: 6px;
-  background: #0f141b;
-  color: white;
-  border: 1px solid #2b3442;
+  background: var(--panel-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 8px;
   padding: 8px;
   resize: vertical;
@@ -680,15 +685,15 @@ textarea {
 }
 
 .listBox {
-  border: 1px solid #2b3442;
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 10px;
   overflow: hidden;
 }
 
 .listItem {
   padding: 10px;
-  background: #0f141b;
-  border-bottom: 1px solid #1f2937;
+  background: var(--panel-bg);
+  border-bottom: 0.5px solid var(--onyx-hairline);
 }
 
 .listItem:last-child {
@@ -713,8 +718,8 @@ textarea {
 
 .modalCard {
   width: 420px;
-  background: #0f141b;
-  border: 1px solid #2b3442;
+  background: var(--panel-bg);
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 14px;
   padding: 14px;
 }
@@ -734,9 +739,9 @@ textarea {
   width: 100%;
   height: 36px;
   border-radius: 10px;
-  border: 1px solid #2b3442;
-  background: #111827;
-  color: white;
+  border: 0.5px solid var(--onyx-hairline-strong);
+  background: var(--onyx-surface-2);
+  color: var(--onyx-text);
   padding: 0 10px;
   margin-bottom: 12px;
   box-sizing: border-box;
@@ -755,9 +760,9 @@ textarea {
 }
 
 .mediaTile {
-  border: 1px solid #2b3442;
+  border: 0.5px solid var(--onyx-hairline-strong);
   border-radius: 12px;
-  background: #0f141b;
+  background: var(--panel-bg);
   overflow: hidden;
   cursor: grab;
 }
@@ -769,7 +774,7 @@ textarea {
 .mediaThumb {
   width: 100%;
   height: 76px;
-  background: #111827;
+  background: var(--onyx-surface-2);
 }
 
 .mediaThumb img {
@@ -800,7 +805,7 @@ textarea {
 .panelStickyTop {
   flex-shrink: 0;
   z-index: 20;
-  background: #0f141b;
+  background: var(--panel-bg);
   padding-top: 10px;
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -812,6 +817,24 @@ textarea {
   overflow-y: auto;
   padding-top: 2px;
   padding-bottom: 20px;
+  position: relative;
+}
+
+/* Scroll affordance: without this, a scrollable list with no visible
+   scrollbar (overlay-scrollbar browsers) hard-clips its last row with no
+   cue that more content exists below — easy to mistake for the sticky
+   timeline/sidebar UI overlapping and blocking the panel's own options. */
+.panelStickyContent::after {
+  content: "";
+  position: sticky;
+  display: block;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  margin-top: -28px;
+  background: linear-gradient(to bottom, transparent, var(--panel-bg) 85%);
+  pointer-events: none;
 }
 
 .panelStickyTop .panelTabs {
@@ -822,8 +845,8 @@ textarea {
   display: none;
   flex-shrink: 0;
   height: 140px;
-  background: #0b1220;
-  border-top: 1px solid #1f2937;
+  background: var(--timeline-bg);
+  border-top: 0.5px solid var(--onyx-hairline);
   padding: 10px;
   gap: 10px;
   flex-direction: column;
@@ -847,3 +870,329 @@ textarea {
 
 .audioMode .audioTimeline { display: flex !important; }
 
+
+/* ═══════════════════════════════════════════════════════════════════════
+   EDITOR SEMANTIC UTILITY CLASSES
+   These map CSS variable tokens onto reusable classNames so EditorV2.jsx
+   inline styles can be replaced without restructuring any logic.
+   Preview canvas area intentionally excluded — stays dark in both themes.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* Panel / sidebar backgrounds */
+.ed-panel          { background: var(--panel-bg); }
+.ed-toolbar        { background: var(--toolbar-bg); }
+.ed-surface        { background: var(--onyx-surface); }
+.ed-inset          { background: var(--onyx-inset); }
+
+/* Timeline / scene strip — stays dark in both themes (pro-app pattern) */
+.ed-timeline       { background: var(--timeline-bg); border-top: 1px solid var(--onyx-hairline-strong); }
+
+/* Borders */
+.ed-border         { border: 0.5px solid var(--onyx-hairline-strong); }
+.ed-border-faint   { border: 0.5px solid var(--onyx-hairline); }
+.ed-border-bottom  { border-bottom: 0.5px solid var(--onyx-hairline); }
+.ed-border-right   { border-right: 0.5px solid var(--onyx-hairline-strong); }
+
+/* Text */
+.ed-text           { color: var(--onyx-text); }
+.ed-text-dim       { color: var(--onyx-text-dim); }
+.ed-text-faint     { color: var(--onyx-text-faint); }
+.ed-text-mute      { color: var(--onyx-text-mute); }
+
+/* Chip / badge backgrounds */
+.ed-chip           { background: var(--chip-bg); }
+.ed-chip-low       { background: var(--chip-bg-low); }
+.ed-chip-strong    { background: var(--chip-bg-strong); }
+.ed-row            { background: var(--row-bg); }
+
+/* Input fields — textareas, text inputs, selects */
+.ed-input {
+  background: var(--input-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
+  border-radius: 8px;
+}
+.ed-input:focus {
+  outline: none;
+  border-color: var(--onyx-cyan);
+}
+.ed-input-strong {
+  background: var(--input-bg-strong);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
+  border-radius: 8px;
+}
+
+/* Sidebar icon rail button */
+.ed-icon-btn {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--onyx-text-faint);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px; font-size: 14px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ed-icon-btn.active {
+  background: var(--chip-bg-strong);
+  color: var(--onyx-cyan);
+}
+.ed-icon-btn:hover:not(.active) {
+  background: var(--chip-bg);
+  color: var(--onyx-text-dim);
+}
+
+/* Tab buttons */
+.ed-tab-btn {
+  height: 30px;
+  padding: 0 10px;
+  background: var(--chip-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+.ed-tab-btn.active {
+  background: var(--btn-primary-grad);
+  color: var(--btn-primary-text);
+  border: none;
+}
+.ed-tab-btn:hover:not(.active) {
+  background: var(--chip-bg-strong);
+}
+
+/* Small utility buttons */
+.ed-btn {
+  height: 30px;
+  padding: 0 10px;
+  background: var(--chip-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  transition: background 0.15s ease;
+}
+.ed-btn:hover { background: var(--chip-bg-strong); }
+
+/* Primary action button (export / add scene) */
+.ed-btn-primary {
+  background: var(--btn-primary-grad);
+  color: var(--btn-primary-text);
+  border: 0.5px solid rgba(255,255,255,0.35);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex; align-items: center; gap: 6px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.4) inset, 0 4px 14px rgba(77,208,255,0.25);
+  transition: opacity 0.15s ease;
+}
+.ed-btn-primary:hover { opacity: 0.9; }
+
+/* AI generate button (amber) */
+.ed-btn-ai {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  border: 0.5px solid rgba(255,200,120,0.6);
+  background: linear-gradient(180deg, rgba(255,181,71,0.95), rgba(255,140,40,0.95));
+  color: #1f1100;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: opacity 0.15s ease;
+}
+[data-theme="opal"] .ed-btn-ai {
+  background: linear-gradient(180deg, var(--onyx-amber), rgba(201,138,62,0.9));
+  border-color: rgba(201,138,62,0.5);
+  color: #2d1a00;
+}
+.ed-btn-ai:disabled { opacity: 0.5; cursor: wait; }
+
+/* Glass transport dock */
+.ed-glass-dock {
+  background: var(--onyx-surface);
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  border: 0.5px solid var(--onyx-hairline-strong);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  border-radius: 14px;
+  padding: 4px 6px;
+  display: flex; align-items: center; gap: 2px;
+}
+
+/* Panel block cards (used in storyboard, audio, etc.) */
+.ed-card {
+  background: var(--onyx-surface-2);
+  border: 0.5px solid var(--onyx-hairline-strong);
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+/* Scene strip thumbnail cards */
+.ed-scene-thumb {
+  background: var(--onyx-surface);
+  border: 1px solid var(--onyx-hairline-strong);
+  border-radius: 12px;
+}
+.ed-scene-thumb.active {
+  border-color: var(--onyx-cyan);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--onyx-cyan) 25%, transparent);
+}
+
+/* Sticky panel top (replaces hardcoded #0f141b) */
+.ed-panel-sticky-top {
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--onyx-hairline);
+}
+
+/* Modal */
+.ed-modal-card {
+  background: var(--onyx-bg-2);
+  border: 1px solid var(--onyx-hairline-strong);
+  border-radius: 14px;
+  padding: 14px;
+}
+.ed-modal-input {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+  border: 0.5px solid var(--onyx-hairline-strong);
+  background: var(--input-bg);
+  color: var(--onyx-text);
+  padding: 0 10px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+/* Upload drop zone */
+.ed-upload-drop {
+  height: 120px;
+  border: 1px dashed var(--onyx-hairline-strong);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--onyx-inset);
+  color: var(--onyx-text-faint);
+  font-size: 13px;
+}
+
+/* List rows */
+.ed-list-item {
+  padding: 10px;
+  background: var(--onyx-surface);
+  border-bottom: 0.5px solid var(--onyx-hairline);
+  color: var(--onyx-text);
+}
+.ed-list-item:last-child { border-bottom: none; }
+
+/* Branding tab bar underline tabs */
+.ed-underline-tab {
+  flex: 1;
+  padding: 8px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--onyx-text-mute);
+  border-bottom: 2px solid transparent;
+  font-family: inherit;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.ed-underline-tab.active {
+  color: var(--onyx-cyan);
+  border-bottom-color: var(--onyx-cyan);
+}
+.ed-underline-tab:hover:not(.active) {
+  color: var(--onyx-text-dim);
+}
+
+/* Mobile gate screen */
+.ed-mobile-gate {
+  width: 100vw; height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 16px;
+  background: var(--onyx-bg-2);
+  color: var(--onyx-text);
+  font-family: -apple-system, system-ui, sans-serif;
+  text-align: center;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+/* Transition between themes */
+.ed-panel, .ed-toolbar, .ed-surface, .ed-card, .ed-modal-card,
+.ed-icon-btn, .ed-tab-btn, .ed-btn, .ed-input, .ed-list-item,
+.ed-glass-dock, .ed-upload-drop, .ed-scene-thumb, .ed-underline-tab {
+  transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed-panel, .ed-toolbar, .ed-surface, .ed-card, .ed-modal-card,
+  .ed-icon-btn, .ed-tab-btn, .ed-btn, .ed-input, .ed-list-item,
+  .ed-glass-dock, .ed-upload-drop, .ed-scene-thumb, .ed-underline-tab {
+    transition: none;
+  }
+}
+
+/* ── Teal scrollbars for editor (Onyx + Opal) ── */
+#editor-v2 ::-webkit-scrollbar { width: 6px; height: 6px; }
+#editor-v2 ::-webkit-scrollbar-track { background: transparent; }
+#editor-v2 ::-webkit-scrollbar-thumb {
+  background: var(--onyx-cyan-deep);
+  border-radius: 999px;
+  opacity: 0.7;
+}
+#editor-v2 ::-webkit-scrollbar-thumb:hover { background: var(--onyx-cyan); }
+#editor-v2 { scrollbar-color: var(--onyx-cyan-deep) transparent; scrollbar-width: thin; }
+
+/* ── Audio panel upload list containment ── */
+.panelStickyContent { overflow-x: hidden; }
+
+/* ── Universal teal accent for all range sliders + checkboxes ── */
+#editor-v2 input[type="range"] {
+  accent-color: var(--onyx-cyan);
+}
+#editor-v2 input[type="checkbox"] {
+  accent-color: var(--onyx-cyan);
+}
+
+/* ── Universal primary action button style ──
+   Apply class="ed-btn-action" to any Generate/Apply/Upload/Search CTA */
+.ed-btn-action {
+  background: var(--btn-primary-grad);
+  color: var(--btn-primary-text);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.4) inset, 0 3px 10px rgba(77,208,255,0.25);
+  transition: opacity 0.15s ease;
+}
+.ed-btn-action:hover:not(:disabled) { opacity: 0.88; }
+.ed-btn-action:disabled {
+  background: var(--chip-bg-strong);
+  color: var(--onyx-text-faint);
+  box-shadow: none;
+  cursor: not-allowed;
+}

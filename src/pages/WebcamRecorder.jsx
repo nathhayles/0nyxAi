@@ -99,6 +99,7 @@ export default function WebcamRecorder() {
       const { data: { session } } = await supabase.auth.getSession();
       const form = new FormData();
       form.append("files", recordedBlob, `webcam_recording_${Date.now()}.webm`);
+      form.append("assetType", "video");
       const res = await fetch("/api/media/upload", {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -114,7 +115,7 @@ export default function WebcamRecorder() {
         title: "Webcam Recording",
         ratio: aspectRatio,
         thumbnailUrl,
-        scenes: [{ id: 1, url, mediaType: "video", mode: "upload", narration: "", action: "Webcam recording" }],
+        scenes: [{ id: 1, url, mediaType: "video", mode: "upload", narration: "", action: "Webcam recording", duration }],
         activeScene: 1,
         activeMenu: "storyboard",
         savedAt: new Date().toISOString(),
@@ -129,8 +130,8 @@ export default function WebcamRecorder() {
 
   function fmt(s) { return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; }
 
-  const dark = { minHeight: "100vh", background: "#06070a", color: "#fff", fontFamily: "sans-serif", padding: "40px 24px" };
-  const card = { background: "#0c1016", border: "1px solid #1f2937", borderRadius: 12, padding: 24, marginBottom: 16 };
+  const dark = { minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)", fontFamily: "sans-serif", padding: "40px 24px" };
+  const card = { background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, padding: 24, marginBottom: 16 };
   const btn = (bg, disabled) => ({ padding: "13px 28px", borderRadius: 8, border: "none", background: disabled ? "#374151" : bg, color: "#fff", fontWeight: 700, fontSize: 15, cursor: disabled ? "not-allowed" : "pointer" });
   const isPortrait = aspectRatio === "9:16";
 
@@ -138,7 +139,7 @@ export default function WebcamRecorder() {
     <div style={dark}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 13, marginBottom: 24, padding: 0 }}>← Back to Studio</button>
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>📷 Webcam Recording</h1>
+        <h1 className="page-title">📷 Webcam Recording</h1>
         <p style={{ color: "#64748b", fontSize: 15, marginBottom: 28 }}>Record yourself to camera and turn it into a polished reel with AI captions and music.</p>
 
         {error && <div style={{ padding: "12px 16px", borderRadius: 8, marginBottom: 16, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", fontSize: 14 }}>{error}</div>}
@@ -148,9 +149,9 @@ export default function WebcamRecorder() {
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
             {["9:16", "16:9", "1:1"].map(r => (
               <button key={r} onClick={() => { setAspectRatio(r); stopAll(); setTimeout(startCamera, 100); }}
-                style={{ padding: "8px 16px", borderRadius: 8, border: aspectRatio === r ? "1px solid #3b82f6" : "1px solid #1f2937",
-                  background: aspectRatio === r ? "#1e3a5f" : "#111827", color: aspectRatio === r ? "#60a5fa" : "#64748b", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                {r} {r === "9:16" ? "📱" : r === "16:9" ? "🖥️" : "⬜"}
+                style={{ padding: "8px 16px", borderRadius: 8, border: aspectRatio === r ? "1px solid var(--onyx-cyan)" : "1px solid var(--onyx-hairline-strong)",
+                  background: aspectRatio === r ? "rgba(94,220,255,0.12)" : "var(--onyx-surface)", color: aspectRatio === r ? "var(--onyx-cyan)" : "#64748b", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                {r}
               </button>
             ))}
           </div>
@@ -177,7 +178,7 @@ export default function WebcamRecorder() {
           )}
 
           {!cameraReady && status === "idle" && (
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#0c1016" }}>
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--onyx-bg-2)" }}>
               <div style={{ textAlign: "center", color: "#64748b" }}>
                 <div style={{ fontSize: 40, marginBottom: 8 }}>📷</div>
                 <div>Requesting camera access...</div>
@@ -189,7 +190,7 @@ export default function WebcamRecorder() {
         {/* Playback after recording */}
         {status === "done" && recorded && (
           <div style={{ ...card }}>
-            <div style={{ fontSize: 13, color: "#4ade80", fontWeight: 600, marginBottom: 12 }}>✅ Recording complete — {fmt(duration)}</div>
+            <div style={{ fontSize: 13, color: "#4ade80", fontWeight: 600, marginBottom: 12 }}>Recording complete — {fmt(duration)}</div>
             <video src={recorded} controls style={{ width: "100%", borderRadius: 8, maxHeight: 360 }} />
           </div>
         )}
@@ -203,7 +204,7 @@ export default function WebcamRecorder() {
         )}
         <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
           {(status === "idle") && (
-            <button onClick={startRecording} disabled={!cameraReady} style={btn("linear-gradient(135deg, #1d4ed8, #7c3aed)", !cameraReady)}>
+            <button onClick={startRecording} disabled={!cameraReady} className="btn-teal">
               🔴 Start Recording
             </button>
           )}
@@ -214,8 +215,8 @@ export default function WebcamRecorder() {
           )}
           {status === "done" && (
             <>
-              <button onClick={uploadAndEdit} style={btn("linear-gradient(135deg, #1d4ed8, #7c3aed)", false)}>
-                ✨ Upload & Edit in Studio
+              <button onClick={uploadAndEdit} className="btn-teal">
+                Upload & Edit in Studio
               </button>
               <a href={recorded} download="webcam_recording.webm">
                 <button style={btn("#1f2937", false)}>⬇️ Download</button>

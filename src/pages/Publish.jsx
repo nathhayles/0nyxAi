@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 
 const PLATFORMS = [
-  { id: "instagram", label: "Instagram", icon: "📸", color: "#E1306C" },
-  { id: "tiktok",   label: "TikTok",    icon: "🎵", color: "#69C9D0" },
-  { id: "linkedin", label: "LinkedIn",  icon: "💼", color: "#0077b5" },
+  { id: "instagram", label: "Instagram", icon: "IG", color: "#E1306C" },
+  { id: "tiktok",   label: "TikTok",    icon: "TT", color: "#69C9D0" },
+  { id: "linkedin", label: "LinkedIn",  icon: "LI", color: "#0077b5" },
   { id: "youtube",  label: "YouTube",   icon: "▶️",  color: "#FF0000" },
 ];
 
@@ -91,7 +91,8 @@ export default function Publish() {
 
   async function loadAccounts(sess, brandId) {
     const headers = { Authorization: `Bearer ${sess.access_token}` };
-    const res = await fetch(`/api/social/accounts`, { headers });
+    const qs = brandId ? `?brand_id=${brandId}` : "";
+    const res = await fetch(`/api/social/accounts${qs}`, { headers });
     if (res.ok) { const d = await res.json(); setAccounts(d.accounts || {}); }
   }
 
@@ -114,16 +115,16 @@ export default function Publish() {
       try {
         const res = await fetch("/api/publish/now", {
           method: "POST", headers,
-          body: JSON.stringify({ platform, video_url: videoUrl, caption, hashtags, brand_id: selectedBrandId }),
+          body: JSON.stringify({ platform, video_url: videoUrl, caption, hashtags, title: selectedProject.title, brand_id: selectedBrandId }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Publish failed");
-        results.push(`✅ ${platform}`);
+        results.push(platform);
       } catch (err) {
-        results.push(`❌ ${platform}: ${err.message}`);
+        results.push(`FAIL: ${platform}: ${err.message}`);
       }
     }
-    const allOk = results.every(r => r.startsWith("✅"));
+    const allOk = results.every(r => !r.startsWith("FAIL:"));
     setMsg({ text: results.join(" · "), type: allOk ? "success" : "error" });
     if (allOk) { setCaption(""); setHashtags(""); }
     setSubmitting(false);
@@ -144,16 +145,16 @@ export default function Publish() {
         const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` };
         const res = await fetch("/api/publish/schedule", {
           method: "POST", headers,
-          body: JSON.stringify({ platform, video_url: selectedProject.output_url || selectedProject.render_url, caption, hashtags, post_at: new Date(scheduleAt).toISOString(), brand_id: selectedBrandId }),
+          body: JSON.stringify({ platform, video_url: selectedProject.output_url || selectedProject.render_url, caption, hashtags, title: selectedProject.title, post_at: new Date(scheduleAt).toISOString(), brand_id: selectedBrandId }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Schedule failed");
-        results.push(`✅ ${platform}`);
+        results.push(platform);
       } catch (err) {
-        results.push(`❌ ${platform}: ${err.message}`);
+        results.push(`FAIL: ${platform}: ${err.message}`);
       }
     }
-    const allOk = results.every(r => r.startsWith("✅"));
+    const allOk = results.every(r => !r.startsWith("FAIL:"));
     setMsg({ text: `${results.join(" · ")} · ${new Date(scheduleAt).toLocaleString()}`, type: allOk ? "success" : "error" });
     if (allOk) { setCaption(""); setHashtags(""); setScheduleAt(""); }
     setSubmitting(false);
@@ -188,19 +189,19 @@ export default function Publish() {
     else setMsg({ text: data.error || `Failed to connect ${platformId}`, type: "error" });
   }
 
-  const card   = { background: "#0c1016", border: "1px solid #1f2937", borderRadius: 12, padding: 24, marginBottom: 16 };
-  const inputS = { width: "100%", background: "#0f141b", border: "1px solid #2b3442", color: "#e2e8f0", borderRadius: 8, padding: "10px 14px", fontSize: 14, boxSizing: "border-box", outline: "none", marginTop: 6 };
+  const card   = { background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, padding: 24, marginBottom: 16 };
+  const inputS = { width: "100%", background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", color: "#e2e8f0", borderRadius: 8, padding: "10px 14px", fontSize: 14, boxSizing: "border-box", outline: "none", marginTop: 6 };
   const allConnected = selectedPlatforms.length > 0 && selectedPlatforms.every(p => accounts[p]);
   const selectedBrand = brands.find(b => b.id === selectedBrandId);
   const canSubmit = !submitting && selectedPlatforms.length > 0 && allConnected && canAutopost;
 
-  if (loading) return <div style={{ minHeight: "100vh", background: "#06070a", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>Loading...</div>;
+  if (loading) return <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>Loading...</div>;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", fontFamily: "sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)", fontFamily: "sans-serif" }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>📤 Publish & Schedule</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Publish & Schedule</h1>
         <p style={{ color: "#64748b", fontSize: 14, marginBottom: 28 }}>Post your rendered reels directly to social media or schedule for later.</p>
 
         {trialStatus.trial_expired && (
@@ -216,19 +217,19 @@ export default function Publish() {
         {trialStatus.is_trial && trialStatus.days_remaining != null && (
           <div style={{ ...card, background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", marginBottom: 20 }}>
             <div style={{ fontSize: 13, color: "#fbbf24" }}>
-              ⏳ Free trial — <strong>{trialStatus.days_remaining} day{trialStatus.days_remaining !== 1 ? "s" : ""}</strong> remaining.{" "}
+              Free trial — <strong>{trialStatus.days_remaining} day{trialStatus.days_remaining !== 1 ? "s" : ""}</strong> remaining.{" "}
               <a href="/pricing" style={{ color: "#fbbf24", textDecoration: "underline" }}>Upgrade anytime →</a>
             </div>
           </div>
         )}
 
         {!canAutopost && (
-          <div style={{ ...card, background: "linear-gradient(135deg, rgba(124,58,237,0.1), rgba(29,78,216,0.1))", border: "1px solid rgba(124,58,237,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <div style={{ ...card, background: "linear-gradient(135deg, rgba(77,208,255,0.1), rgba(29,78,216,0.1))", border: "1px solid rgba(77,208,255,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", marginBottom: 4 }}>🚀 Auto-posting not active</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", marginBottom: 4 }}>Auto-posting not active</div>
               <div style={{ fontSize: 12, color: "#94a3b8" }}>{plan === "starter" || plan === "creator" ? "Add the $15/mo Auto-posting add-on, or upgrade to Pro/Agency." : "Upgrade to Pro or Agency to unlock auto-publishing."}</div>
             </div>
-            <button onClick={() => window.location.href = "/account"} style={{ padding: "9px 18px", borderRadius: 8, border: "none", whiteSpace: "nowrap", background: "linear-gradient(135deg, #7c3aed, #1d4ed8)", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Upgrade →</button>
+            <button onClick={() => window.location.href = "/account"} style={{ padding: "9px 18px", borderRadius: 8, border: "none", whiteSpace: "nowrap", background: "var(--btn-primary-grad)", color: "var(--btn-primary-text)", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Upgrade →</button>
           </div>
         )}
 
@@ -237,12 +238,12 @@ export default function Publish() {
             <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>Publishing as Brand</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {brands.map(b => (
-                <button key={b.id} onClick={() => setSelectedBrandId(b.id)} style={{ padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer", border: selectedBrandId === b.id ? "1px solid #7c3aed" : "1px solid #1f2937", background: selectedBrandId === b.id ? "rgba(124,58,237,0.15)" : "#111827", color: selectedBrandId === b.id ? "#a78bfa" : "#64748b" }}>
+                <button key={b.id} onClick={() => setSelectedBrandId(b.id)} style={{ padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer", border: selectedBrandId === b.id ? "1px solid #4dd0ff" : "1px solid var(--onyx-hairline-strong)", background: selectedBrandId === b.id ? "rgba(77,208,255,0.15)" : "var(--onyx-surface)", color: selectedBrandId === b.id ? "#7de0ff" : "#64748b" }}>
                   {b.brand_label || "Unnamed"}{b.is_default && <span style={{ marginLeft: 5, fontSize: 9, opacity: 0.6 }}>DEFAULT</span>}
                 </button>
               ))}
             </div>
-            {selectedBrand && <div style={{ fontSize: 11, color: "#475569", marginTop: 10 }}>Social accounts connected under <span style={{ color: "#a78bfa" }}>{selectedBrand.brand_label}</span> will be used.</div>}
+            {selectedBrand && <div style={{ fontSize: 11, color: "#475569", marginTop: 10 }}>Social accounts connected under <span style={{ color: "#7de0ff" }}>{selectedBrand.brand_label}</span> will be used.</div>}
           </div>
         )}
 
@@ -250,7 +251,7 @@ export default function Publish() {
           {PLATFORMS.map(p => {
             const selected = selectedPlatforms.includes(p.id);
             return (
-              <button key={p.id} onClick={() => togglePlatform(p.id)} style={{ padding: "8px 18px", borderRadius: 20, border: selected ? `2px solid ${p.color}` : "1px solid #1f2937", background: selected ? `${p.color}22` : "#111827", color: selected ? p.color : "#64748b", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+              <button key={p.id} onClick={() => togglePlatform(p.id)} style={{ padding: "8px 18px", borderRadius: 20, border: selected ? `2px solid ${p.color}` : "1px solid var(--onyx-hairline-strong)", background: selected ? `${p.color}22` : "var(--onyx-surface)", color: selected ? p.color : "#64748b", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
                 {p.icon} {p.label}{accounts[p.id] && <span style={{ marginLeft: 6, fontSize: 10, color: "#4ade80" }}>●</span>}
               </button>
             );
@@ -264,16 +265,16 @@ export default function Publish() {
               const platform = PLATFORMS.find(p => p.id === pid);
               const connected = !!accounts[pid];
               return (
-                <div key={pid} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: selectedPlatforms[selectedPlatforms.length - 1] !== pid ? 10 : 0, marginBottom: selectedPlatforms[selectedPlatforms.length - 1] !== pid ? 10 : 0, borderBottom: selectedPlatforms[selectedPlatforms.length - 1] !== pid ? "1px solid #1f2937" : "none" }}>
+                <div key={pid} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: selectedPlatforms[selectedPlatforms.length - 1] !== pid ? 10 : 0, marginBottom: selectedPlatforms[selectedPlatforms.length - 1] !== pid ? 10 : 0, borderBottom: selectedPlatforms[selectedPlatforms.length - 1] !== pid ? "1px solid var(--onyx-hairline-strong)" : "none" }}>
                   <div>
                     <span style={{ fontSize: 13, color: "#94a3b8" }}>{platform?.icon} {platform?.label}: </span>
                     {connected
-                      ? <span style={{ fontSize: 13, fontWeight: 600, color: "#4ade80" }}>✅ @{accounts[pid]}</span>
+                      ? <span style={{ fontSize: 13, fontWeight: 600, color: "#4ade80" }}>@{accounts[pid]}</span>
                       : <span style={{ fontSize: 13, color: "#ef4444" }}>Not connected{selectedBrand ? ` for ${selectedBrand.brand_label}` : ""}</span>
                     }
                   </div>
                   {!connected && (
-                    <button onClick={() => connectPlatform(pid)} style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: canAutopost ? (platform?.color || "#1d4ed8") : "#7c3aed", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                    <button onClick={() => connectPlatform(pid)} style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: canAutopost ? (platform?.color || "var(--btn-primary-grad)") : "#4dd0ff", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
                       {canAutopost ? `Connect ${platform?.label}` : "Upgrade to Connect"}
                     </button>
                   )}
@@ -289,11 +290,11 @@ export default function Publish() {
             ? <div style={{ color: "#475569", fontSize: 13 }}>No rendered projects found. Render a reel in the editor first.</div>
             : <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 300, overflowY: "auto" }}>
                 {projects.map(p => (
-                  <div key={p.id} onClick={() => { setSelectedProject(p); if (p.title && p.title !== 'Untitled Reel') setAiPrompt(p.title); }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 8, cursor: "pointer", background: selectedProject?.id === p.id ? "rgba(29,78,216,0.15)" : "#111827", border: selectedProject?.id === p.id ? "1px solid #3b82f6" : "1px solid #1f2937" }}>
+                  <div key={p.id} onClick={() => { setSelectedProject(p); if (p.title && p.title !== 'Untitled Reel') setAiPrompt(p.title); }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 8, cursor: "pointer", background: selectedProject?.id === p.id ? "rgba(29,78,216,0.15)" : "var(--onyx-surface)", border: selectedProject?.id === p.id ? "1px solid #3b82f6" : "1px solid var(--onyx-hairline-strong)" }}>
                     {p.thumbnail_url
                       ? <img src={p.thumbnail_url} style={{ width: 48, height: 48, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} alt="" onError={e => { e.target.style.display="none"; e.target.nextSibling && (e.target.nextSibling.style.display="flex"); }} />
                       : null}
-                    <div style={{ width: 48, height: 48, borderRadius: 6, background: "#1f2937", display: p.thumbnail_url ? "none" : "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>🎬</div>
+                    <div style={{ width: 48, height: 48, borderRadius: 6, background: "var(--onyx-surface-2)", display: p.thumbnail_url ? "none" : "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>▶</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
                       <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>{new Date(p.created_at).toLocaleDateString()}</div>
@@ -308,10 +309,10 @@ export default function Publish() {
         {selectedProject && (
           <div style={card}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 16 }}>Compose</div>
-            <div style={{ marginBottom: 14, padding: "10px 14px", background: "#111827", borderRadius: 8, border: "1px solid #1f2937" }}>
+            <div style={{ marginBottom: 14, padding: "10px 14px", background: "var(--onyx-surface)", borderRadius: 8, border: "1px solid var(--onyx-hairline-strong)" }}>
               <div style={{ fontSize: 12, color: "#64748b" }}>
                 Publishing: <span style={{ color: "#93c5fd", fontWeight: 600 }}>{selectedProject.title}</span>
-                {selectedBrand && <span style={{ color: "#a78bfa", marginLeft: 8 }}>as {selectedBrand.brand_label}</span>}
+                {selectedBrand && <span style={{ color: "#7de0ff", marginLeft: 8 }}>as {selectedBrand.brand_label}</span>}
                 {selectedPlatforms.length > 0 && <span style={{ color: "#64748b", marginLeft: 8 }}>→ {selectedPlatforms.join(", ")}</span>}
               </div>
             </div>
@@ -319,8 +320,8 @@ export default function Publish() {
               <label style={{ fontSize: 12, color: "#94a3b8" }}>Describe your reel...</label>
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                 <input style={{ ...inputS, marginTop: 0, flex: 1 }} value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} placeholder="e.g. A product reveal for a new coffee brand targeting millennials" />
-                <button onClick={generateCaption} disabled={generatingCaption || !aiPrompt.trim()} style={{ padding: "10px 16px", borderRadius: 8, border: "none", background: (generatingCaption || !aiPrompt.trim()) ? "#374151" : "linear-gradient(135deg, #7c3aed, #1d4ed8)", color: "#fff", fontWeight: 700, fontSize: 13, cursor: (generatingCaption || !aiPrompt.trim()) ? "not-allowed" : "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
-                  {generatingCaption ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />Generating...</span> : "✨ Generate Caption & Hashtags"}
+                <button onClick={generateCaption} disabled={generatingCaption || !aiPrompt.trim()} style={{ padding: "10px 16px", borderRadius: 8, border: "none", background: (generatingCaption || !aiPrompt.trim()) ? "var(--chip-bg-strong)" : "var(--btn-primary-grad)", color: "var(--btn-primary-text)", fontWeight: 700, fontSize: 13, cursor: (generatingCaption || !aiPrompt.trim()) ? "not-allowed" : "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                  {generatingCaption ? <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />Generating...</span> : "Generate Caption & Hashtags"}
                 </button>
               </div>
             </div>
@@ -340,11 +341,11 @@ export default function Publish() {
               <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14, fontSize: 13, fontWeight: 600, background: msg.type === "success" ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`, color: msg.type === "success" ? "#4ade80" : "#f87171" }}>{msg.text}</div>
             )}
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={handlePublishNow} disabled={!canSubmit} style={{ padding: "12px 24px", borderRadius: 8, border: "none", background: canSubmit ? "linear-gradient(135deg, #1d4ed8, #7c3aed)" : "#374151", color: "#fff", fontWeight: 700, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
-                {submitting ? "Publishing..." : "🚀 Publish Now"}
+              <button onClick={handlePublishNow} disabled={!canSubmit} style={{ padding: "12px 24px", borderRadius: 8, border: "none", background: canSubmit ? "var(--btn-primary-grad)" : "var(--chip-bg-strong)", color: canSubmit ? "var(--btn-primary-text)" : "var(--onyx-text-faint)", fontWeight: 700, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
+                {submitting ? "Publishing..." : "Publish Now"}
               </button>
-              <button onClick={handleSchedule} disabled={!canSubmit} style={{ padding: "12px 24px", borderRadius: 8, border: "1px solid #2b3442", background: "#111827", color: canSubmit ? "#94a3b8" : "#475569", fontWeight: 600, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
-                {submitting ? "Scheduling..." : "🕐 Schedule"}
+              <button onClick={handleSchedule} disabled={!canSubmit} style={{ padding: "12px 24px", borderRadius: 8, border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-surface)", color: canSubmit ? "#94a3b8" : "#475569", fontWeight: 600, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
+                {submitting ? "Scheduling..." : "Schedule"}
               </button>
             </div>
           </div>
@@ -358,8 +359,8 @@ export default function Publish() {
                 const st = STATUS_STYLES[post.status] || STATUS_STYLES.scheduled;
                 const plat = PLATFORMS.find(p => p.id === post.platform);
                 return (
-                  <div key={post.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px 0", borderBottom: "1px solid #1f2937" }}>
-                    <div style={{ fontSize: 22, flexShrink: 0 }}>{plat?.icon || "📤"}</div>
+                  <div key={post.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--onyx-hairline-strong)" }}>
+                    <div style={{ fontSize: 22, flexShrink: 0 }}>{plat?.icon || ""}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: plat?.color || "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>{plat?.label || post.platform}</span>
@@ -367,8 +368,8 @@ export default function Publish() {
                       </div>
                       <div style={{ fontSize: 13, color: "#e2e8f0", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{post.caption?.slice(0, 80) || "No caption"}</div>
                       <div style={{ fontSize: 11, color: "#475569", marginTop: 3 }}>
-                        🕐 {new Date(post.post_at || post.created_at).toLocaleString()}
-                        {post.brand_id && brands.find(b => b.id === post.brand_id) && <span style={{ marginLeft: 8, color: "#7c3aed" }}>· {brands.find(b => b.id === post.brand_id).brand_label}</span>}
+                        {new Date(post.post_at || post.created_at).toLocaleString()}
+                        {post.brand_id && brands.find(b => b.id === post.brand_id) && <span style={{ marginLeft: 8, color: "#4dd0ff" }}>· {brands.find(b => b.id === post.brand_id).brand_label}</span>}
                       </div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
@@ -381,7 +382,7 @@ export default function Publish() {
                           });
                           if (res.ok) setPosts(prev => prev.filter(p => p.id !== post.id));
                           else alert("Failed to cancel post");
-                        }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #374151", background: "transparent", color: "#ef4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                        }} style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid var(--onyx-hairline-strong)", background: "transparent", color: "#ef4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                           Cancel
                         </button>
                       )}

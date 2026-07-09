@@ -1,47 +1,50 @@
-import Signup from "./pages/Signup";
-import { Routes, Route, useLocation } from "react-router-dom";
-import { supabase } from "./supabaseClient";
+import { lazy, Suspense } from "react";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import Admin from "./pages/Admin";
+import { TOKEN_EXPIRY_BUFFER_SECONDS } from "./utils/auth.js";
 import Navbar from "./components/Navbar";
 
 import LandingPage from "./pages/LandingPage";
-import Dashboard from "./pages/Dashboard";
-import Create from "./pages/Create";
-import Editor from "./pages/Editor";
-import EditorV2 from "./pages/EditorV2";
-import PricingPage from "./pages/PricingPage";
-import Earn from "./pages/Earn";
-import TermsPage from "./pages/TermsPage";
-import PrivacyPage from "./pages/PrivacyPage";
-import Account from "./pages/Account";
-import Preview from "./pages/Preview";
-import Studio from "./pages/Studio";
-import Campaign from "./pages/Campaign";
-import Music from "./pages/Music";
-import UrlToVideo from "./pages/UrlToVideo";
-import PptToVideo from "./pages/PptToVideo";
-import AudioToVideo from "./pages/AudioToVideo";
-import Publish from "./pages/Publish";
-import BrandingPanel from "./components/BrandingPanel";
-import BrandSetupWizard from "./pages/BrandSetupWizard";
-import ScreenRecorder from "./pages/ScreenRecorder.jsx";
-import WebcamRecorder from "./pages/WebcamRecorder.jsx";
-import ViralHooks from "./pages/ViralHooks.jsx";
-import VideoToReel from "./pages/VideoToReel.jsx";
-import ProjectsPage from "./pages/ProjectsPage.jsx";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 import { getAuthHeaders } from "./utils/auth";
 
-import Login from "./components/Login";
-import ResetPassword from "./components/ResetPassword";
-import ProtectedRoute from "./components/ProtectedRoute";
-import ChatBot from "./components/ChatBot";
+const Signup = lazy(() => import("./pages/Signup"));
+const Admin = lazy(() => import("./pages/Admin"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Create = lazy(() => import("./pages/Create"));
+const EditorV2 = lazy(() => import("./pages/EditorV2"));
+const PricingPage = lazy(() => import("./pages/PricingPage"));
+const Earn = lazy(() => import("./pages/Earn"));
+const TermsPage = lazy(() => import("./pages/TermsPage"));
+const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
+const Account = lazy(() => import("./pages/Account"));
+const Preview = lazy(() => import("./pages/Preview"));
+const Studio = lazy(() => import("./pages/Studio"));
+const Campaign = lazy(() => import("./pages/Campaign"));
+const Music = lazy(() => import("./pages/Music"));
+const UrlToVideo = lazy(() => import("./pages/UrlToVideo"));
+const PptToVideo = lazy(() => import("./pages/PptToVideo"));
+const AudioToVideo = lazy(() => import("./pages/AudioToVideo"));
+const Publish = lazy(() => import("./pages/Publish"));
+const BrandingPanel = lazy(() => import("./components/BrandingPanel"));
+const BrandSetupWizard = lazy(() => import("./pages/BrandSetupWizard"));
+const ScreenRecorder = lazy(() => import("./pages/ScreenRecorder.jsx"));
+const WebcamRecorder = lazy(() => import("./pages/WebcamRecorder.jsx"));
+const ViralHooks = lazy(() => import("./pages/ViralHooks.jsx"));
+const ContentPlan = lazy(() => import("./pages/ContentPlan.jsx"));
+const VideoToReel = lazy(() => import("./pages/VideoToReel.jsx"));
+const ProjectsPage = lazy(() => import("./pages/ProjectsPage.jsx"));
+const Support = lazy(() => import("./pages/Support.jsx"));
+const Characters = lazy(() => import("./pages/Characters.jsx"));
+const Login = lazy(() => import("./components/Login"));
+const ResetPassword = lazy(() => import("./components/ResetPassword"));
+const ChatBot = lazy(() => import("./components/ChatBot"));
 
 /*
 ------------------------
 REFERRAL TRACKING
-Runs immediately on page load
+Stored immediately; Supabase write deferred via dynamic import.
 ------------------------
 */
 
@@ -50,16 +53,33 @@ const ref = params.get("ref")
 
 if (ref) {
   localStorage.setItem("referral_code", ref)
-  console.log("Referral stored:", ref)
+  ;(async () => {
+    try {
+      const { supabase } = await import("./supabaseClient")
+      await supabase.from("affiliate_clicks").insert({ ref_code: ref, ip: "unknown" })
+    } catch (err) {
+      console.error("Affiliate tracking error", err)
+    }
+  })()
+}
 
-  supabase
-    .from("affiliate_clicks")
-    .insert({
-      ref_code: ref,
-      ip: "unknown"
-    })
-    .then(res => console.log("Affiliate click logged", res))
-    .catch(err => console.error("Affiliate tracking error", err))
+/*
+------------------------
+SYNC SESSION CHECK
+Read the Supabase auth token from localStorage synchronously so
+the initial React render has the correct auth state without waiting
+for the async Supabase SDK to load.
+------------------------
+*/
+function getLocalSessionSync() {
+  try {
+    const projectRef = import.meta.env.VITE_SUPABASE_URL?.split("//")[1]?.split(".")[0];
+    const raw = localStorage.getItem(`sb-${projectRef}-auth-token`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const expiresAt = parsed?.expires_at ?? 0;
+    return expiresAt > Math.floor(Date.now() / 1000) ? parsed : null;
+  } catch { return null; }
 }
 
 function TrialBanner() {
@@ -67,6 +87,7 @@ function TrialBanner() {
 
   useEffect(() => {
     (async () => {
+      const { supabase } = await import("./supabaseClient");
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       try {
@@ -103,7 +124,7 @@ function TrialBanner() {
 }
 
 function MobileBanner() {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [dismissed, setDismissed] = useState(() => sessionStorage.getItem("mobile_banner_dismissed") === "1");
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState("");
@@ -125,6 +146,7 @@ function MobileBanner() {
     e.preventDefault();
     if (!email) return;
     try {
+      const { supabase } = await import("./supabaseClient");
       await supabase.from("mobile_waitlist").insert({ email });
     } catch {}
     setSubmitted(true);
@@ -179,15 +201,96 @@ function MobileBanner() {
   );
 }
 
+function AppFooter() {
+  return (
+    <footer style={{
+      borderTop: "0.5px solid var(--onyx-hairline)",
+      background: "var(--nav-bg)",
+      backdropFilter: "blur(20px)",
+      padding: "20px 40px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: 16,
+      fontSize: 13,
+      color: "var(--onyx-text-dim)",
+      fontFamily: "-apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+    }}>
+      <div style={{ display:"flex", flexDirection:"column", gap: 4 }}>
+        <div style={{ display:"flex", alignItems:"center", gap: 8 }}>
+          <svg width={14} height={14} viewBox="0 0 24 24">
+            <defs><linearGradient id="footmark" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#9eecff"/>
+              <stop offset="100%" stopColor="#1d7da8"/>
+            </linearGradient></defs>
+            <path d="M12 2L22 12L12 22L2 12Z" fill="url(#footmark)"/>
+          </svg>
+          <span>© {new Date().getFullYear()} Onyx Reelz. All rights reserved.</span>
+        </div>
+        <span style={{ fontSize: 11, opacity: 0.7 }}>ONYX REELZ LTD is a company registered in England & Wales. Company number: 17288776. Registered office: 128 City Road, London, EC1V 2NX, United Kingdom.</span>
+      </div>
+      <div style={{ display:"flex", gap: 24, flexWrap:"wrap" }}>
+        <a href="/features" style={{ color:"var(--onyx-text-dim)", textDecoration:"none" }}
+          onMouseEnter={e=>e.target.style.color="#4dd0ff"}
+          onMouseLeave={e=>e.target.style.color=""}>Features</a>
+        <a href="/learn" style={{ color:"var(--onyx-text-dim)", textDecoration:"none" }}
+          onMouseEnter={e=>e.target.style.color="#4dd0ff"}
+          onMouseLeave={e=>e.target.style.color=""}>Learn</a>
+        <a href="/privacy" style={{ color:"var(--onyx-text-dim)", textDecoration:"none" }}
+          onMouseEnter={e=>e.target.style.color="#4dd0ff"}
+          onMouseLeave={e=>e.target.style.color=""}>Privacy Policy</a>
+        <a href="/terms" style={{ color:"var(--onyx-text-dim)", textDecoration:"none" }}
+          onMouseEnter={e=>e.target.style.color="#4dd0ff"}
+          onMouseLeave={e=>e.target.style.color=""}>Terms of Service</a>
+        <a href="/support" style={{ color:"var(--onyx-text-dim)", textDecoration:"none" }}
+          onMouseEnter={e=>e.target.style.color="#4dd0ff"}
+          onMouseLeave={e=>e.target.style.color=""}>Support</a>
+        <a href="https://www.linkedin.com/company/onyx-reelz" target="_blank" rel="noreferrer"
+          style={{ color:"var(--onyx-text-dim)", textDecoration:"none" }}
+          onMouseEnter={e=>e.target.style.color="#4dd0ff"}
+          onMouseLeave={e=>e.target.style.color=""}>LinkedIn</a>
+      </div>
+    </footer>
+  );
+}
+
 export default function App() {
   const location = useLocation();
+  const navigate = useNavigate();
   const isEditor = location.pathname.startsWith("/editor") || location.pathname.startsWith("/preview");
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState(() => getLocalSessionSync());
+  const [sessionLoading, setSessionLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => listener.subscription.unsubscribe();
+    let unsubscribe;
+    import("./supabaseClient").then(({ supabase }) => {
+      supabase.auth.getSession().then(({ data }) => {
+        setSession(data.session);
+        setSessionLoading(false);
+      });
+      const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+      unsubscribe = () => listener.subscription.unsubscribe();
+    });
+    return () => unsubscribe?.();
+  }, []);
+
+  // Safety net: a backgrounded tab can miss its auto-refresh tick, so on
+  // regaining visibility, refresh proactively if the cached token is near expiry.
+  useEffect(() => {
+    const onVisibilityChange = async () => {
+      if (document.visibilityState !== "visible") return;
+      const { supabase } = await import("./supabaseClient");
+      const { data } = await supabase.auth.getSession();
+      const expiresAt = data?.session?.expires_at;
+      if (!expiresAt) return;
+      const secondsRemaining = expiresAt - Math.floor(Date.now() / 1000);
+      if (secondsRemaining <= TOKEN_EXPIRY_BUFFER_SECONDS) {
+        await supabase.auth.refreshSession();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, []);
 
   useEffect(() => {
@@ -203,16 +306,18 @@ export default function App() {
     <div>
       {!isEditor && location.pathname !== "/" && <Navbar session={session} />}
       {!isEditor && location.pathname !== "/" && <TrialBanner />}
-      {!isEditor && <MobileBanner />}
+      {!isEditor && location.pathname !== "/" && <MobileBanner />}
 
+      <Suspense fallback={null}>
+      <main>
       <Routes>
 
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<LandingPage session={session} />} />
 
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute session={session} sessionLoading={sessionLoading}>
               <Dashboard />
             </ProtectedRoute>
           }
@@ -221,7 +326,7 @@ export default function App() {
         <Route
           path="/create"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute session={session} sessionLoading={sessionLoading}>
               <Create />
             </ProtectedRoute>
           }
@@ -230,7 +335,7 @@ export default function App() {
         <Route
           path="/editor"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute session={session} sessionLoading={sessionLoading}>
               <EditorV2 />
             </ProtectedRoute>
           }
@@ -239,7 +344,7 @@ export default function App() {
         <Route
           path="/editor-v2"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute session={session} sessionLoading={sessionLoading}>
               <EditorV2 />
             </ProtectedRoute>
           }
@@ -249,9 +354,9 @@ export default function App() {
         <Route path="/earn" element={<Earn />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
-        <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-        <Route path="/branding" element={<ProtectedRoute><BrandingPanel /></ProtectedRoute>} />
-        <Route path="/brand-setup" element={<ProtectedRoute><BrandSetupWizard /></ProtectedRoute>} />
+        <Route path="/account" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Account /></ProtectedRoute>} />
+        <Route path="/branding" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><BrandingPanel onApply={(brand) => navigate("/projects", { state: { applyBrandId: brand.id } })} /></ProtectedRoute>} />
+        <Route path="/brand-setup" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><BrandSetupWizard /></ProtectedRoute>} />
 
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
@@ -262,7 +367,7 @@ export default function App() {
         <Route
           path="/studio"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute session={session} sessionLoading={sessionLoading}>
               <Studio />
             </ProtectedRoute>
           }
@@ -271,7 +376,7 @@ export default function App() {
         <Route
           path="/campaign"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute session={session} sessionLoading={sessionLoading}>
               <Campaign />
             </ProtectedRoute>
           }
@@ -280,24 +385,30 @@ export default function App() {
         <Route
           path="/music"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute session={session} sessionLoading={sessionLoading}>
               <Music />
             </ProtectedRoute>
           }
         />
 
-        <Route path="/url-to-video" element={<ProtectedRoute><UrlToVideo /></ProtectedRoute>} />
-        <Route path="/ppt-to-video" element={<ProtectedRoute><PptToVideo /></ProtectedRoute>} />
-        <Route path="/audio-to-video" element={<ProtectedRoute><AudioToVideo /></ProtectedRoute>} />
-        <Route path="/publish" element={<ProtectedRoute><Publish /></ProtectedRoute>} />
-        <Route path="/scheduler" element={<ProtectedRoute><Publish /></ProtectedRoute>} />
-        <Route path="/screen-recorder" element={<ProtectedRoute><ScreenRecorder /></ProtectedRoute>} />
-        <Route path="/webcam-recorder" element={<ProtectedRoute><WebcamRecorder /></ProtectedRoute>} />
-        <Route path="/viral-hooks" element={<ProtectedRoute><ViralHooks /></ProtectedRoute>} />
-        <Route path="/video-to-reel" element={<ProtectedRoute><VideoToReel /></ProtectedRoute>} />
-        <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
+        <Route path="/url-to-video" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><UrlToVideo /></ProtectedRoute>} />
+        <Route path="/ppt-to-video" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><PptToVideo /></ProtectedRoute>} />
+        <Route path="/audio-to-video" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><AudioToVideo /></ProtectedRoute>} />
+        <Route path="/publish" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Publish /></ProtectedRoute>} />
+        <Route path="/scheduler" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Publish /></ProtectedRoute>} />
+        <Route path="/screen-recorder" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ScreenRecorder /></ProtectedRoute>} />
+        <Route path="/webcam-recorder" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><WebcamRecorder /></ProtectedRoute>} />
+        <Route path="/viral-hooks" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ViralHooks /></ProtectedRoute>} />
+        <Route path="/content-plan" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ContentPlan /></ProtectedRoute>} />
+        <Route path="/video-to-reel" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><VideoToReel /></ProtectedRoute>} />
+        <Route path="/projects" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ProjectsPage /></ProtectedRoute>} />
+        <Route path="/characters" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Characters /></ProtectedRoute>} />
+        <Route path="/support" element={<Support />} />
 
       </Routes>
+      </main>
+      </Suspense>
+      {!isEditor && location.pathname !== "/" && <AppFooter />}
       {!isEditor && <ChatBot />}
     </div>
   )

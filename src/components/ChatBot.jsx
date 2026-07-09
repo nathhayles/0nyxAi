@@ -13,6 +13,20 @@ export default function ChatBot() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
 
+  async function escalate() {
+    const conversation = messages.map(m => `${m.role === "user" ? "User" : "Support"}: ${m.content}`).join("\n");
+    try {
+      await fetch("/api/support/escalate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ issue: messages[messages.length-1]?.content, conversation }),
+      });
+      setMessages(prev => [...prev, { role: "assistant", content: "✅ I've sent your conversation to our support team. We'll get back to you at your account email within 24 hours." }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, couldn't send the escalation. Please email support@onyx-reelz.com directly." }]);
+    }
+  }
+
   async function send() {
     const text = input.trim();
     if (!text || loading) return;
@@ -73,7 +87,13 @@ export default function ChatBot() {
             <div ref={bottomRef} />
           </div>
 
-          <div style={{ padding: "10px 12px", borderTop: "1px solid #2b3442", display: "flex", gap: 8 }}>
+          <div style={{ padding: "10px 12px", borderTop: "1px solid #2b3442", display: "flex", flexDirection: "column", gap: 8 }}>
+            {messages.length > 3 && (
+              <button onClick={escalate} style={{ padding:"6px 10px", borderRadius:7, border:"1px solid rgba(239,68,68,0.3)", background:"rgba(239,68,68,0.08)", color:"#f87171", fontSize:11, cursor:"pointer", whiteSpace:"nowrap", alignSelf:"flex-start" }}>
+                Talk to human
+              </button>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
             <input
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -89,6 +109,7 @@ export default function ChatBot() {
               padding: "8px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600,
               opacity: loading || !input.trim() ? 0.5 : 1
             }}>Send</button>
+            </div>
           </div>
         </div>
       )}

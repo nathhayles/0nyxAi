@@ -2,11 +2,11 @@
 
 * { -webkit-font-smoothing: antialiased; }
 
-.panelStickyContent { color: #e2e8f0; }
-.panelStickyContent label { color: #94a3b8; }
+.panelStickyContent { color: var(--onyx-text); }
+.panelStickyContent label { color: var(--onyx-text-faint); }
 .panelStickyContent .subtitle,
 .panelStickyContent small,
-.panelStickyContent [style*="opacity"] { color: #94a3b8 !important; opacity: 1 !important; }
+.panelStickyContent [style*="opacity"] { color: var(--onyx-text-faint) !important; opacity: 1 !important; }
 
 .editorShell {
   height: 100%;
@@ -1018,20 +1018,20 @@ audio:not([style*="display: none"]) {
   display: none !important;
 }
 
-/* Dark panel inputs */
+/* Panel inputs — follow the active theme's surface/text tokens */
 .panelStickyContent select,
 .panelStickyContent input[type="text"],
 .panelStickyContent input[type="search"] {
-  background: #0f141b !important;
-  border: 1px solid #2b3442 !important;
-  color: #e2e8f0 !important;
+  background: var(--onyx-surface) !important;
+  border: 1px solid var(--onyx-hairline-strong) !important;
+  color: var(--onyx-text) !important;
   border-radius: 4px;
   padding: 7px 10px;
   font-size: 12px;
 }
 
 .panelStickyContent select option {
-  background: #0f141b;
-  color: #e2e8f0;
+  background: var(--onyx-surface);
+  color: var(--onyx-text);
 }
 

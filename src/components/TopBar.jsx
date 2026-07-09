@@ -5,7 +5,7 @@ export default function TopBar() {
         <a href="/" data-link>Home</a>
         <a href="/editor" data-link>Editor</a>
         <a href="/app" data-link>Scheduler</a>
-        <a href="/projects" data-link>Projects</a>
+        <a href="/dashboard" data-link>Projects</a>
         <a href="/affiliate" data-link>Affiliate</a>
         <a href="/pricing" data-link>Pricing</a>
         <a href="/earn" data-link>Earn</a>

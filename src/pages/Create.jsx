@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Navigate, Link, useNavigate } from "react-router-dom";
 import HelpTooltip from "../components/HelpTooltip.jsx";
 import { generateStoryboardFromScript } from "../lib/createStoryboard";
@@ -7,8 +7,18 @@ import BrandSelector from "../components/BrandSelector.jsx";
 import TemplateSelectorPill from "../components/TemplateSelectorPill.jsx";
 import ThemeSelectorPill from "../components/ThemeSelectorPill.jsx";
 import { TEMPLATES } from "../data/templates.js";
+import { useSpeechInput } from "../hooks/useSpeechInput.js";
+import { useCredits } from "../state/CreditsContext.jsx";
 
 const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
+
+const VIDEO_MODEL_OPTIONS = [
+  { id: "wan-2.5",       label: "Wan 2.5",        description: "Fast & affordable",          credits: 18  },
+  { id: "kling-2.6-pro", label: "Kling 2.6 Pro",  description: "Balanced quality (default)", credits: 50  },
+  { id: "veo-3",         label: "Veo 3",           description: "Highest quality (Google)",   credits: 140 },
+  { id: "seedance-1-pro",label: "Seedance 1 Pro",  description: "Cinematic motion (ByteDance)", credits: 36 },
+  { id: "vidu-q3-pro",   label: "Vidu Q3 Pro",    description: "Budget quality (Vidu)",      credits: 20  },
+];
 
 const THEMES = [
   { value: "cinematic", label: "Cinematic" },
@@ -31,7 +41,7 @@ function normalizeGeneratedScene(scene, index) {
     ...scene,
     id: scene?.id ?? index + 1,
     narration: scene?.narration || "",
-    action: scene?.action || "",
+    action: scene?.visual_direction || scene?.action || "",
     mode: scene?.mode || "ai",
     savedAt: scene?.savedAt || null,
     generatedAt: scene?.generatedAt || new Date().toISOString(),
@@ -65,8 +75,8 @@ export default function CreatePage() {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
 
-  // Credits from API
-  const [credits, setCredits] = useState(null);
+  // Credits from shared context
+  const { balance: credits, refreshCredits } = useCredits();
 
   // Form state
   const [script, setScript] = useState("");
@@ -79,12 +89,18 @@ export default function CreatePage() {
   const [characterLock, setCharacterLock] = useState(false);
   const [styleRefUrl, setStyleRefUrl] = useState("");
   const [motionRefUrl, setMotionRefUrl] = useState("");
+  const [videoModel, setVideoModel] = useState("kling-2.6-pro");
 
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState("Idle");
   const [progressPercent, setProgressPercent] = useState(0);
 
   const [error, setError] = useState("");
+
+  const onSpeechTranscript = useCallback((text) => {
+    setScript(prev => prev ? prev + " " + text : text);
+  }, []);
+  const { listening: micListening, supported: micSupported, toggle: micToggle } = useSpeechInput(onSpeechTranscript);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [pipelineId, setPipelineId] = useState(null);
 
@@ -101,17 +117,6 @@ export default function CreatePage() {
     return () => window.removeEventListener("resize", handler);
   }, []);
 
-  useEffect(() => {
-    if (!session) return;
-
-    fetch("/api/credits/balance", {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-      .then((r) => r.json())
-      .then((data) => setCredits(data?.balance ?? data?.credits ?? 0))
-      .catch(() => setCredits(0));
-  }, [session]);
-
   function handleTemplateChange(id) {
     setSelectedTemplateId(id);
     if (id) {
@@ -124,7 +129,8 @@ export default function CreatePage() {
 
   const wordCount = script.trim() ? script.trim().split(/\s+/).length : 0;
   const estimatedScenes = Math.max(1, Math.ceil(wordCount / 22));
-  const estimatedCredits = mode === "ai" ? estimatedScenes * 5 : 0;
+  const selectedModelOption = VIDEO_MODEL_OPTIONS.find(m => m.id === videoModel) || VIDEO_MODEL_OPTIONS[1];
+  const estimatedCredits = mode === "ai" ? estimatedScenes * selectedModelOption.credits : 0;
 
   // Only block if credits have loaded and are genuinely insufficient
   const insufficientCredits = mode === "ai" && credits !== null && estimatedCredits > credits;
@@ -196,7 +202,7 @@ export default function CreatePage() {
         const effectiveTheme = selectedTemplate
           ? `${selectedTemplate.id} ${selectedTemplate.promptPrefix}`
           : theme;
-        const klingBody = { prompt: script, theme: effectiveTheme, analysis, aspect_ratio: ratio };
+        const klingBody = { prompt: script, theme: effectiveTheme, analysis, aspect_ratio: ratio, model: videoModel, brand_id: brand || null };
         if (characterLock) klingBody.character_lock = true;
         if (styleRefUrl.trim()) klingBody.style_ref_url = styleRefUrl.trim();
         if (motionRefUrl.trim()) klingBody.motion_ref_url = motionRefUrl.trim();
@@ -227,10 +233,10 @@ export default function CreatePage() {
             const r = await fetch(`/api/kling/status/${job.jobId}`, { headers: pollToken ? { Authorization: `Bearer ${pollToken}` } : {} });
             const d = await r.json();
             if (d.status === "completed" && d.videoUrl) {
-              results[i] = { id: i+1, narration: job.narration, action: job.visual_prompt || job.narration, mediaUrl: d.videoUrl, thumbnail: d.thumbnailUrl || null, mediaType: "video", isAiGenerated: true, generatedAt: new Date().toISOString(), mode: "ai" };
+              results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaUrl: d.videoUrl, thumbnail: d.thumbnailUrl || null, mediaType: "video", isAiGenerated: true, generatedAt: new Date().toISOString(), mode: "ai" };
               pending.delete(i);
             } else if (d.status === "failed") {
-              results[i] = { id: i+1, narration: job.narration, action: job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai" };
+              results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai" };
               pending.delete(i);
             }
           }));
@@ -242,11 +248,29 @@ export default function CreatePage() {
         throw new Error("No scenes generated.");
       }
 
+      if (mode === "ai") refreshCredits();
+
       const DEFAULT_VOICE = { voiceId: "alloy", voiceName: "Alloy", voiceProvider: "openai" };
+      // Convert template colorGrade from CSS multiplier scale (1.0=neutral) to editor 0-100 scale (50=neutral)
+      const tplColorGrade = selectedTemplate?.colorGrade ? {
+        brightness: Math.round(selectedTemplate.colorGrade.brightness * 50),
+        contrast:   Math.round(selectedTemplate.colorGrade.contrast   * 50),
+        saturation: Math.round(selectedTemplate.colorGrade.saturation * 50),
+      } : {};
+      // Map template captionStyle keys to the scene field names EditorV2 expects
+      const tplCaption = selectedTemplate?.captionStyle ? {
+        caption_font:     selectedTemplate.captionStyle.fontFamily,
+        caption_size:     selectedTemplate.captionStyle.fontSize,
+        caption_color:    selectedTemplate.captionStyle.color,
+        caption_bg_color: selectedTemplate.captionStyle.background,
+        caption_position: selectedTemplate.captionStyle.position,
+      } : {};
       const normalizedScenes = scenes.map((scene, i) => ({
         ...normalizeGeneratedScene(scene, i),
         ...DEFAULT_VOICE,
         ...(selectedTemplate ? { transitionToNext: selectedTemplate.transitionStyle } : {}),
+        ...tplColorGrade,
+        ...tplCaption,
       }));
 
       const snapshot = {
@@ -296,14 +320,14 @@ export default function CreatePage() {
   const displayCredits = credits === null ? "..." : credits;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", padding: isMobile ? "16px" : "40px 24px", maxWidth: "100vw", overflowX: "hidden", boxSizing: "border-box" }}>
+    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)", padding: isMobile ? "16px" : "40px 24px", maxWidth: "100vw", overflowX: "hidden", boxSizing: "border-box" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <Link to="/dashboard" style={{ color: "#00d2ff" }}>
           ← Back to Projects
         </Link>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <h1 style={{ fontSize: 36, margin: 0 }}>Create Reel</h1>
+          <h1 className="page-title">Create Reel</h1>
           <HelpTooltip topic="create" />
         </div>
 
@@ -315,14 +339,13 @@ export default function CreatePage() {
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
           <Link to="/video-to-reel" style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px',
-            borderRadius: 12, border: '1px solid rgba(124,58,237,0.4)',
-            background: 'rgba(124,58,237,0.08)', textDecoration: 'none',
-            color: '#c4b5fd', fontWeight: 600, fontSize: 14,
+            borderRadius: 12, border: '1px solid rgba(77,208,255,0.4)',
+            background: 'rgba(77,208,255,0.08)', textDecoration: 'none',
+            color: '#7de0ff', fontWeight: 600, fontSize: 14,
           }}>
-            <span style={{ fontSize: 22 }}>🎬</span>
             <div>
               <div>Video to Reel</div>
-              <div style={{ fontSize: 11, color: '#6d5da8', fontWeight: 400 }}>Upload clips → edit in timeline</div>
+              <div style={{ fontSize: 11, color: 'var(--onyx-text-faint)', fontWeight: 400 }}>Upload clips → edit in timeline</div>
             </div>
           </Link>
           <Link to="/url-to-video" style={{
@@ -331,10 +354,9 @@ export default function CreatePage() {
             background: 'rgba(59,130,246,0.06)', textDecoration: 'none',
             color: '#93c5fd', fontWeight: 600, fontSize: 14,
           }}>
-            <span style={{ fontSize: 22 }}>🔗</span>
             <div>
               <div>URL to Video</div>
-              <div style={{ fontSize: 11, color: '#4a6fa5', fontWeight: 400 }}>Turn any link into a reel</div>
+              <div style={{ fontSize: 11, color: 'var(--onyx-text-faint)', fontWeight: 400 }}>Turn any link into a reel</div>
             </div>
           </Link>
           <Link to="/audio-to-video" style={{
@@ -343,10 +365,9 @@ export default function CreatePage() {
             background: 'rgba(16,185,129,0.06)', textDecoration: 'none',
             color: '#6ee7b7', fontWeight: 600, fontSize: 14,
           }}>
-            <span style={{ fontSize: 22 }}>🎙️</span>
             <div>
               <div>Audio to Video</div>
-              <div style={{ fontSize: 11, color: '#3d7a5e', fontWeight: 400 }}>Podcast / voiceover → reel</div>
+              <div style={{ fontSize: 11, color: 'var(--onyx-text-faint)', fontWeight: 400 }}>Podcast / voiceover → reel</div>
             </div>
           </Link>
         </div>
@@ -356,8 +377,8 @@ export default function CreatePage() {
             marginBottom: 20,
             padding: 10,
             borderRadius: 8,
-            background: "#0c1016",
-            border: "1px solid rgba(255,255,255,0.08)"
+            background: "var(--onyx-bg-2)",
+            border: "1px solid var(--onyx-hairline-strong)"
           }}
         >
           Credits Available:{" "}
@@ -383,9 +404,9 @@ export default function CreatePage() {
                 width: "100%",
                 padding: 12,
                 borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "#0c1016",
-                color: "#fff",
+                border: "1px solid var(--onyx-hairline-strong)",
+                background: "var(--onyx-bg-2)",
+                color: "var(--onyx-text)",
                 marginBottom: 20,
                 maxWidth: "100%",
                 boxSizing: "border-box"
@@ -409,9 +430,9 @@ export default function CreatePage() {
                 width: "100%",
                 padding: 12,
                 borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "#0c1016",
-                color: "#fff",
+                border: "1px solid var(--onyx-hairline-strong)",
+                background: "var(--onyx-bg-2)",
+                color: "var(--onyx-text)",
                 marginBottom: 20,
                 maxWidth: "100%",
                 boxSizing: "border-box"
@@ -430,9 +451,9 @@ export default function CreatePage() {
                 width: "100%",
                 padding: 12,
                 borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "#0c1016",
-                color: "#fff",
+                border: "1px solid var(--onyx-hairline-strong)",
+                background: "var(--onyx-bg-2)",
+                color: "var(--onyx-text)",
                 marginBottom: 20,
                 maxWidth: "100%",
                 boxSizing: "border-box"
@@ -447,11 +468,47 @@ export default function CreatePage() {
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>AI Options</label>
 
+                {/* Model selector */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Video model</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {VIDEO_MODEL_OPTIONS.map(opt => (
+                      <label key={opt.id} style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        cursor: opt.disabled ? "not-allowed" : "pointer",
+                        padding: "9px 12px", borderRadius: 10,
+                        background: "var(--onyx-bg-2)",
+                        border: `1px solid ${videoModel === opt.id ? "rgba(0,210,255,0.5)" : "rgba(255,255,255,0.08)"}`,
+                        opacity: opt.disabled ? 0.45 : 1,
+                      }}>
+                        <input
+                          type="radio"
+                          name="videoModel"
+                          value={opt.id}
+                          checked={videoModel === opt.id}
+                          disabled={opt.disabled}
+                          onChange={() => setVideoModel(opt.id)}
+                          style={{ accentColor: "#00d2ff", cursor: opt.disabled ? "not-allowed" : "pointer" }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>{opt.label}</span>
+                          <span style={{ fontSize: 12, opacity: 0.55, marginLeft: 6 }}>{opt.description}</span>
+                        </div>
+                        <span style={{
+                          fontSize: 12, fontWeight: 700,
+                          color: videoModel === opt.id ? "#00d2ff" : "rgba(255,255,255,0.4)",
+                          whiteSpace: "nowrap",
+                        }}>{opt.disabled ? "" : `${opt.credits} cr/scene`}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Character Lock */}
                 <label style={{
                   display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
                   padding: "10px 14px", borderRadius: 10,
-                  background: "#0c1016", border: `1px solid ${characterLock ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                  background: "var(--onyx-bg-2)", border: `1px solid ${characterLock ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
                   marginBottom: 10,
                 }}>
                   <input
@@ -471,7 +528,7 @@ export default function CreatePage() {
                 {/* Style Reference URL */}
                 <div style={{
                   padding: "10px 14px", borderRadius: 10,
-                  background: "#0c1016", border: `1px solid ${styleRefUrl.trim() ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                  background: "var(--onyx-bg-2)", border: `1px solid ${styleRefUrl.trim() ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
                   marginBottom: 10,
                 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Style Reference</div>
@@ -486,7 +543,7 @@ export default function CreatePage() {
                     style={{
                       width: "100%", padding: "8px 10px", borderRadius: 8,
                       border: "1px solid rgba(255,255,255,0.12)",
-                      background: "#06070a", color: "#fff", fontSize: 13,
+                      background: "var(--onyx-bg)", color: "var(--onyx-text)", fontSize: 13,
                       boxSizing: "border-box",
                     }}
                   />
@@ -495,7 +552,7 @@ export default function CreatePage() {
                 {/* Motion Reference URL */}
                 <div style={{
                   padding: "10px 14px", borderRadius: 10,
-                  background: "#0c1016", border: `1px solid ${motionRefUrl.trim() ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                  background: "var(--onyx-bg-2)", border: `1px solid ${motionRefUrl.trim() ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
                 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Motion Reference</div>
                   <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 8 }}>
@@ -509,7 +566,7 @@ export default function CreatePage() {
                     style={{
                       width: "100%", padding: "8px 10px", borderRadius: 8,
                       border: "1px solid rgba(255,255,255,0.12)",
-                      background: "#06070a", color: "#fff", fontSize: 13,
+                      background: "var(--onyx-bg)", color: "var(--onyx-text)", fontSize: 13,
                       boxSizing: "border-box",
                     }}
                   />
@@ -521,14 +578,15 @@ export default function CreatePage() {
               style={{
                 padding: 16,
                 borderRadius: 12,
-                background: "#0c1016",
-                border: "1px solid rgba(255,255,255,0.08)"
+                background: "var(--onyx-bg-2)",
+                border: "1px solid var(--onyx-hairline-strong)"
               }}
             >
-              <div style={{ fontWeight: 600, marginBottom: 10 }}>Estimator</div>
-              <div style={{ opacity: 0.8 }}>Words: {wordCount}</div>
-              <div style={{ opacity: 0.8 }}>Scenes: {estimatedScenes}</div>
-              <div style={{ color: insufficientCredits ? "#ff5c5c" : "rgba(255,255,255,0.8)" }}>
+              <div style={{ fontWeight: 600, marginBottom: 10, color: "var(--onyx-text)" }}>Estimator</div>
+              <div style={{ color: "var(--onyx-text-faint)" }}>Words: {wordCount}</div>
+              <div style={{ color: "var(--onyx-text-faint)" }}>Scenes: {estimatedScenes}</div>
+              {mode === "ai" && <div style={{ color: "var(--onyx-text-faint)" }}>{selectedModelOption.credits} credits × {estimatedScenes} scenes</div>}
+              <div style={{ color: insufficientCredits ? "#ff5c5c" : "var(--onyx-text)" }}>
                 AI Credits Needed: {estimatedCredits}
               </div>
             </div>
@@ -538,19 +596,50 @@ export default function CreatePage() {
             <TemplateSelectorPill value={selectedTemplateId} onChange={handleTemplateChange} />
             <ThemeSelectorPill selectedTheme={selectedTheme} onSelect={setSelectedTheme} />
 
-            <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>Script or story idea</label>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <label style={{ fontWeight: 600 }}>Script or story idea</label>
+              {micSupported && (
+                <button
+                  type="button"
+                  onClick={micToggle}
+                  title={micListening ? "Stop recording" : "Dictate script"}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "6px 12px", borderRadius: 20,
+                    border: `1px solid ${micListening ? "#ef4444" : "rgba(255,255,255,0.15)"}`,
+                    background: micListening ? "rgba(239,68,68,0.12)" : "var(--onyx-surface)",
+                    color: micListening ? "#ef4444" : "var(--onyx-text-dim)",
+                    cursor: "pointer", fontSize: 12, fontWeight: 600,
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <span style={{
+                    display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                    background: micListening ? "#ef4444" : "var(--onyx-text-faint)",
+                    animation: micListening ? "pulse 1s infinite" : "none",
+                  }} />
+                  {micListening ? "Stop" : "Dictate"}
+                </button>
+              )}
+            </div>
+            {micListening && (
+              <div style={{ marginBottom: 8, fontSize: 12, color: "#ef4444", display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", display: "inline-block", animation: "pulse 1s infinite" }} />
+                Listening — speak your script…
+              </div>
+            )}
 
             <textarea
               value={script}
               onChange={(e) => setScript(e.target.value)}
-              placeholder="Paste your script here..."
+              placeholder="Paste your script here, or click Dictate to speak it…"
               rows={16}
               style={{
                 width: "100%",
                 borderRadius: 16,
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "#0c1016",
-                color: "#fff",
+                border: "1px solid var(--onyx-hairline-strong)",
+                background: "var(--onyx-bg-2)",
+                color: "var(--onyx-text)",
                 padding: 18,
                 resize: "vertical",
                 fontSize: 15,
@@ -569,7 +658,7 @@ export default function CreatePage() {
                   marginBottom: 20,
                   padding: 16,
                   borderRadius: 12,
-                  background: "#0c1016",
+                  background: "var(--onyx-bg-2)",
                   border: "1px solid rgba(255,255,255,0.08)"
                 }}
               >
@@ -591,10 +680,10 @@ export default function CreatePage() {
                     }}
                   />
                 </div>
-                <div style={{ color: "#94a3b8", opacity: 1, marginTop: 8 }}>{progressPercent}%</div>
+                <div style={{ color: "var(--onyx-text-dim)", opacity: 1, marginTop: 8 }}>{progressPercent}%</div>
                 {mode === "ai" && loading && (
                   <div style={{fontSize:12,opacity:0.6,marginTop:8,lineHeight:1.6}}>
-                    ⏳ AI video generation takes 2–4 minutes per scene. Please keep this tab open. Your reel will open automatically when ready.
+                    AI video generation takes 2–4 minutes per scene. Please keep this tab open. Your reel will open automatically when ready.
                   </div>
                 )}
               </div>
@@ -603,16 +692,8 @@ export default function CreatePage() {
             <button
               onClick={handleGenerate}
               disabled={!canGenerate}
-              style={{
-                background: canGenerate ? "linear-gradient(90deg, #00d2ff, #3b82f6)" : "#1f2937",
-                color: "white",
-                border: "none",
-                borderRadius: 14,
-                padding: "14px 22px",
-                fontWeight: 700,
-                cursor: canGenerate ? "pointer" : "not-allowed",
-                fontSize: 15
-              }}
+              className="btn-teal"
+              style={{ width: "100%" }}
             >
               {loading ? "Generating..." : "Generate Reel"}
             </button>
@@ -634,7 +715,7 @@ export default function CreatePage() {
               style={{
                 width: "100%",
                 maxWidth: 420,
-                background: "#0c1016",
+                background: "var(--onyx-bg-2)",
                 borderRadius: 18,
                 padding: 24,
                 border: "1px solid rgba(255,255,255,0.08)"
@@ -653,7 +734,7 @@ export default function CreatePage() {
                     borderRadius: 12,
                     border: "1px solid rgba(255,255,255,0.12)",
                     background: "transparent",
-                    color: "#fff"
+                    color: "var(--onyx-text)"
                   }}
                 >
                   Close
@@ -667,7 +748,7 @@ export default function CreatePage() {
                     padding: 12,
                     borderRadius: 12,
                     background: "linear-gradient(90deg, #00d2ff, #3b82f6)",
-                    color: "#fff",
+                    color: "var(--onyx-text)",
                     fontWeight: 700
                   }}
                 >

@@ -95,7 +95,7 @@ export default function BrandSetupWizard() {
 
   if (checking) return (
     <div style={s.page}>
-      <p style={{ color: '#7dd3fc' }}>Checking your account…</p>
+      <p style={{ color: 'var(--onyx-cyan)' }}>Checking your account…</p>
     </div>
   );
 
@@ -115,10 +115,10 @@ export default function BrandSetupWizard() {
             <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
               <div style={{
                 ...s.stepDot,
-                background: step >= n ? '#7dd3fc' : '#1e2a38',
+                background: step >= n ? 'var(--onyx-cyan)' : 'var(--onyx-surface-2)',
                 color: step >= n ? '#0a0f1a' : '#4a6a8a',
               }}>{n}</div>
-              {n < 3 && <div style={{ width: 32, height: 1, background: step > n ? '#7dd3fc' : '#1e2a38' }} />}
+              {n < 3 && <div style={{ width: 32, height: 1, background: step > n ? 'var(--onyx-cyan)' : 'var(--onyx-surface-2)' }} />}
             </div>
           ))}
         </div>
@@ -131,8 +131,8 @@ export default function BrandSetupWizard() {
               {VOICES.map(v => (
                 <div key={v.id} onClick={() => setVoice(v.id)} style={{
                   ...s.voiceCard,
-                  border: voice === v.id ? '1.5px solid #7dd3fc' : '1.5px solid #1e2a38',
-                  background: voice === v.id ? '#0d1f30' : '#0a131e',
+                  border: voice === v.id ? '1.5px solid var(--onyx-cyan)' : '1.5px solid var(--onyx-surface-2)',
+                  background: voice === v.id ? 'var(--onyx-surface)' : 'var(--onyx-bg-2)',
                 }}>
                   <div style={{ fontWeight: 600, color: '#e2e8f0', fontSize: 14 }}>{v.label}</div>
                   <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>{v.desc}</div>
@@ -159,7 +159,7 @@ export default function BrandSetupWizard() {
               {FONTS.map(f => (
                 <div key={f} onClick={() => setCaptionFont(f)} style={{
                   ...s.chip,
-                  border: captionFont === f ? '1.5px solid #7dd3fc' : '1.5px solid #1e2a38',
+                  border: captionFont === f ? '1.5px solid var(--onyx-cyan)' : '1.5px solid var(--onyx-surface-2)',
                   fontFamily: f,
                 }}>{f}</div>
               ))}
@@ -169,7 +169,7 @@ export default function BrandSetupWizard() {
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20 }}>
               <input type="color" value={captionColor} onChange={e => setCaptionColor(e.target.value)}
                 style={{ width: 44, height: 36, border: 'none', background: 'none', cursor: 'pointer', borderRadius: 6 }} />
-              <span style={{ color: '#94a3b8', fontSize: 13 }}>{captionColor}</span>
+              <span style={{ color: 'var(--onyx-text-dim)', fontSize: 13 }}>{captionColor}</span>
             </div>
 
             <label style={s.label}>Position</label>
@@ -177,7 +177,7 @@ export default function BrandSetupWizard() {
               {POSITIONS.map(p => (
                 <div key={p} onClick={() => setCaptionPos(p)} style={{
                   ...s.chip,
-                  border: captionPos === p ? '1.5px solid #7dd3fc' : '1.5px solid #1e2a38',
+                  border: captionPos === p ? '1.5px solid var(--onyx-cyan)' : '1.5px solid var(--onyx-surface-2)',
                   textTransform: 'capitalize',
                 }}>{p}</div>
               ))}
@@ -204,8 +204,8 @@ export default function BrandSetupWizard() {
               {RATIOS.map(r => (
                 <div key={r.value} onClick={() => setRatio(r.value)} style={{
                   ...s.ratioCard,
-                  border: ratio === r.value ? '1.5px solid #7dd3fc' : '1.5px solid #1e2a38',
-                  background: ratio === r.value ? '#0d1f30' : '#0a131e',
+                  border: ratio === r.value ? '1.5px solid var(--onyx-cyan)' : '1.5px solid var(--onyx-surface-2)',
+                  background: ratio === r.value ? 'var(--onyx-surface)' : 'var(--onyx-bg-2)',
                 }}>
                   <div style={{ fontWeight: 700, color: '#e2e8f0', fontSize: 16 }}>{r.label}</div>
                   <div style={{ color: '#64748b', fontSize: 13 }}>{r.desc}</div>
@@ -231,7 +231,7 @@ export default function BrandSetupWizard() {
 
         <p style={{ color: '#334155', fontSize: 11, textAlign: 'center', marginTop: 16 }}>
           You can update these anytime in{' '}
-          <span style={{ color: '#7dd3fc' }}>Settings → Branding</span>
+          <span style={{ color: 'var(--onyx-cyan)' }}>Settings → Branding</span>
         </p>
       </div>
     </div>
@@ -240,12 +240,12 @@ export default function BrandSetupWizard() {
 
 const s = {
   page: {
-    minHeight: '100vh', background: '#060d16',
+    minHeight: '100vh', background: 'var(--onyx-bg)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     padding: '24px 16px', fontFamily: 'Inter, system-ui, sans-serif',
   },
   card: {
-    background: '#0a131e', border: '1px solid #1e2a38',
+    background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)',
     borderRadius: 16, padding: '32px 28px',
     width: '100%', maxWidth: 480,
   },
@@ -263,25 +263,25 @@ const s = {
   voiceCard: { borderRadius: 10, padding: '12px 14px', cursor: 'pointer', transition: 'border-color 0.15s' },
   previewBtn: {
     marginTop: 8, fontSize: 11, padding: '4px 10px',
-    background: '#1e2a38', border: 'none', borderRadius: 4,
-    color: '#7dd3fc', cursor: 'pointer',
+    background: 'var(--onyx-surface-2)', border: 'none', borderRadius: 4,
+    color: 'var(--onyx-cyan)', cursor: 'pointer',
   },
-  label:   { display: 'block', color: '#94a3b8', fontSize: 12, marginBottom: 8, marginTop: 16 },
+  label:   { display: 'block', color: 'var(--onyx-text-dim)', fontSize: 12, marginBottom: 8, marginTop: 16 },
   chipRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
   chip: {
     padding: '6px 14px', borderRadius: 20, cursor: 'pointer',
-    color: '#e2e8f0', fontSize: 13, background: '#0a131e',
+    color: '#e2e8f0', fontSize: 13, background: 'var(--onyx-bg-2)',
     transition: 'border-color 0.15s',
   },
   ratioCard: { borderRadius: 10, padding: '14px 18px', cursor: 'pointer', transition: 'border-color 0.15s' },
   nextBtn: {
     flex: 1, padding: '12px 0', borderRadius: 8,
-    background: '#7dd3fc', color: '#060d16',
+    background: 'var(--onyx-cyan)', color: 'var(--btn-primary-text)',
     fontWeight: 700, fontSize: 14, border: 'none', cursor: 'pointer',
   },
   backBtn: {
     padding: '12px 20px', borderRadius: 8,
-    background: '#1e2a38', color: '#94a3b8',
+    background: 'var(--onyx-surface-2)', color: 'var(--onyx-text-dim)',
     fontSize: 14, border: 'none', cursor: 'pointer',
   },
 };

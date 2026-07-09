@@ -1,19 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-
-const FONTS = [
-  "sans-serif","serif","monospace",
-  "Arial","Arial Black","Arial Narrow","Helvetica",
-  "Georgia","Garamond","Palatino Linotype","Times New Roman","Book Antiqua",
-  "Trebuchet MS","Verdana","Tahoma","Geneva","Lucida Sans Unicode","Lucida Grande",
-  "Impact","Courier New","Lucida Console","Monaco",
-  "Comic Sans MS","Brush Script MT","Papyrus",
-  "Futura","Gill Sans","Century Gothic","Optima",
-  "Calibri","Candara","Constantia","Corbel","Cambria","Segoe UI",
-  "Franklin Gothic Medium","Century","Rockwell",
-  "Inter","Poppins","Montserrat","Raleway","Oswald","Lato","Roboto",
-  "Open Sans","Nunito","Ubuntu","Merriweather","Playfair Display",
-  "Source Sans Pro","Fira Sans","Exo 2","Dosis",
-];
+import { FONTS } from "../data/fonts.js";
 const LOGO_POSITIONS = ["top-left", "top-right", "top-center", "bottom-left", "bottom-right", "bottom-center"];
 const AVATAR_POSITIONS = ["bottom-left", "bottom-right", "bottom-center", "left", "right"];
 const CAPTION_POSITIONS = ["top", "middle", "bottom"];
@@ -36,19 +22,27 @@ const THEME_PRESETS = [
 ];
 
 const inp = {
-  width: "100%", background: "#0f141b", border: "1px solid #2b3442",
-  color: "#e2e8f0", borderRadius: 6, padding: "8px 10px", fontSize: 13,
+  width: "100%", background: "var(--input-bg)", border: "0.5px solid var(--onyx-hairline-strong)",
+  color: "var(--onyx-text)", borderRadius: 6, padding: "8px 10px", fontSize: 13,
   boxSizing: "border-box", outline: "none",
 };
 const btn = {
   padding: "7px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
-  cursor: "pointer", border: "1px solid #2b3442", background: "#1f2937", color: "#94a3b8",
+  cursor: "pointer", border: "0.5px solid var(--onyx-hairline-strong)", background: "var(--onyx-hairline)", color: "var(--onyx-text-faint)",
 };
-const primaryBtn = { ...btn, background: "#1d4ed8", border: "1px solid #1e40af", color: "#fff" };
-const lbl = { fontSize: 11, color: "#94a3b8", display: "block", marginBottom: 4 };
+const primaryBtn = { ...btn, background: "var(--btn-primary-grad)", border: "none", color: "var(--btn-primary-text)" };
+const lbl = { fontSize: 11, color: "var(--onyx-text-faint)", display: "block", marginBottom: 4 };
 
 function Field({ labelText, children }) {
   return <div><label style={lbl}>{labelText}</label>{children}</div>;
+}
+
+function rgbaToHex(c) {
+  if (!c) return "#000000";
+  if (c.startsWith("#")) return c.slice(0,7);
+  const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!m) return "#000000";
+  return "#" + [m[1],m[2],m[3]].map(n => parseInt(n).toString(16).padStart(2,"0")).join("");
 }
 
 function ColorRow({ labelText, colorKey, brand, setBrand }) {
@@ -56,7 +50,7 @@ function ColorRow({ labelText, colorKey, brand, setBrand }) {
     <div style={{ flex: 1 }}>
       <label style={lbl}>{labelText}</label>
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <input type="color" value={brand[colorKey] || "#000000"}
+        <input type="color" value={rgbaToHex(brand[colorKey] || "#000000")}
           onChange={e => setBrand(b => ({ ...b, [colorKey]: e.target.value }))}
           style={{ width: 36, height: 34, border: "none", borderRadius: 4, cursor: "pointer", background: "none" }} />
         <input style={{ ...inp, flex: 1 }} value={brand[colorKey] || ""}
@@ -75,7 +69,8 @@ const DEFAULT_BRAND = {
   default_music_url: "", default_music_name: "",
   default_avatar_id: "", avatar_position: "bottom-right", avatar_quality: "standard",
   caption_font: "sans-serif", caption_size: "medium", caption_color: "#ffffff",
-  caption_bg_color: "rgba(0,0,0,0.6)", caption_position: "bottom",
+  caption_bg_color: "rgba(0,0,0,0.6)", caption_highlight_color: "#ffe566", caption_position: "bottom",
+  logo_palette: [],
 };
 
 function rowToState(b) {
@@ -104,13 +99,17 @@ function rowToState(b) {
     caption_size:           b.caption_size || "medium",
     caption_color:          b.caption_color || "#ffffff",
     caption_bg_color:       b.caption_bg_color || "rgba(0,0,0,0.6)",
+    caption_highlight_color: b.caption_highlight_color || "#ffe566",
     caption_position:       b.caption_position || "bottom",
+    logo_palette:           Array.isArray(b.logo_palette) ? b.logo_palette : [],
   };
 }
 
 export default function BrandingPanel({ onApply }) {
   const [brands, setBrands]               = useState([]);
   const [activeBrandId, setActiveBrandId] = useState(null);
+  const activeBrandIdRef = useRef(null);
+  function setActiveBrandIdSync(id) { activeBrandIdRef.current = id; setActiveBrandId(id); }
   const [brand, setBrand]                 = useState(DEFAULT_BRAND);
   const [activeTab, setActiveTab]         = useState("Style");
   const [saving, setSaving]               = useState(false);
@@ -133,6 +132,7 @@ export default function BrandingPanel({ onApply }) {
   const [avatarSearch, setAvatarSearch]   = useState("");
   const [fontSearch, setFontSearch]       = useState("");
   const [showFontPicker, setShowFontPicker] = useState(false);
+  const [paletteLoading, setPaletteLoading] = useState(false);
 
   const logoInputRef = useRef();
 
@@ -151,14 +151,47 @@ export default function BrandingPanel({ onApply }) {
       delete headers["Content-Type"];
       const form = new FormData();
       form.append("files", file);
+      form.append("assetType", "logo");
       const res = await fetch("/api/media/upload", { method: "POST", headers, body: form });
       const data = await res.json();
       const uploaded = data?.files?.[0] || data?.uploaded?.[0] || data?.[0];
       if (uploaded?.url) {
         setBrand(b => ({ ...b, logo_url: uploaded.url }));
         flash("Logo uploaded ✓");
+        if (activeBrandId) extractPalette(activeBrandId, uploaded.url);
       }
     } catch (err) { flash("Logo upload failed: " + err.message, true); }
+  }
+
+  async function extractPalette(brandId, logoUrl) {
+    if (!brandId || !logoUrl) return;
+    setPaletteLoading(true);
+    try {
+      const headers = await getHeaders();
+      // Save the logo_url first so the backend can fetch it
+      await fetch(`/api/brands/${brandId}`, {
+        method: "PUT", headers,
+        body: JSON.stringify({ logo_url: logoUrl }),
+      });
+      const res = await fetch(`/api/brands/${brandId}/extract-palette`, { method: "POST", headers });
+      const data = await res.json();
+      if (data?.palette?.length) {
+        setBrand(b => ({ ...b, logo_palette: data.palette }));
+      // Persist logo_palette to DB immediately
+      if (brandId) {
+        try {
+          const h2 = await getHeaders();
+          await fetch(`/api/brands/${brandId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", ...h2 },
+            body: JSON.stringify({ logo_palette: data.palette }),
+          });
+        } catch(e) { console.warn("logo_palette save failed:", e); }
+      }
+        flash("Palette extracted ✓");
+      }
+    } catch (err) { flash("Palette extraction failed: " + err.message, true); }
+    setPaletteLoading(false);
   }
 
   function flash(text, isError = false) {
@@ -213,7 +246,7 @@ export default function BrandingPanel({ onApply }) {
       setBrands(list);
       if (list.length > 0) {
         const def = list.find(b => b.is_default) || list[0];
-        setActiveBrandId(def.id);
+        setActiveBrandIdSync(def.id);
         setBrand(rowToState(def));
       }
     } catch (err) { console.error("Failed to load brands:", err); }
@@ -231,7 +264,7 @@ export default function BrandingPanel({ onApply }) {
   function switchBrand(id) {
     const b = brands.find(x => x.id === id);
     if (!b) return;
-    setActiveBrandId(id);
+    setActiveBrandIdSync(id);
     setBrand(rowToState(b));
   }
 
@@ -242,14 +275,14 @@ export default function BrandingPanel({ onApply }) {
       const headers = await getHeaders();
       const targetId = activeBrandId || (brands.length > 0 ? brands[0].id : null);
       if (!targetId) { flash("No brand selected", true); setSaving(false); return; }
-      if (!activeBrandId) setActiveBrandId(targetId);
+      if (!activeBrandId) setActiveBrandIdSync(targetId);
 
       const res = await fetch(`/api/brands/${targetId}`, {
         method: "PUT", headers, body: JSON.stringify({ ...brand }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Save failed");
-      if (data.id) setActiveBrandId(data.id);
+      if (data.id) setActiveBrandIdSync(data.id);
       await loadBrands();
       flash("Brand saved ✓");
       if (onApply) onApply(brand);
@@ -306,26 +339,26 @@ export default function BrandingPanel({ onApply }) {
   const activeBrand = brands.find(b => b.id === activeBrandId);
 
   if (loading) return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#94a3b8", fontSize: 13 }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--onyx-text-faint)", fontSize: 13 }}>
       Loading brands...
     </div>
   );
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 64px)", background: "#06070a", color: "#e2e8f0", fontFamily: "sans-serif" }}>
+    <div style={{ display: "flex", height: "calc(100vh - 64px)", background: "var(--onyx-bg-2)", color: "var(--onyx-text)", fontFamily: "sans-serif" }}>
 
       {/* ── Left Sidebar ─────────────────────────────────────────────────────── */}
       <div style={{
-        width: 220, flexShrink: 0, borderRight: "1px solid #1f2937",
-        display: "flex", flexDirection: "column", background: "#0c1016",
+        width: 220, flexShrink: 0, borderRight: "0.5px solid var(--onyx-hairline)",
+        display: "flex", flexDirection: "column", background: "var(--input-bg)",
       }}>
-        <div style={{ padding: "16px 14px 10px", borderBottom: "1px solid #1f2937" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 10 }}>
+        <div style={{ padding: "16px 14px 10px", borderBottom: "0.5px solid var(--onyx-hairline)" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--onyx-text-dim)", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 10 }}>
             Brand Kits
           </div>
           <button onClick={() => setCreating(v => !v)} style={{
             width: "100%", padding: "8px", borderRadius: 6, fontSize: 12, fontWeight: 700,
-            cursor: "pointer", border: "1px dashed #2b3442", background: "transparent", color: "#7c3aed",
+            cursor: "pointer", border: "1px dashed var(--onyx-hairline-strong)", background: "transparent", color: "#7c3aed",
             marginBottom: creating ? 8 : 0,
           }}>
             + New Brand
@@ -345,7 +378,7 @@ export default function BrandingPanel({ onApply }) {
 
         <div style={{ flex: 1, overflowY: "auto", padding: "8px 8px" }}>
           {brands.length === 0 && !creating && (
-            <div style={{ padding: "20px 8px", textAlign: "center", color: "#475569", fontSize: 12 }}>
+            <div style={{ padding: "20px 8px", textAlign: "center", color: "var(--onyx-text-dim)", fontSize: 12 }}>
               No brands yet. Create your first one above.
             </div>
           )}
@@ -384,19 +417,19 @@ export default function BrandingPanel({ onApply }) {
       {/* ── Main Panel ───────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflowY: "auto" }}>
         {!activeBrandId ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, color: "#475569", fontSize: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, color: "var(--onyx-text-dim)", fontSize: 14 }}>
             Select a brand or create a new one
           </div>
         ) : (
           <>
             {/* Header */}
-            <div style={{ padding: "16px 24px", borderBottom: "1px solid #1f2937", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+            <div style={{ padding: "16px 24px", borderBottom: "0.5px solid var(--onyx-hairline)", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9" }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: "var(--onyx-text)" }}>
                   {activeBrand?.brand_label || activeBrand?.brand_name || "Brand"}
                 </div>
                 {activeBrand?.tagline && (
-                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{activeBrand.tagline}</div>
+                  <div style={{ fontSize: 12, color: "var(--onyx-text-dim)", marginTop: 2 }}>{activeBrand.tagline}</div>
                 )}
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -420,7 +453,7 @@ export default function BrandingPanel({ onApply }) {
             </div>
 
             {/* Tab bar */}
-            <div style={{ display: "flex", gap: 0, borderBottom: "1px solid #1f2937", padding: "0 24px", flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid var(--onyx-hairline)", padding: "0 24px", flexShrink: 0 }}>
               {TABS.map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)} style={{
                   padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
@@ -442,7 +475,7 @@ export default function BrandingPanel({ onApply }) {
                 <div style={{ maxWidth: 740 }}>
 
                   {/* ── Identity ── */}
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>Identity</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--onyx-text-dim)", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>Identity</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
                     <div style={{ gridColumn: "1 / -1" }}>
                       <Field labelText="Brand Name">
@@ -459,8 +492,8 @@ export default function BrandingPanel({ onApply }) {
                   </div>
 
                   {/* ── Colours ── */}
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 4 }}>Colours</div>
-                  <div style={{ fontSize: 11, color: "#475569", marginBottom: 12 }}>Primary = borders, buttons, highlights · Secondary = text, overlays, accents</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--onyx-text-dim)", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 4 }}>Colours</div>
+                  <div style={{ fontSize: 11, color: "var(--onyx-text-dim)", marginBottom: 12 }}>Primary = borders, buttons, highlights · Secondary = text, overlays, accents</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
                     <ColorRow labelText="Primary"    colorKey="primary_color"   brand={brand} setBrand={setBrand} />
                     <ColorRow labelText="Secondary"  colorKey="secondary_color" brand={brand} setBrand={setBrand} />
@@ -468,7 +501,7 @@ export default function BrandingPanel({ onApply }) {
                   </div>
 
                   {/* ── Theme ── */}
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>Theme</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--onyx-text-dim)", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>Theme</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 16 }}>
                     {THEME_PRESETS.map(p => {
                       const isActive = brand.bg_color === p.bg;
@@ -480,7 +513,7 @@ export default function BrandingPanel({ onApply }) {
                           <div style={{ height: 48, background: p.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: p.text, background: p.overlay, padding: "2px 7px", borderRadius: 4 }}>Aa</span>
                           </div>
-                          <div style={{ padding: "5px 6px", background: "#111827", fontSize: 10, color: isActive ? "#a78bfa" : "#64748b", fontWeight: 600, textAlign: "center" }}>
+                          <div style={{ padding: "5px 6px", background: "var(--onyx-surface)", fontSize: 10, color: isActive ? "#a78bfa" : "#64748b", fontWeight: 600, textAlign: "center" }}>
                             {p.label}
                           </div>
                         </div>
@@ -497,7 +530,7 @@ export default function BrandingPanel({ onApply }) {
                   </div>
 
                   {/* Live preview */}
-                  <div style={{ height: 120, borderRadius: 10, overflow: "hidden", position: "relative", background: brand.bg_color, border: "1px solid #1f2937", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ height: 120, borderRadius: 10, overflow: "hidden", position: "relative", background: brand.bg_color, border: "0.5px solid var(--onyx-hairline)", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
                     <div style={{ position: "absolute", inset: 0, background: brand.overlay_color }} />
                     <div style={{ position: "relative", textAlign: "center" }}>
                       <div style={{ fontSize: 20, fontWeight: 800, color: brand.text_color, fontFamily: brand.font, marginBottom: 4 }}>{brand.brand_label || "Your Brand"}</div>
@@ -506,23 +539,23 @@ export default function BrandingPanel({ onApply }) {
                   </div>
 
                   {/* ── Typography ── */}
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>Typography</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--onyx-text-dim)", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>Typography</div>
                   <div style={{ marginBottom: 24 }}>
                     <label style={lbl}>Brand Font</label>
                     <div onClick={() => setShowFontPicker(v => !v)} style={{ ...inp, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: brand.font, marginBottom: showFontPicker ? 0 : 0 }}>
-                      <span>{brand.font}</span><span style={{ color: "#475569", fontSize: 10 }}>▾</span>
+                      <span>{brand.font}</span><span style={{ color: "var(--onyx-text-dim)", fontSize: 10 }}>▾</span>
                     </div>
                     {showFontPicker && (
-                      <div style={{ background: "#0f141b", border: "1px solid #2b3442", borderRadius: "0 0 6px 6px", maxHeight: 220, overflowY: "auto" }}>
+                      <div style={{ background: "var(--input-bg)", border: "0.5px solid var(--onyx-hairline-strong)", borderRadius: "0 0 6px 6px", maxHeight: 220, overflowY: "auto" }}>
                         <input value={fontSearch} onChange={e => setFontSearch(e.target.value)}
-                          placeholder="Search fonts..." style={{ ...inp, borderRadius: 0, borderBottom: "1px solid #2b3442", position: "sticky", top: 0 }} autoFocus />
-                        {FONTS.filter(f => f.toLowerCase().includes(fontSearch.toLowerCase())).map(f => (
-                          <div key={f} onClick={() => { setBrand(b => ({ ...b, font: f })); setShowFontPicker(false); setFontSearch(""); }}
-                            style={{ padding: "8px 12px", cursor: "pointer", fontFamily: f, fontSize: 14,
-                              background: brand.font === f ? "rgba(124,58,237,0.15)" : "transparent",
-                              color: brand.font === f ? "#a78bfa" : "#e2e8f0",
-                              borderBottom: "1px solid #1a1f2e" }}>
-                            {f}
+                          placeholder="Search fonts..." style={{ ...inp, borderRadius: 0, borderBottom: "0.5px solid var(--onyx-hairline-strong)", position: "sticky", top: 0 }} autoFocus />
+                        {FONTS.filter(f => f.label.toLowerCase().includes(fontSearch.toLowerCase())).map(f => (
+                          <div key={f.value} onClick={() => { setBrand(b => ({ ...b, font: f.value })); setShowFontPicker(false); setFontSearch(""); }}
+                            style={{ padding: "8px 12px", cursor: "pointer", fontFamily: f.value, fontSize: 14,
+                              background: brand.font === f.value ? "rgba(124,58,237,0.15)" : "transparent",
+                              color: brand.font === f.value ? "#a78bfa" : "#e2e8f0",
+                              borderBottom: "0.5px solid var(--onyx-hairline)" }}>
+                            {f.label}
                           </div>
                         ))}
                       </div>
@@ -530,16 +563,115 @@ export default function BrandingPanel({ onApply }) {
                   </div>
 
                   {/* ── Logo ── */}
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>Logo</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--onyx-text-dim)", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>Logo</div>
                   <div style={{ marginBottom: 24 }}>
                     <input style={{ ...inp, marginBottom: 8 }} value={brand.logo_url} placeholder="https://... or upload below"
                       onChange={e => setBrand(b => ({ ...b, logo_url: e.target.value }))} />
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#0c1016", border: "2px dashed #2b3442", borderRadius: 8, cursor: "pointer", fontSize: 12, color: "#94a3b8", marginBottom: 8 }}>
-                      ⬆️ Upload logo image
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "var(--input-bg)", border: "2px dashed var(--onyx-hairline-strong)", borderRadius: 8, cursor: "pointer", fontSize: 12, color: "var(--onyx-text-faint)", marginBottom: 8 }}>
+                      Upload logo image
                       <input ref={logoInputRef} type="file" accept="image/*" style={{ display: "none" }}
                         onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
                     </label>
-                    {brand.logo_url && <img src={brand.logo_url} alt="logo" style={{ maxHeight: 48, borderRadius: 6, border: "1px solid #1f2937" }} onError={e => e.target.style.display = "none"} />}
+                    {brand.logo_url && (
+                      <div style={{ marginBottom: 10, textAlign: "center" }}>
+                        <img src={brand.logo_url} alt="Brand logo"
+                          style={{ maxHeight: 80, maxWidth: "100%", objectFit: "contain", borderRadius: 8,
+                            background: "var(--onyx-inset)", padding: 8 }}
+                          onError={e => { e.target.style.display = "none"; }} />
+                      </div>
+                    )}
+
+                    {/* ── Extracted palette ── */}
+                    {(brand.logo_palette?.length > 0 || paletteLoading) && (
+                      <div style={{ marginTop: 10, marginBottom: 4 }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: "var(--onyx-text-dim)", textTransform: "uppercase", letterSpacing: "1.2px", marginBottom: 6 }}>
+                          Extracted Palette {paletteLoading && <span style={{ color: "var(--onyx-text-faint)" }}>— extracting…</span>}
+                        </div>
+                        {!paletteLoading && brand.logo_palette.length > 0 && (
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {brand.logo_palette.map(({ role, hex }) => {
+                              const ROLE_COLOR_MAP = {
+                                background: "bg_color",
+                                text: "text_color",
+                                accent: "overlay_color",
+                                primary: "primary_color",
+                                secondary: "secondary_color",
+                              };
+                              const ROLE_CAPTION_MAP = {
+                                text: "caption_color",
+                                background: "caption_bg_color",
+                              };
+                              const colorKey = ROLE_COLOR_MAP[role];
+                              const captionKey = ROLE_CAPTION_MAP[role];
+                              return (
+                                <button key={role} title={`Apply as ${role} (${hex})`}
+                                  onClick={() => (colorKey || captionKey) && setBrand(b => ({
+                                    ...b,
+                                    ...(colorKey ? { [colorKey]: hex } : {}),
+                                    ...(captionKey ? { [captionKey]: hex } : {}),
+                                  }))}
+                                  style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                                    background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                                  <div style={{ width: 30, height: 30, borderRadius: 6, background: hex,
+                                    border: "1.5px solid var(--onyx-hairline-strong)", boxShadow: "0 1px 3px rgba(0,0,0,0.4)" }} />
+                                  <span style={{ fontSize: 8, color: "var(--onyx-text-faint)", textTransform: "capitalize" }}>{role}</span>
+                                </button>
+                              );
+                            })}
+                            {brand.logo_palette.length > 0 && (
+                              <button title="Apply all palette colors to brand"
+                                onClick={async () => {
+                                  const currentBrandId = activeBrandIdRef.current || activeBrandId;
+                                  const ROLE_COLOR_MAP = { background: "bg_color", text: "text_color", accent: "overlay_color", primary: "primary_color", secondary: "secondary_color" };
+                                  const ROLE_CAPTION_MAP = { primary: "caption_bg_color", text: "caption_color", accent: "caption_highlight_color" };
+                                  const update = {};
+                                  brand.logo_palette.forEach(({ role, hex }) => {
+                                    if (ROLE_COLOR_MAP[role]) update[ROLE_COLOR_MAP[role]] = hex;
+                                    if (ROLE_CAPTION_MAP[role]) update[ROLE_CAPTION_MAP[role]] = hex;
+                                  });
+                                  setBrand(b => ({ ...b, ...update }));
+                                  if (currentBrandId) {
+                                    try {
+                                      const headers = await getHeaders();
+                                      const savePayload = { ...brand, ...update };
+                                      await fetch(`/api/brands/${currentBrandId}`, {
+                                        method: "PUT",
+                                        headers: { "Content-Type": "application/json", ...headers },
+                                        body: JSON.stringify(savePayload),
+                                      });
+                                    } catch(e) { console.warn("Auto-save failed:", e); }
+                                  }
+                                }}
+                                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                                  background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                                <div style={{ width: 30, height: 30, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                                  border: "1.5px solid var(--onyx-cyan)", color: "var(--onyx-cyan)", fontSize: 12, fontWeight: 700 }}>✓</div>
+                                <span style={{ fontSize: 8, color: "var(--onyx-text-faint)" }}>Apply all</span>
+                              </button>
+                            )}
+                            {activeBrandId && (
+                              <button title="Re-extract palette from logo"
+                                onClick={() => extractPalette(activeBrandId, brand.logo_url)}
+                                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                                  background: "none", border: "none", cursor: "pointer", padding: 0, opacity: 0.6 }}>
+                                <div style={{ width: 30, height: 30, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
+                                  border: "1.5px dashed var(--onyx-hairline-strong)", color: "var(--onyx-text-faint)", fontSize: 14 }}>↺</div>
+                                <span style={{ fontSize: 8, color: "var(--onyx-text-faint)" }}>refresh</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {brand.logo_url && !brand.logo_palette?.length && !paletteLoading && activeBrandId && (
+                      <button onClick={() => extractPalette(activeBrandId, brand.logo_url)}
+                        style={{ marginTop: 8, fontSize: 11, padding: "5px 10px", borderRadius: 6,
+                          background: "var(--input-bg)", border: "1px solid var(--onyx-hairline-strong)",
+                          color: "var(--onyx-text-faint)", cursor: "pointer" }}>
+                        Extract palette from logo
+                      </button>
+                    )}
+
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
                       <Field labelText="Logo Position">
                         <select style={inp} value={brand.logo_position} onChange={e => setBrand(b => ({ ...b, logo_position: e.target.value }))}>
@@ -555,12 +687,21 @@ export default function BrandingPanel({ onApply }) {
                   </div>
 
                   {/* ── Captions ── */}
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>Captions</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--onyx-text-dim)", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>Captions</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
                     <div style={{ gridColumn: "1 / -1" }}>
                       <label style={lbl}>Caption Font</label>
                       <select style={inp} value={brand.caption_font} onChange={e => setBrand(b => ({ ...b, caption_font: e.target.value }))}>
-                        {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                        <option value="Noto Sans">Noto Sans</option>
+                        <option value="Arial">Arial</option>
+                        <option value="Roboto">Roboto</option>
+                        <option value="DejaVu Sans">DejaVu Sans</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Courier New">Courier New</option>
+                        <option value="Impact">Impact</option>
+                        <option value="sans-serif">Sans Serif</option>
+                        <option value="serif">Serif</option>
+                        <option value="monospace">Monospace</option>
                       </select>
                     </div>
                     <ColorRow labelText="Caption Text Color" colorKey="caption_color"    brand={brand} setBrand={setBrand} />
@@ -572,9 +713,9 @@ export default function BrandingPanel({ onApply }) {
                       {[{ label: "Small", value: "small", px: 16 }, { label: "Medium", value: "medium", px: 20 }, { label: "Large", value: "large", px: 26 }].map(s => (
                         <button key={s.value} onClick={() => setBrand(b => ({ ...b, caption_size: s.value }))}
                           style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: s.px * 0.65, fontWeight: 600,
-                            border: brand.caption_size === s.value ? "1px solid #7c3aed" : "1px solid #2b3442",
-                            background: brand.caption_size === s.value ? "#1e1b4b" : "#1f2937",
-                            color: brand.caption_size === s.value ? "#a78bfa" : "#64748b" }}>{s.label}</button>
+                            border: brand.caption_size === s.value ? "1px solid var(--onyx-cyan)" : "0.5px solid var(--onyx-hairline-strong)",
+                            background: brand.caption_size === s.value ? "var(--btn-primary-grad)" : "var(--chip-bg)",
+                            color: brand.caption_size === s.value ? "var(--btn-primary-text)" : "var(--onyx-text-dim)" }}>{s.label}</button>
                       ))}
                     </div>
                   </div>
@@ -584,16 +725,16 @@ export default function BrandingPanel({ onApply }) {
                       {["top","middle","bottom"].map(p => (
                         <button key={p} onClick={() => setBrand(b => ({ ...b, caption_position: p }))}
                           style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, textTransform: "capitalize",
-                            border: brand.caption_position === p ? "1px solid #7c3aed" : "1px solid #2b3442",
-                            background: brand.caption_position === p ? "#1e1b4b" : "#1f2937",
-                            color: brand.caption_position === p ? "#a78bfa" : "#64748b" }}>{p}</button>
+                            border: brand.caption_position === p ? "1px solid var(--onyx-cyan)" : "0.5px solid var(--onyx-hairline-strong)",
+                            background: brand.caption_position === p ? "var(--btn-primary-grad)" : "var(--chip-bg)",
+                            color: brand.caption_position === p ? "var(--btn-primary-text)" : "var(--onyx-text-dim)" }}>{p}</button>
                       ))}
                     </div>
                   </div>
                   {/* Caption preview */}
                   <div style={{ height: 80, borderRadius: 8, overflow: "hidden", background: brand.bg_color || "#111", position: "relative",
                     display: "flex", alignItems: brand.caption_position === "top" ? "flex-start" : brand.caption_position === "middle" ? "center" : "flex-end",
-                    justifyContent: "center", padding: 8, border: "1px solid #1f2937" }}>
+                    justifyContent: "center", padding: 8, border: "0.5px solid var(--onyx-hairline)" }}>
                     <div style={{ position: "absolute", inset: 0, background: brand.overlay_color }} />
                     <span style={{ position: "relative", fontFamily: brand.caption_font,
                       fontSize: brand.caption_size === "large" ? 22 : brand.caption_size === "small" ? 14 : 18,
@@ -612,15 +753,15 @@ export default function BrandingPanel({ onApply }) {
                     {["standard", "premium"].map(t => (
                       <button key={t} onClick={() => setVoiceTier(t)} style={{
                         flex: 1, padding: "8px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                        background: voiceTier === t ? "#1e3a5f" : "#1f2937",
-                        border: voiceTier === t ? "1px solid #3b82f6" : "1px solid #2b3442",
+                        background: voiceTier === t ? "var(--chip-bg-strong)" : "var(--onyx-hairline)",
+                        border: voiceTier === t ? "1px solid var(--onyx-cyan)" : "0.5px solid var(--onyx-hairline-strong)",
                         color: voiceTier === t ? "#60a5fa" : "#64748b", textTransform: "capitalize",
                       }}>{t}</button>
                     ))}
                   </div>
                   {voiceTier === "premium" && (
                     <div style={{ fontSize: 11, color: "#fbbf24", padding: "6px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: 6, marginBottom: 12 }}>
-                      ⚡ Premium voices use credits per scene
+                      Premium voices use credits per scene
                     </div>
                   )}
                   <input value={voiceSearch} onChange={e => setVoiceSearch(e.target.value)}
@@ -631,7 +772,7 @@ export default function BrandingPanel({ onApply }) {
                     </div>
                   )}
                   {voicesLoading ? (
-                    <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: 20 }}>Loading voices...</div>
+                    <div style={{ color: "var(--onyx-text-faint)", fontSize: 13, textAlign: "center", padding: 20 }}>Loading voices...</div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {filteredVoices.map(v => {
@@ -639,16 +780,16 @@ export default function BrandingPanel({ onApply }) {
                         return (
                           <div key={v.id} onClick={() => setBrand(b => ({ ...b, default_voice_id: v.id, default_voice_name: v.name, default_voice_provider: voiceTier === "premium" ? "elevenlabs" : "openai" }))}
                             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, cursor: "pointer",
-                              background: isSel ? "#1e3a5f" : "#111827", border: isSel ? "1px solid #3b82f6" : "1px solid #1f2937" }}>
+                              background: isSel ? "var(--chip-bg-strong)" : "var(--onyx-surface)", border: isSel ? "1px solid var(--onyx-cyan)" : "0.5px solid var(--onyx-hairline)" }}>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 13, fontWeight: 600, color: isSel ? "#60a5fa" : "#e2e8f0" }}>{v.name}</div>
-                              <div style={{ fontSize: 11, color: "#94a3b8" }}>{v.gender} · {v.accent} · {v.language}</div>
+                              <div style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>{v.gender} · {v.accent} · {v.language}</div>
                             </div>
                             {isSel && <span style={{ color: "#4ade80", fontSize: 16 }}>✓</span>}
                           </div>
                         );
                       })}
-                      {!filteredVoices.length && <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: 20 }}>No voices found</div>}
+                      {!filteredVoices.length && <div style={{ color: "var(--onyx-text-faint)", fontSize: 13, textAlign: "center", padding: 20 }}>No voices found</div>}
                     </div>
                   )}
                 </div>
@@ -662,13 +803,13 @@ export default function BrandingPanel({ onApply }) {
                   {musicTags.length > 0 && (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
                       <button onClick={() => setMusicTag("")} style={{ padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer",
-                        border: !musicTag ? "1px solid #22c55e" : "1px solid #2b3442",
-                        background: !musicTag ? "rgba(34,197,94,0.1)" : "#1f2937",
+                        border: !musicTag ? "1px solid #22c55e" : "0.5px solid var(--onyx-hairline-strong)",
+                        background: !musicTag ? "rgba(34,197,94,0.1)" : "var(--onyx-hairline)",
                         color: !musicTag ? "#4ade80" : "#64748b" }}>All</button>
                       {musicTags.map(tag => (
                         <button key={tag} onClick={() => setMusicTag(tag === musicTag ? "" : tag)} style={{ padding: "4px 12px", borderRadius: 20, fontSize: 11, fontWeight: 600, cursor: "pointer",
-                          border: musicTag === tag ? "1px solid #22c55e" : "1px solid #2b3442",
-                          background: musicTag === tag ? "rgba(34,197,94,0.1)" : "#1f2937",
+                          border: musicTag === tag ? "1px solid #22c55e" : "0.5px solid var(--onyx-hairline-strong)",
+                          background: musicTag === tag ? "rgba(34,197,94,0.1)" : "var(--onyx-hairline)",
                           color: musicTag === tag ? "#4ade80" : "#64748b" }}>{tag}</button>
                       ))}
                     </div>
@@ -679,7 +820,7 @@ export default function BrandingPanel({ onApply }) {
                     </div>
                   )}
                   {tracksLoading ? (
-                    <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: 20 }}>Loading tracks...</div>
+                    <div style={{ color: "var(--onyx-text-faint)", fontSize: 13, textAlign: "center", padding: 20 }}>Loading tracks...</div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {filteredTracks.map(track => {
@@ -687,17 +828,16 @@ export default function BrandingPanel({ onApply }) {
                         return (
                           <div key={track.id} onClick={() => setBrand(b => ({ ...b, default_music_url: track.url, default_music_name: track.name || track.title }))}
                             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8, cursor: "pointer",
-                              background: isSel ? "#14532d" : "#111827", border: isSel ? "1px solid #22c55e" : "1px solid #1f2937" }}>
-                            <span style={{ fontSize: 18 }}>🎵</span>
+                              background: isSel ? "#14532d" : "var(--onyx-surface)", border: isSel ? "1px solid #22c55e" : "0.5px solid var(--onyx-hairline)" }}>
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 13, fontWeight: 600, color: isSel ? "#4ade80" : "#e2e8f0" }}>{track.name || track.title}</div>
-                              <div style={{ fontSize: 11, color: "#94a3b8" }}>{track.genre} · {track.mood}</div>
+                              <div style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>{track.genre} · {track.mood}</div>
                             </div>
                             {isSel && <span style={{ color: "#4ade80", fontSize: 16 }}>✓</span>}
                           </div>
                         );
                       })}
-                      {!filteredTracks.length && <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: 20 }}>No tracks found</div>}
+                      {!filteredTracks.length && <div style={{ color: "var(--onyx-text-faint)", fontSize: 13, textAlign: "center", padding: 20 }}>No tracks found</div>}
                     </div>
                   )}
                   <button onClick={() => window.open("/music", "_blank")} style={{ ...btn, width: "100%", marginTop: 12, textAlign: "center" }}>
@@ -710,20 +850,20 @@ export default function BrandingPanel({ onApply }) {
               {activeTab === "Avatar" && (
                 <div style={{ maxWidth: 680 }}>
                   <div style={{ fontSize: 11, color: "#fbbf24", padding: "6px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: 6, marginBottom: 14 }}>
-                    ⚡ Avatar uses credits per scene
+                    Avatar uses credits per scene
                   </div>
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                     {[{ key: "preset", label: "Preset Avatars" }, { key: "mine", label: `My Avatars${userAvatars.length ? ` (${userAvatars.length})` : ""}` }].map(s => (
                       <button key={s.key} onClick={() => setAvatarSource(s.key)} style={{
                         flex: 1, padding: "8px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                        background: avatarSource === s.key ? "#1e3a5f" : "#1f2937",
-                        border: avatarSource === s.key ? "1px solid #3b82f6" : "1px solid #2b3442",
+                        background: avatarSource === s.key ? "var(--chip-bg-strong)" : "var(--onyx-hairline)",
+                        border: avatarSource === s.key ? "1px solid var(--onyx-cyan)" : "0.5px solid var(--onyx-hairline-strong)",
                         color: avatarSource === s.key ? "#60a5fa" : "#64748b",
                       }}>{s.label}</button>
                     ))}
                   </div>
                   {avatarSource === "mine" && userAvatars.length === 0 && !avatarsLoading && (
-                    <div style={{ padding: "16px", background: "#111827", borderRadius: 8, border: "1px solid #1f2937", fontSize: 13, color: "#64748b", marginBottom: 12 }}>
+                    <div style={{ padding: "16px", background: "var(--onyx-surface)", borderRadius: 8, border: "0.5px solid var(--onyx-hairline)", fontSize: 13, color: "var(--onyx-text-dim)", marginBottom: 12 }}>
                       No custom avatars found. Create one in the editor using HeyGen, then it'll appear here.
                     </div>
                   )}
@@ -735,7 +875,7 @@ export default function BrandingPanel({ onApply }) {
                     </div>
                   )}
                   {avatarsLoading ? (
-                    <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: 20 }}>Loading avatars...</div>
+                    <div style={{ color: "var(--onyx-text-faint)", fontSize: 13, textAlign: "center", padding: 20 }}>Loading avatars...</div>
                   ) : (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 16 }}>
                       {filteredAvatars.map(av => {
@@ -743,8 +883,8 @@ export default function BrandingPanel({ onApply }) {
                         return (
                           <div key={av.avatar_id} onClick={() => setBrand(b => ({ ...b, default_avatar_id: av.avatar_id }))}
                             style={{ borderRadius: 10, overflow: "hidden", cursor: "pointer",
-                              border: isSel ? "2px solid #3b82f6" : "2px solid transparent",
-                              background: "#111827", transition: "border 0.15s" }}>
+                              border: isSel ? "2px solid var(--onyx-cyan)" : "2px solid transparent",
+                              background: "var(--onyx-surface)", transition: "border 0.15s" }}>
                             <img src={av.preview_image_url} alt={av.avatar_name}
                               style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }}
                               onError={e => e.target.style.display = "none"} />
@@ -755,7 +895,7 @@ export default function BrandingPanel({ onApply }) {
                         );
                       })}
                       {!filteredAvatars.length && (
-                        <div style={{ color: "#94a3b8", fontSize: 13, textAlign: "center", padding: 20, gridColumn: "1/-1" }}>No avatars found</div>
+                        <div style={{ color: "var(--onyx-text-faint)", fontSize: 13, textAlign: "center", padding: 20, gridColumn: "1/-1" }}>No avatars found</div>
                       )}
                     </div>
                   )}
@@ -770,11 +910,11 @@ export default function BrandingPanel({ onApply }) {
                         {[{ value: "standard", label: "Standard", sub: "200 cr/min" }, { value: "avatar_iv", label: "Avatar IV", sub: "600 cr/min" }].map(opt => (
                           <button key={opt.value} onClick={() => setBrand(b => ({ ...b, avatar_quality: opt.value }))}
                             style={{ flex: 1, padding: "8px 6px", borderRadius: 6, cursor: "pointer", textAlign: "center",
-                              border: brand.avatar_quality === opt.value ? "1px solid #7c3aed" : "1px solid #2b3442",
-                              background: brand.avatar_quality === opt.value ? "#1e1b4b" : "#1f2937",
+                              border: brand.avatar_quality === opt.value ? "1px solid #7c3aed" : "0.5px solid var(--onyx-hairline-strong)",
+                              background: brand.avatar_quality === opt.value ? "var(--chip-bg-strong)" : "var(--chip-bg)",
                               color: brand.avatar_quality === opt.value ? "#a78bfa" : "#64748b" }}>
                             <div style={{ fontSize: 11, fontWeight: 700 }}>{opt.label}</div>
-                            <div style={{ fontSize: 10, marginTop: 2, color: "#475569" }}>{opt.sub}</div>
+                            <div style={{ fontSize: 10, marginTop: 2, color: "var(--onyx-text-dim)" }}>{opt.sub}</div>
                           </button>
                         ))}
                       </div>

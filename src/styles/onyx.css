@@ -1,505 +1,305 @@
-:root {
-  --onyx-900: #0b0d10;
-  --onyx-850: #111318;
-  --onyx-800: #161922;
-  --onyx-700: #1f2430;
+/* ============================================================================
+   ONYX — Theme System  ·  onyx-opal-theme.css
+   Two themes on one token contract: ONYX (dark) + OPAL (light · white-opal)
+   ----------------------------------------------------------------------------
+   HOW IT WORKS
+   • Every color in the app is a CSS custom property (a "token").
+   • The active theme is chosen by the data-theme attribute on <html>:
+        <html data-theme="onyx">   → dark
+        <html data-theme="opal">   → light
+   • Default (no attribute) = ONYX, so the app is dark until told otherwise.
+   • Switch themes at runtime by changing that one attribute (see theme-toggle.js).
+   • Load this file ONCE in <head> of every page — it works site-wide, not just
+     the editor.
+   ============================================================================ */
 
-  --ink-100: #f4f6fb;
-  --ink-200: #d5d9e6;
-  --ink-400: #9aa3b2;
+/* ─────────────────────────────────────────────────────────────
+   ONYX — dark (default)
+   ───────────────────────────────────────────────────────────── */
+:root,
+[data-theme="onyx"] {
+  color-scheme: dark;
 
-  --accent: #6d6aff;
-  --accent-soft: rgba(109,106,255,0.15);
+  /* Surfaces — cool navy, layered */
+  --onyx-bg:        #06080d;
+  --onyx-bg-2:      #0b0f17;
+  --onyx-surface:   rgba(20, 26, 38, 0.72);
+  --onyx-surface-2: rgba(28, 36, 52, 0.85);
+  --onyx-surface-3: rgba(40, 50, 70, 0.92);
+  --onyx-hairline:  rgba(255, 255, 255, 0.07);
+  --onyx-hairline-strong: rgba(255, 255, 255, 0.14);
+  --onyx-inset:     rgba(0, 0, 0, 0.35);
 
-  --border-subtle: rgba(255,255,255,0.06);
+  /* Semantic chrome tokens */
+  --nav-bg:           rgba(6, 9, 15, 0.55);
+  --bg-surface:       rgba(11, 15, 25, 0.95);
+  --toolbar-bg:       rgba(6, 9, 15, 0.7);
+  --panel-bg:         rgba(6, 9, 15, 0.5);
+  --input-bg:         rgba(0, 0, 0, 0.35);
+  --input-bg-strong:  rgba(0, 0, 0, 0.4);
+  --timeline-bg:      rgba(0, 0, 0, 0.5);
+  --timeline-bg-strong: rgba(0, 0, 0, 0.55);
+  --row-bg:           rgba(255, 255, 255, 0.03);
+  --row-tint:         rgba(0, 0, 0, 0.25);
+  --chip-bg-low:      rgba(255, 255, 255, 0.04);
+  --chip-bg:          rgba(255, 255, 255, 0.06);
+  --chip-bg-strong:   rgba(255, 255, 255, 0.08);
+
+  /* Text */
+  --onyx-text:      #f1f5fb;
+  --onyx-text-dim:  rgba(241, 245, 251, 0.72);
+  --onyx-text-faint:rgba(241, 245, 251, 0.55);
+  --onyx-text-mute: rgba(241, 245, 251, 0.38);
+
+  /* Accents */
+  --onyx-cyan:        #4dd0ff;   /* primary */
+  --onyx-cyan-deep:   #1aa3d6;
+  --onyx-cyan-glow:   rgba(77, 208, 255, 0.55);
+  --onyx-amber:       #ffb547;   /* AI / generate */
+  --onyx-amber-soft:  rgba(255, 181, 71, 0.18);
+  --onyx-violet:      #b48dff;   /* music / audio */
+  --onyx-rose:        #ff6b8a;
+  --onyx-success:     #4cd3a0;
+
+  /* Wordmark diamond gradient */
+  --mark-grad-top:    #9eecff;
+  --mark-grad-mid:    #4dd0ff;
+  --mark-grad-bot:    #1d7da8;
+  --mark-shadow:      rgba(77, 208, 255, 0.55);
+  --mark-inner-tint:  rgba(8, 12, 20, 0.5);
+
+  /* Primary button */
+  --btn-primary-grad: linear-gradient(180deg, #5edcff 0%, #2db8ee 100%);
+  --btn-primary-text: #06121b;
 }
-body {
-  background: var(--onyx-900);
-  color: var(--ink-100);
+
+/* ─────────────────────────────────────────────────────────────
+   OPAL — light · white-opal: pale, creamy, delicate play-of-color
+   ───────────────────────────────────────────────────────────── */
+[data-theme="opal"] {
+  color-scheme: light;
+
+  /* Milky pearl surfaces — soft, never flat grey */
+  --onyx-bg:        #f7f7fb;
+  --onyx-bg-2:      #f1f2f8;
+  --onyx-surface:   rgba(255, 255, 255, 0.82);
+  --onyx-surface-2: rgba(255, 255, 255, 0.92);
+  --onyx-surface-3: rgba(255, 255, 255, 0.98);
+  --onyx-hairline:  rgba(58, 66, 104, 0.07);
+  --onyx-hairline-strong: rgba(58, 66, 104, 0.13);
+  --onyx-inset:     rgba(58, 66, 104, 0.05);
+
+  --nav-bg:           rgba(252, 252, 255, 0.74);
+  --toolbar-bg:       rgba(252, 252, 255, 0.80);
+  --panel-bg:         #f5f6fb;
+  --input-bg:         rgba(255, 255, 255, 0.75);
+  --input-bg-strong:  rgba(255, 255, 255, 0.9);
+  /* Timeline + preview stay charcoal even in light mode — Pro-app pattern */
+  --timeline-bg:      rgba(240, 242, 248, 0.97);
+  --timeline-bg-strong: rgba(230, 233, 242, 0.99);
+  --row-bg:           rgba(255, 255, 255, 0.6);
+  --row-tint:         rgba(58, 66, 104, 0.035);
+  --chip-bg-low:      rgba(58, 66, 104, 0.03);
+  --chip-bg:          rgba(58, 66, 104, 0.05);
+  --chip-bg-strong:   rgba(58, 66, 104, 0.08);
+
+  /* Text — soft slate ink, not stark black (keeps the pale elegance) */
+  --onyx-text:      #1a1f2e;
+  --onyx-text-dim:  #4a5270;
+  --onyx-text-faint:#6b7399;
+  --onyx-text-mute: #8b93b8;
+
+  /* Accents — opal play-of-color: soft aqua primary, refined for AA */
+  --onyx-cyan:        #1f93c2;
+  --onyx-cyan-deep:   #14739b;
+  --onyx-cyan-glow:   rgba(120, 200, 225, 0.45);
+  --onyx-amber:       #c98a3e;
+  --onyx-amber-soft:  rgba(201, 138, 62, 0.12);
+  --onyx-violet:      #8267c9;
+  --onyx-rose:        #cc5a86;
+  --onyx-success:     #2a9b78;
+
+  /* White-opal diamond: pearly white core, faint aqua/lilac play */
+  --mark-grad-top:    #ffffff;
+  --mark-grad-mid:    #dcebff;
+  --mark-grad-bot:    #c7cfe6;
+  --mark-shadow:      rgba(170, 195, 240, 0.5);
+  --mark-inner-tint:  rgba(255, 255, 255, 0.55);
+
+  --btn-primary-grad: linear-gradient(180deg, #46b4dc 0%, #2390bc 100%);
+  --btn-primary-text: #ffffff;
+
+  --bg-page:    var(--onyx-900);
+  --bg-card:    var(--onyx-800);
+  --bg-surface: var(--onyx-850);
+  --bg-raised:  var(--onyx-700);
 }
 
-a {
-  color: var(--ink-200);
-}
+/* ============================================================================
+   PAGE BACKGROUNDS  (apply class="onyx-bg" to your page/app shell)
+   Add a child <div class="onyx-bg-streaks"></div> for the signature streak.
+   ============================================================================ */
 
-* {
-  box-sizing: border-box;
-}
-
-.sidebarIcon {
-  color: var(--ink-400);
-}
-
-.sidebarIcon.active {
-  background: var(--accent-soft);
-  color: var(--ink-100);
-}
-
-.toolTab {
-  color: var(--ink-400);
-}
-
-.toolTab.active {
-  color: var(--ink-100);
-  border-color: var(--accent);
-}
-
-.editorPreview {
+/* ONYX — navy with the blue light-streak motif */
+.onyx-bg,
+[data-theme="onyx"] .onyx-bg {
   background:
-    radial-gradient(
-      circle at top,
-      #1b1f2a,
-      #0b0d10
-    );
+    radial-gradient(ellipse 60% 80% at 92% 70%, rgba(77,208,255,0.22), transparent 60%),
+    radial-gradient(ellipse 50% 70% at 105% 90%, rgba(77,208,255,0.35), transparent 55%),
+    radial-gradient(ellipse 30% 50% at 88% 30%, rgba(120,200,255,0.10), transparent 60%),
+    linear-gradient(180deg, #050811 0%, #070b15 40%, #050811 100%);
+  background-color: #050811;
+}
+[data-theme="onyx"] .onyx-bg-streaks::before {
+  content: "";
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 80px 600px at 95% 60%, rgba(120,220,255,0.55) 0%, rgba(77,180,255,0.20) 25%, transparent 60%),
+    radial-gradient(ellipse 30px 480px at 80% 70%, rgba(180,235,255,0.30) 0%, transparent 70%),
+    radial-gradient(ellipse 14px 360px at 70% 78%, rgba(180,235,255,0.18) 0%, transparent 70%);
+  transform: rotate(-12deg) translate(8%, 0);
+  filter: blur(0.6px); opacity: 0.85; mix-blend-mode: screen;
 }
 
-.editorScenes {
-  background: var(--onyx-850);
-  border-top: 1px solid var(--border-subtle);
+/* OPAL — milky pearl with delicate, brightening play-of-color */
+[data-theme="opal"] .onyx-bg {
+  background:
+    radial-gradient(ellipse 70% 90% at 85% 18%, rgba(150, 222, 235, 0.22), transparent 62%),
+    radial-gradient(ellipse 80% 75% at 12% 30%, rgba(206, 192, 255, 0.18), transparent 60%),
+    radial-gradient(ellipse 65% 80% at 95% 88%, rgba(255, 205, 228, 0.20), transparent 60%),
+    radial-gradient(ellipse 70% 70% at 25% 95%, rgba(178, 240, 208, 0.18), transparent 60%),
+    radial-gradient(ellipse 50% 50% at 60% 55%, rgba(255, 242, 205, 0.12), transparent 70%),
+    linear-gradient(165deg, #fbfbff 0%, #f4f5fb 48%, #f7f4fa 100%);
+  background-color: #f7f7fb;
+}
+[data-theme="opal"] .onyx-bg-streaks::before {
+  content: "";
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 150px 760px at 90% 55%, rgba(150, 225, 240, 0.30) 0%, rgba(206, 192, 255, 0.16) 36%, transparent 72%),
+    radial-gradient(ellipse 70px 600px at 80% 68%, rgba(255, 210, 232, 0.22) 0%, transparent 72%),
+    radial-gradient(ellipse 40px 480px at 72% 78%, rgba(180, 240, 215, 0.18) 0%, transparent 72%);
+  transform: rotate(-12deg) translate(8%, 0);
+  filter: blur(2px); opacity: 0.7; mix-blend-mode: screen;
 }
 
-.sceneCard,
-.editorScenes span,
-.editorScenes button {
-  background: var(--onyx-800);
-  color: var(--ink-200);
-  border: 1px solid var(--border-subtle);
+/* ============================================================================
+   GLASS PANEL  (class="onyx-glass")
+   ============================================================================ */
+.onyx-glass {
+  background: var(--onyx-surface);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  backdrop-filter: blur(28px) saturate(140%);
+  border: 0.5px solid var(--onyx-hairline-strong);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.05) inset,
+    0 0 0 0.5px rgba(255,255,255,0.04) inset,
+    0 18px 48px rgba(0,0,0,0.45);
+}
+[data-theme="opal"] .onyx-glass {
+  -webkit-backdrop-filter: blur(30px) saturate(118%);
+  backdrop-filter: blur(30px) saturate(118%);
+  border-color: rgba(58,66,104,0.10);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.95) inset,
+    0 0 0 0.5px rgba(255,255,255,0.7) inset,
+    0 16px 44px rgba(70,90,150,0.10),
+    0 2px 8px rgba(70,90,150,0.05);
 }
 
-.sceneCard:hover,
-.editorScenes button:hover {
-  border-color: var(--accent);
+/* ============================================================================
+   Smooth cross-fade when switching themes (optional but nice).
+   Disabled for users who prefer reduced motion.
+   ============================================================================ */
+.onyx-bg,
+.onyx-glass,
+[class*="onyx-"] {
+  transition: background-color .35s ease, color .35s ease, border-color .35s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .onyx-bg, .onyx-glass, [class*="onyx-"] { transition: none; }
 }
 
-.collapseBtn {
-  position: absolute;
-  top: 12px;
-  right: -12px;
-  width: 24px;
-  height: 24px;
-  background: var(--onyx-700);
-  border: 1px solid var(--border-subtle);
-  border-radius: 50%;
-  color: var(--ink-200);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.editorPreview {
-  flex: 1;
-  min-height: 0;
-}
-
-.editorScenes {
-  height: 140px;
-  flex-shrink: 0;
-}
-
-.toolBody {
-  color: var(--ink-400);
-}
-
-.toolTabs {
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-body {
-  background: var(--onyx-900) !important;
-}
-
-/* --- Scenes bar placement --- */
-.editorMain {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-}
-
-.editorScenes {
-  height: 120px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 24px;
-  justify-content: center;
-  background: linear-gradient(
-    180deg,
-    rgba(11,13,16,0.6),
-    var(--onyx-900)
-  );
-  border-top: 1px solid var(--border-subtle);
-}
-
-/* --- Visuals: Library Grid --- */
-.visualsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 12px;
-  padding-top: 12px;
-}
-
-.mediaCard {
-  background: var(--onyx-800);
-  border: 1px solid var(--border-subtle);
+/* ============================================================================
+   Global button utilities — available on every page via this global import.
+   ============================================================================ */
+.btn-teal {
+  background: var(--btn-primary-grad);
+  color: var(--btn-primary-text);
+  border: none;
   border-radius: 8px;
-  height: 72px;
-  position: relative;
+  padding: 12px 28px;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-400);
-  font-size: 12px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.btn-teal:hover:not(:disabled) {
+  background: var(--btn-primary-grad);
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+.btn-teal:active:not(:disabled) {
+  transform: translateY(0);
+}
+.btn-teal:disabled {
+  background: var(--onyx-surface-2);
+  color: var(--onyx-text-faint);
+  cursor: not-allowed;
 }
 
-.mediaCard:hover {
-  border-color: var(--accent);
+/* ============================================================================
+   Text overlay animations — driven by clip.animation field on FX text clips
+   ============================================================================ */
+@keyframes text-anim-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes text-anim-slide-up {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes text-anim-scroll-right {
+  from { transform: translateX(-80px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes text-anim-scroll-left {
+  from { transform: translateX(80px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes text-anim-zoom-in {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes text-anim-bounce {
+  0%   { transform: translateY(-24px); opacity: 0; }
+  60%  { transform: translateY(6px);   opacity: 1; }
+  80%  { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
 }
 
-.mediaCard::after {
-  content: "Add";
-  position: absolute;
-  bottom: 6px;
-  right: 6px;
-  background: var(--accent-soft);
-  color: var(--ink-100);
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  opacity: 0;
+.text-anim-fade-in      { animation: text-anim-fade-in      0.5s ease forwards; }
+.text-anim-slide-up     { animation: text-anim-slide-up     0.5s ease forwards; }
+.text-anim-scroll-right { animation: text-anim-scroll-right 0.5s ease forwards; }
+.text-anim-scroll-left  { animation: text-anim-scroll-left  0.5s ease forwards; }
+.text-anim-zoom-in      { animation: text-anim-zoom-in      0.5s ease forwards; }
+.text-anim-bounce       { animation: text-anim-bounce       0.6s ease forwards; }
+
+/* ============================================================================
+   Page title — gradient heading used across all main pages
+   ============================================================================ */
+.page-title {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 0;
+  background: linear-gradient(135deg, #5edcff 0%, #2dd4bf 50%, #4dd0ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
-
-.mediaCard:hover::after {
-  opacity: 1;
-}
-
-/* --- FIX: unblock editor interactions --- */
-.editorPreview::before,
-.editorPreview::after {
-  pointer-events: none !important;
-}
-
-.editorPreview {
-  pointer-events: auto;
-}
-
-/* emergency click unblocking */
-* {
-  pointer-events: auto;
-}
-
-/* --- FIX: divider must not block clicks --- */
-.editorDivider,
-.editorDivider *,
-.editorSplitter,
-.editorSplitter * {
-  pointer-events: none !important;
-}
-
-/* --- Preview Stage --- */
-#previewStage {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.previewMedia {
-  width: 72%;
-  aspect-ratio: 16 / 9;
-  background: #0b0f14;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #9aa4b2;
-  font-size: 14px;
-}
-
-.emptyPreview {
-  color: #6b7280;
-  font-size: 14px;
-}
-
-/* --- Global Editor Top Bar --- */
-.editorTopBar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-
-.editorTopBar button {
-  background: #0f131a;
-  color: #d1d5db;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px;
-  padding: 6px 10px;
-  margin-right: 8px;
-  cursor: pointer;
-}
-
-.editorTopBar button:hover {
-  background: #151a23;
-}
-
-.editorTopBar .credits {
-  color: #9aa4b2;
-  margin-left: 12px;
-}
-
-/* --- FORCE editor top functions bar visible --- */
-#editorTopBar {
-  display: flex !important;
-  position: relative;
-  z-index: 50;
-  background: linear-gradient(180deg, #0b0f14, #0a0d12);
-}
-
-body {
-  overflow-x: hidden;
-}
-
-/* --- Editor Top Functions Bar (REAL placement) --- */
-#editorTopBar {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-  background: linear-gradient(180deg, #0b0f14, #0a0d12);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-
-#editorTopBar button {
-  background: #0f131a;
-  color: #d1d5db;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px;
-  padding: 6px 10px;
-  margin-right: 8px;
-  cursor: pointer;
-}
-
-#editorTopBar button:hover {
-  background: #151a23;
-}
-
-#editorTopBar .credits {
-  color: #9aa4b2;
-  margin-left: 12px;
-}
-
-/* --- TRUE Editor Top Bar --- */
-.editorTopBar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-  background: linear-gradient(180deg, #0b0f14, #0a0d12);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-
-.editorTopBar .leftControls,
-.editorTopBar .rightControls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* Ratio dropdown */
-.ratioDropdown {
-  background: #0f131a;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px;
-  padding: 6px 10px;
-  cursor: pointer;
-  color: #d1d5db;
-}
-
-/* Icon buttons */
-.iconBtn {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
-  background: #0f131a;
-  border: 1px solid rgba(255,255,255,0.08);
-  color: #d1d5db;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.iconBtn:hover,
-.editorTopBar button:hover {
-  background: #151a23;
-}
-
-.editorTopBar button {
-  background: #0f131a;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px;
-  padding: 6px 10px;
-  color: #d1d5db;
-  cursor: pointer;
-}
-
-.editorTopBar .credits {
-  color: #9aa4b2;
-  margin-left: 8px;
-}
-
-/* Main navigation */
-.mainNav {
-  height: 56px;
-  background: linear-gradient(180deg, #0b0f14, #0a0d12);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  display: flex;
-  align-items: center;
-}
-
-.mainMenu {
-  display: flex;
-  gap: 16px;
-  padding: 0 16px;
-  align-items: center;
-}
-
-.mainMenu a {
-  color: #d1d5db;
-  text-decoration: none;
-  font-size: 14px;
-  opacity: 0.85;
-}
-
-.mainMenu a:hover {
-  opacity: 1;
-}
-
-.toolSection {
-  display: none;
-}
-
-.toolSection.active {
-  display: block;
-}
-
-.mediaCard img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 6px;
-}
-
-/* Ensure stock thumbnails render like uploads */
-.visualsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
-}
-
-.mediaCard {
-  background: #0e1218;
-  border-radius: 10px;
-  overflow: hidden;
-  aspect-ratio: 16 / 9;
-  cursor: pointer;
-  position: relative;
-}
-
-.mediaCard img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-/* === VISUALS GRID FIX === */
-.visualsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 12px;
-}
-
-.mediaCard {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #0b0f14;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.mediaCard img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* === PREVIEW CLAMP FIX === */
-.editorPreview {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-#previewStage {
-  max-width: 100%;
-  max-height: 100%;
-}
-
-#previewStage video,
-#previewStage img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-/* ===== FINAL THUMBNAIL VISIBILITY FIX ===== */
-
-/* Ensure grids have real rows */
-.visualsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  grid-auto-rows: 72px;
-  gap: 12px;
-}
-
-/* Force card dimensions */
-.mediaCard {
-  width: 100%;
-  height: 72px;
-  background: #0b0f14;
-  border-radius: 8px;
-  overflow: hidden;
-  position: relative;
-  border: 1px solid rgba(255,255,255,0.06);
-}
-
-/* Force image visibility */
-.mediaCard img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-/* LEFT TOOLBAR PANELS */
-.toolPanel { display: none; }
-.toolPanel.active { display: block; }
-
-/* Active state */
-.sidebarIcon.active {
-  background: rgba(255,255,255,0.12);
-  border-radius: 10px;
+[data-theme="opal"] .page-title {
+  background: linear-gradient(135deg, #0891b2 0%, #0e7490 60%, #0c6a85 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }

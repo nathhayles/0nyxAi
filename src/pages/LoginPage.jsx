@@ -5,11 +5,11 @@ export default function LoginPage() {
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      background: "#06070a",
+      background: "var(--onyx-bg)",
       color: "white"
     }}>
       <div style={{
-        background: "#0c1016",
+        background: "var(--onyx-bg-2)",
         padding: 40,
         borderRadius: 12,
         width: 360
@@ -22,7 +22,7 @@ export default function LoginPage() {
             width:"100%",
             padding:10,
             marginBottom:10,
-            background:"#06070a",
+            background:"var(--onyx-bg)",
             border:"1px solid #222",
             color:"white"
           }}
@@ -35,7 +35,7 @@ export default function LoginPage() {
             width:"100%",
             padding:10,
             marginBottom:20,
-            background:"#06070a",
+            background:"var(--onyx-bg)",
             border:"1px solid #222",
             color:"white"
           }}

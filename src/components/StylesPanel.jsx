@@ -1,10 +1,11 @@
 import React, { useState } from "react";
+import { FONTS } from "../data/fonts.js";
 
 const THEMES = [
   {
     id: "cinematic",
     label: "Cinematic",
-    icon: "🎬",
+    icon: "",
     palette: ["#0a0a0a", "#1a1a2e", "#16213e", "#e94560", "#f5f5f5"],
     caption: { font: "Georgia", size: 18, color: "#ffffff", bg: "rgba(0,0,0,0.85)", position: "bottom" },
     musicKeyword: "cinematic epic",
@@ -13,7 +14,7 @@ const THEMES = [
   {
     id: "business",
     label: "Business",
-    icon: "💼",
+    icon: "",
     palette: ["#1e3a5f", "#2563eb", "#ffffff", "#f1f5f9", "#0f172a"],
     caption: { font: "Arial", size: 16, color: "#ffffff", bg: "rgba(30,58,95,0.9)", position: "bottom" },
     musicKeyword: "corporate professional",
@@ -22,7 +23,7 @@ const THEMES = [
   {
     id: "energetic",
     label: "Energetic",
-    icon: "⚡",
+    icon: "",
     palette: ["#f59e0b", "#ef4444", "#8b5cf6", "#10b981", "#1f2937"],
     caption: { font: "Trebuchet MS", size: 17, color: "#ffffff", bg: "rgba(245,158,11,0.9)", position: "bottom" },
     musicKeyword: "upbeat energetic",
@@ -40,7 +41,7 @@ const THEMES = [
   {
     id: "documentary",
     label: "Documentary",
-    icon: "📽",
+    icon: "",
     palette: ["#292524", "#78716c", "#d6d3d1", "#fef3c7", "#1c1917"],
     caption: { font: "Georgia", size: 16, color: "#fef3c7", bg: "rgba(28,25,23,0.88)", position: "bottom" },
     musicKeyword: "documentary thoughtful",
@@ -67,24 +68,24 @@ const THEMES = [
   {
     id: "wellness",
     label: "Wellness",
-    icon: "🌿",
+    icon: "",
     palette: ["#f0fdf4", "#86efac", "#166534", "#fef9c3", "#14532d"],
     caption: { font: "sans-serif", size: 16, color: "#14532d", bg: "rgba(240,253,244,0.92)", position: "bottom" },
     musicKeyword: "relaxing nature",
     desc: "Calm, natural, healthy",
   },
-  { id: "viral", label: "Viral", icon: "🔥", palette: ["#ff0050", "#ffffff", "#000000", "#ff4081", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 20, color: "#ffffff", bg: "rgba(0,0,0,0.0)", position: "bottom" }, musicKeyword: "viral upbeat", desc: "TikTok-ready, bold, viral" },
-  { id: "retro", label: "Retro", icon: "📺", palette: ["#f97316", "#fbbf24", "#84cc16", "#06b6d4", "#1a1a1a"], caption: { font: "monospace", size: 16, color: "#fbbf24", bg: "rgba(26,26,26,0.92)", position: "bottom" }, musicKeyword: "retro vintage", desc: "80s/90s nostalgic vibes" },
-  { id: "neon", label: "Neon", icon: "💜", palette: ["#0f0f0f", "#a855f7", "#ec4899", "#06b6d4", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 17, color: "#a855f7", bg: "rgba(0,0,0,0.85)", position: "bottom" }, musicKeyword: "electronic neon", desc: "Dark, glowing, nightlife" },
-  { id: "nature", label: "Nature", icon: "🌲", palette: ["#166534", "#86efac", "#fef9c3", "#92400e", "#f0fdf4"], caption: { font: "Georgia", size: 16, color: "#166534", bg: "rgba(240,253,244,0.9)", position: "bottom" }, musicKeyword: "nature peaceful", desc: "Earthy, organic, outdoors" },
-  { id: "food", label: "Food", icon: "🍕", palette: ["#dc2626", "#f97316", "#fbbf24", "#ffffff", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 17, color: "#ffffff", bg: "rgba(220,38,38,0.9)", position: "bottom" }, musicKeyword: "upbeat fun", desc: "Warm, appetising, vibrant" },
-  { id: "fitness", label: "Fitness", icon: "💪", palette: ["#1f2937", "#f59e0b", "#ef4444", "#ffffff", "#111827"], caption: { font: "Arial", size: 18, color: "#f59e0b", bg: "rgba(31,41,55,0.95)", position: "bottom" }, musicKeyword: "motivational workout", desc: "Powerful, motivational, bold" },
-  { id: "fashion", label: "Fashion", icon: "👗", palette: ["#fdf2f8", "#f9a8d4", "#9d174d", "#ffffff", "#1a1a1a"], caption: { font: "Georgia", size: 16, color: "#9d174d", bg: "rgba(253,242,248,0.92)", position: "bottom" }, musicKeyword: "fashion stylish", desc: "Elegant, feminine, stylish" },
-  { id: "realestate", label: "Real Estate", icon: "🏠", palette: ["#1e3a5f", "#94a3b8", "#f8fafc", "#c9a84c", "#0f172a"], caption: { font: "Arial", size: 16, color: "#ffffff", bg: "rgba(30,58,95,0.92)", position: "bottom" }, musicKeyword: "professional calm", desc: "Trustworthy, premium, clean" },
-  { id: "education", label: "Education", icon: "📚", palette: ["#1d4ed8", "#fbbf24", "#ffffff", "#f0f9ff", "#1e3a5f"], caption: { font: "Arial", size: 16, color: "#1d4ed8", bg: "rgba(240,249,255,0.95)", position: "bottom" }, musicKeyword: "educational inspiring", desc: "Clear, informative, bright" },
-  { id: "horror", label: "Horror", icon: "👻", palette: ["#000000", "#dc2626", "#4a1942", "#ffffff", "#1a0a0a"], caption: { font: "Georgia", size: 18, color: "#dc2626", bg: "rgba(0,0,0,0.95)", position: "bottom" }, musicKeyword: "dark suspense", desc: "Dark, eerie, intense" },
-  { id: "travel", label: "Travel", icon: "✈️", palette: ["#0ea5e9", "#f59e0b", "#ffffff", "#1e3a5f", "#f0f9ff"], caption: { font: "sans-serif", size: 16, color: "#ffffff", bg: "rgba(14,165,233,0.85)", position: "bottom" }, musicKeyword: "adventure travel", desc: "Bright, adventurous, wanderlust" },
-  { id: "comedy", label: "Comedy", icon: "😂", palette: ["#fbbf24", "#f97316", "#ffffff", "#1a1a1a", "#fef9c3"], caption: { font: "Trebuchet MS", size: 18, color: "#1a1a1a", bg: "rgba(251,191,36,0.92)", position: "bottom" }, musicKeyword: "funny upbeat", desc: "Fun, playful, lighthearted" },
+  { id: "viral", label: "Viral", icon: "", palette: ["#ff0050", "#ffffff", "#000000", "#ff4081", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 20, color: "#ffffff", bg: "rgba(0,0,0,0.0)", position: "bottom" }, musicKeyword: "viral upbeat", desc: "TikTok-ready, bold, viral" },
+  { id: "retro", label: "Retro", icon: "", palette: ["#f97316", "#fbbf24", "#84cc16", "#06b6d4", "#1a1a1a"], caption: { font: "monospace", size: 16, color: "#fbbf24", bg: "rgba(26,26,26,0.92)", position: "bottom" }, musicKeyword: "retro vintage", desc: "80s/90s nostalgic vibes" },
+  { id: "neon", label: "Neon", icon: "", palette: ["#0f0f0f", "#a855f7", "#ec4899", "#06b6d4", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 17, color: "#a855f7", bg: "rgba(0,0,0,0.85)", position: "bottom" }, musicKeyword: "electronic neon", desc: "Dark, glowing, nightlife" },
+  { id: "nature", label: "Nature", icon: "", palette: ["#166534", "#86efac", "#fef9c3", "#92400e", "#f0fdf4"], caption: { font: "Georgia", size: 16, color: "#166534", bg: "rgba(240,253,244,0.9)", position: "bottom" }, musicKeyword: "nature peaceful", desc: "Earthy, organic, outdoors" },
+  { id: "food", label: "Food", icon: "", palette: ["#dc2626", "#f97316", "#fbbf24", "#ffffff", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 17, color: "#ffffff", bg: "rgba(220,38,38,0.9)", position: "bottom" }, musicKeyword: "upbeat fun", desc: "Warm, appetising, vibrant" },
+  { id: "fitness", label: "Fitness", icon: "", palette: ["#1f2937", "#f59e0b", "#ef4444", "#ffffff", "#111827"], caption: { font: "Arial", size: 18, color: "#f59e0b", bg: "rgba(31,41,55,0.95)", position: "bottom" }, musicKeyword: "motivational workout", desc: "Powerful, motivational, bold" },
+  { id: "fashion", label: "Fashion", icon: "", palette: ["#fdf2f8", "#f9a8d4", "#9d174d", "#ffffff", "#1a1a1a"], caption: { font: "Georgia", size: 16, color: "#9d174d", bg: "rgba(253,242,248,0.92)", position: "bottom" }, musicKeyword: "fashion stylish", desc: "Elegant, feminine, stylish" },
+  { id: "realestate", label: "Real Estate", icon: "", palette: ["#1e3a5f", "#94a3b8", "#f8fafc", "#c9a84c", "#0f172a"], caption: { font: "Arial", size: 16, color: "#ffffff", bg: "rgba(30,58,95,0.92)", position: "bottom" }, musicKeyword: "professional calm", desc: "Trustworthy, premium, clean" },
+  { id: "education", label: "Education", icon: "", palette: ["#1d4ed8", "#fbbf24", "#ffffff", "#f0f9ff", "#1e3a5f"], caption: { font: "Arial", size: 16, color: "#1d4ed8", bg: "rgba(240,249,255,0.95)", position: "bottom" }, musicKeyword: "educational inspiring", desc: "Clear, informative, bright" },
+  { id: "horror", label: "Horror", icon: "", palette: ["#000000", "#dc2626", "#4a1942", "#ffffff", "#1a0a0a"], caption: { font: "Georgia", size: 18, color: "#dc2626", bg: "rgba(0,0,0,0.95)", position: "bottom" }, musicKeyword: "dark suspense", desc: "Dark, eerie, intense" },
+  { id: "travel", label: "Travel", icon: "", palette: ["#0ea5e9", "#f59e0b", "#ffffff", "#1e3a5f", "#f0f9ff"], caption: { font: "sans-serif", size: 16, color: "#ffffff", bg: "rgba(14,165,233,0.85)", position: "bottom" }, musicKeyword: "adventure travel", desc: "Bright, adventurous, wanderlust" },
+  { id: "comedy", label: "Comedy", icon: "", palette: ["#fbbf24", "#f97316", "#ffffff", "#1a1a1a", "#fef9c3"], caption: { font: "Trebuchet MS", size: 18, color: "#1a1a1a", bg: "rgba(251,191,36,0.92)", position: "bottom" }, musicKeyword: "funny upbeat", desc: "Fun, playful, lighthearted" },
 ];
 
 const CAPTION_STYLES = [
@@ -95,6 +96,7 @@ const CAPTION_STYLES = [
   { id: "glass",      label: "Glass",      bgOpacity: 0.15, border: "1px solid rgba(255,255,255,0.3)", weight: "normal" },
   { id: "dark",       label: "Dark Edge",  bgOpacity: 1,    border: "2px solid rgba(255,255,255,0.2)", weight: "bold",   forceDark: true },
   { id: "underline",  label: "Underline",  bgOpacity: 0,    border: "none", borderBottom: "3px solid currentColor", weight: "normal" },
+  { id: "soft",       label: "Soft",       bgOpacity: 0,    border: "none",                            weight: "normal", desc: "Muted pastel, low-contrast" },
   { id: "crisp",      label: "Crisp",      bgOpacity: 0.92, border: "none",                            weight: "normal" },
   { id: "neon",       label: "Neon",       bgOpacity: 0,    border: "none", weight: "bold",   neon: true,       desc: "Glowing neon text" },
   { id: "gradient",   label: "Gradient",   bgOpacity: 0,    border: "none", weight: "bold",   gradient: true,   desc: "Rainbow gradient text" },
@@ -104,10 +106,6 @@ const CAPTION_STYLES = [
   { id: "typewriter", label: "Typewriter", bgOpacity: 0,    border: "none", weight: "normal", typewriter: true, desc: "Monospace typewriter" },
 ];
 
-const FONTS = [
-  "sans-serif", "serif", "monospace", "Georgia", "Arial", "Trebuchet MS",
-  "Verdana", "Tahoma", "Impact", "Courier New", "Times New Roman", "Palatino",
-];
 
 const PRESET_PALETTES = [
   { name: "Sunset",     colors: ["#ff6b6b","#feca57","#ff9ff3","#54a0ff","#5f27cd"] },
@@ -277,6 +275,15 @@ function getCaptionPreviewStyle(style) {
       textShadow: "1px 1px 3px rgba(0,0,0,0.8)",
     };
   }
+  if (style.id === "soft") {
+    return {
+      ...base,
+      color: "#f0ece1",
+      background: "transparent",
+      border: "none",
+      textShadow: "1px 1px 2px rgba(0,0,0,0.35)",
+    };
+  }
   if (style.id === "crisp") {
     return {
       ...base,
@@ -297,24 +304,31 @@ function getCaptionPreviewStyle(style) {
   };
 }
 
-export default function StylesPanel({ scenes = [], setScenes, activeScene, activeThemeId }) {
+export default function StylesPanel({ scenes = [], setScenes, activeScene, activeThemeId, forcedTab, onPendingCaption, brand, onSave }) {
   const [selectedTheme, setSelectedTheme] = useState(activeThemeId || null);
   const [selectedCaption, setSelectedCaption] = useState(null);
-  const [tab, setTab] = useState("themes");
+  const [internalTab, setInternalTab] = useState(forcedTab || "themes");
+  const tab = forcedTab || internalTab;
+  const setTab = forcedTab ? () => {} : setInternalTab;
   const [pending, setPending] = useState(null); // { type: "theme"|"caption", item }
 
-  const [customCaption, setCustomCaption] = useState({
-    color: "#ffffff",
-    bgColor: "rgba(0,0,0,0.8)",
-    transparentBg: false,
-    position: "bottom",
-    fontSize: 18,
-    font: "sans-serif",
-  });
+  // Seed from active scene → brand → hardcoded defaults
+  const activeSceneObj = scenes?.find(s => s.id === activeScene);
+  const _b = brand || {};
+  const _s = activeSceneObj || {};
+  const [customCaption, setCustomCaption] = useState(() => ({
+    color: _s.caption_color || _b.caption_color || "#ffffff",
+    bgColor: _s.caption_bg_color || _b.caption_bg_color || "rgba(0,0,0,0.8)",
+    highlightColor: _s.caption_highlight_color || _b.caption_highlight_color || "#ffe566",
+    position: _s.caption_position || _b.caption_position || "bottom",
+    fontSize: Number(_s.caption_size || _b.caption_size || 18),
+    font: _s.caption_font || _b.caption_font || "sans-serif",
+    transparentBg: (_s.caption_bg_color || _b.caption_bg_color || "") === "transparent",
+  }));
   const [customPalette, setCustomPalette] = useState(["#7c3aed", "#ec4899", "#f59e0b", "#10b981", "#0ea5e9"]);
 
   const inputStyle = {
-    background: "#0f141b",
+    background: "var(--onyx-surface)",
     border: "1px solid #2b3442",
     color: "#e2e8f0",
     borderRadius: 4,
@@ -327,22 +341,22 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
   const btnStyle = (active) => ({
     flex: 1, padding: "6px 8px", borderRadius: 4, fontSize: 11,
     cursor: "pointer", fontWeight: 600,
-    background: active ? "#1e3a5f" : "#1f2937",
-    border: active ? "1px solid #2563eb" : "1px solid #2b3442",
+    background: active ? "var(--chip-bg-strong)" : "var(--chip-bg)",
+    border: active ? "1px solid var(--onyx-cyan)" : "0.5px solid var(--onyx-hairline-strong)",
     color: active ? "#60a5fa" : "#64748b",
   });
 
   const posBtn = (pos) => ({
     flex: 1, padding: "5px 0", borderRadius: 4, fontSize: 11,
     cursor: "pointer", fontWeight: 600,
-    background: customCaption.position === pos ? "#1e3a5f" : "#1f2937",
-    border: customCaption.position === pos ? "1px solid #2563eb" : "1px solid #2b3442",
+    background: customCaption.position === pos ? "var(--chip-bg-strong)" : "var(--chip-bg)",
+    border: customCaption.position === pos ? "1px solid var(--onyx-cyan)" : "0.5px solid var(--onyx-hairline-strong)",
     color: customCaption.position === pos ? "#60a5fa" : "#64748b",
   });
 
   function applyTheme(theme, scope) {
     if (!setScenes) return;
-    setScenes(prev => prev.map(s => {
+    const next = scenes.map(s => {
       if (scope === "this" && s.id !== activeScene) return s;
       return {
         ...s,
@@ -350,14 +364,17 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
         caption_bg_color: theme.caption.bg,
         // caption_font, caption_size, caption_position intentionally preserved
       };
-    }));
+    });
+    setScenes(next);
     setSelectedTheme(theme.id);
     setPending(null);
+    onSave?.();
   }
 
   function applyCaption(style, scope) {
     if (!setScenes) return;
-    setScenes(prev => prev.map(s => {
+    if (scope === "this" && !activeScene) return;
+    const next = scenes.map(s => {
       if (scope === "this" && s.id !== activeScene) return s;
       return {
         ...s,
@@ -370,29 +387,36 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
         caption_neon: style.neon || false,
         caption_gradient: style.gradient || false,
         caption_karaoke: style.karaoke || false,
+            caption_style: style.karaoke ? "karaoke" : (style.id || "normal"),
         caption_tiktok: style.tiktok || false,
         caption_bubble: style.bubble || false,
         caption_typewriter: style.typewriter || false,
         // caption_color and caption_bg_color intentionally preserved — set by theme
       };
-    }));
+    });
+    setScenes(next);
     setSelectedCaption(style.id);
     setPending(null);
+    onPendingCaption?.(null);
+    onSave?.();
   }
 
   function applyCustomCaption(scope) {
     if (!setScenes) return;
-    setScenes(prev => prev.map(s => {
+    const next = scenes.map(s => {
       if (scope === "this" && s.id !== activeScene) return s;
       return {
         ...s,
         caption_color: customCaption.color,
         caption_bg_color: customCaption.transparentBg ? "transparent" : customCaption.bgColor,
         caption_position: customCaption.position,
-        caption_font_size: customCaption.fontSize,
+        caption_size: customCaption.fontSize,
         caption_font: customCaption.font,
+        caption_highlight_color: customCaption.highlightColor,
       };
-    }));
+    });
+    setScenes(next);
+    onSave?.();
   }
 
   function applyCustomPalette(scope) {
@@ -410,16 +434,18 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       {/* Scrollable content area */}
       <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", marginBottom: 12, textTransform: "uppercase", letterSpacing: "1.5px" }}>
-          Styles & Themes
-        </div>
-
-        {/* Tab switcher */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-          <button onClick={() => { setTab("themes"); setPending(null); }} style={btnStyle(tab === "themes")}>Themes</button>
-          <button onClick={() => { setTab("captions"); setPending(null); }} style={btnStyle(tab === "captions")}>Captions</button>
-          <button onClick={() => { setTab("custom"); setPending(null); }} style={btnStyle(tab === "custom")}>Custom</button>
-        </div>
+        {!forcedTab && (
+          <>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", marginBottom: 12, textTransform: "uppercase", letterSpacing: "1.5px" }}>
+              Styles & Themes
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+              <button onClick={() => { setTab("themes"); setPending(null); onPendingCaption?.(null); }} style={btnStyle(tab === "themes")}>Themes</button>
+              <button onClick={() => { setTab("captions"); setPending(null); onPendingCaption?.(null); }} style={btnStyle(tab === "captions")}>Captions</button>
+              <button onClick={() => { setTab("custom"); setPending(null); onPendingCaption?.(null); }} style={btnStyle(tab === "custom")}>Custom</button>
+            </div>
+          </>
+        )}
 
         {tab === "themes" && (
           <div>
@@ -436,8 +462,8 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
                     onClick={() => setPending({ type: "theme", item: theme })}
                     style={{
                       padding: "8px 10px", borderRadius: 6, cursor: "pointer",
-                      background: isSelected ? "#111827" : "#0f141b",
-                      border: isSelected ? "1px solid #2563eb" : isApplied ? "1px solid #22c55e" : "1px solid #1f2937",
+                      background: isSelected ? "var(--onyx-surface-2)" : "var(--onyx-surface)",
+                      border: isSelected ? "1px solid var(--onyx-cyan)" : isApplied ? "1px solid var(--onyx-success)" : "0.5px solid var(--onyx-hairline-strong)",
                       transition: "border-color 0.15s",
                       position: "relative",
                     }}
@@ -475,10 +501,10 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
               return (
                 <div
                   key={style.id}
-                  onClick={() => setPending({ type: "caption", item: style })}
+                  onClick={() => { setPending({ type: "caption", item: style }); onPendingCaption?.(style.id); }}
                   style={{
                     marginBottom: 8, borderRadius: 6, overflow: "hidden", cursor: "pointer",
-                    border: isSelected ? "1px solid #2563eb" : "1px solid #1f2937",
+                    border: isSelected ? "1px solid var(--onyx-cyan)" : "0.5px solid var(--onyx-hairline-strong)",
                     transition: "border-color 0.15s",
                   }}
                 >
@@ -499,7 +525,7 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
                     </div>
                   </div>
                   <div style={{
-                    padding: "5px 12px", background: "#0f141b",
+                    padding: "5px 12px", background: "var(--onyx-surface)",
                     fontSize: 11, color: "#94a3b8", display: "flex", justifyContent: "space-between", alignItems: "center",
                   }}>
                     <span>{style.label}{style.desc ? ` — ${style.desc}` : ""}</span>
@@ -567,11 +593,25 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
                 id="transparentBg"
                 checked={customCaption.transparentBg}
                 onChange={e => setCustomCaption(c => ({ ...c, transparentBg: e.target.checked }))}
-                style={{ accentColor: "#2563eb", cursor: "pointer" }}
+                style={{ accentColor: "var(--onyx-cyan)", cursor: "pointer" }}
               />
               <label htmlFor="transparentBg" style={{ fontSize: 11, color: "#94a3b8", cursor: "pointer" }}>
                 Transparent background
               </label>
+            </div>
+
+            {/* Karaoke highlight colour */}
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--onyx-text-faint)", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 4 }}>Karaoke Highlight</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="color"
+                  value={customCaption.highlightColor || "#ffe566"}
+                  onChange={e => setCustomCaption(c => ({ ...c, highlightColor: e.target.value }))}
+                  style={{ width: 32, height: 26, border: "none", background: "none", cursor: "pointer", padding: 0 }}
+                />
+                <span style={{ fontSize: 11, color: "var(--onyx-text-dim)" }}>{customCaption.highlightColor || "#ffe566"}</span>
+              </div>
             </div>
 
             {/* Position */}
@@ -584,6 +624,18 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
               </div>
             </div>
 
+            {/* Font */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>Font</div>
+              <select
+                value={customCaption.font || "sans-serif"}
+                onChange={e => setCustomCaption(c => ({ ...c, font: e.target.value }))}
+                style={{ width: "100%", background: "var(--input-bg)", border: "0.5px solid var(--onyx-hairline-strong)", borderRadius: 6, padding: "7px 10px", color: "var(--onyx-text)", fontSize: 12, outline: "none" }}
+              >
+                {FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+            </div>
+
             {/* Font size */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>
@@ -594,7 +646,7 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
                 min={12} max={36} step={1}
                 value={customCaption.fontSize}
                 onChange={e => setCustomCaption(c => ({ ...c, fontSize: Number(e.target.value) }))}
-                style={{ width: "100%", accentColor: "#2563eb" }}
+                style={{ width: "100%", accentColor: "var(--onyx-cyan)" }}
               />
             </div>
 
@@ -606,7 +658,7 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
                 onChange={e => setCustomCaption(c => ({ ...c, font: e.target.value }))}
                 style={{ ...inputStyle }}
               >
-                {FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                {FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
               </select>
             </div>
 
@@ -631,7 +683,7 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
                   Preview caption text
                 </div>
               </div>
-              <div style={{ padding: "5px 12px", background: "#0f141b", fontSize: 10, color: "#64748b" }}>
+              <div style={{ padding: "5px 12px", background: "var(--onyx-surface)", fontSize: 10, color: "#64748b" }}>
                 {customCaption.font} · {customCaption.fontSize}px · {customCaption.position}
               </div>
             </div>
@@ -642,7 +694,7 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
                 onClick={() => applyCustomCaption("this")}
                 style={{
                   flex: 1, padding: "7px 0", borderRadius: 4, fontSize: 11, fontWeight: 700,
-                  background: "#1e3a5f", border: "1px solid #2563eb",
+                  background: "var(--chip-bg-strong)", border: "1px solid var(--onyx-cyan)",
                   color: "#93c5fd", cursor: "pointer",
                 }}
               >
@@ -652,8 +704,8 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
                 onClick={() => applyCustomCaption("all")}
                 style={{
                   flex: 1, padding: "7px 0", borderRadius: 4, fontSize: 11, fontWeight: 700,
-                  background: "#1d4ed8", border: "1px solid #1e40af",
-                  color: "#fff", cursor: "pointer",
+                  background: "var(--btn-primary-grad)", border: "none", color: "var(--btn-primary-text)",
+                  cursor: "pointer",
                 }}
               >
                 Apply to all
@@ -693,7 +745,7 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
                   onClick={() => setCustomPalette([...preset.colors])}
                   style={{
                     display: "flex", alignItems: "center", gap: 5, padding: "6px 8px",
-                    borderRadius: 5, border: "1px solid #1f2937", background: "#0f141b",
+                    borderRadius: 5, border: "0.5px solid var(--onyx-hairline-strong)", background: "var(--input-bg)",
                     cursor: "pointer", textAlign: "left",
                   }}
                 >
@@ -712,7 +764,7 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
                 onClick={() => applyCustomPalette("this")}
                 style={{
                   flex: 1, padding: "7px 0", borderRadius: 4, fontSize: 11, fontWeight: 700,
-                  background: "#1e3a5f", border: "1px solid #2563eb",
+                  background: "var(--chip-bg-strong)", border: "1px solid var(--onyx-cyan)",
                   color: "#93c5fd", cursor: "pointer",
                 }}
               >
@@ -722,8 +774,8 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
                 onClick={() => applyCustomPalette("all")}
                 style={{
                   flex: 1, padding: "7px 0", borderRadius: 4, fontSize: 11, fontWeight: 700,
-                  background: "#1d4ed8", border: "1px solid #1e40af",
-                  color: "#fff", cursor: "pointer",
+                  background: "var(--btn-primary-grad)", border: "none", color: "var(--btn-primary-text)",
+                  cursor: "pointer",
                 }}
               >
                 Apply to all
@@ -736,7 +788,7 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
       {/* Pictory-style sticky apply bar — appears when something is selected */}
       {hasPending && (
         <div style={{
-          borderTop: "1px solid #1f2937",
+          borderTop: "0.5px solid var(--onyx-hairline)",
           background: "#0d1117",
           padding: "10px 12px",
           flexShrink: 0,
@@ -752,7 +804,7 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
               }}
               style={{
                 flex: 1, padding: "7px 0", borderRadius: 4, fontSize: 11, fontWeight: 700,
-                background: "#1e3a5f", border: "1px solid #2563eb",
+                background: "var(--chip-bg-strong)", border: "1px solid var(--onyx-cyan)",
                 color: "#93c5fd", cursor: "pointer",
               }}
             >
@@ -765,8 +817,8 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
               }}
               style={{
                 flex: 1, padding: "7px 0", borderRadius: 4, fontSize: 11, fontWeight: 700,
-                background: "#1d4ed8", border: "1px solid #1e40af",
-                color: "#fff", cursor: "pointer",
+                background: "var(--btn-primary-grad)", border: "none", color: "var(--btn-primary-text)",
+                cursor: "pointer",
               }}
             >
               All scenes

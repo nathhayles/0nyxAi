@@ -14,15 +14,15 @@ export default function Landing() {
 
       <section class="features">
         <div class="feature">
-          <h3>⚡ Fast</h3>
+          <h3>Fast</h3>
           <p>Generate and schedule content in seconds.</p>
         </div>
         <div class="feature">
-          <h3>🎯 Focused</h3>
+          <h3>Focused</h3>
           <p>No bloat. Just the tools you actually need.</p>
         </div>
         <div class="feature">
-          <h3>📈 Scalable</h3>
+          <h3>Scalable</h3>
           <p>Built to grow from solo creators to teams.</p>
         </div>
       </section>

@@ -4,7 +4,7 @@ import { PlayCircle as Youtube, CheckCircle2, XCircle, Loader2, ExternalLink } f
 
 const API = import.meta.env.VITE_API_URL ?? '';
 
-export default function YouTubeConnect({ token }) {
+export default function YouTubeConnect({ token, brandId }) {
   const [status, setStatus]     = useState(null);   // null | 'loading' | 'connected' | 'disconnected'
   const [channel, setChannel]   = useState(null);
   const [working, setWorking]   = useState(false);
@@ -17,12 +17,13 @@ export default function YouTubeConnect({ token }) {
       window.history.replaceState({}, '', window.location.pathname);
     }
     fetchStatus();
-  }, []);
+  }, [brandId]);
 
   async function fetchStatus() {
     setStatus('loading');
     try {
-      const res = await fetch(`${API}/api/youtube/status`, {
+      const qs = brandId ? `?brand_id=${encodeURIComponent(brandId)}` : '';
+      const res = await fetch(`${API}/api/youtube/status${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -38,14 +39,16 @@ export default function YouTubeConnect({ token }) {
   async function handleConnect() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert('Not logged in');
-    window.location.href = `${API}/api/auth/youtube?userId=${user.id}`;
+    const qs = brandId ? `&brand_id=${encodeURIComponent(brandId)}` : '';
+    window.location.href = `${API}/api/auth/youtube?userId=${user.id}${qs}`;
   }
 
   async function handleDisconnect() {
     if (!confirm('Disconnect YouTube? You can reconnect any time.')) return;
     setWorking(true);
     try {
-      await fetch(`${API}/api/auth/youtube/disconnect`, {
+      const qs = brandId ? `?brand_id=${encodeURIComponent(brandId)}` : '';
+      await fetch(`${API}/api/auth/youtube/disconnect${qs}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });

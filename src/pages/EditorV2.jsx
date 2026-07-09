@@ -4,7 +4,7 @@
 import React, {
   useReducer, useState, useEffect, useCallback, useRef, useMemo,
 } from "react";
-import { timelineReducer, makeInitialState, makeClip, importFromScenes } from "../reducers/timelineReducer.js";
+import { timelineReducer, makeInitialState, makeClip, importFromScenes, rangesOverlapDuration } from "../reducers/timelineReducer.js";
 import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import "../styles/editor.css";
@@ -15,11 +15,19 @@ import VisualsPanel     from "../components/VisualsPanel.jsx";
 import StylesPanel      from "../components/StylesPanel.jsx";
 import TextPanel        from "../components/TextPanel.jsx";
 import ElementsPanel    from "../components/ElementsPanel.jsx";
+import TransitionsPanel from "../components/TransitionsPanel.jsx";
 import YouTubePublishModal from "../components/YouTubePublishModal.jsx";
 import AudioPanel from "../components/AudioPanelBoundary.jsx";
+import VoiceOverPanel from "../components/VoiceOverPanel.jsx";
+import SfxPanel from "../components/SfxPanel.jsx";
+import AssetsLibraryPanel from "../components/AssetsLibraryPanel.jsx";
 import AvatarPanel from "../components/AvatarPanel.jsx";
 import BrandingPanel from "../components/BrandingPanel.jsx";
 import HelpTooltip from "../components/HelpTooltip.jsx";
+import ChatBot from "../components/ChatBot.jsx";
+import Toast from "../components/Toast.jsx";
+import { useToast } from "../state/useToast.jsx";
+import { bucketFilesByAssetType } from "../utils/mediaType.js";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -61,18 +69,48 @@ const RATIOS = {
   "9:16": { label: "9:16", css: "9/16",  icon: "▯" },
   "16:9": { label: "16:9", css: "16/9",  icon: "▭" },
   "1:1":  { label: "1:1",  css: "1/1",   icon: "□" },
+  "4:5":  { label: "4:5",  css: "4/5",   icon: "▮" },
+};
+
+const ratioStyles = {
+  "9:16": { width: "auto", height: "100%", aspectRatio: "9/16" },
+  "4:5":  { width: "auto", height: "100%", aspectRatio: "4/5"  },
+  "1:1":  { width: "min(100%,100vh)", height: "min(100%,100vw)", aspectRatio: "1/1" },
+  "16:9": { width: "100%", height: "auto", aspectRatio: "16/9" },
 };
 
 const SIDEBAR_TABS = [
-  { key: "storyboard", label: "Scenes",  icon: "🎬" },
-  { key: "visuals",    label: "Media",   icon: "🖼"  },
-  { key: "audio",      label: "Audio",   icon: "🎵"  },
-  { key: "text",       label: "Text",    icon: "T"   },
-  { key: "elements",   label: "FX",      icon: "✨"  },
-  { key: "styles",     label: "Style",   icon: "🎨"  },
-  { key: "branding",   label: "Brand",   icon: "🏷"  },
-  { key: "avatar",     label: "Avatar",  icon: "🧑"  },
+  { key: "storyboard",  label: "Scenes",      icon: "storyboard"  },
+  { key: "visuals",     label: "Media",        icon: "media"       },
+  { key: "audio",       label: "Audio",        icon: "audio"       },
+  { key: "voiceover",   label: "Voice Over",   icon: "voiceover"   },
+  { key: "sfx",         label: "SFX",          icon: "sfx"         },
+  { key: "library",     label: "Library",      icon: "library"     },
+  { key: "text",        label: "Text",         icon: "text"        },
+  { key: "elements",    label: "FX",           icon: "fx"          },
+  { key: "transitions", label: "Transitions",  icon: "transitions" },
+  { key: "branding",    label: "Brand",        icon: "brand"       },
+  { key: "avatar",      label: "Avatar",       icon: "avatar"      },
 ];
+
+const EDITOR_ICONS = {
+  storyboard:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`,
+  media:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m10 9 5 3-5 3V9z"/></svg>`,
+  audio:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`,
+  voiceover:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>`,
+  sfx:         `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`,
+  library:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`,
+  text:        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>`,
+  fx:          `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3z"/></svg>`,
+  transitions: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14"/><path d="m15 6 6 6-6 6"/><path d="M3 6v12"/></svg>`,
+  brand:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>`,
+  avatar:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`,
+};
+
+const EditorIcon = ({ name, size = 20 }) => (
+  <span style={{ width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    dangerouslySetInnerHTML={{ __html: EDITOR_ICONS[name] || '' }} />
+);
 
 // ── Glyph (SVG icons) ─────────────────────────────────────────────────────────
 function Glyph({ name, size, color, stroke }) {
@@ -92,6 +130,9 @@ function Glyph({ name, size, color, stroke }) {
     scissors:"M6 6a3 3 0 106 0 3 3 0 00-6 0M6 18a3 3 0 106 0 3 3 0 00-6 0M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12",
     mic:     "M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM5 11a7 7 0 0014 0M12 18v3",
     music:   "M9 18V6l11-2v12M6 18a3 3 0 100-6 3 3 0 000 6zM17 16a3 3 0 100-6 3 3 0 000 6z",
+    save:    "M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2zM17 21v-8H7v8M7 3v5h8",
+    grade:   "M12 2a10 10 0 100 20A10 10 0 0012 2zM12 2v20",
+    folder:  "M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z",
   };
   if (name === "play") return React.createElement("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: color, stroke: "none" }, React.createElement("path", { d: "M7 5l12 7-12 7V5z" }));
   if (name === "pause") return React.createElement("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: color, stroke: "none" }, React.createElement("rect", { x: 6, y: 5, width: 4, height: 14, rx: 1 }), React.createElement("rect", { x: 14, y: 5, width: 4, height: 14, rx: 1 }));
@@ -118,8 +159,34 @@ function OnyxMark() {
 }
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
-function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, ratio, onRatioChange, onExport, onShare, onPublish, isPlaying, onPlayPause, activeMode, setActiveMode }) {
+function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, onExport, onShare, onPublish, onSave, onAddScene, toast }) {
   const [editing, setEditing] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const uploadInputRef = useRef(null);
+
+  const handleUploadPicked = async (files) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const headers = await getAuthHeaders();
+      for (const [group, assetType] of bucketFilesByAssetType(Array.from(files))) {
+        if (!group.length) continue;
+        const form = new FormData();
+        for (const file of group) form.append("files", file);
+        form.append("assetType", assetType);
+
+        const res = await fetch("/api/media/upload", { method: "POST", headers, body: form });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error || `Upload failed (${res.status})`);
+      }
+    } catch (e) {
+      toast?.show?.(e?.message || "Upload failed", "error");
+    } finally {
+      setUploading(false);
+      if (uploadInputRef.current) uploadInputRef.current.value = "";
+    }
+  };
+
   return (
     <div style={{
       height: 52, flexShrink: 0, display: "flex", alignItems: "center",
@@ -129,7 +196,7 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, ratio, onR
       backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
       position: "relative", zIndex: 100,
     }}>
-      <button onClick={() => window.history.back()} style={{ background: "none", border: "none", color: "var(--onyx-text-dim,rgba(241,245,251,0.62))", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex" }}>
+      <button onClick={() => { window.location.href = '/dashboard'; }} style={{ background: "none", border: "none", color: "var(--onyx-text-dim,rgba(241,245,251,0.62))", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex" }}>
         <Glyph name="arrowL" size={15}/>
       </button>
       <OnyxMark/>
@@ -142,30 +209,37 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, ratio, onR
             style={{ background: "var(--input-bg,rgba(0,0,0,0.35))", border: "0.5px solid var(--onyx-cyan,#4dd0ff)", borderRadius: 5, padding: "3px 8px", fontSize: 13, fontWeight: 600, color: "var(--onyx-text,#f1f5fb)", fontFamily: "inherit", outline: "none", minWidth: 160 }}/>
         : <span onClick={() => setEditing(true)} style={{ fontSize: 13, fontWeight: 600, cursor: "text", color: "var(--onyx-text,#f1f5fb)" }}>{title}</span>
       }
-      {saved && <span style={{ fontSize: 12, fontWeight: 600, color: saved.startsWith("✗") ? "#ff6b6b" : saved.startsWith("✓") || saved === "Saved" ? "#4dd0ff" : "rgba(241,245,251,0.75)", background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 9px", whiteSpace: "nowrap" }}>{saved}</span>}
+      {saved && <span style={{ fontSize: 12, fontWeight: 600, color: saved.startsWith("✗") ? "#ff6b6b" : saved.startsWith("✓") || saved === "Saved" ? "#4dd0ff" : "var(--onyx-text-dim)", background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 9px", whiteSpace: "nowrap" }}>{saved}</span>}
+
+      {/* Add Scene */}
+      <button onClick={onAddScene} style={{ background: "linear-gradient(180deg,#5edcff,#2db8ee)", border: "0.5px solid rgba(255,255,255,0.45)", borderRadius: 7, padding: "5px 11px", cursor: "pointer", color: theme === "opal" ? "#ffffff" : "#06121b", fontWeight: 600, fontSize: 11.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5, boxShadow: "0 1px 0 rgba(255,255,255,0.4) inset,0 3px 10px rgba(77,208,255,0.25)" }}>
+        + Add Scene
+      </button>
+
+      {/* Upload */}
+      <input
+        ref={uploadInputRef}
+        type="file"
+        multiple
+        accept=".jpg,.jpeg,.png,.apng,.mp4,.mp3,.wav,image/jpeg,image/png,image/apng,video/mp4,audio/mpeg,audio/wav"
+        style={{ display: "none" }}
+        onChange={(e) => handleUploadPicked(e.target.files)}
+      />
+      <button onClick={() => uploadInputRef.current?.click()} disabled={uploading} style={{ background: "linear-gradient(180deg,#5edcff,#2db8ee)", border: "0.5px solid rgba(255,255,255,0.45)", borderRadius: 7, padding: "5px 11px", cursor: uploading ? "default" : "pointer", opacity: uploading ? 0.6 : 1, color: theme === "opal" ? "#ffffff" : "#06121b", fontWeight: 600, fontSize: 11.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5, boxShadow: "0 1px 0 rgba(255,255,255,0.4) inset,0 3px 10px rgba(77,208,255,0.25)" }}>
+        {uploading ? "Uploading…" : "Upload"}
+      </button>
 
       <div style={{ flex: 1 }}/>
-
-      {/* Mode tabs */}
-      <div style={{ display: "flex", gap: 1, padding: 3, background: "var(--chip-bg-low,rgba(255,255,255,0.04))", borderRadius: 8 }}>
-        {["Edit","Color","Captions"].map(m => (
-          <button key={m} onClick={() => setActiveMode(m)} style={{ padding: "4px 10px", fontSize: 11, borderRadius: 5, border: "none", cursor: "pointer", background: activeMode === m ? "var(--chip-bg-strong,rgba(255,255,255,0.08))" : "transparent", color: activeMode === m ? "var(--onyx-text,#f1f5fb)" : "var(--onyx-text-dim,rgba(241,245,251,0.62))", fontFamily: "inherit" }}>{m}</button>
-        ))}
-      </div>
-      <div style={{ width: 0.5, height: 20, background: "var(--onyx-hairline-strong,rgba(255,255,255,0.14))" }}/>
-
-      {/* Ratio */}
-      <div style={{ display: "flex", gap: 1, padding: 3, background: "var(--chip-bg-low,rgba(255,255,255,0.04))", borderRadius: 8 }}>
-        {Object.entries(RATIOS).map(([k, r]) => (
-          <button key={k} onClick={() => onRatioChange(k)} style={{ padding: "4px 9px", fontSize: 11, borderRadius: 5, border: "none", cursor: "pointer", background: ratio === k ? "var(--chip-bg-strong,rgba(255,255,255,0.08))" : "transparent", color: ratio === k ? "var(--onyx-cyan,#4dd0ff)" : "var(--onyx-text-dim,rgba(241,245,251,0.62))", fontFamily: "inherit" }}>{r.icon} {r.label}</button>
-        ))}
-      </div>
-      <div style={{ width: 0.5, height: 20, background: "var(--onyx-hairline-strong,rgba(255,255,255,0.14))" }}/>
 
       {/* Theme toggle */}
       <button onClick={onThemeToggle} style={{ background: "var(--chip-bg,rgba(255,255,255,0.06))", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: "var(--onyx-text-dim)", fontSize: 11, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
         <Glyph name={theme === "onyx" ? "sun" : "moon"} size={12} color="var(--onyx-cyan,#4dd0ff)"/>
         {theme === "onyx" ? "Opal" : "Onyx"}
+      </button>
+
+      {/* Save */}
+      <button onClick={onSave} style={{ background: "var(--chip-bg,rgba(255,255,255,0.06))", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", borderRadius: 8, padding: "6px 13px", cursor: "pointer", color: "var(--onyx-text,#f1f5fb)", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
+        <Glyph name="save" size={13} color="var(--onyx-cyan,#4dd0ff)"/> Save
       </button>
 
       {/* Share */}
@@ -179,8 +253,8 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, ratio, onR
       </button>
 
       {/* Export */}
-      <button onClick={onExport} style={{ background: "linear-gradient(180deg,#5edcff,#2db8ee)", border: "0.5px solid rgba(255,255,255,0.45)", borderRadius: 8, padding: "6px 14px", cursor: "pointer", color: "#06121b", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 1px 0 rgba(255,255,255,0.4) inset,0 4px 14px rgba(77,208,255,0.35)" }}>
-        <Glyph name="download" size={13} color="#06121b"/> Export
+      <button onClick={onExport} style={{ background: "linear-gradient(180deg,#5edcff,#2db8ee)", border: "0.5px solid rgba(255,255,255,0.45)", borderRadius: 8, padding: "6px 14px", cursor: "pointer", color: theme === "opal" ? "#ffffff" : "#06121b", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 1px 0 rgba(255,255,255,0.4) inset,0 4px 14px rgba(77,208,255,0.35)" }}>
+        <Glyph name="download" size={13} color={theme === "opal" ? "#ffffff" : "#06121b"}/> Export
       </button>
       <HelpTooltip topic="export" />
     </div>
@@ -193,21 +267,31 @@ function Sidebar({ open, activeTab, setActiveTab, children }) {
     <div style={{ width: open ? 320 : 48, flexShrink: 0, borderRight: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", background: "var(--panel-bg,rgba(6,9,15,0.5))", display: "flex", flexDirection: "column", transition: "width 0.2s ease", overflow: "hidden", position: "relative", zIndex: 10 }}>
       {/* Icon rail */}
       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 48, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 8, gap: 2, borderRight: open ? "0.5px solid var(--onyx-hairline,rgba(255,255,255,0.07))" : "none" }}>
-        {SIDEBAR_TABS.map(t => (
+        {SIDEBAR_TABS.map((t, idx) => (
           <button key={t.key} onClick={() => setActiveTab(t.key)} title={t.label}
             style={{ width: 36, height: 36, borderRadius: 8, border: "none", cursor: "pointer", background: activeTab === t.key ? "var(--chip-bg-strong,rgba(255,255,255,0.08))" : "transparent", color: activeTab === t.key ? "var(--onyx-cyan,#4dd0ff)" : "var(--onyx-text-faint,rgba(241,245,251,0.40))", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 14 }}>
-            {t.icon}
-            <span style={{ fontSize: 7.5, letterSpacing: "0.04em", textTransform: "uppercase", color: "inherit" }}>{t.label}</span>
+            <EditorIcon name={t.icon} />
           </button>
         ))}
       </div>
-      {open && <div style={{ marginLeft: 48, flex: 1, overflowY: "auto", overflowX: "hidden" }}>{children}</div>}
+      {open && <div style={{ marginLeft: 48, width: "calc(100% - 48px)", overflowY: "auto", overflowX: "hidden" }}>{children}</div>}
     </div>
   );
 }
 
 // ── Preview transition helper ────────────────────────────────────────────────
 function applyTransition(type, cur, nxt, onDone) {
+  const typeMap = {
+    crossfade: 'fade',
+    slideLeft: 'slide', slideRight: 'slide',
+    zoomIn: 'zoom', zoomOut: 'zoom',
+    dissolve: 'fade', blur: 'fade', flash: 'fade',
+    spin: 'zoom', push: 'slide', wipe: 'slide',
+    'slide-left': 'slide', 'slide-right': 'slide',
+    'zoom-in': 'zoom', 'zoom-out': 'zoom',
+  };
+  type = typeMap[type] || type;
+
   const DUR = 0.5;
   nxt.style.visibility = "visible";
   nxt.style.transform = "";
@@ -250,7 +334,8 @@ function applyTransition(type, cur, nxt, onDone) {
     cur.style.transition = "";
     requestAnimationFrame(() => {
       cur.style.transition = `transform ${DUR}s ease, opacity ${DUR}s ease`;
-      cur.style.transform = "scale(1.15)";
+      const scaleOut = type === 'zoomOut' ? 0.85 : 1.15;
+      cur.style.transform = `scale(${scaleOut})`;
       cur.style.opacity = "0";
       nxt.style.transition = `opacity ${DUR}s ease`;
       nxt.style.opacity = "1";
@@ -283,7 +368,7 @@ function applyTransition(type, cur, nxt, onDone) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, selectedFxId, setSelectedFxId, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, theme }) {
   const activeIdx = scenes.findIndex(s => s.id === activeScene);
   const scene = scenes[activeIdx >= 0 ? activeIdx : 0] || null;
 
@@ -301,14 +386,188 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
   const cssRatio = RATIOS[ratio]?.css || "9/16";
   const progress = totalSec > 0 ? (playhead / totalSec) * 100 : 0;
 
+  // ── FX interactive state ──────────────────────────────────────────────────
+  const frameRef     = useRef(null);
+  const fxDragRef    = useRef(null); // { type:"move"|"resize", clipId, startX, startY, startXPct, startYPct, startSizePct }
+  const avatarVideoRef    = useRef(null);
+  const avatarCanvasRef   = useRef(null);
+  const avatarOffscreenRef = useRef(null);
+  const avatarRafRef      = useRef(null);
+
+  // Chroma-key (green-screen removal) applied per-pixel to a downscaled offscreen
+  // canvas, then composited onto the visible canvas with object-fit math — this is
+  // what makes the live preview match ffmpeg's colorkey/overlay export.
+  function chromaKeyFrame(imageData, threshold = 90, smoothing = 30) {
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+      const diff = g - Math.max(r, b);
+      if (diff > threshold) {
+        data[i + 3] = 0;
+      } else if (diff > threshold - smoothing) {
+        const alpha = 1 - (diff - (threshold - smoothing)) / smoothing;
+        data[i + 3] = Math.round(data[i + 3] * alpha);
+        data[i + 1] = Math.min(g, (r + b) / 2); // despill
+      }
+    }
+  }
+
+  function drawAvatarFrame(fit) {
+    const video  = avatarVideoRef.current;
+    const canvas = avatarCanvasRef.current;
+    if (!video || !canvas || video.readyState < 2 || !video.videoWidth) return;
+
+    if (!avatarOffscreenRef.current) avatarOffscreenRef.current = document.createElement("canvas");
+    const off = avatarOffscreenRef.current;
+
+    const maxDim = 480;
+    const scale = Math.min(1, maxDim / Math.max(video.videoWidth, video.videoHeight));
+    const ow = Math.max(1, Math.round(video.videoWidth * scale));
+    const oh = Math.max(1, Math.round(video.videoHeight * scale));
+    if (off.width !== ow || off.height !== oh) { off.width = ow; off.height = oh; }
+    const offCtx = off.getContext("2d", { willReadFrequently: true });
+    offCtx.drawImage(video, 0, 0, ow, oh);
+
+    // If the source lacks CORS headers, getImageData throws (tainted canvas) —
+    // fall back to the un-keyed frame rather than breaking the draw loop.
+    try {
+      const imageData = offCtx.getImageData(0, 0, ow, oh);
+      chromaKeyFrame(imageData);
+      offCtx.putImageData(imageData, 0, 0);
+    } catch (_e) {}
+
+    const rect = canvas.getBoundingClientRect();
+    const dpr  = window.devicePixelRatio || 1;
+    const cw   = Math.max(1, Math.round(rect.width  * dpr));
+    const ch   = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let sx = 0, sy = 0, sw = ow, sh = oh, dx = 0, dy = 0, dw = canvas.width, dh = canvas.height;
+    if (fit === "cover") {
+      const scaleCover = Math.max(canvas.width / ow, canvas.height / oh);
+      sw = canvas.width / scaleCover;
+      sh = canvas.height / scaleCover;
+      sx = (ow - sw) / 2;
+      sy = (oh - sh) / 2;
+    } else {
+      const scaleContain = Math.min(canvas.width / ow, canvas.height / oh);
+      dw = ow * scaleContain;
+      dh = oh * scaleContain;
+      dx = (canvas.width - dw) / 2;
+      dy = (canvas.height - dh) / 2;
+    }
+    ctx.drawImage(off, sx, sy, sw, sh, dx, dy, dw, dh);
+  }
+
+  function fxGridToPercent(pos) {
+    const [v, h] = (pos || "middle-center").split("-");
+    return {
+      x: h === "left" ? 15 : h === "right" ? 85 : 50,
+      y: v === "top"  ? 15 : v === "bottom" ? 85 : 50,
+    };
+  }
+
+  function fxSizePct(clip) {
+    if (clip.sizePct != null) return clip.sizePct;
+    const canvasW = frameRef.current?.getBoundingClientRect().width || 300;
+    const px = clip.elementType === "emoji" ? (clip.size || 48) : (clip.size || 80);
+    return Math.max(3, (px / canvasW) * 100);
+  }
+
+  function handleFxMouseMove(e) {
+    if (!fxDragRef.current || !frameRef.current) return;
+    const { type, clipId, startX, startY, startXPct, startYPct, startSizePct } = fxDragRef.current;
+    const rect = frameRef.current.getBoundingClientRect();
+    const dx = ((e.clientX - startX) / rect.width)  * 100;
+    const dy = ((e.clientY - startY) / rect.height) * 100;
+    if (type === "move") {
+      onFxUpdate?.(clipId, {
+        xPct: Math.max(3, Math.min(97, startXPct + dx)),
+        yPct: Math.max(3, Math.min(97, startYPct + dy)),
+      });
+    } else {
+      const delta = (Math.abs(dx) > Math.abs(dy) ? dx : dy);
+      const newSizePct = Math.max(3, Math.min(80, startSizePct + delta));
+      fxDragRef.current.currentSizePct = newSizePct;
+      onFxUpdate?.(clipId, { sizePct: newSizePct });
+    }
+  }
+
+  function handleFxMouseUp() {
+    if (fxDragRef.current) {
+      const { type, clipId, startXPct, startYPct, startSizePct, currentSizePct } = fxDragRef.current;
+      if (type === "resize") {
+        onFxUpdate?.(clipId, {
+          sizePct: currentSizePct ?? startSizePct,
+          xPct: startXPct,
+          yPct: startYPct,
+        });
+      }
+      onFxDragEnd?.();
+    }
+    fxDragRef.current = null;
+  }
+
+  // ── Avatar video sync ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const v = avatarVideoRef.current;
+    if (!v) return;
+    if (isPlaying) v.play().catch(() => {});
+    else v.pause();
+  }, [isPlaying]);
+
+  useEffect(() => {
+    const v = avatarVideoRef.current;
+    if (!v) return;
+    v.currentTime = 0;
+    if (isPlaying) v.play().catch(() => {});
+  }, [captionScene?.avatar_video_url]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the canvas's CSS aspect-ratio matched to the avatar video's native
+  // dimensions so "contain" placements (bottom-left/right/center) size correctly.
+  useEffect(() => {
+    const video  = avatarVideoRef.current;
+    const canvas = avatarCanvasRef.current;
+    if (!video || !canvas) return;
+    function setAspect() {
+      if (video.videoWidth && video.videoHeight) {
+        canvas.style.aspectRatio = `${video.videoWidth} / ${video.videoHeight}`;
+      }
+    }
+    video.addEventListener("loadedmetadata", setAspect);
+    setAspect();
+    return () => video.removeEventListener("loadedmetadata", setAspect);
+  }, [captionScene?.avatar_video_url]);
+
+  // RAF loop: continuously draws the chroma-keyed avatar frame into the canvas.
+  useEffect(() => {
+    if (!captionScene?.avatar_video_url) return;
+    const isSide = captionScene.avatar_position === "left" || captionScene.avatar_position === "right";
+    const fit = isSide ? "cover" : "contain";
+
+    function loop() {
+      drawAvatarFrame(fit);
+      avatarRafRef.current = requestAnimationFrame(loop);
+    }
+    avatarRafRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (avatarRafRef.current) cancelAnimationFrame(avatarRafRef.current);
+    };
+  }, [captionScene?.avatar_video_url, captionScene?.avatar_position]);
+
   return (
     <div style={{
       flex: 1, minWidth: 0, display: "flex", flexDirection: "column",
-      background: "#010306", overflow: "hidden", position: "relative",
+      background: theme === "opal" ? "linear-gradient(180deg,#e8f4fb,#f5faff,#eaf1f8)" : "#010306",
+      overflow: "hidden", position: "relative",
     }}>
       {/* Ambient glow */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
-        background: "radial-gradient(ellipse 55% 55% at 50% 42%, rgba(77,208,255,0.05), transparent 70%)" }}/>
+        background: theme === "opal"
+          ? "radial-gradient(ellipse 55% 55% at 50% 42%, rgba(77,208,255,0.08), transparent 70%)"
+          : "radial-gradient(ellipse 55% 55% at 50% 42%, rgba(77,208,255,0.05), transparent 70%)" }}/>
 
       {/* Frame area — takes all space above dock */}
       <div style={{
@@ -317,16 +576,21 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
         padding: "12px 24px 8px", position: "relative", zIndex: 1,
       }}>
         {/* Preview frame — constrained by both axes */}
-        <div style={{
-          aspectRatio: cssRatio,
-          maxWidth: "100%",
-          maxHeight: "100%",
-          width: ratio === "9:16" ? "auto" : "100%",
-          height: ratio === "9:16" ? "100%" : "auto",
-          flexShrink: 0, position: "relative", borderRadius: 12, overflow: "hidden",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.75), 0 0 0 0.5px rgba(255,255,255,0.07)",
-          background: "linear-gradient(135deg,#0d1f38,#1a3260,#0a1628,#040d1a)",
-        }}>
+        <div
+          id="onyx-preview-frame"
+          ref={frameRef}
+          onMouseMove={handleFxMouseMove}
+          onMouseUp={handleFxMouseUp}
+          onMouseLeave={handleFxMouseUp}
+          onClick={() => setSelectedFxId(null)}
+          style={{
+            ...(ratioStyles[ratio] || ratioStyles["9:16"]),
+            maxWidth: "100%",
+            maxHeight: "100%",
+            flexShrink: 0, position: "relative", borderRadius: 12, overflow: "hidden",
+            boxShadow: "0 24px 64px rgba(0,0,0,0.75), 0 0 0 0.5px rgba(255,255,255,0.07)",
+            background: "linear-gradient(135deg,#0d1f38,#1a3260,#0a1628,#040d1a)",
+          }}>
           {/* Placeholder — always behind video, visible through transparent unsourced video */}
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, zIndex: 0 }}>
                 <div style={{ opacity: 0.15 }}><Glyph name="film" size={44} color="#4dd0ff"/></div>
@@ -334,64 +598,323 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                   {scenes.length ? "Scene " + ((activeIdx >= 0 ? activeIdx : 0) + 1) + " of " + scenes.length : "No scenes yet"}
                 </span>
               </div>
-          {/* Dual-buffer: two stacked videos; tick/scrub effects manage src entirely */}
-          <video className="v2-preview-video-a"
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 2, opacity: 1, visibility: "hidden" }} playsInline/>
-          <video className="v2-preview-video-b"
-              style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 2, opacity: 0, visibility: "hidden" }} playsInline/>
+          {/* Dual-buffer with color grading — filter wrapper keeps captions/FX unaffected */}
+          {(() => {
+            const br  = captionScene?.brightness ?? 50;
+            const con = captionScene?.contrast   ?? 50;
+            const sat = captionScene?.saturation ?? 50;
+            const filter = (br === 50 && con === 50 && sat === 50)
+              ? "none"
+              : `brightness(${br * 2}%) contrast(${con * 2}%) saturate(${sat * 2}%)`;
+            return (
+              <div style={{ position: "absolute", inset: 0, zIndex: 2, filter }}>
+                <video className="v2-preview-video-a"
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 2, visibility: "hidden" }} playsInline/>
+                <video className="v2-preview-video-b"
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 2, visibility: "hidden" }} playsInline/>
+                {/* Upload overlay elements — sit above both buffer slots */}
+                <img
+                  ref={uploadImgRef}
+                  className="v2-preview-upload-img"
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', zIndex: 10, display: 'none', background: 'transparent' }}
+                  alt=""
+                />
+                <video
+                  ref={uploadVideoRef}
+                  className="v2-preview-upload-video"
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 10, display: 'none' }}
+                  playsInline muted
+                />
+                {/* B-roll upload overlays — above A-roll overlays */}
+                <img
+                  ref={brollImgRef}
+                  className="v2-preview-broll-img"
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', zIndex: 11, display: 'none', background: 'transparent' }}
+                  alt=""
+                />
+                <video
+                  ref={brollVideoRef}
+                  className="v2-preview-broll-video"
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 11, display: 'none' }}
+                  playsInline muted
+                />
+                {(captionScene?.mediaType === 'image' ||
+                  (!captionScene?.mediaType && captionScene?.mediaUrl &&
+                   !/\.(mp4|webm|mov|m4v)(\?|$)/i.test(captionScene.mediaUrl))) && captionScene?.mediaUrl && (
+                  <img src={captionScene.mediaUrl.startsWith('http') ? captionScene.mediaUrl : `https://onyx-reelz.com${captionScene.mediaUrl}`} style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, zIndex: 4 }} alt="" />
+                )}
+              </div>
+            );
+          })()}
           {(() => {
             if (!captionsVisible || !captionScene?.narration || captionScene?.captionsEnabled === false) return null;
-            const cColor = scene.caption_color || brand?.caption_color || "#ffffff";
-            const cBg    = scene.caption_bg_color || brand?.caption_bg_color || "rgba(0,0,0,0.82)";
-            const cFont  = scene.caption_font || brand?.caption_font || "sans-serif";
-            const cSize  = Number(scene.caption_size || brand?.caption_size || (ratio === "9:16" ? 18 : 15));
-            const cPos   = scene.caption_position || brand?.caption_position || "bottom";
+            const style = captionScene.caption_style || "normal";
+            // Caption shape (style) and caption color are independent choices — brand color
+            // is the fallback whenever the scene hasn't set its own explicit color, regardless
+            // of which caption style/shape is active.
+            const userColor = captionScene.caption_color || brand?.caption_color || null;
+            const userBg    = captionScene.caption_bg_color || brand?.caption_bg_color || null;
+            const cFont  = captionScene.caption_font || brand?.caption_font || "sans-serif";
+            const cSize  = Number(captionScene.caption_size || brand?.caption_size || (ratio === "9:16" ? 18 : 15));
+            const cPos   = captionScene.caption_position || brand?.caption_position || "bottom";
             const posStyle = cPos === "top"
-              ? { top: 14 }
-              : cPos === "center"
+              ? { top: 0 }
+              : (cPos === "middle" || cPos === "center")
               ? { top: "50%", transform: "translateY(-50%)" }
-              : { bottom: 14 };
+              : { bottom: 0 };
+
+            // Visual defaults approximating each burnCaptions() branch in render.js —
+            // not pixel-perfect, just enough that each style reads as distinct in the editor.
+            const STYLE_DEFAULTS = {
+              normal:     { color: "#ffffff", bg: "rgba(0,0,0,0.82)", weight: 700 },
+              solid:      { color: "#ffffff", bg: "rgba(0,0,0,0.85)", weight: 700 },
+              clean:      { color: "#ffffff", bg: "transparent",      weight: 600 },
+              bold:       { color: "#ffffff", bg: "rgba(0,0,0,0.95)", weight: 900, fontScale: 1.15 },
+              outline:    { color: "#ffffff", bg: "transparent",      weight: 800, stroke: true },
+              glass:      { color: "#ffffff", bg: "rgba(255,255,255,0.15)", weight: 600, radius: 8, blur: true, border: "1px solid rgba(255,255,255,0.3)" },
+              dark:       { color: "#ffffff", bg: "rgba(0,0,0,1)",    weight: 800, border: "2px solid rgba(255,255,255,0.2)", forceWhite: true },
+              underline:  { color: "#ffffff", bg: "transparent",      weight: 600, underline: true },
+              soft:       { color: "#f0ece1", bg: "transparent",      weight: 500, softShadow: true },
+              crisp:      { color: "#ffffff", bg: "rgba(0,0,0,0.92)", weight: 600 },
+              neon:       { color: "#a855f7", bg: "transparent",      weight: 800, neon: true },
+              gradient:   { color: "#ffffff", bg: "transparent",      weight: 800, gradient: true },
+              karaoke:    { color: "#ffffff", bg: "rgba(0,0,0,0.9)",  weight: 800 },
+              tiktok:     { color: "#ffffff", bg: "transparent",      weight: 800, tiktokOutline: true, forceWhite: true },
+              bubble:     { color: "#ffffff", bg: "rgba(0,0,0,0.75)", weight: 800, radius: 999, border: "3px solid #ffffff" },
+              typewriter: { color: "#ffffff", bg: "transparent",      weight: 500, mono: true },
+            };
+            const sd = STYLE_DEFAULTS[style] || STYLE_DEFAULTS.normal;
+            const cColor = sd.forceWhite ? "#ffffff" : (userColor || sd.color);
+            const cBg    = sd.bg === "transparent" ? "transparent" : (userBg || sd.bg);
+            const hasBg  = cBg !== "transparent";
+
+            const textShadow = sd.neon
+              ? `0 0 4px ${cColor}, 0 0 10px ${cColor}, 0 0 18px ${cColor}, 0 0 30px ${cColor}`
+              : sd.softShadow
+              ? "0 1px 2px rgba(0,0,0,0.35)"
+              : sd.tiktokOutline
+              ? "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 2px 4px rgba(0,0,0,0.6)"
+              : "0 1px 3px rgba(0,0,0,0.45)";
+
+            const textStyle = {
+              display: "inline-block",
+              maxWidth: "92%",
+              textAlign: "center",
+              fontWeight: sd.weight,
+              fontSize: cSize * (sd.fontScale || 1),
+              color: sd.gradient ? "transparent" : cColor,
+              fontFamily: sd.mono ? "'Courier New', monospace" : cFont,
+              background: cBg,
+              borderRadius: sd.radius ?? 0,
+              padding: hasBg ? "6px 14px" : "2px 6px",
+              lineHeight: 1.4,
+              border: sd.border || "none",
+              backdropFilter: sd.blur ? "blur(6px)" : "none",
+              WebkitBackdropFilter: sd.blur ? "blur(6px)" : "none",
+              textDecoration: sd.underline ? "underline" : "none",
+              textDecorationThickness: sd.underline ? "3px" : undefined,
+              textUnderlineOffset: sd.underline ? "4px" : undefined,
+              textShadow,
+              WebkitTextStroke: sd.stroke ? "2px #000" : (sd.tiktokOutline ? "1px #000" : undefined),
+              backgroundImage: sd.gradient ? "linear-gradient(90deg, #ff6b6b, #ffdd00, #4dd0ff)" : undefined,
+              WebkitBackgroundClip: sd.gradient ? "text" : undefined,
+              backgroundClip: sd.gradient ? "text" : undefined,
+            };
+
             return (
               <div style={{
                 position: "absolute", ...posStyle,
-                left: 12, right: 12,
-                textAlign: "center", fontWeight: 700,
-                fontSize: cSize, color: cColor,
-                fontFamily: cFont,
-                background: cBg,
-                borderRadius: 6, padding: "6px 10px",
-                lineHeight: 1.4, pointerEvents: "none", zIndex: 10,
+                left: 0, right: 0,
+                width: "100%",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                pointerEvents: "none", zIndex: 10,
               }}>
-                {(() => {
-                  const timings = captionScene.wordTimings;
-                  if (!timings?.length) return captionScene.narration;
-                  const videoTrack = tracks?.find(t => t.key === "video");
-                  const activeClip = videoTrack?.clips?.find(c =>
-                    playhead >= c.startTime && playhead < c.startTime + (c.trimEnd - c.trimStart)
-                  );
-                  const offset = playhead - (activeClip?.startTime ?? 0);
-                  const highlightColor = brand?.caption_highlight_color || '#ffe566';
-
-                  // Last word whose start time has passed — fills gaps, no unlit frames
-                  const activeIdx = timings.reduce((best, w, i) =>
-                    offset >= w.start ? i : best, -1);
-                  const lastWord = timings[timings.length - 1];
-                  const pastEnd = offset > (lastWord?.end ?? Infinity);
-
-                  return timings.map((w, i) => {
-                    const isActive = !pastEnd && i === activeIdx;
-                    return (
-                      <span key={i} style={{
-                        color: isActive ? highlightColor : 'inherit',
-                        fontWeight: isActive ? 700 : 'inherit',
-                        transition: 'color 0.08s ease',
-                        marginRight: '0.25em',
-                        display: 'inline-block',
-                      }}>{w.word}</span>
+                <div style={textStyle}>
+                  {(() => {
+                    const timings = captionScene.word_timestamps;
+                    if (!timings?.length || style !== 'karaoke') return captionScene.narration;
+                    const videoTrack = tracks?.find(t => t.key === "video");
+                    const activeClip = videoTrack?.clips?.find(c =>
+                      playhead >= c.startTime && playhead < c.startTime + (c.trimEnd - c.trimStart)
                     );
-                  });
-                })()}
+                    const offset = playhead - (activeClip?.startTime ?? 0);
+                    const highlightColor = captionScene.caption_highlight_color || brand?.caption_highlight_color || '#ffe566';
+
+                    // Last word whose start time has passed — fills gaps, no unlit frames
+                    const activeIdx = timings.reduce((best, w, i) =>
+                      offset >= w.start ? i : best, -1);
+                    const lastWord = timings[timings.length - 1];
+                    const pastEnd = offset > (lastWord?.end ?? Infinity);
+
+                    return timings.map((w, i) => {
+                      const isActive = !pastEnd && i === activeIdx;
+                      return (
+                        <span key={i} style={{
+                          color: isActive ? highlightColor : 'inherit',
+                          fontWeight: isActive ? 700 : 'inherit',
+                          transition: 'color 0.08s ease',
+                          marginRight: '0.25em',
+                          display: 'inline-block',
+                        }}>{w.word}</span>
+                      );
+                    });
+                  })()}
+                </div>
+                {style === "typewriter" && (
+                  <div style={{
+                    marginTop: 4, fontSize: 10, color: "rgba(241,245,251,0.5)",
+                    background: "rgba(0,0,0,0.4)", padding: "2px 8px", borderRadius: 4,
+                    textAlign: "center",
+                  }}>
+                    Animation visible in export only
+                  </div>
+                )}
               </div>
+            );
+          })()}
+          {/* Text overlay boxes */}
+          {(scene?.text_boxes || []).map(tb => {
+            const posStyle = {
+              top: tb.position?.startsWith("top") ? 12 : tb.position?.startsWith("middle") ? "50%" : "auto",
+              bottom: tb.position?.startsWith("bottom") ? 12 : "auto",
+              left: tb.position?.endsWith("left") ? 12 : tb.position?.endsWith("center") ? "50%" : "auto",
+              right: tb.position?.endsWith("right") ? 12 : "auto",
+              transform: tb.position?.includes("center") ? "translate(-50%,-50%)" : tb.position?.startsWith("middle") ? "translateY(-50%)" : "none",
+            };
+            return (
+              <div key={tb.id} style={{
+                position: "absolute", ...posStyle,
+                fontFamily: tb.font || "sans-serif",
+                fontSize: tb.fontSize || 24,
+                color: tb.color || "#ffffff",
+                background: tb.bgColor || "transparent",
+                opacity: (tb.opacity ?? 100) / 100,
+                textAlign: tb.align || "center",
+                borderRadius: 4, padding: "4px 8px",
+                pointerEvents: "none", zIndex: 11,
+                lineHeight: 1.3, whiteSpace: "pre-wrap",
+                maxWidth: "90%",
+              }}>
+                {tb.text || ""}
+              </div>
+            );
+          })}
+          {(() => {
+            const fxTrack = tracks?.find(t => t.key === "fx");
+            if (!fxTrack?.clips?.length) return null;
+            const activeClips = fxTrack.clips.filter(c =>
+              playhead >= (c.startTime||0) && playhead < (c.startTime||0)+((c.trimEnd||c.duration||3)-(c.trimStart||0))
+            );
+            if (!activeClips.length) return null;
+
+            return activeClips.map(clip => {
+              const { x: gx, y: gy } = fxGridToPercent(clip.position);
+              const xPct     = clip.xPct      ?? gx;
+              const yPct     = clip.yPct      ?? gy;
+              const sizePct  = fxSizePct(clip);
+              const canvasW  = frameRef.current?.getBoundingClientRect().width  || 300;
+              const canvasH  = frameRef.current?.getBoundingClientRect().height || 500;
+              const pxSize   = (sizePct / 100) * canvasW;
+              const isSelected = clip.id === selectedFxId;
+
+              const animClass = clip.animation
+                ? `text-anim-${clip.animation.replace(/\s+/g, '-').toLowerCase()}`
+                : '';
+              const inner = clip.elementType === "emoji"
+                ? <div style={{ fontSize: pxSize, lineHeight: 1 }}>{clip.content}</div>
+                : clip.elementType === "text"
+                ? <div className={animClass} style={{ fontSize: pxSize, color: clip.color || brand?.primary_color || "#fff", fontWeight: clip.fontWeight || "bold", textShadow: "0 2px 8px rgba(0,0,0,0.8)", pointerEvents: "none", whiteSpace: "pre-wrap", textAlign: "center" }}>{clip.content}</div>
+                : <img src={clip.content} style={{ width: pxSize, height: "auto", display: "block" }} alt="" draggable={false}/>;
+
+              const corners = isSelected
+                ? [["nw",-1,-1],["ne",1,-1],["se",1,1],["sw",-1,1]].map(([k,sx,sy]) => (
+                    <div key={k}
+                      onMouseDown={e => {
+                        e.stopPropagation();
+                        fxDragRef.current = { type:"resize", clipId:clip.id, startX:e.clientX, startY:e.clientY, startXPct:xPct, startYPct:yPct, startSizePct:sizePct };
+                      }}
+                      style={{
+                        position:"absolute", width:10, height:10,
+                        background:"#4dd0ff", borderRadius:2, zIndex:21,
+                        cursor: sx===sy ? "nwse-resize" : "nesw-resize",
+                        ...(sy < 0 ? {top:-5} : {bottom:-5}),
+                        ...(sx < 0 ? {left:-5} : {right:-5}),
+                      }}/>
+                  ))
+                : null;
+
+              return (
+                <div key={clip.id}
+                  onClick={e => { e.stopPropagation(); setSelectedFxId(clip.id); }}
+                  onMouseDown={e => {
+                    e.stopPropagation();
+                    setSelectedFxId(clip.id);
+                    fxDragRef.current = { type:"move", clipId:clip.id, startX:e.clientX, startY:e.clientY, startXPct:xPct, startYPct:yPct, startSizePct:sizePct };
+                  }}
+                  style={{
+                    position:"absolute",
+                    left:`${xPct}%`, top:`${yPct}%`,
+                    transform:"translate(-50%,-50%)",
+                    zIndex:10, cursor:"move", userSelect:"none",
+                    opacity:(clip.opacity||100)/100,
+                    outline: isSelected ? "2px solid #4dd0ff" : "2px solid transparent",
+                    outlineOffset:3, borderRadius:4,
+                  }}
+                >
+                  {inner}
+                  {corners}
+                </div>
+              );
+            });
+          })()}
+          {/* Logo overlay */}
+          {brand?.logo_url && (() => {
+            const pos = brand.logo_position || "top-left";
+            const sz  = { small: 40, medium: 64, large: 96 }[brand.logo_size] || 64;
+            const [v, h] = pos.split("-");
+            return (
+              <img
+                src={brand.logo_url} alt="" draggable={false}
+                onError={e => { e.target.style.display = "none"; }}
+                style={{
+                  position: "absolute", zIndex: 12, pointerEvents: "none",
+                  width: sz, height: "auto", objectFit: "contain",
+                  ...(v === "top" ? { top: 12 } : { bottom: 20 }),
+                  ...(h === "left"   ? { left: 12 }
+                    : h === "right"  ? { right: 12 }
+                    : { left: "50%", transform: "translateX(-50%)" }),
+                }}
+              />
+            );
+          })()}
+          {/* Avatar overlay — chroma-keyed in canvas to match the ffmpeg export */}
+          {captionScene?.avatar_video_url && captionScene.avatar_status === "completed" && (() => {
+            const pos    = captionScene.avatar_position || "bottom-right";
+            const isSide = pos === "left" || pos === "right";
+            return (
+              <>
+                <video
+                  ref={avatarVideoRef}
+                  key={captionScene.avatar_video_url}
+                  src={captionScene.avatar_video_url}
+                  crossOrigin="anonymous"
+                  muted playsInline loop
+                  style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
+                />
+                <canvas
+                  ref={avatarCanvasRef}
+                  style={{
+                    position: "absolute", zIndex: 11, pointerEvents: "none",
+                    width:  isSide ? "33.33%" : "25%",
+                    height: isSide ? "100%"   : "auto",
+                    ...(pos === "bottom-left"   ? { left: "0.8%",  bottom: "1.4%" }
+                      : pos === "bottom-right"  ? { right: "0.8%", bottom: "1.4%" }
+                      : pos === "bottom-center" ? { left: "50%", transform: "translateX(-50%)", bottom: "1.4%" }
+                      : pos === "left"          ? { left: 0, top: 0 }
+                      :                           { right: 0, top: 0 }),
+                  }}
+                />
+              </>
             );
           })()}
           {/* Scrub bar */}
@@ -407,240 +930,95 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
         flexShrink: 0, display: "flex", justifyContent: "center",
         padding: "6px 0 10px", position: "relative", zIndex: 1,
       }}>
-        <div style={{ background: "var(--onyx-surface,rgba(20,26,38,0.85))", backdropFilter: "blur(28px) saturate(140%)", WebkitBackdropFilter: "blur(28px) saturate(140%)", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", borderRadius: 14, padding: "4px 6px", display: "flex", alignItems: "center", gap: 2 }}>
-          <button onClick={onPlayPause} style={{ width: 34, height: 34, borderRadius: 9, border: "none", cursor: "pointer", background: isPlaying ? "rgba(77,208,255,0.12)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Glyph name={isPlaying ? "pause" : "play"} size={16} color="#4dd0ff"/>
-          </button>
-          <span style={{ fontSize: 11, fontFamily: "monospace", color: "rgba(241,245,251,0.6)", padding: "0 8px", minWidth: 88, textAlign: "center" }}>
-            {fmtTime(playhead)} / {fmtTime(totalSec)}
-          </span>
-          <div style={{ width: 0.5, height: 20, background: "rgba(255,255,255,0.1)" }}/>
-          {[
-            { icon: "scissors", label: "Split", color: "rgba(241,245,251,0.55)" },
-            { icon: "mic",      label: "VO",    color: "rgba(241,245,251,0.55)" },
+        {(() => {
+          const isOpal = theme === "opal";
+          const dockBg = isOpal ? "rgba(240,248,255,0.92)" : "var(--onyx-surface,rgba(20,26,38,0.85))";
+          const dockBorder = isOpal ? "0.5px solid rgba(0,0,0,0.12)" : "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))";
+          const timeColor = isOpal ? "rgba(0,0,0,0.6)" : "rgba(241,245,251,0.6)";
+          const dividerColor = isOpal ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.1)";
+          const hoverBg = isOpal ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.06)";
+          const toolBtns = [
+            { icon: "scissors", label: "Split", color: isOpal ? "rgba(0,0,0,0.55)" : "rgba(241,245,251,0.55)" },
+            { icon: "mic",      label: "VO",    color: isOpal ? "rgba(0,0,0,0.55)" : "rgba(241,245,251,0.55)" },
             { icon: "music",    label: "Music", color: "#b48dff" },
             { icon: "sparkle",  label: "AI",    color: "#ffb547" },
-          ].map(t => (
-            <button key={t.label} style={{ height: 34, padding: "0 9px", borderRadius: 9, border: "none", cursor: "pointer", background: "transparent", color: t.color, display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontFamily: "inherit" }}
-              onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.06)"}
-              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-              <Glyph name={t.icon} size={13} color={t.color}/>{t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Inspector ─────────────────────────────────────────────────────────────────
-function Inspector({ scene, onUpdateScene, onRegenerate, generating, open, activeMode, brand }) {
-  const [motionVal, setMotionVal] = useState(50);
-
-  const captionsEnabled = scene?.captionsEnabled !== false;
-  const cColor = scene?.caption_color || brand?.caption_color || "#ffffff";
-  const cBg    = scene?.caption_bg_color || brand?.caption_bg_color || "rgba(0,0,0,0.82)";
-  const cFont  = scene?.caption_font || brand?.caption_font || "sans-serif";
-  const cSize  = Number(scene?.caption_size || brand?.caption_size || 16);
-  const cPos   = scene?.caption_position || brand?.caption_position || "bottom";
-
-  return (
-    <div style={{ width: open ? 288 : 0, flexShrink: 0, borderLeft: open ? "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))" : "none", background: "var(--panel-bg,rgba(6,9,15,0.5))", display: "flex", flexDirection: "column", overflow: "hidden", transition: "width 0.2s ease" }}>
-      <div style={{ padding: "11px 14px", borderBottom: "0.5px solid var(--onyx-hairline,rgba(255,255,255,0.07))", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-        <div style={{ width: 26, height: 26, borderRadius: 7, background: "linear-gradient(135deg,#ffcb6f,#c97a20)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Glyph name="sparkle" size={13} color="#1f1100" stroke={2}/>
-        </div>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>Inspector</span>
-        <HelpTooltip topic="inspector" />
-        <div style={{ flex: 1 }}/>
-        {scene && <span style={{ padding: "2px 8px", borderRadius: 999, fontSize: 9.5, background: "rgba(77,208,255,0.1)", border: "0.5px solid rgba(77,208,255,0.3)", color: "#4dd0ff" }}>Scene {(scene._index ?? 0) + 1}</span>}
-      </div>
-      {!scene
-        ? <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--onyx-text-faint,rgba(241,245,251,0.40))", fontSize: 12 }}>Select a scene</div>
-        : activeMode === "Captions"
-        ? <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* Enabled toggle */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={µL}>Captions</span>
-              <button onClick={() => onUpdateScene?.(scene.id, { captionsEnabled: !captionsEnabled })}
-                style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer",
-                  background: captionsEnabled ? "rgba(77,208,255,0.15)" : "rgba(255,255,255,0.06)",
-                  color: captionsEnabled ? "#4dd0ff" : "rgba(241,245,251,0.4)" }}>
-                {captionsEnabled ? "On" : "Off"}
+          ];
+          return (
+            <div style={{ background: dockBg, backdropFilter: "blur(28px) saturate(140%)", WebkitBackdropFilter: "blur(28px) saturate(140%)", border: dockBorder, boxShadow: isOpal ? "0 4px 20px rgba(0,0,0,0.15)" : "0 8px 32px rgba(0,0,0,0.5)", borderRadius: 14, padding: "4px 6px", display: "flex", alignItems: "center", gap: 2 }}>
+              <button onClick={() => { document.activeElement?.blur(); onPlayPause(); }} style={{ width: 34, height: 34, borderRadius: 9, border: "none", cursor: "pointer", background: isPlaying ? "rgba(77,208,255,0.12)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Glyph name={isPlaying ? "pause" : "play"} size={16} color="#4dd0ff"/>
               </button>
-            </div>
-            {/* Narration preview */}
-            {scene.narration && (
-              <div style={{ fontSize: 11, color: "var(--onyx-text-dim,rgba(241,245,251,0.62))", background: "rgba(0,0,0,0.25)", borderRadius: 6, padding: "8px 10px", lineHeight: 1.5 }}>
-                {scene.narration}
-              </div>
-            )}
-            {/* Color */}
-            <div>
-              <div style={µL}>Text colour</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input type="color" value={cColor} onChange={e => onUpdateScene?.(scene.id, { caption_color: e.target.value })}
-                  style={{ width: 32, height: 24, border: "none", background: "none", cursor: "pointer", padding: 0 }}/>
-                <span style={{ fontSize: 11, fontFamily: "monospace", color: "var(--onyx-text-dim,rgba(241,245,251,0.62))" }}>{cColor}</span>
-              </div>
-            </div>
-            {/* Background */}
-            <div>
-              <div style={µL}>Background</div>
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                {[["None","transparent"],["Dark","rgba(0,0,0,0.82)"],["Mid","rgba(0,0,0,0.45)"],["Blur","rgba(10,10,20,0.72)"]].map(([l, v]) => (
-                  <span key={l} onClick={() => onUpdateScene?.(scene.id, { caption_bg_color: v })}
-                    style={{ padding: "3px 9px", borderRadius: 999, fontSize: 10.5, cursor: "pointer",
-                      background: cBg === v ? "rgba(77,208,255,0.12)" : "var(--chip-bg,rgba(255,255,255,0.06))",
-                      border: cBg === v ? "0.5px solid rgba(77,208,255,0.4)" : "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))",
-                      color: cBg === v ? "#4dd0ff" : "var(--onyx-text-dim,rgba(241,245,251,0.62))" }}>{l}</span>
-                ))}
-              </div>
-            </div>
-            {/* Font */}
-            <div>
-              <div style={µL}>Font</div>
-              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                {[["Sans","sans-serif"],["Serif","serif"],["Mono","monospace"]].map(([l, v]) => (
-                  <span key={l} onClick={() => onUpdateScene?.(scene.id, { caption_font: v })}
-                    style={{ padding: "3px 9px", borderRadius: 999, fontSize: 10.5, cursor: "pointer", fontFamily: v,
-                      background: cFont === v ? "rgba(77,208,255,0.12)" : "var(--chip-bg,rgba(255,255,255,0.06))",
-                      border: cFont === v ? "0.5px solid rgba(77,208,255,0.4)" : "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))",
-                      color: cFont === v ? "#4dd0ff" : "var(--onyx-text-dim,rgba(241,245,251,0.62))" }}>{l}</span>
-                ))}
-              </div>
-            </div>
-            {/* Size */}
-            <ISL label="Size" value={Math.round(((cSize - 10) / 30) * 100)} displayVal={cSize + "px"}
-              onChange={v => onUpdateScene?.(scene.id, { caption_size: Math.round(10 + (v / 100) * 30) })}/>
-            {/* Position */}
-            <div>
-              <div style={µL}>Position</div>
-              <div style={{ display: "flex", gap: 5 }}>
-                {["top","center","bottom"].map(p => (
-                  <span key={p} onClick={() => onUpdateScene?.(scene.id, { caption_position: p })}
-                    style={{ padding: "3px 9px", borderRadius: 999, fontSize: 10.5, cursor: "pointer", textTransform: "capitalize",
-                      background: cPos === p ? "rgba(77,208,255,0.12)" : "var(--chip-bg,rgba(255,255,255,0.06))",
-                      border: cPos === p ? "0.5px solid rgba(77,208,255,0.4)" : "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))",
-                      color: cPos === p ? "#4dd0ff" : "var(--onyx-text-dim,rgba(241,245,251,0.62))" }}>{p}</span>
-                ))}
-              </div>
-            </div>
-          </div>
-        : <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
-            <div>
-              <div style={µL}>Prompt</div>
-              <textarea defaultValue={scene.action || scene.narration || ""} onBlur={e => onUpdateScene?.(scene.id, { action: e.target.value })} rows={4} style={{ width: "100%", resize: "none", boxSizing: "border-box", background: "var(--input-bg,rgba(0,0,0,0.35))", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", borderRadius: 8, padding: "9px 10px", color: "var(--onyx-text,#f1f5fb)", fontSize: 12, lineHeight: 1.5, fontFamily: "inherit", outline: "none" }}/>
-            </div>
-            <div>
-              <div style={µL}>Style</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                {["Cinematic","Studio","Documentary","Hyperreal","Anime"].map((s, i) => (
-                  <span key={s} style={{ padding: "3px 8px", borderRadius: 999, fontSize: 10.5, cursor: "pointer", background: i === 0 ? "rgba(77,208,255,0.12)" : "var(--chip-bg,rgba(255,255,255,0.06))", border: i === 0 ? "0.5px solid rgba(77,208,255,0.4)" : "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", color: i === 0 ? "#4dd0ff" : "var(--onyx-text-dim,rgba(241,245,251,0.62))" }}>{s}</span>
-                ))}
-              </div>
-            </div>
-            <ISL label="Duration" value={Math.round(((scene.duration||3)/10)*100)} displayVal={(scene.duration||3)+"s"} onChange={v => onUpdateScene?.(scene.id,{duration:Number(((v/100)*10).toFixed(1))})}/>
-            <ISL label="Motion" value={motionVal} displayVal={motionVal<33?"Slow":motionVal<66?"Medium":"Fast"} onChange={setMotionVal}/>
-            <div>
-              <div style={µL}>Colour grading</div>
-              {[["Brightness","brightness"],["Contrast","contrast"],["Saturation","saturation"]].map(([l,k]) => (
-                <ISL key={k} label={l} value={scene[k]??50} onChange={v => onUpdateScene?.(scene.id,{[k]:v})}/>
+              <span style={{ fontSize: 11, fontFamily: "monospace", color: timeColor, padding: "0 8px", minWidth: 88, textAlign: "center" }}>
+                {fmtTime(playhead)} / {fmtTime(totalSec)}
+              </span>
+              <div style={{ width: 0.5, height: 20, background: dividerColor }}/>
+              {toolBtns.map(t => (
+                <button key={t.label} style={{ height: 34, padding: "0 9px", borderRadius: 9, border: "none", cursor: "pointer", background: "transparent", color: t.color, display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontFamily: "inherit" }}
+                  onMouseEnter={e => e.currentTarget.style.background = hoverBg}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                  <Glyph name={t.icon} size={13} color={t.color}/>{t.label}
+                </button>
               ))}
             </div>
-            <button onClick={() => onRegenerate?.(scene.id)} disabled={generating}
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 8, cursor: generating?"wait":"pointer", fontWeight: 600, fontSize: 13, fontFamily: "inherit", border: "0.5px solid rgba(255,200,120,0.6)", background: generating?"rgba(255,140,40,0.35)":"linear-gradient(180deg,rgba(255,181,71,0.95),rgba(255,140,40,0.95))", color: "#1f1100", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-              <Glyph name="sparkle" size={14} color="#1f1100"/>{generating?"Generating…":"Regenerate"}
-            </button>
-            {/* TRANSITION */}
-            {scene && (
-              <div style={{ padding: '16px 0 0' }}>
-                <div style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: '0.08em',
-                  color: 'rgba(241,245,251,0.4)', textTransform: 'uppercase', marginBottom: 10
-                }}>
-                  TRANSITION TO NEXT
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                  {[
-                    { value: 'cut',   label: '✂️ Cut',   desc: 'Instant' },
-                    { value: 'fade',  label: '🌅 Fade',  desc: 'Cross-fade' },
-                    { value: 'slide', label: '➡️ Slide', desc: 'Slide left' },
-                    { value: 'zoom',  label: '🔍 Zoom',  desc: 'Zoom in' },
-                  ].map(t => {
-                    const active = (scene.transitionToNext || 'cut') === t.value;
-                    return (
-                      <div
-                        key={t.value}
-                        onClick={() => onUpdateScene?.(scene.id, { transitionToNext: t.value })}
-                        style={{
-                          padding: '8px 10px',
-                          borderRadius: 8,
-                          border: `1.5px solid ${active ? '#4dd0ff' : 'rgba(255,255,255,0.08)'}`,
-                          background: active ? 'rgba(77,208,255,0.1)' : 'rgba(255,255,255,0.03)',
-                          cursor: 'pointer',
-                          transition: 'border-color 0.15s, background 0.15s',
-                        }}
-                      >
-                        <div style={{ fontSize: 13, color: active ? '#4dd0ff' : '#e2e8f0', fontWeight: active ? 600 : 400 }}>
-                          {t.label}
-                        </div>
-                        <div style={{ fontSize: 10, color: 'rgba(241,245,251,0.4)', marginTop: 2 }}>
-                          {t.desc}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{
-                  marginTop: 8, fontSize: 11, color: 'rgba(241,245,251,0.3)',
-                  paddingBottom: 16
-                }}>
-                  Applied at end of this scene during export
-                </div>
-              </div>
-            )}
-          </div>
-      }
-    </div>
-  );
-}
-
-function ISL({ label, value, onChange, displayVal }) {
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-        <span style={{ fontSize: 11, color: "var(--onyx-text-dim,rgba(241,245,251,0.62))" }}>{label}</span>
-        <span style={{ fontSize: 11, color: "var(--onyx-text-faint,rgba(241,245,251,0.40))", fontFamily: "monospace" }}>{displayVal ?? value}</span>
-      </div>
-      <div style={{ position: "relative", height: 4, background: "var(--chip-bg-strong,rgba(255,255,255,0.08))", borderRadius: 2 }}>
-        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: value + "%", background: "linear-gradient(90deg,#1aa3d6,#4dd0ff)", borderRadius: 2 }}/>
-        <input type="range" min={0} max={100} value={value} onChange={e => onChange(Number(e.target.value))} style={{ position: "absolute", inset: 0, width: "100%", opacity: 0, cursor: "pointer", height: "100%" }}/>
-        <div style={{ position: "absolute", left: value + "%", top: "50%", transform: "translate(-50%,-50%)", width: 12, height: 12, borderRadius: "50%", background: "#fff", boxShadow: "0 2px 6px rgba(0,0,0,0.35)", pointerEvents: "none" }}/>
+          );
+        })()}
       </div>
     </div>
   );
 }
-
-const µL = { fontSize: 10, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--onyx-text-faint,rgba(241,245,251,0.40))", marginBottom: 8 };
 
 // ── V2 render serializer ─────────────────────────────────────────────────────
 function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMusicName,
-  musicVolume, voiceoverVolume, ratio, brand, reelId }) {
+  musicVolume, voiceoverVolume, sfxVolume, ratio, brand, reelId, canvasH = 500, canvasW = 300,
+  captionsVisible = true }) {
   const videoTrack = timelineState.tracks.find(t => t.key === "video");
   const voiceTrack = timelineState.tracks.find(t => t.key === "voiceover");
   const musicTrack = timelineState.tracks.find(t => t.key === "music");
+  const sfxTrack   = timelineState.tracks.find(t => t.key === "sfx");
+  const fxTrack    = timelineState.tracks.find(t => t.key === "fx");
+  const brollTrack = timelineState.tracks.find(t => t.key === "broll");
   function isVid(url) {
     if (!url) return false;
     const ext = url.split("?")[0].split(".").pop().toLowerCase();
     return ["mp4","webm","mov","m4v"].includes(ext);
   }
-  const renderable = (videoTrack?.clips || []).map(clip => {
+  const videoW = ratio === "9:16" ? 720 : ratio === "1:1" ? 720 : 1280;
+  const videoH = ratio === "9:16" ? 1280 : ratio === "4:5" ? 1350 : 720;
+  const renderable = (videoTrack?.clips || []).slice().sort((a, b) => a.startTime - b.startTime).map((clip, i) => {
     const scene = scenes.find(s => s.id === clip.sceneId) || {};
     const voClip = (voiceTrack?.clips || []).find(c =>
       c.sceneId === clip.sceneId || Math.abs(c.startTime - clip.startTime) < 0.1
     );
-    const url = clip.src || scene.mediaUrl || scene.url || "";
+    const url = clip.url || clip.mediaUrl || clip.src || scene.mediaUrl || scene.url || "";
+    const cStart = clip.startTime || 0;
+    const clipDuration = (clip.trimEnd || clip.duration || 5) - (clip.trimStart || 0);
+    const cEnd   = cStart + clipDuration;
+    // SFX is timeline-native: any number of sfx clips can overlap this scene's
+    // span, each carrying its own frame-accurate offset. sfxItems carries that
+    // to the renderer; sfxUrl/sfxVolume (first item, offset 0) stay populated
+    // too as a fallback for old backends during rollout.
+    const sceneSfxClips = (sfxTrack?.clips || [])
+      .filter(c => {
+        const sStart = c.startTime || 0;
+        const sEnd   = sStart + ((c.trimEnd || c.duration || 0) - (c.trimStart || 0));
+        return rangesOverlapDuration(sStart, sEnd, cStart, cEnd) > 0;
+      })
+      .sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
+    const sfxItems = sceneSfxClips.map(c => ({
+      url:          c.src,
+      volume:       c.volume ?? sfxVolume ?? 80,
+      startTime:    Math.max(0, (c.startTime || 0) - cStart),
+      duration:     (c.trimEnd || c.duration || 0) - (c.trimStart || 0),
+      volumePoints: c.volumePoints || null,
+    }));
+    const sfxClip = sceneSfxClips[0] || null;
+    const brollClip = (brollTrack?.clips || []).reduce((best, b) => {
+      const bStart = b.startTime || 0;
+      const bEnd   = bStart + ((b.trimEnd || b.duration || 3) - (b.trimStart || 0));
+      const overlap = rangesOverlapDuration(bStart, bEnd, cStart, cEnd);
+      if (overlap <= 0) return best;
+      return (!best || overlap > best.overlap) ? { clip: b, overlap } : best;
+    }, null)?.clip || null;
     return {
       type:              isVid(url) ? "video" : "image",
       url,
@@ -649,26 +1027,103 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       trimEnd:           clip.trimEnd || null,
       voiceoverUrl:      voClip?.src || scene.voiceoverUrl || null,
       voiceoverVolume:   voiceoverVolume ?? 100,
+      voiceoverVolumePoints: voClip?.volumePoints || null,
+      voiceoverDuration: voClip ? (voClip.trimEnd - voClip.trimStart) : null,
+      sfxUrl:            sfxClip?.src || scene.sfxUrl || null,
+      sfxVolume:         sfxClip?.volume ?? sfxVolume ?? 80,
+      sfxItems:          sfxItems.length ? sfxItems : (scene.sfxUrl ? [{ url: scene.sfxUrl, volume: scene.sfxVolume ?? sfxVolume ?? 80, startTime: 0 }] : []),
       sourceAudioVolume: scene.sourceAudioVolume ?? 100,
       sourceAudioMuted:  scene.sourceAudioMuted ?? false,
       narration:         clip.narration || scene.narration || scene.action || null,
-      captionsEnabled:   clip.captionsEnabled !== false,
+      // Raw scene prompt (with literal @CharacterName tags), independent of
+      // narration/captions — real-person disclosure detection server-side
+      // needs this regardless of whether narration/captions are enabled.
+      sourcePrompt:      scene.action || null,
+      captionsEnabled:   captionsVisible && clip.captionsEnabled === true,
       caption_color:     scene.caption_color || brand?.caption_color || "#ffffff",
       caption_bg_color:  scene.caption_bg_color || brand?.caption_bg_color || "rgba(0,0,0,0.82)",
       caption_font:      scene.caption_font || brand?.caption_font || "sans-serif",
       caption_size:      scene.caption_size || brand?.caption_size || 16,
       caption_position:  scene.caption_position || brand?.caption_position || "bottom",
       transitionToNext:  scene.transitionToNext || "cut",
-      wordTimings:       scene.wordTimings || [],
+      word_timestamps:   scene.word_timestamps || [],
+      caption_style:     scene.caption_style || "normal",
+      caption_font_size_px: (() => {
+        const cSize = Number(scene.caption_size || brand?.caption_size || (ratio === "9:16" ? 18 : 15));
+        const scaleRef = ratio === "9:16" ? Math.min(videoW, videoH) / Math.min(canvasW, canvasH) : videoH / canvasH;
+        return Math.round(cSize * scaleRef);
+      })(),
+      caption_bar_height_percent: (() => {
+        const cSize = Number(scene.caption_size || brand?.caption_size || (ratio === "9:16" ? 18 : 15));
+        const barH = cSize * 1.4 + 12;
+        return barH / canvasH;
+      })(),
+      brollUrl:          brollClip?.src || brollClip?.url || brollClip?.mediaUrl || null,
+      brollStart:        brollClip ? (brollClip.startTime || 0) - cStart : 0,
+      brollEnd:          brollClip ? (brollClip.startTime || 0) - cStart + ((brollClip.trimEnd - brollClip.trimStart) || brollClip.duration || 3) : 0,
+      avatar_status:     scene.avatar_status || null,
+      avatar_video_url:  scene.avatar_video_url || null,
+      avatar_position:   scene.avatar_position || null,
+      brightness:        scene.brightness ?? 50,
+      contrast:          scene.contrast   ?? 50,
+      saturation:        scene.saturation ?? 50,
+      fxItems: (fxTrack?.clips || [])
+        .filter(fx => {
+          const fxS = fx.startTime || 0;
+          const fxD = (fx.trimEnd || fx.duration || 3) - (fx.trimStart || 0);
+          const cS  = clip.startTime || 0;
+          const cD  = (clip.trimEnd || 0) - (clip.trimStart || 0);
+          return rangesOverlapDuration(fxS, fxS + fxD, cS, cS + cD) > 0;
+        })
+        .map(fx => {
+          const fxS = fx.startTime || 0;
+          const fxD = (fx.trimEnd || fx.duration || 3) - (fx.trimStart || 0);
+          const cS  = clip.startTime || 0;
+          const cD  = (clip.trimEnd || 0) - (clip.trimStart || 0);
+          return {
+            elementType: fx.elementType,
+            content:     fx.content,
+            xPct:        fx.xPct ?? 50,
+            yPct:        fx.yPct ?? 50,
+            sizePct:     fx.sizePct ?? 20,
+            color:       fx.color || (fx.elementType === "text" ? brand?.primary_color : undefined),
+            fontWeight:  fx.fontWeight,
+            startTime:   Math.max(0, fxS - cS),
+            duration:    Math.min(fxD, (cS + cD) - Math.max(fxS, cS)),
+          };
+        }),
     };
   });
+  // Backstop: any sfx clip that doesn't overlap any scene's video span is silently
+  // dropped from sfxItems above (nothing to attach it to) — flag those explicitly
+  // here so it's visible in the request/render logs even if the drop-time toast
+  // warning was missed or dismissed, instead of the clip just vanishing.
+  const videoSpans = (videoTrack?.clips || []).map(c => {
+    const s = c.startTime || 0;
+    return { start: s, end: s + ((c.trimEnd || c.duration || 5) - (c.trimStart || 0)) };
+  });
+  const excludedSfxClips = (sfxTrack?.clips || [])
+    .filter(c => {
+      const s = c.startTime || 0;
+      const e = s + ((c.trimEnd || c.duration || 0) - (c.trimStart || 0));
+      return !videoSpans.some(v => s < v.end && e > v.start);
+    })
+    .map(c => ({ src: c.src, label: c.label || "SFX", startTime: c.startTime || 0 }));
+  if (excludedSfxClips.length) {
+    console.warn("[buildV2RenderRequest] SFX clip(s) placed outside any scene's span — will NOT be included in this export:", excludedSfxClips);
+  }
+
   const musicClip = musicTrack?.clips?.[0];
   const resolvedMusicUrl = musicClip?.src || globalMusicUrl || null;
   return {
     scenes:          renderable,
+    excludedSfxClips,
     musicUrl:        resolvedMusicUrl,
     musicVolume:     musicVolume ?? 60,
+    musicVolumePoints: musicClip?.volumePoints || null,
+    musicDuration:   musicClip ? (musicClip.trimEnd - musicClip.trimStart) : null,
     voiceoverVolume: voiceoverVolume ?? 100,
+    sfxVolume:       sfxVolume ?? 80,
     renderMode:      "download",
     brand:           brand || {},
     reelId:          reelId || null,
@@ -682,23 +1137,130 @@ function probeVideoDuration(url) {
   return new Promise(resolve => {
     if (!url) return resolve(null);
     const v = document.createElement("video");
+    const timer = setTimeout(() => { v.src = ""; resolve(null); }, 8000);
     v.preload = "metadata";
-    v.onloadedmetadata = () => { const d = isFinite(v.duration) ? v.duration : null; v.src = ""; resolve(d); };
-    v.onerror = () => resolve(null);
+    v.onloadedmetadata = () => { clearTimeout(timer); const d = isFinite(v.duration) ? v.duration : null; v.src = ""; resolve(d); };
+    v.onerror = () => { clearTimeout(timer); resolve(null); };
     v.src = url;
   });
 }
 
+async function probeAllDurations(urls, concurrency = 5) {
+  const results = new Array(urls.length).fill(null);
+  let i = 0;
+  async function worker() {
+    while (i < urls.length) { const idx = i++; results[idx] = await probeVideoDuration(urls[idx]); }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, urls.length) }, worker));
+  return results;
+}
+
+function normalizeScene(scene, fallbackId) {
+  const mediaUrl = scene?.mediaUrl || scene?.url || null;
+  const mediaType =
+    scene?.mediaType || (mediaUrl ? (isVideoUrl(mediaUrl) ? "video" : "image") : null);
+  return {
+    id: scene?.id ?? fallbackId,
+    label: scene?.label || "",
+    narration: scene?.narration || "",
+    action: scene?.action || "",
+    mode: scene?.mode || "ai",
+    savedAt: scene?.savedAt || null,
+    generatedAt: scene?.generatedAt || null,
+    isAiGenerated: !!scene?.isAiGenerated,
+    thumbnail: scene?.thumbnail || scene?.stockThumb || mediaUrl || null,
+    url: mediaUrl,
+    mediaUrl,
+    mediaType,
+    transitionToNext: scene?.transitionToNext || "cut",
+    voiceoverUrl: scene?.voiceoverUrl || scene?.voiceover || null,
+    voiceover: scene?.voiceover || scene?.voiceoverUrl || null,
+    voiceoverStale: !!scene?.voiceoverStale,
+    voiceoverSourceText: scene?.voiceoverSourceText || "",
+    sourceAudioVolume: typeof scene?.sourceAudioVolume === "number" ? scene.sourceAudioVolume : 100,
+    sourceAudioMuted: !!scene?.sourceAudioMuted,
+    musicUrl: scene?.musicUrl || null,
+    sfxUrl: scene?.sfxUrl || null,
+    sfxName: scene?.sfxName || "",
+    duration: Number(scene?.duration || 3),
+    stockBaseQuery: scene?.stockBaseQuery || "",
+    stockQuery: scene?.stockQuery || "",
+    stockVariation: scene?.stockVariation || scene?.stockQuery || "",
+    stockSource: scene?.stockSource || "",
+    stockAssetId: scene?.stockAssetId || null,
+    stockThumb: scene?.stockThumb || scene?.thumbnail || mediaUrl || null,
+    captionsEnabled: scene?.captionsEnabled ?? true,
+    trimStart: typeof scene?.trimStart === "number" ? scene.trimStart : 0,
+    trimEnd: typeof scene?.trimEnd === "number" ? scene.trimEnd : null,
+    text_boxes: Array.isArray(scene?.text_boxes) ? scene.text_boxes : [],
+    elements: Array.isArray(scene?.elements) ? scene.elements : [],
+    caption_words: Array.isArray(scene?.caption_words) ? scene.caption_words : [],
+  };
+}
+
+function makeEmptyScene(id, label) {
+  return normalizeScene({ id, mode: "ai", label: label || "" }, id);
+}
+
 export default function EditorV2() {
-  const [theme, setTheme] = useState(() => localStorage.getItem("onyx_theme") || "onyx");
+  const [theme, setTheme] = useState(() => localStorage.getItem("onyx-theme") || "onyx");
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("onyx_theme", theme);
+    localStorage.setItem("onyx-theme", theme);
   }, [theme]);
 
   const [timelineState, dispatch] = useReducer(timelineReducer, null, makeInitialState);
 
-  const [scenes,           setScenes]           = useState([]);
+  // Undo/redo history
+  const historyRef = useRef({ past: [], future: [] });
+  const dispatchWithHistory = useCallback((action) => {
+    const noRecord = ["SEEK", "TRACK_VOLUME", "LOAD_STATE", "SELECT"];
+    if (!noRecord.includes(action.type)) {
+      historyRef.current.past.push(JSON.parse(JSON.stringify(timelineState)));
+      if (historyRef.current.past.length > 50) historyRef.current.past.shift();
+      historyRef.current.future = [];
+    }
+    dispatch(action);
+  }, [dispatch, timelineState]);
+
+  const undoTimeline = useCallback(() => {
+    const { past, future } = historyRef.current;
+    if (!past.length) return;
+    const prev = past[past.length - 1];
+    historyRef.current.past = past.slice(0, -1);
+    historyRef.current.future = [JSON.parse(JSON.stringify(timelineState)), ...future];
+    dispatch({ type: "LOAD_STATE", state: prev });
+  }, [dispatch, timelineState]);
+
+  const redoTimeline = useCallback(() => {
+    const { past, future } = historyRef.current;
+    if (!future.length) return;
+    const next = future[0];
+    historyRef.current.future = future.slice(1);
+    historyRef.current.past = [...past, JSON.parse(JSON.stringify(timelineState))];
+    dispatch({ type: "LOAD_STATE", state: next });
+  }, [dispatch, timelineState]);
+
+  // DEBUG: expose timeline state for console inspection
+  useEffect(() => { window.__timelineState = timelineState; }, [timelineState]);
+
+  const [_scenes, _setScenes] = useState([]);
+  const scenes = _scenes;
+  const setScenes = useCallback((arg) => {
+    if (typeof arg === 'function') {
+      _setScenes((prev) => {
+        const next = arg(prev);
+        if (Array.isArray(next) && next.length === 0) console.warn('[setScenes] EMPTY ARRAY called from:', new Error().stack.split('\n')[2]);
+        scenesRef.current = next;
+        return next;
+      });
+    } else {
+      if (Array.isArray(arg) && arg.length === 0) console.warn('[setScenes] EMPTY ARRAY called from:', new Error().stack.split('\n')[2]);
+      scenesRef.current = arg;
+      _setScenes(arg);
+    }
+  }, []);
+  const toast = useToast();
   const [activeScene,      setActiveScene]      = useState(null);
   const [title,            setTitle]            = useState("Untitled Reel");
   const [ratio,            setRatio]            = useState("9:16");
@@ -714,6 +1276,7 @@ export default function EditorV2() {
         const { reelId: pendingReelId, stems } = JSON.parse(raw);
         if (pendingReelId === reelId && Array.isArray(stems) && stems.length) {
           dispatch({ type: "ADD_STEM_TRACKS", stems });
+          hasStemTracks.current = true;
           sessionStorage.removeItem("onyx_pending_stems");
         }
       } catch {}
@@ -726,35 +1289,57 @@ export default function EditorV2() {
     return () => window.removeEventListener("storage", onStorage);
   }, [reelId]);
   const [isPlaying,        setIsPlaying]        = useState(false);
+  const [loopEnabled,      setLoopEnabled]      = useState(false);
+  const [loopIn,           setLoopIn]           = useState(0);
+  const [loopOut,          setLoopOut]          = useState(null);
   const [activeMenu,       setActiveMenu]       = useState("storyboard");
+  const [brandTab,         setBrandTab]         = useState("kit");
   const [activeMode,       setActiveMode]       = useState("Edit");
-  const [sidebarOpen,      setSidebarOpen]      = useState(true);
-  const [inspectorOpen,    setInspectorOpen]    = useState(true);
+  const [sidebarOpen,      setSidebarOpen]      = useState(() => localStorage.getItem("onyx_sidebar")   !== "false");
+  useEffect(() => { localStorage.setItem("onyx_sidebar",   sidebarOpen);   }, [sidebarOpen]);
   const [savedMsg,         setSavedMsg]         = useState("–");
   const [ytModalOpen,      setYtModalOpen]      = useState(false);
   const [generatingScenes, setGeneratingScenes] = useState({});
+  const [regenModel, setRegenModel] = useState("kling-2.6-pro");
+  // Lives at the EditorV2 level (not inside AudioPanel) so it survives AudioPanel
+  // unmount/remount when the user switches sidebar tabs mid-generation.
+  const [generatingVoiceoverScenes, setGeneratingVoiceoverScenes] = useState(() => new Set());
   const [globalMusicUrl,   setGlobalMusicUrl]   = useState("");
   const [globalMusicName,  setGlobalMusicName]  = useState("");
   const [musicVolume,      setMusicVolume]      = useState(60);
   const [voiceoverVolume,  setVoiceoverVolume]  = useState(100);
+  const [sfxVolume,        setSfxVolume]        = useState(80);
+  const [captionsVisible,  setCaptionsVisible]  = useState(true);
   const audioElementsRef   = useRef(new Map());   // clipId → HTMLAudioElement
   const musicVolumeRef     = useRef(60);
   const voiceoverVolumeRef = useRef(100);
   const hasStemTracks      = useRef(false);
   useEffect(() => { musicVolumeRef.current     = musicVolume / 100;     }, [musicVolume]);
   useEffect(() => { voiceoverVolumeRef.current = voiceoverVolume / 100; }, [voiceoverVolume]);
-  const [creditBalance,    setCreditBalance]    = useState(null);
+  const loopEnabledRef = useRef(false);
+  const loopInRef      = useRef(0);
+  const loopOutRef     = useRef(null);
+  useEffect(() => { loopEnabledRef.current = loopEnabled; }, [loopEnabled]);
+  useEffect(() => { loopInRef.current      = loopIn;      }, [loopIn]);
+  useEffect(() => { loopOutRef.current     = loopOut;     }, [loopOut]);
   const [currentUser,      setCurrentUser]      = useState(null);
   const [brand,            setBrand]            = useState({});
   const [brands,           setBrands]           = useState([]);
   const [selectedBrandId,  setSelectedBrandId]  = useState(null);
+  // undefined = not yet known whether the current reel has a saved brand; null = known to have none.
+  const [reelBrandId,      setReelBrandId]      = useState(undefined);
   const [reelVideoUrl,     setReelVideoUrl]     = useState(null);
   const [aiStudioItems,    setAiStudioItems]    = useState([]);
   const [visualsTab,      setVisualsTab]      = useState("stock");
-  const [audioTab,        setAudioTab]        = useState("uploads");
+  const [sfxTab,          setSfxTab]          = useState("uploads");
   const [reelLoaded,      setReelLoaded]      = useState(false);
   const totalSec = useMemo(() => { try { return calcTotalDuration(timelineState) || 0; } catch { return 0; } }, [timelineState]);
   const playhead = timelineState.playhead ?? 0;
+  const [selectedFxId, setSelectedFxId] = useState(null);
+  const selectedFxClip = useMemo(() => {
+    const fxTrack = timelineState.tracks.find(t => t.key === "fx");
+    return fxTrack?.clips?.find(c => c.id === selectedFxId && c.elementType === "text") ?? null;
+  }, [timelineState, selectedFxId]);
   const playbackProgress = totalSec > 0 ? playhead / totalSec : 0;
   const activeSceneObj = useMemo(() => {
     const idx = scenes.findIndex(s => s.id === activeScene);
@@ -770,7 +1355,6 @@ export default function EditorV2() {
   useEffect(() => { supabase.auth.getUser().then(({ data }) => { if (data?.user) setCurrentUser(data.user); }); }, []);
   useEffect(() => {
     if (!currentUser) return;
-    getAuthHeaders().then(h => fetch("/api/credits/balance", { headers: h })).then(r => r.json()).then(d => setCreditBalance(d.balance ?? d.credits ?? null)).catch(() => {});
     async function loadBrands() {
       try {
         const headers = await getAuthHeaders();
@@ -778,41 +1362,190 @@ export default function EditorV2() {
         const data = await res.json();
         const list = data.brands || [];
         setBrands(list);
-        const def = list.find(b => b.is_default) || list[0];
-        if (def) { setSelectedBrandId(def.id); setBrand(b => ({ ...b, ...def })); }
+        if (reelBrandId === undefined) return; // wait until we know whether this reel has a saved brand
+        const saved = reelBrandId ? list.find(b => b.id === reelBrandId) : null;
+        const def = saved || list.find(b => b.is_default) || list[0];
+        if (def) {
+          setSelectedBrandId(def.id);
+          setBrand(b => ({ ...b, ...def }));
+        }
       } catch (e) { console.error("Brands load error:", e); }
     }
     loadBrands();
-  }, [currentUser]);
+  }, [currentUser, reelBrandId]);
 
   useEffect(() => {
-    if (!reelId) { setReelLoaded(true); return; }
+    if (!reelId) {
+      // Check for handoff from screen recorder / webcam / other upload flows
+      const urlParams = new URLSearchParams(window.location.search);
+      const handoffId = urlParams.get("handoff");
+      if (handoffId) {
+        const raw = sessionStorage.getItem(`onyx_handoff_${handoffId}`);
+        sessionStorage.removeItem(`onyx_handoff_${handoffId}`);
+        if (raw) {
+          try {
+            const d = JSON.parse(raw);
+            // A handoff (e.g. PPT-to-video) may carry a pre-selected brandId.
+            // Surface it immediately so the brand-loading effect below picks
+            // it as the "saved" brand instead of falling back to the default,
+            // and so it actually gets persisted on the initial reel POST.
+            if (d?.brandId) {
+              setReelBrandId(d.brandId);
+              setSelectedBrandId(d.brandId);
+            } else {
+              setReelBrandId(null);
+            }
+            if (d?.title) setTitle(d.title);
+            if (d?.ratio) setRatio(d.ratio);
+            const rawScenes = Array.isArray(d?.scenes) ? d.scenes : [];
+            const norm = rawScenes.map((sc, i) => ({
+              id: sc.id ?? i + 1,
+              duration: 3,
+              ...sc,
+              mode: sc.mode || "ai",
+              word_timestamps: sc.word_timestamps || sc.wordTimings || undefined,
+            }));
+            if (norm.length) {
+              setScenes(norm);
+              setActiveScene(norm[0].id);
+              dispatch({ type: "IMPORT_SCENES", scenes: norm });
+            }
+            const u = new URL(window.location.href);
+            u.searchParams.delete("handoff");
+            window.history.replaceState({}, "", u.toString());
+            // POST immediately - don't wait for saveNow which guards on base tracks being present
+            const handoffTitle = d?.title || "";
+            const handoffRatio = d?.ratio || "9:16";
+            (async () => {
+              try {
+                const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
+                const normalizedScenes = norm.map(s => ({ ...s, mediaUrl: s.mediaUrl || s.url || s.src || "" }));
+                const thumbnailUrl = normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.stockThumb
+                  || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
+                  || normalizedScenes[0]?.mediaUrl || null;
+                const body = JSON.stringify({ title: handoffTitle, scenes: normalizedScenes, timeline: { tracks: [] }, ratio: handoffRatio, status: "draft", globalMusicUrl: "", globalMusicName: "", thumbnail_url: thumbnailUrl, brand_id: d?.brandId || null, metadata: d?.metadata || {} });
+                const resp = await (await fetch("/api/reels", { method: "POST", headers: h, body })).json();
+                if (resp.id) {
+                  setReelId(resp.id);
+                  const u2 = new URL(window.location.href);
+                  u2.searchParams.set("reelId", resp.id);
+                  window.history.replaceState({}, "", u2.toString());
+                }
+              } catch (err) { console.warn("[EditorV2] handoff initial save failed:", err); }
+            })();
+            setReelLoaded(true);
+            return;
+          } catch (e) { console.warn("[EditorV2] handoff restore failed:", e); }
+        }
+      }
+
+      setReelBrandId(null); // no handoff (or handoff had no brand) — new reel with nothing saved yet, fall back to default
+
+      try {
+        const saved = localStorage.getItem("onyx_editor_autosave_v2");
+        if (saved) {
+          const d = JSON.parse(saved);
+          localStorage.removeItem("onyx_editor_autosave_v2");
+          if (d?.title) setTitle(d.title);
+          if (d?.ratio) setRatio(d.ratio);
+          const raw = Array.isArray(d?.scenes) ? d.scenes : [];
+          const norm = raw.map((sc, i) => ({
+            id: sc.id ?? i + 1,
+            duration: 3,
+            ...sc,
+            mode: sc.mode || "ai",
+            word_timestamps: sc.word_timestamps || sc.wordTimings || undefined,
+          }));
+          setScenes(norm);
+          if (norm.length) {
+            setActiveScene(norm[0].id);
+            dispatch({ type: "IMPORT_SCENES", scenes: norm });
+          }
+          const autosaveTitle = d?.title || "";
+          const autosaveRatio = d?.ratio || "9:16";
+          const autosaveTemplate = d?.template || null;
+          const autosaveTheme = d?.theme || null;
+          (async () => {
+            try {
+              const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
+              const normalizedScenes = norm.map(s => ({ ...s, mediaUrl: s.mediaUrl || s.url || s.src || "" }));
+              const thumbnailUrl = normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.stockThumb
+                || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
+                || normalizedScenes[0]?.mediaUrl || null;
+              const body = JSON.stringify({ title: autosaveTitle, scenes: normalizedScenes, timeline: { tracks: [] }, ratio: autosaveRatio, status: "draft", globalMusicUrl: d?.globalMusicUrl || "", globalMusicName: "", thumbnail_url: thumbnailUrl, template: autosaveTemplate, theme: autosaveTheme });
+              const resp = await (await fetch("/api/reels", { method: "POST", headers: h, body })).json();
+              if (resp.id) {
+                setReelId(resp.id);
+                const u2 = new URL(window.location.href);
+                u2.searchParams.set("reelId", resp.id);
+                window.history.replaceState({}, "", u2.toString());
+              }
+            } catch (err) { console.warn("[EditorV2] autosave initial save failed:", err); }
+          })();
+        }
+      } catch (e) { console.warn("[EditorV2] autosave restore failed:", e); }
+      setReelLoaded(true);
+      return;
+    }
     async function load() {
       try {
         const h = await getAuthHeaders();
-        const d = await (await fetch("/api/reels/" + reelId, { headers: h })).json();
+        const d = await (await fetch("/api/reels/" + reelId + "?t=" + Date.now(), { headers: h })).json();
         if (d?.error) { console.error("[EditorV2] reel fetch error:", d.error); setSavedMsg("Load error"); return; }
+        setReelBrandId(d?.brand_id ?? null);
         if (d?.title) setTitle(d.title);
         if (d?.ratio) setRatio(d.ratio);
         const raw = Array.isArray(d?.scenes) ? d.scenes : [];
-        const norm = raw.map((sc, i) => ({ id: sc.id ?? i + 1, duration: 3, ...sc }));
-        const probed = await Promise.all(norm.map(sc => probeVideoDuration(sc.mediaUrl || sc.url || "")));
-        const normWithDur = norm.map((sc, i) => probed[i] != null ? { ...sc, videoDuration: probed[i] } : sc);
-        setScenes(normWithDur);
-        if (normWithDur.length) setActiveScene(normWithDur[0].id);
+        const norm = raw.map((sc, i) => ({
+            id: sc.id ?? i + 1,
+            duration: 3,
+            ...sc,
+            mode: sc.mode || "ai",
+            word_timestamps: sc.word_timestamps || sc.wordTimings || undefined,
+          }));
+
+        // Show scenes immediately — don't block on video probing for large reels
+        setScenes(norm);
+        if (norm.length) setActiveScene(norm[0].id);
         if (d?.timeline?.tracks?.some(t => t.clips?.length)) {
-          // If the saved video track is empty (e.g. only broll was added before save),
-          // backfill video/voiceover from scenes so the main track isn't blank.
           const savedTracks  = d.timeline.tracks;
-          const videoIsEmpty = !savedTracks?.find(t => t.key === "video")?.clips?.length;
           let timelineToLoad = d.timeline;
-          if (videoIsEmpty && normWithDur.length) {
-            const base = importFromScenes(normWithDur, "", "");
+          // Always rebuild video + voiceover tracks from current scene data
+          // rather than trusting the persisted blob: a saved timeline can predate a
+          // narration regeneration, baking in clip lengths/positions derived from
+          // a stale scene.duration instead of the scene's current
+          // (now-correct) voiceoverDuration. SFX is timeline-native (drag-placed,
+          // frame-accurate, multiple clips per scene allowed) — once a saved sfx
+          // track has real clips, those positions are the source of truth and must
+          // not be stomped back to scene-start on every reload. Only legacy reels
+          // with an empty/missing sfx track (predating the SFX feature, or never
+          // touched beyond the old scene.sfxUrl field) get one synthesized from
+          // scene.sfxUrl at scene-start. Every other track (music, fx, avatar,
+          // captions, stems) is left exactly as saved.
+          if (norm.length) {
+            const base = importFromScenes(norm, "", "");
+            const savedSfxTrack = savedTracks.find(st => st.key === "sfx");
+            const sfxNeedsRebuild = !savedSfxTrack || !savedSfxTrack.clips?.length;
             const mergedTracks = savedTracks.map(st => {
+              // Unconditionally rebuilding voiceover from `base` (rather than merging
+              // with the saved track) is what keeps a saved reel from ever resurfacing
+              // a stale/duplicate VO clip on reload — base.tracks always comes from the
+              // current importFromScenes, which stamps sceneId on every VO clip. If this
+              // ever changes to preserve/merge the saved voiceover track instead, legacy
+              // sceneId-less orphans can reappear; re-add an explicit dedup pass then.
               if (st.key === "video" || st.key === "voiceover")
                 return base.tracks.find(bt => bt.key === st.key) ?? st;
+              if (st.key === "sfx" && sfxNeedsRebuild)
+                return base.tracks.find(bt => bt.key === "sfx") ?? st;
               return st;
             });
+            // A saved blob can predate the SFX feature entirely, meaning the
+            // sfx key never makes it into savedTracks for the .map() above to
+            // replace. Append any base track whose key is missing outright.
+            const presentKeys = new Set(mergedTracks.map(t => t.key));
+            for (const bt of base.tracks) {
+              if (!presentKeys.has(bt.key)) mergedTracks.push(bt);
+            }
             timelineToLoad = { ...d.timeline, tracks: mergedTracks };
           }
           dispatch({ type: "LOAD_STATE", state: timelineToLoad });
@@ -826,37 +1559,69 @@ export default function EditorV2() {
             setGlobalMusicUrl(d.global_music_url || d.globalMusicUrl);
             setGlobalMusicName(d.global_music_name || d.globalMusicName || "");
           }
-        } else if (normWithDur.length) {
+        } else if (norm.length) {
           const gmu = d.global_music_url || d.globalMusicUrl || "";
           const gmn = d.global_music_name || d.globalMusicName || "";
-          dispatch({ type: "IMPORT_SCENES", scenes: normWithDur, globalMusicUrl: gmu, globalMusicName: gmn });
+          dispatch({ type: "IMPORT_SCENES", scenes: norm, globalMusicUrl: gmu, globalMusicName: gmn });
         }
-        setSavedMsg(normWithDur.length ? "Loaded" : "Loaded (no scenes)");
+        setSavedMsg(norm.length ? "Loaded" : "Loaded (no scenes)");
         setReelLoaded(true);
+
+        // Probe video durations in background and patch scenes as they resolve
+        if (norm.some(sc => sc.mediaUrl || sc.url)) {
+          probeAllDurations(norm.map(sc => sc.mediaUrl || sc.url || ""))
+            .then(probed => {
+              setScenes(prev => prev.map((sc, i) => probed[i] != null ? { ...sc, videoDuration: probed[i] } : sc));
+            })
+            .catch(() => {});
+        }
       } catch (e) { console.error("[EditorV2] load", e); }
     }
     load();
   }, [reelId]);
 
+  const saveInFlightRef = useRef(false);
+  const exportInFlightRef = useRef(false);
   const saveNow = useCallback(async () => {
     if (!reelLoaded) return;
-
-    const tracks = timelineState.tracks || [];
-    const REQUIRED_BASE = ['video', 'broll', 'fx', 'voiceover', 'music', 'sfx'];
-    const missingBase = REQUIRED_BASE.filter(k => !tracks.find(t => (t.key || t.id) === k));
-    if (missingBase.length > 0) {
-      console.warn('[saveNow] aborted — missing base tracks:', missingBase);
-      return;
-    }
-
-    if (hasStemTracks.current && !tracks.some(t => (t.key || t.id || '').startsWith('stem-'))) {
-      console.warn('[saveNow] aborted — stems were loaded but are now missing');
-      return;
-    }
+    if (saveInFlightRef.current) return;
+    saveInFlightRef.current = true;
 
     try {
+      const tracks = timelineState.tracks || [];
+      const REQUIRED_BASE = ['video', 'broll', 'fx', 'voiceover', 'music', 'sfx'];
+      const missingBase = REQUIRED_BASE.filter(k => !tracks.find(t => (t.key || t.id) === k));
+      if (missingBase.length > 0) {
+        console.warn('[saveNow] aborted — missing base tracks:', missingBase);
+        return;
+      }
+
+      if (hasStemTracks.current) {
+        const stemTracks = tracks.filter(t => (t.key || t.id || '').startsWith('stem-'));
+        if (!stemTracks.length) {
+          console.warn('[saveNow] aborted — stems were loaded but are now missing');
+          return;
+        }
+        if (stemTracks.some(t => t.clips.length > 0 && t.clips.some(c => c.src !== undefined && !c.src))) {
+          console.warn('[saveNow] aborted — stem clips have missing src URLs', stemTracks.map(t => ({ key: t.key, clips: t.clips.length, src: t.clips[0]?.src })));
+          return;
+        }
+      }
+
       const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
-      const body = JSON.stringify({ title, scenes, timeline: timelineState, ratio, status: "draft", globalMusicUrl, globalMusicName });
+      const cleanedTracks = timelineState.tracks.map(t => {
+        if (!t.key?.startsWith('stem-')) return t;
+        return {
+          ...t,
+          clips: t.clips.filter(c => c.src && !c.src.includes('test.wav') && !c.src.includes('placeholder'))
+        };
+      });
+      const cleanedTimeline = { ...timelineState, tracks: cleanedTracks };
+      const normalizedScenes = scenesRef.current.map(s => ({ ...s, mediaUrl: s.mediaUrl || s.url || s.src || "" }));
+      const thumbnailUrl = normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.stockThumb
+        || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
+        || normalizedScenes[0]?.mediaUrl || null;
+      const body = JSON.stringify({ title, scenes: normalizedScenes, timeline: cleanedTimeline, ratio, status: "draft", globalMusicUrl, globalMusicName, thumbnail_url: thumbnailUrl, brand_id: selectedBrandId });
       if (reelId) {
         await fetch("/api/reels/" + reelId, { method: "PUT", headers: h, body });
       } else {
@@ -870,25 +1635,81 @@ export default function EditorV2() {
       }
       setSavedMsg("Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     } catch { setSavedMsg("Save failed"); }
-  }, [reelLoaded, title, scenes, timelineState, ratio, reelId, globalMusicUrl, globalMusicName]);
+    finally { saveInFlightRef.current = false; }
+  }, [reelLoaded, title, timelineState, ratio, reelId, globalMusicUrl, globalMusicName, selectedBrandId]);
 
-  useEffect(() => { const id = setInterval(saveNow, 30000); return () => clearInterval(id); }, [saveNow]);
+  useEffect(() => { const id = setInterval(() => saveNowRef.current?.(), 30000); return () => clearInterval(id); }, []);
+
+  // Nuclear sync: any change to scenes triggers a save 500 ms later.
+  // scenesRef is updated FIRST so saveNow always reads the latest scenes.
+  const sceneSaveTimer = useRef(null);
+  useEffect(() => {
+    scenesRef.current = scenes; // must happen before the timeout fires
+    if (!reelLoaded) return;
+    clearTimeout(sceneSaveTimer.current);
+    sceneSaveTimer.current = setTimeout(() => {
+      saveNowRef.current?.();
+    }, 500);
+  }, [scenes, reelLoaded]);
 
   useEffect(() => {
     function onKey(e) {
+      // Cmd+S must be caught even when focus is in an input
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); saveNow(); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); undoTimeline(); return; }
+      if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); redoTimeline(); return; }
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
       if (e.key === " ") { e.preventDefault(); setIsPlaying(p => !p); }
-      if (e.key === "ArrowRight") dispatch({ type: "SEEK", time: Math.max(0, playhead + 1/30) });
-      if (e.key === "ArrowLeft")  dispatch({ type: "SEEK", time: Math.max(0, playhead - 1/30) });
-      if (e.key === "s" && !e.metaKey) dispatch({ type: "TOGGLE_SNAP" });
-      if ((e.metaKey || e.ctrlKey) && e.key === "s") { e.preventDefault(); saveNow(); }
-      if ((e.key === "Delete" || e.key === "Backspace") && timelineState.selected) dispatch({ type: "DELETE_CLIP", clipId: timelineState.selected });
+      if (e.key === "ArrowRight") dispatchWithHistory({ type: "SEEK", time: Math.max(0, playhead + 1/30) });
+      if (e.key === "ArrowLeft")  dispatchWithHistory({ type: "SEEK", time: Math.max(0, playhead - 1/30) });
+      if (e.key === "s" && !e.metaKey) dispatchWithHistory({ type: "TOGGLE_SNAP" });
+      if ((e.key === "Delete" || e.key === "Backspace") && timelineState.selected) dispatchWithHistory({ type: "DELETE_CLIP", clipId: timelineState.selected });
+      if ((e.metaKey || e.ctrlKey) && e.key === "d") {
+        e.preventDefault();
+        if (timelineState.selected) dispatchWithHistory({ type:"DUPLICATE_CLIP", clipId:timelineState.selected });
+      }
       if (e.key === "[") setSidebarOpen(p => !p);
-      if (e.key === "]") setInspectorOpen(p => !p);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [playhead, timelineState.selected, saveNow]);
+  }, [playhead, timelineState.selected, saveNow, undoTimeline, redoTimeline, dispatchWithHistory]);
+
+  // Prevent horizontal wheel/swipe from triggering browser back navigation.
+  // Must attach to window — browser captures the gesture at OS/window level before
+  // any child element sees it, so a listener on #editor-v2 never fires.
+  useEffect(() => {
+    const prevent = e => { if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) e.preventDefault(); };
+    window.addEventListener("wheel", prevent, { passive: false });
+    return () => window.removeEventListener("wheel", prevent);
+  }, []);
+
+  // Preload all scene videos upfront to eliminate black frames between scenes
+  const preloadCacheRef = useRef([]);
+  useEffect(() => {
+    if (!reelLoaded) return;
+    const videoTrack = timelineState.tracks.find(t => t.key === "video");
+    const brollTrack = timelineState.tracks.find(t => t.key === "broll");
+    const allClips = [...(videoTrack?.clips || []), ...(brollTrack?.clips || [])];
+    const srcs = [...new Set(allClips.map(c => c.src || c.url || c.mediaUrl).filter(Boolean))];
+    // Clear old cache
+    preloadCacheRef.current.forEach(v => { v.src = ""; });
+    preloadCacheRef.current = [];
+    // Build new cache
+    srcs.forEach(src => {
+      const v = document.createElement("video");
+      v.src = src;
+      v.preload = "auto";
+      v.muted = true;
+      v.style.display = "none";
+      v.load();
+      document.body.appendChild(v);
+      preloadCacheRef.current.push(v);
+    });
+    return () => {
+      preloadCacheRef.current.forEach(v => { v.src = ""; v.remove(); });
+      preloadCacheRef.current = [];
+    };
+  }, [reelLoaded]);
 
   // ── Playback engine (rAF master clock) ────────────────────────────────────
   // Drives timelineState.playhead forward in real time when isPlaying=true.
@@ -897,13 +1718,62 @@ export default function EditorV2() {
   const previewSrcRef     = useRef(null); // last src assigned to the preview <video>
   const activeVideoSlotRef = useRef("a");  // "a" | "b" — which buffer is currently showing
   const transitioningRef   = useRef(false); // true during the 150 ms crossfade
+  const uploadImgRef       = useRef(null);
+  const uploadVideoRef     = useRef(null);
+  const brollImgRef        = useRef(null);
+  const brollVideoRef      = useRef(null);
+  const prevBrollClipRef   = useRef(null);
   const tracksRef = useRef(timelineState.tracks);
   useEffect(() => { tracksRef.current = timelineState.tracks; }, [timelineState.tracks]);
-  const scenesRef = useRef(scenes);
-  useEffect(() => { scenesRef.current = scenes; }, [scenes]);
+  const scenesRef = useRef(scenes); // kept in sync by the sceneSaveTimer effect above
   const seekingRef = useRef(false); // true for 300ms after manual seek — suppresses tick
   const activeSceneRef = useRef(activeScene);
   useEffect(() => { activeSceneRef.current = activeScene; }, [activeScene]);
+  const dispatchWithHistoryRef = useRef(dispatchWithHistory);
+  useEffect(() => { dispatchWithHistoryRef.current = dispatchWithHistory; }, [dispatchWithHistory]);
+
+  // Avatar generation polling — lives here (not in AvatarPanel) so it survives
+  // sidebar tab switches; HeyGen jobs can take minutes and previously died on unmount.
+  useEffect(() => {
+    const poll = setInterval(async () => {
+      const processing = scenesRef.current?.filter(s => s.avatar_status === "processing" && s.avatar_video_id);
+      if (!processing?.length) return;
+
+      const headers = await getAuthHeaders();
+      for (const scene of processing) {
+        try {
+          const res = await fetch(`/api/heygen/status/${scene.avatar_video_id}`, { headers });
+          const data = await res.json();
+
+          if (data.status === "completed" && data.video_url) {
+            setScenes(prev => prev.map(s => s.id === scene.id ? {
+              ...s,
+              avatar_status: "completed",
+              avatar_video_url: data.video_url,
+            } : s));
+            const vidClip = tracksRef.current.find(t => t.key === "video")?.clips.find(c => c.sceneId === scene.id);
+            dispatchWithHistoryRef.current({
+              type: "ADD_AVATAR_CLIP",
+              sceneId: scene.id,
+              src: data.video_url,
+              startTime: vidClip?.startTime ?? 0,
+              duration:  vidClip ? (vidClip.trimEnd - vidClip.trimStart) : 3,
+              avatarPosition: scene.avatar_position || "bottom-right",
+            });
+          } else if (data.status === "failed") {
+            setScenes(prev => prev.map(s => s.id === scene.id ? {
+              ...s,
+              avatar_status: "failed",
+            } : s));
+          }
+        } catch (err) {
+          console.error("Avatar poll error:", err);
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(poll);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync preview on scrub (not playing) — dual-buffer crossfade, no black frame.
   useEffect(() => {
@@ -920,14 +1790,73 @@ export default function EditorV2() {
       .find(t => t.key === key)?.clips
       .find(c => ph >= c.startTime && ph < c.startTime + (c.trimEnd - c.trimStart));
     const clip = findAt("broll") ?? findAt("video");
-    const targetSrc = clip?.src || scenes.find(s => s.id === activeScene)?.mediaUrl || "";
+    const sc = scenes.find(s => s.id === activeScene);
+    const targetSrc = clip?.src || clip?.url || clip?.mediaUrl || sc?.mediaUrl || sc?.url || "";
 
-    if (!targetSrc) { cur.style.visibility = "hidden"; return; }
+    const brollClipScrub = findAt("broll");
+    const isBrollScrub = !!brollClipScrub;
+
+    if (!targetSrc) {
+      cur.style.visibility = "hidden";
+      const a = document.querySelector(".v2-preview-video-a");
+      const b = document.querySelector(".v2-preview-video-b");
+      if (a) { a.src = ""; a.load(); }
+      if (b) { b.src = ""; b.load(); }
+      if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+      if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+      if (brollImgRef.current) brollImgRef.current.style.display = 'none';
+      if (brollVideoRef.current) { brollVideoRef.current.style.display = 'none'; brollVideoRef.current.pause(); }
+      return;
+    }
 
     const localTime = clip ? Math.max(0, ph - clip.startTime + clip.trimStart) : 0;
 
-    // Same src — just seek
-    if (cur.getAttribute("data-src") === targetSrc) {
+    const isUpload = !targetSrc.includes('videos.pexels.com');
+    if (isUpload) {
+      const isVideoUpload = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(targetSrc);
+      const imgEl = isBrollScrub ? brollImgRef.current : uploadImgRef.current;
+      const vidEl = isBrollScrub ? brollVideoRef.current : uploadVideoRef.current;
+      // Hide the other overlay set
+      if (isBrollScrub) {
+        if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+        if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+      } else {
+        if (brollImgRef.current) brollImgRef.current.style.display = 'none';
+        if (brollVideoRef.current) { brollVideoRef.current.style.display = 'none'; brollVideoRef.current.pause(); }
+      }
+      const slotA = document.querySelector('.v2-preview-video-a');
+      const slotB = document.querySelector('.v2-preview-video-b');
+      if (slotA) slotA.style.visibility = 'hidden';
+      if (slotB) slotB.style.visibility = 'hidden';
+      if (isVideoUpload) {
+        if (imgEl) imgEl.style.display = 'none';
+        if (vidEl) {
+          vidEl.style.display = 'block';
+          if (vidEl.getAttribute('data-src') !== targetSrc) {
+            vidEl.src = targetSrc;
+            vidEl.setAttribute('data-src', targetSrc);
+            vidEl.muted = true;
+            vidEl.load();
+            vidEl.oncanplay = () => { vidEl.oncanplay = null; vidEl.currentTime = localTime; };
+          } else {
+            vidEl.currentTime = localTime;
+          }
+        }
+      } else {
+        if (vidEl) { vidEl.style.display = 'none'; vidEl.pause(); }
+        if (imgEl) { imgEl.src = targetSrc; imgEl.style.display = 'block'; }
+      }
+      return;
+    }
+
+    // Pexels/streaming: hide all overlays and let dual-buffer handle it
+    if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+    if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+    if (brollImgRef.current) brollImgRef.current.style.display = 'none';
+    if (brollVideoRef.current) { brollVideoRef.current.style.display = 'none'; brollVideoRef.current.pause(); }
+
+    // Same src AND same clip — just seek
+    if (cur.getAttribute("data-src") === targetSrc && cur.getAttribute("data-clip-id") === (clip?.id || '')) {
       cur.currentTime = localTime;
       cur.style.visibility = "visible";
       return;
@@ -936,18 +1865,28 @@ export default function EditorV2() {
     // New src — load into nxt, crossfade when ready; cur stays visible until then
     if (transitioningRef.current) return; // don't stack transitions
     transitioningRef.current = true;
+
     nxt.oncanplay = null;
     nxt.src = targetSrc;
     nxt.setAttribute("data-src", targetSrc);
+    nxt.setAttribute("data-clip-id", clip?.id || '');
     nxt.muted = true;
     nxt.style.zIndex = 3;
     cur.style.zIndex = 2;
 
+    // Capture outgoing scene's transition NOW — cur is still the outgoing slot
+    const outgoingSrc = cur.getAttribute("data-src");
+    const outgoingClip = tracksRef.current.flatMap(t => t.clips || []).find(c =>
+      (c.src || c.url || c.mediaUrl) === outgoingSrc
+    );
+    const scrubTransType = outgoingClip
+      ? (scenesRef.current.find(s => s.id === outgoingClip.sceneId)?.transitionToNext || "crossfade")
+      : "crossfade";
+
     nxt.oncanplay = () => {
       nxt.oncanplay = null;
       nxt.currentTime = localTime;
-      const transType = clip ? (scenesRef.current.find(s => s.id === clip.sceneId)?.transitionToNext || "cut") : "cut";
-      applyTransition(transType, cur, nxt, () => {
+      applyTransition(scrubTransType, cur, nxt, () => {
         cur.style.zIndex = 2;
         nxt.style.zIndex = 2;
         activeVideoSlotRef.current = activeVideoSlotRef.current === "a" ? "b" : "a";
@@ -962,6 +1901,7 @@ export default function EditorV2() {
     if (!isPlaying) {
       playStartRef.current = null;
       previewSrcRef.current = null; // force src re-sync on next play
+      prevBrollClipRef.current = null;
       // Pause both preview video slots
       document.querySelectorAll(".v2-preview-video-a, .v2-preview-video-b").forEach(v => v.pause());
       transitioningRef.current = false;
@@ -976,6 +1916,12 @@ export default function EditorV2() {
       playheadAtStart:  timelineState.playhead ?? 0,
     };
 
+    // Debug: log first stem clip src so we can verify URLs are populated
+    const firstStemClip = tracksRef.current
+      .filter(t => t.key?.startsWith("stem-") || t.type === "stem")
+      .flatMap(t => t.clips)
+      .find(c => c.src);
+
     let rafId;
 
     function tick() {
@@ -984,14 +1930,23 @@ export default function EditorV2() {
       if (seekingRef.current && !playStartRef.current) return; // only suppress tick when paused
       const newPH   = playStartRef.current.playheadAtStart + elapsed;
 
-      // Stop at end
-      if (newPH >= totalSec) {
-        dispatch({ type: "SEEK", time: 0 });
+      // Stop at end, or wrap for loop
+      const effectiveEnd = loopEnabledRef.current && loopOutRef.current !== null
+        ? loopOutRef.current : totalSec;
+      if (newPH >= effectiveEnd) {
+        if (loopEnabledRef.current && loopOutRef.current !== null) {
+          const wrapped = loopInRef.current + (newPH - effectiveEnd);
+          playStartRef.current = { wallTime: performance.now() / 1000, playheadAtStart: wrapped };
+          rafId = requestAnimationFrame(tick);
+          return;
+        }
+        dispatchWithHistory({ type: "SEEK", time: 0 });
         setIsPlaying(false);
+        uploadVideoRef.current?.pause();
         return;
       }
 
-      dispatch({ type: "SEEK", time: newPH });
+      dispatchWithHistory({ type: "SEEK", time: newPH });
 
       // Sync preview video — broll takes priority over video when both overlap
       const getSlotsTick = () => {
@@ -1002,62 +1957,225 @@ export default function EditorV2() {
       const findActive = (key) => tracksRef.current
         .find(t => t.key === key)?.clips
         .find(c => newPH >= c.startTime && newPH < c.startTime + (c.trimEnd - c.trimStart));
-      const clip = findActive("broll") ?? findActive("video");
+      const brollClip = findActive("broll");
+      const videoClip = findActive("video");
+      const clip = brollClip ?? videoClip;
+      const isBroll = !!brollClip;
       if (clip) {
-        // Dual-buffer src swap — cur keeps playing while nxt preloads (no black frame)
-        if (clip.src && previewSrcRef.current !== clip.src && !transitioningRef.current) {
-          previewSrcRef.current = clip.src;
-          transitioningRef.current = true;
-          const { cur, nxt } = getSlotsTick();
-          if (cur && nxt) {
-            cur.pause(); // freeze outgoing frame so it can't play to end-of-file black
-            nxt.oncanplay = null;
-            nxt.src = clip.src;
-            nxt.setAttribute("data-src", clip.src);
-            nxt.muted = true;
-            nxt.style.zIndex = 3;
-            cur.style.zIndex = 2;
-            nxt.oncanplay = () => {
-              nxt.oncanplay = null;
-              nxt.currentTime = Math.max(0, newPH - clip.startTime + clip.trimStart);
-              nxt.play().catch(() => {});
-              const transType = scenesRef.current.find(s => s.id === clip.sceneId)?.transitionToNext || "cut";
-              applyTransition(transType, cur, nxt, () => {
-                cur.pause();
-                cur.style.zIndex = 2;
-                nxt.style.zIndex = 2;
-                activeVideoSlotRef.current = activeVideoSlotRef.current === "a" ? "b" : "a";
-                transitioningRef.current = false;
-              });
-            };
-            nxt.load();
+        const clipSrc = clip.url || clip.mediaUrl || clip.src || "";
+        const isUpload = !clipSrc.includes('videos.pexels.com');
+        let skipArollSync = false;
+
+        if (isUpload) {
+          const isVideoUpload = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(clipSrc);
+
+          if (isBroll) {
+            // B-roll upload: use dedicated brollVideoRef/brollImgRef
+            const bImgEl = brollImgRef.current;
+            const bVidEl = brollVideoRef.current;
+            // Flash fix — detect clip change and reload immediately
+            if (prevBrollClipRef.current !== clip.id) {
+              prevBrollClipRef.current = clip.id;
+              if (isVideoUpload) {
+                if (bImgEl) bImgEl.style.display = 'none';
+                if (bVidEl) {
+                  bVidEl.style.display = 'block';
+                  bVidEl.src = clipSrc;
+                  bVidEl.setAttribute('data-src', clipSrc);
+                  bVidEl.muted = true;
+                  bVidEl.onended = () => {
+                    const { cur: arollCur } = getSlotsTick();
+                    if (arollCur) {
+                      const arollClipOnEnd = findActive("video");
+                      if (arollClipOnEnd) {
+                        const ph = playStartRef.current.playheadAtStart + (performance.now() / 1000 - playStartRef.current.wallTime);
+                        arollCur.currentTime = Math.max(0, (ph - arollClipOnEnd.startTime) * (arollClipOnEnd.speed || 1) + arollClipOnEnd.trimStart);
+                      }
+                      arollCur.play().catch(() => {});
+                    }
+                  };
+                  bVidEl.load();
+                  bVidEl.play().catch(() => {});
+                }
+              } else {
+                if (bVidEl) { bVidEl.style.display = 'none'; bVidEl.pause(); }
+                if (bImgEl) { bImgEl.src = clipSrc; bImgEl.style.display = 'block'; }
+              }
+            }
+            if (isVideoUpload && bVidEl) {
+              const clipSpeed = clip.speed || 1;
+              const localTime = (newPH - clip.startTime) * clipSpeed + clip.trimStart;
+              if (Math.abs(bVidEl.currentTime - localTime) > 0.3) bVidEl.currentTime = localTime;
+              bVidEl.playbackRate = clipSpeed;
+              if (bVidEl.paused) bVidEl.play().catch(() => {});
+            }
+            // Pause A-roll only when B-roll is a video (not image/PNG/etc)
+            const isBrollVideo = isVideoUpload;
+            if (isBrollVideo) {
+              const { cur: arollCur } = getSlotsTick();
+              if (arollCur && !arollCur.paused) arollCur.pause();
+            }
+            skipArollSync = true;
+          } else {
+            // A-roll upload: hide video slots and broll overlays, show upload overlay
+            const slotA = document.querySelector('.v2-preview-video-a');
+            const slotB = document.querySelector('.v2-preview-video-b');
+            if (slotA) slotA.style.visibility = 'hidden';
+            if (slotB) slotB.style.visibility = 'hidden';
+            if (brollImgRef.current) brollImgRef.current.style.display = 'none';
+            if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
+            prevBrollClipRef.current = null;
+            const imgEl = uploadImgRef.current;
+            const vidEl = uploadVideoRef.current;
+            if (previewSrcRef.current !== clipSrc) {
+              previewSrcRef.current = clipSrc;
+              if (isVideoUpload) {
+                if (imgEl) imgEl.style.display = 'none';
+                if (vidEl) {
+                  vidEl.style.display = 'block';
+                  vidEl.src = clipSrc;
+                  vidEl.setAttribute('data-src', clipSrc);
+                  vidEl.muted = true;
+                  vidEl.load();
+                }
+              } else {
+                if (vidEl) { vidEl.style.display = 'none'; vidEl.pause(); }
+                if (imgEl) { imgEl.src = clipSrc; imgEl.style.display = 'block'; }
+              }
+            }
+            if (isVideoUpload && vidEl) {
+              const clipSpeed = clip.speed || 1;
+              const localTime = (newPH - clip.startTime) * clipSpeed + clip.trimStart;
+              if (Math.abs(vidEl.currentTime - localTime) > 0.3) vidEl.currentTime = localTime;
+              vidEl.playbackRate = clipSpeed;
+              if (vidEl.paused) vidEl.play().catch(() => {});
+            }
+            skipArollSync = true;
+          }
+        } else {
+          // Pexels/streaming clip: hide all upload overlays
+          if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+          if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+          if (!isBroll) {
+            if (brollImgRef.current) brollImgRef.current.style.display = 'none';
+            if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
+            prevBrollClipRef.current = null;
+          } else {
+            // Stock/Pexels broll video — show it over A-roll
+            const bVidEl = brollVideoRef.current;
+            if (bVidEl) {
+              if (prevBrollClipRef.current !== clip.id) {
+                prevBrollClipRef.current = clip.id;
+                bVidEl.src = clipSrc;
+                bVidEl.setAttribute('data-src', clipSrc);
+                bVidEl.muted = true;
+                bVidEl.load();
+                bVidEl.play().catch(() => {});
+              }
+              bVidEl.style.display = 'block';
+              bVidEl.style.zIndex = '10';
+              const clipSpeed = clip.speed || 1;
+              const localTime = (newPH - clip.startTime) * clipSpeed + clip.trimStart;
+              if (Math.abs(bVidEl.currentTime - localTime) > 0.3) bVidEl.currentTime = localTime;
+              bVidEl.playbackRate = clipSpeed;
+              if (bVidEl.paused) bVidEl.play().catch(() => {});
+            }
+            // Pause A-roll while stock broll video plays
+            const { cur: arollCur } = getSlotsTick();
+            if (arollCur && !arollCur.paused) arollCur.pause();
+            skipArollSync = true;
           }
         }
+
+        // A-roll dual-buffer sync — runs for non-upload clips and broll-upload clips
+        if (!skipArollSync) {
+          const arollClip = isBroll ? videoClip : clip;
+          const arollSrc = arollClip ? (arollClip.url || arollClip.mediaUrl || arollClip.src || "") : "";
+
+          if (arollSrc && previewSrcRef.current !== arollSrc && !transitioningRef.current) {
+            const outgoingSrc = previewSrcRef.current;
+            previewSrcRef.current = arollSrc;
+            transitioningRef.current = true;
+            // Look up outgoing clip by its source URL (mirrors scrub path) — more reliable than
+            // activeSceneRef which lags one render behind the useEffect sync.
+            const outgoingClipForTrans = tracksRef.current.flatMap(t => t.clips || []).find(c =>
+              outgoingSrc && (c.src || c.url || c.mediaUrl) === outgoingSrc
+            );
+            const outgoingSceneId = outgoingClipForTrans?.sceneId ?? activeSceneRef.current;
+            const outgoingScene = scenesRef.current.find(s => s.id === outgoingSceneId);
+            const playTransType = outgoingClipForTrans?.transitionToNext
+              || outgoingScene?.transitionToNext
+              || "fade";
+            const { cur, nxt } = getSlotsTick();
+            if (cur && nxt) {
+              cur.pause();
+              nxt.oncanplay = null;
+              nxt.onerror = null;
+              nxt.style.opacity = "0";
+              nxt.style.visibility = "hidden";
+              nxt.src = arollSrc;
+              nxt.setAttribute("data-src", arollSrc);
+              nxt.muted = true;
+              nxt.style.zIndex = 3;
+              cur.style.zIndex = 2;
+              nxt.onerror = () => { nxt.onerror = null; nxt.oncanplay = null; transitioningRef.current = false; };
+              nxt.oncanplay = () => {
+                nxt.oncanplay = null;
+                nxt.onerror = null;
+                nxt.currentTime = Math.max(0, newPH - arollClip.startTime + arollClip.trimStart);
+                nxt.style.visibility = "visible";
+                nxt.play().catch(() => {});
+                applyTransition(playTransType, cur, nxt, () => {
+                  cur.pause();
+                  cur.style.visibility = 'hidden';
+                  cur.style.opacity = '0';
+                  cur.style.zIndex = 2;
+                  nxt.style.zIndex = 2;
+                  activeVideoSlotRef.current = activeVideoSlotRef.current === "a" ? "b" : "a";
+                  transitioningRef.current = false;
+                });
+              };
+              nxt.load();
+            }
+          }
+
+          if (!transitioningRef.current) {
+            const { cur } = getSlotsTick();
+            if (cur) {
+              cur.style.visibility = "visible";
+              const arollSpeed = arollClip ? (arollClip.speed || 1) : 1;
+              const localTime = arollClip ? ((newPH - arollClip.startTime) * arollSpeed + arollClip.trimStart) : 0;
+              if (Math.abs(cur.currentTime - localTime) > 0.3) cur.currentTime = localTime;
+              cur.playbackRate = arollSpeed;
+              if (cur.paused) cur.play().catch(() => {});
+            }
+          }
+        }
+
         // Switch active scene if playhead crossed into a different clip
         if (clip.sceneId != null && clip.sceneId !== activeSceneRef.current) {
           setActiveScene(clip.sceneId);
         }
-        // Sync currentTime and play on the current (active) slot
-        if (!transitioningRef.current) {
-          const { cur } = getSlotsTick();
-          if (cur) {
-            cur.style.visibility = "visible";
-            const localTime = newPH - clip.startTime + clip.trimStart;
-            if (Math.abs(cur.currentTime - localTime) > 0.2) cur.currentTime = localTime;
-            if (cur.paused) cur.play().catch(() => {});
-          }
-        }
       } else {
-        // Gap between clips — blank the preview
+        // Gap between clips — blank the preview and overlays
         const { cur } = getSlotsTick();
         if (cur) { cur.pause(); cur.currentTime = 0; cur.style.visibility = "hidden"; }
+        if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+        if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+        if (brollImgRef.current) brollImgRef.current.style.display = 'none';
+        if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
+        prevBrollClipRef.current = null;
       }
 
-      // Sync audio tracks (voiceover, music, sfx)
+      // Sync audio tracks (voiceover, music, sfx, and dynamic stem tracks)
+      const stemAudioTracks = tracksRef.current
+        .filter(t => t.key?.startsWith("stem-") || t.type === "stem")
+        .map(t => ({ key: t.key, volRef: { current: 1 } }));
       const AUDIO_TRACKS = [
         { key: "voiceover", volRef: voiceoverVolumeRef },
         { key: "music",     volRef: musicVolumeRef },
         { key: "sfx",       volRef: musicVolumeRef },
+        ...stemAudioTracks,
       ];
       AUDIO_TRACKS.forEach(({ key, volRef }) => {
         const track = tracksRef.current.find(t => t.key === key);
@@ -1072,7 +2190,8 @@ export default function EditorV2() {
             el.preload = "auto";
             audioElementsRef.current.set(clip.id, el);
           }
-          el.volume = Math.min(1, Math.max(0, volRef.current));
+          el.muted = !!track.muted;
+          el.volume = track.muted ? 0 : Math.min(1, Math.max(0, volRef.current * ((track.volume ?? 100) / 100)));
           if (inRange) {
             const localTime = newPH - clip.startTime + clip.trimStart;
             if (Math.abs(el.currentTime - localTime) > 0.25) el.currentTime = localTime;
@@ -1112,34 +2231,173 @@ export default function EditorV2() {
   const updateScene = useCallback((id, changes) => {
     setScenes(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
     const clip = timelineState.tracks?.flatMap(t => t.clips).find(c => c.sceneId === id);
-    if (clip) dispatch({ type: "UPDATE_CLIP", clipId: clip.id, changes });
-  }, [timelineState.tracks]);
+    if (clip) {
+      const clipChanges = { ...changes };
+      if ('mediaUrl' in changes) clipChanges.src = changes.mediaUrl;
+      let durationChanged = false;
+      if ('duration' in changes) {
+        clipChanges.duration = changes.duration;
+        clipChanges.trimEnd = (clip.trimStart ?? 0) + changes.duration;
+        durationChanged = Number(changes.duration) !== Number(clip.duration);
+      }
+      // Reflow downstream clips when duration actually changes (e.g. a scene's
+      // placeholder duration gets replaced once its real voiceover/video length
+      // is known) — a plain UPDATE_CLIP only resizes this clip in place and
+      // leaves every later clip's startTime stale, causing visual overlap.
+      dispatchWithHistory({
+        type: durationChanged ? "RESIZE_CLIP_REFLOW" : "UPDATE_CLIP",
+        clipId: clip.id,
+        changes: clipChanges,
+      });
+    }
+  }, [timelineState.tracks, dispatchWithHistory]);
+  const updateSceneRef = useRef(updateScene);
+  updateSceneRef.current = updateScene;
+
+  const [applyingBrand, setApplyingBrand] = useState(false);
+
+  // Brand Quick-Apply: pushes the selected brand's default VO voice / avatar /
+  // music onto one scene or the whole reel via POST /api/brands/:id/apply,
+  // then merges the server's response back into local scene + timeline state
+  // so the editor reflects it without a reload.
+  const applyBrandToScenes = useCallback(async (scope) => {
+    if (!selectedBrandId) { toast.show("Select a brand first", "error"); return; }
+    if (!reelId) { toast.show("Save the reel before applying a brand", "error"); return; }
+    const sceneId = scope === "scene" ? activeScene : undefined;
+    if (scope === "scene" && !sceneId) { toast.show("Select a scene first", "error"); return; }
+
+    setApplyingBrand(true);
+    try {
+      const headers = await getAuthHeaders();
+      headers["Content-Type"] = "application/json";
+      const res = await fetch(`/api/brands/${selectedBrandId}/apply`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ reelId, ...(sceneId ? { sceneId } : {}) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Apply failed");
+
+      const updatedScenes = data.reel?.scenes || [];
+      // Pre-fetch VO audio durations so scene/clip length stays in sync with
+      // the new voiceover, mirroring useVoiceoverEngine's regenerateVoiceovers.
+      await Promise.all(
+        updatedScenes
+          .filter((s) => s.voiceoverUrl)
+          .map(
+            (s) =>
+              new Promise((resolve) => {
+                const audio = new Audio();
+                audio.onloadedmetadata = () => { s.__voDuration = audio.duration; resolve(); };
+                audio.onerror = () => resolve();
+                audio.src = s.voiceoverUrl;
+              })
+          )
+      );
+
+      updatedScenes.forEach((updated) => {
+        const original = scenes.find((s) => String(s.id) === String(updated.id));
+        if (!original) return;
+        const changes = {
+          voiceoverUrl: updated.voiceoverUrl,
+          voiceoverVoice: updated.voiceoverVoice,
+          voiceoverProvider: updated.voiceoverProvider,
+          avatar_id: updated.avatar_id,
+          avatar_status: updated.avatar_status,
+          avatar_video_id: updated.avatar_video_id,
+          avatar_position: updated.avatar_position,
+        };
+        if (updated.__voDuration > 0) {
+          changes.duration = updated.__voDuration + 1.5;
+        }
+        updateSceneRef.current(original.id, changes);
+      });
+
+      if (data.reel?.global_music_url) {
+        setGlobalMusicUrl(data.reel.global_music_url);
+        setGlobalMusicName(data.reel.global_music_name || "");
+      }
+
+      const summary = data.applied
+        ? Object.entries(data.applied).map(([k, v]) => `${k}: ${v}`).join(" · ")
+        : "Brand applied";
+      toast.show(summary, "success");
+    } catch (err) {
+      toast.show(err.message || "Apply failed", "error");
+    } finally {
+      setApplyingBrand(false);
+    }
+  }, [selectedBrandId, reelId, activeScene, scenes, toast]);
 
   const handleSetScenes = useCallback((updater) => {
     setScenes(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       if (!Array.isArray(next)) return prev;
 
-      // Sync voiceover clips into the Voice track for any scene whose voiceoverUrl changed
-      const voTrack = timelineState.tracks.find(t => t.key === "voiceover");
-      const vidTrack = timelineState.tracks.find(t => t.key === "video");
+      // Use the live ref instead of the stale closure to avoid missed existing-clip lookups
+      const voTrack  = tracksRef.current.find(t => t.key === "voiceover");
+      const vidTrack = tracksRef.current.find(t => t.key === "video");
+      const sfxTrack = tracksRef.current.find(t => t.key === "sfx");
+
       next.forEach(scene => {
         const old = prev.find(s => s.id === scene.id);
-        if (!old || old.voiceoverUrl === scene.voiceoverUrl) return;
+        if (!old) return;
 
-        // Remove any existing voiceover clip for this scene
+        // Sync media changes into the video track clip
+        const newMedia = scene.mediaUrl || scene.url || "";
+        const oldMedia = old.mediaUrl || old.url || "";
+        if (newMedia !== oldMedia) {
+          const vidClip = vidTrack?.clips.find(c => c.sceneId === scene.id);
+          if (vidClip) {
+            dispatchWithHistory({ type: "UPDATE_CLIP", clipId: vidClip.id, changes: { src: newMedia, thumbnail: scene.thumbnail || newMedia } });
+          } else {
+            console.warn('[handleSetScenes] no vidClip found for sceneId', scene.id, 'clips:', vidTrack?.clips.map(c => c.sceneId));
+          }
+        }
+
+        // Sync per-scene SFX into the SFX track, same scene-keyed clip pattern as voiceover
+        if (old.sfxUrl !== scene.sfxUrl) {
+          const existingSfx = sfxTrack?.clips.find(c => c.sceneId === scene.id);
+          if (existingSfx) dispatchWithHistory({ type: "DELETE_CLIP", clipId: existingSfx.id });
+          if (scene.sfxUrl) {
+            const vidClipForSfx = vidTrack?.clips.find(c => c.sceneId === scene.id);
+            const sfxStart = vidClipForSfx?.startTime ?? 0;
+            const sfxDuration = vidClipForSfx ? vidClipForSfx.trimEnd - vidClipForSfx.trimStart : 3;
+            dispatchWithHistory({
+              type: "ADD_CLIP",
+              clip: makeClip({
+                trackKey:  "sfx",
+                sceneId:   scene.id,
+                startTime: sfxStart,
+                duration:  sfxDuration,
+                trimStart: 0,
+                trimEnd:   sfxDuration,
+                src:       scene.sfxUrl,
+                type:      "audio",
+                volume:    sfxVolume ?? 80,
+                label:     scene.sfxName || "SFX",
+              }),
+            });
+          }
+        }
+
+        if (old.voiceoverUrl === scene.voiceoverUrl) return;
+
         const existing = voTrack?.clips.find(c => c.sceneId === scene.id);
-        if (existing) dispatch({ type: "DELETE_CLIP", clipId: existing.id });
+
+        // Guard: clip with this exact src already present — skip to prevent duplicate
+        if (existing && existing.src === scene.voiceoverUrl) return;
+
+        if (existing) dispatchWithHistory({ type: "DELETE_CLIP", clipId: existing.id });
 
         if (!scene.voiceoverUrl) return;
 
-        // Mirror the position/duration of the matching video clip
         const vidClip = vidTrack?.clips.find(c => c.sceneId === scene.id);
         const startTime = vidClip?.startTime ?? 0;
-        const duration  = scene.voiceoverDuration
-          || (vidClip ? vidClip.trimEnd - vidClip.trimStart : 3);
+        const sceneDuration = vidClip ? vidClip.trimEnd - vidClip.trimStart : 3;
+        const duration  = scene.voiceoverDuration || sceneDuration;
 
-        dispatch({
+        dispatchWithHistory({
           type: "ADD_CLIP",
           clip: makeClip({
             trackKey:  "voiceover",
@@ -1158,18 +2416,82 @@ export default function EditorV2() {
 
       return next;
     });
-  }, [timelineState.tracks, voiceoverVolume]);
+  }, [voiceoverVolume, sfxVolume, dispatchWithHistory]);
 
-  // Sync globalMusicUrl into the Music track whenever Apply is clicked in AudioPanel
+  const applySfxToActiveScene = useCallback((url, name) => {
+    if (!activeScene) return;
+    handleSetScenes(prev => prev.map(s => s.id === activeScene ? { ...s, sfxUrl: url, sfxName: name } : s));
+  }, [activeScene, handleSetScenes]);
+  const clearSceneSfx = useCallback(() => {
+    if (!activeScene) return;
+    handleSetScenes(prev => prev.map(s => s.id === activeScene ? { ...s, sfxUrl: "", sfxName: "" } : s));
+  }, [activeScene, handleSetScenes]);
+
+  // Phase 2 of the voiceover-duration fix: scene.voiceoverDuration is only set by
+  // AudioPanel's regenerate flow. Scenes created by other pipelines (e.g. bulk AI
+  // generation) never get it, so handleSetScenes above falls back to the video
+  // clip's (possibly stale) trimEnd as a placeholder. Probe the real audio length
+  // here — same new Audio()/onloadedmetadata pattern AudioPanel already uses — then
+  // correct the voiceover clip's duration and backfill scene.voiceoverDuration so
+  // calcTotalDuration reflects true narration length without re-probing on remount.
+  const probedVoiceoverDurationsRef = useRef(new Map()); // voiceoverUrl -> duration | null (in-flight)
+  useEffect(() => {
+    scenes.forEach(scene => {
+      const url = scene.voiceoverUrl;
+      if (!url || scene.voiceoverDuration) return;
+      if (probedVoiceoverDurationsRef.current.has(url)) return;
+      probedVoiceoverDurationsRef.current.set(url, null);
+
+      const audio = new Audio();
+      audio.onloadedmetadata = () => {
+        const duration = audio.duration;
+        probedVoiceoverDurationsRef.current.set(url, duration);
+
+        // RESIZE_CLIP_REFLOW (not plain UPDATE_CLIP) so every later clip's
+        // startTime shifts along with this one — otherwise a scene whose
+        // duration was only a placeholder (e.g. PPT-path scenes default to
+        // 3s before this probe resolves) gets resized in place while
+        // everything after it keeps a stale, now-overlapping start position.
+        const voClip = tracksRef.current.find(t => t.key === "voiceover")?.clips.find(c => c.sceneId === scene.id);
+        if (voClip && voClip.src === url) {
+          dispatchWithHistory({ type: "RESIZE_CLIP_REFLOW", clipId: voClip.id, changes: { duration, trimEnd: duration } });
+        }
+
+        // Resize the video clip for this scene to match, using the same
+        // duration + 1.5 s padding that importFromScenes uses when voDur is known.
+        const vidClip = tracksRef.current.find(t => t.key === "video")?.clips.find(c => c.sceneId === scene.id);
+        if (vidClip) {
+          const vidDur = duration + 1.5;
+          dispatchWithHistory({ type: "RESIZE_CLIP_REFLOW", clipId: vidClip.id, changes: { duration: vidDur, trimEnd: vidDur } });
+        }
+
+        setScenes(prev => prev.map(s =>
+          (s.id === scene.id && s.voiceoverUrl === url) ? { ...s, voiceoverDuration: duration } : s
+        ));
+      };
+      audio.onerror = () => { probedVoiceoverDurationsRef.current.delete(url); };
+      audio.src = url;
+    });
+  }, [scenes, dispatchWithHistory, setScenes]);
+
+  // Sync globalMusicUrl into the Music track whenever Apply is clicked in AudioPanel.
+  // Only rebuild when the track is genuinely missing/empty or the URL actually
+  // changed — same guard pattern used for sfx at load time (see sfxNeedsRebuild
+  // above). `[globalMusicUrl]` alone can't distinguish "user just clicked Apply
+  // with a new track" from "this is the initial mount syncing state from a reel
+  // that was already loaded with this exact clip" — without this check, every
+  // reload silently wiped the saved clip's volume/fade/trim/volumePoints.
   useEffect(() => {
     if (!globalMusicUrl) return;
     const musicTrack = timelineState.tracks.find(t => t.key === "music");
     if (!musicTrack) return;
-    musicTrack.clips.forEach(c => dispatch({ type: "DELETE_CLIP", clipId: c.id }));
+    const existingClip = musicTrack.clips[0];
+    if (existingClip && existingClip.src === globalMusicUrl) return;
+    musicTrack.clips.forEach(c => dispatchWithHistory({ type: "DELETE_CLIP", clipId: c.id }));
     const totalDur = timelineState.tracks
       .find(t => t.key === "video")
       ?.clips.reduce((max, c) => Math.max(max, c.startTime + (c.trimEnd - c.trimStart)), 0) || 60;
-    dispatch({
+    dispatchWithHistory({
       type: "ADD_CLIP",
       clip: makeClip({
         trackKey:  "music",
@@ -1187,19 +2509,130 @@ export default function EditorV2() {
   }, [globalMusicUrl]);
 
   const moveScene      = useCallback((from, to) => { setScenes(prev => { const n=[...prev]; const [m]=n.splice(from,1); n.splice(to,0,m); return n; }); }, []);
-  const deleteScene    = useCallback((id) => { setScenes(prev => prev.filter(s => s.id !== id)); const c = timelineState.tracks?.flatMap(t=>t.clips).find(c=>c.sceneId===id); if(c) dispatch({type:"DELETE_CLIP",clipId:c.id}); }, [timelineState.tracks]);
   const duplicateScene = useCallback((id) => { setScenes(prev => { const idx=prev.findIndex(s=>s.id===id); if(idx<0) return prev; const mx=prev.reduce((m,s)=>Math.max(m,Number(s.id)||0),0)+1; const n=[...prev]; n.splice(idx+1,0,{...prev[idx],id:mx}); return n; }); }, []);
+  const deleteScene    = useCallback((id) => {
+    setScenes(prev => {
+      const next = prev.filter(s => s.id !== id);
+      if (next.length === 0) return prev;
+      return next;
+    });
+    setActiveScene(prev => prev === id ? null : prev);
+    const clip = timelineState.tracks?.flatMap(t => t.clips).find(c => c.sceneId === id);
+    if (clip) dispatchWithHistory({ type: "DELETE_CLIP", clipId: clip.id });
+  }, [timelineState.tracks, dispatchWithHistory]);
+  const addScene       = useCallback(() => {
+    const n      = scenes.length + 1;
+    const newId  = typeof crypto?.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `sc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    const videoTrack = timelineState.tracks?.find(t => t.key === "video");
+    const startTime  = (videoTrack?.clips || []).reduce((max, c) =>
+      Math.max(max, (c.startTime || 0) + ((c.trimEnd || 0) - (c.trimStart || 0))), 0);
+    setScenes(prev => [...prev, makeEmptyScene(newId, `Scene ${n}`)]);
+    setTimeout(() => {
+      setActiveScene(newId);
+      dispatchWithHistory({ type: "SEEK", time: startTime });
+    }, 50);
+    dispatchWithHistory({
+      type: "ADD_CLIP",
+      clip: makeClip({
+        trackKey:  "video",
+        sceneId:   newId,
+        startTime,
+        duration:  3,
+        trimStart: 0,
+        trimEnd:   3,
+        src:       "",
+        type:      "video",
+        label:     `Scene ${n}`,
+      }),
+    });
+    // Seek to the new scene's position so the preview shows blank instead of the previous clip
+    dispatchWithHistory({ type: "SEEK", time: startTime });
+  }, [scenes, timelineState.tracks, dispatchWithHistory]);
+
+  useEffect(() => {
+    const handler = () => addScene();
+    window.addEventListener("onyx-add-scene", handler);
+    return () => window.removeEventListener("onyx-add-scene", handler);
+  }, [addScene]);
+
+  const updateFxClip = useCallback((clipId, changes) => {
+    dispatchWithHistory({ type: "UPDATE_CLIP", clipId, changes });
+  }, [dispatchWithHistory]);
+
+  const saveNowRef = useRef(saveNow);
+  useEffect(() => { saveNowRef.current = saveNow; }, [saveNow]);
+  // Stable callback: always invokes the latest saveNow after React has flushed the pending state update.
+  const triggerSaveAfterSceneChange = useCallback(() => {
+    setTimeout(() => saveNowRef.current(), 100);
+  }, []);
+
+  const saveSceneToAiStudio = useCallback((id) => {
+    const scene = scenes.find(s => s.id === id);
+    const sceneUrl = scene?.mediaUrl || scene?.url;
+    if (!scene || !sceneUrl) return;
+    const isVid = (u) => /\.(mp4|webm|mov|m4v)(\?|$)/i.test(u);
+    const item = {
+      id: `ai_${Date.now()}`,
+      name: scene.action?.slice(0, 40) || `Scene ${id}`,
+      url: sceneUrl,
+      thumbnail: scene.thumbnail || sceneUrl,
+      mediaType: scene.mediaType || (isVid(sceneUrl) ? "video" : "image"),
+      createdAt: new Date().toISOString(),
+      source: "ai",
+    };
+    try {
+      const existing = JSON.parse(localStorage.getItem("onyx_ai_studio_library_v1") || "[]");
+      localStorage.setItem("onyx_ai_studio_library_v1", JSON.stringify([item, ...(Array.isArray(existing) ? existing : [])]));
+      window.dispatchEvent(new CustomEvent("onyx:ai-studio-save", { detail: item }));
+    } catch {}
+    setVisualsTab("aistudio");
+    setActiveMenu("visuals");
+  }, [scenes]);
 
   const regenerateScene = useCallback(async (id) => {
-    setGeneratingScenes(p => ({ ...p, [id]: true }));
+    setGeneratingScenes(p => ({ ...p, [id]: { status: "submitting" } }));
     try {
       const scene = scenes.find(s => s.id === id); if (!scene) return;
       const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
-      const d = await (await fetch("/api/ai/generate-scene", { method: "POST", headers: h, body: JSON.stringify({ prompt: scene.action || scene.narration, ratio }) })).json();
-      if (d.url) updateScene(id, { mediaUrl: d.url, thumbnail: d.thumbnail || d.url });
-    } catch(e) { console.error("[EditorV2] regen", e); }
+      const submitRes = await fetch("/api/kling/generate", {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({
+          prompt: scene.action || scene.narration,
+          sceneId: id,
+          aspect_ratio: ratio ?? "9:16",
+          duration: scene.duration || 5,
+          model: regenModel,
+          brand_id: selectedBrandId,
+        }),
+      });
+      const { jobId, error: submitErr } = await submitRes.json();
+      if (!jobId) throw new Error(submitErr || "No jobId returned");
+
+      setGeneratingScenes(p => ({ ...p, [id]: { status: "polling" } }));
+
+      // Poll until completed or failed (max 15 min — backend falPoll takes up to 10 min + download)
+      const deadline = Date.now() + 900000;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 5000));
+        const ph = await getAuthHeaders();
+        const poll = await (await fetch(`/api/kling/status/${jobId}`, { headers: ph })).json();
+        if (poll.status === "completed") {
+          if (!poll.videoUrl) throw new Error("Job completed but no video URL returned");
+          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, thumbnail: poll.thumbnailUrl || poll.videoUrl });
+          return;
+        }
+        if (poll.status === "failed") throw new Error(poll.error || "Generation failed");
+      }
+      throw new Error("Timed out waiting for video");
+    } catch(e) {
+      console.error("[EditorV2] regen", e);
+      toast.show(e.message || "Generation failed", "error");
+    }
     finally { setGeneratingScenes(p => ({ ...p, [id]: false })); }
-  }, [scenes, ratio, updateScene]);
+  }, [scenes, ratio, regenModel, toast]);
 
   if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent)) {
     return (
@@ -1213,7 +2646,7 @@ export default function EditorV2() {
   }
 
   return (
-    <div data-theme={theme} style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", background: "var(--onyx-bg-2,#0b0f17)", color: "var(--onyx-text,#f1f5fb)", fontFamily: "var(--onyx-font,-apple-system,system-ui,sans-serif)", overflow: "hidden" }}>
+    <div id="editor-v2" data-theme={theme} style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", background: "var(--onyx-bg-2,#0b0f17)", color: "var(--onyx-text,#f1f5fb)", fontFamily: "var(--onyx-font,-apple-system,system-ui,sans-serif)", overflow: "hidden", overscrollBehaviorX: "none" }}>
       {/* BG streaks */}
       <div className="onyx-bg-streaks" style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}/>
 
@@ -1221,8 +2654,12 @@ export default function EditorV2() {
         <Toolbar
           title={title} onTitleChange={setTitle} saved={savedMsg}
           theme={theme} onThemeToggle={() => setTheme(t => t==="onyx"?"opal":"onyx")}
-          ratio={ratio} onRatioChange={setRatio}
+          onSave={saveNow}
+          toast={toast}
+          onAddScene={() => window.dispatchEvent(new CustomEvent('onyx-add-scene'))}
           onExport={async () => {
+              if (exportInFlightRef.current) return;
+              exportInFlightRef.current = true;
               try {
                 // Check trial/plan gate same as V1
                 const meRes = await fetch("/api/user/me", { headers: await getAuthHeaders() });
@@ -1234,42 +2671,96 @@ export default function EditorV2() {
                 }
                 const h = await getAuthHeaders();
                 h["Content-Type"] = "application/json";
+                const _previewFrame = document.getElementById('onyx-preview-frame');
+                const _previewRect = _previewFrame?.getBoundingClientRect();
                 const payload = buildV2RenderRequest({
                   timelineState, scenes, globalMusicUrl, globalMusicName,
-                  musicVolume, voiceoverVolume, ratio, brand, reelId,
+                  musicVolume, voiceoverVolume, sfxVolume, ratio, brand, reelId,
+                  canvasH: _previewRect?.height || 500,
+                  canvasW: _previewRect?.width || 300,
+                  captionsVisible,
                 });
                 if (!payload.scenes.length) { alert("No scenes to export."); return; }
                 setSavedMsg("Rendering…");
                 // Show visible rendering indicator
                 const ind = document.createElement("div");
                 ind.id = "v2-render-indicator";
-                ind.textContent = "⏳ Rendering your reel… this may take a minute";
+                ind.textContent = "⏳ Rendering your reel… this may take a few minutes";
                 ind.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(6,9,15,0.95);border:1px solid rgba(77,208,255,0.4);color:#4dd0ff;padding:20px 32px;border-radius:12px;font-weight:600;font-size:14px;z-index:99999;box-shadow:0 8px 40px rgba(0,0,0,0.6);text-align:center;";
                 document.body.appendChild(ind);
-                const res = await fetch("/api/render", { method: "POST", headers: h, body: JSON.stringify(payload) });
-                const data = await res.json();
-                const rawUrl = data.url || data.downloadUrl;
+
+                const startRes = await fetch("/api/render", { method: "POST", headers: h, body: JSON.stringify(payload) });
+                const startData = await startRes.json();
+                if (!startData.jobId) {
+                  setSavedMsg("✗ Render failed");
+                  document.getElementById("v2-render-indicator")?.remove();
+                  console.error("[Export]", startData);
+                  return;
+                }
+
+                // Poll for completion — same pattern as Kling regen (5s interval, fresh auth
+                // headers every poll). Unlike the old single-await call, closing this tab or
+                // losing connection here does NOT kill the job: it keeps rendering server-side
+                // and can be checked again later via the same status endpoint.
+                let rawUrl = null;
+                let jobFailedError = null;
+                const deadline = Date.now() + 3600000; // 60 min client-side ceiling; server has none
+                while (Date.now() < deadline) {
+                  await new Promise(r => setTimeout(r, 5000));
+                  const ph = await getAuthHeaders();
+                  const poll = await (await fetch(`/api/render/status/${startData.jobId}`, { headers: ph })).json();
+                  if (poll.status === "completed") { rawUrl = poll.url; break; }
+                  if (poll.status === "failed") { jobFailedError = poll.error || "Render failed"; break; }
+                }
+
                 if (rawUrl) {
                   setSavedMsg("✓ Downloading…");
                   // Make absolute — backend returns relative /storage/renders/...
                   const dlUrl = rawUrl.startsWith("http") ? rawUrl : window.location.origin + rawUrl;
-                  const a = document.createElement("a");
-                  a.href = dlUrl;
-                  a.download = (title || "reel").replace(/[^a-z0-9]/gi, "_") + ".mp4";
-                  a.rel = "noopener";
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
+                  const filename = (title || "reel").replace(/[^a-z0-9]/gi, "_") + ".mp4";
+                  // The `download` attribute is ignored by browsers on cross-origin
+                  // links, and rendered output URLs are always absolute R2 URLs —
+                  // so a plain <a download> here just navigated to/played the video
+                  // instead of downloading it. Fetch it through our own origin (with
+                  // auth headers, since a plain <a> click can't carry them) and
+                  // download the resulting blob, which always honors `download`
+                  // regardless of origin.
+                  try {
+                    const dh = await getAuthHeaders();
+                    const proxyUrl = `/api/render/download?url=${encodeURIComponent(dlUrl)}&filename=${encodeURIComponent(filename)}`;
+                    const fileRes = await fetch(proxyUrl, { headers: dh });
+                    if (!fileRes.ok) throw new Error(`Download failed (${fileRes.status})`);
+                    const blob = await fileRes.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = blobUrl;
+                    a.download = filename;
+                    a.rel = "noopener";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+                  } catch (dlErr) {
+                    console.error("[Export] download failed:", dlErr);
+                    setSavedMsg("✗ Download failed");
+                  }
                   setTimeout(() => setSavedMsg("Saved"), 3000);
                   document.getElementById("v2-render-indicator")?.remove();
-                } else {
+                } else if (jobFailedError) {
                   setSavedMsg("✗ Render failed");
                   document.getElementById("v2-render-indicator")?.remove();
-                  console.error("[Export]", data);
+                  console.error("[Export]", jobFailedError);
+                } else {
+                  // Hit the 60-minute client ceiling — the job itself is not necessarily dead.
+                  setSavedMsg("Still rendering…");
+                  document.getElementById("v2-render-indicator")?.remove();
+                  alert("Still processing — this is taking longer than usual. Your video isn't lost; refresh in a few minutes to check again.");
                 }
               } catch(e) {
                 setSavedMsg("Render error");
                 console.error("[Export]", e);
+              } finally {
+                exportInFlightRef.current = false;
               }
             }}
           onPublish={() => {
@@ -1283,9 +2774,33 @@ export default function EditorV2() {
                 setSavedMsg("Building share link…");
                 const res = await fetch(`/api/reels/${reelId}/renders`, { headers: h });
                 const data = await res.json();
-                if (!data.url) { setSavedMsg("Export your reel first, then share."); return; }
+                let shareSourceUrl = data.url;
+                if (!shareSourceUrl) {
+                  setSavedMsg("Rendering watermarked preview…");
+                  const rh = { ...h, "Content-Type": "application/json" };
+                  const _previewFrame2 = document.getElementById('onyx-preview-frame');
+                  const _previewRect2 = _previewFrame2?.getBoundingClientRect();
+                  const payload = {
+                    ...buildV2RenderRequest({
+                      timelineState, scenes, globalMusicUrl, globalMusicName,
+                      musicVolume, voiceoverVolume, sfxVolume, ratio, brand, reelId,
+                      canvasH: _previewRect2?.height || 500,
+                      canvasW: _previewRect2?.width || 300,
+                      captionsVisible,
+                    }),
+                    watermark: true,
+                    renderMode: "share",
+                  };
+                  if (!payload.scenes.length) { setSavedMsg("No scenes to share."); return; }
+                  const rRes = await fetch("/api/render", { method: "POST", headers: rh, body: JSON.stringify(payload) });
+                  const rData = await rRes.json();
+                  const rawUrl = rData.url || rData.downloadUrl;
+                  if (!rawUrl) { setSavedMsg("Render failed — try exporting first."); return; }
+                  shareSourceUrl = rawUrl.startsWith("http") ? rawUrl : window.location.origin + rawUrl;
+                  setSavedMsg("Building share link…");
+                }
                 const username = currentUser?.user_metadata?.username || currentUser?.email?.split("@")[0] || "onyx";
-                const encoded = btoa(data.url).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+                const encoded = btoa(shareSourceUrl).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
                 const shareUrl = `${window.location.origin}/preview/${encoded}?ref=${encodeURIComponent(username)}`;
                 navigator.clipboard.writeText(shareUrl).catch(() => {
                   const ta = document.createElement("textarea");
@@ -1299,84 +2814,189 @@ export default function EditorV2() {
                 console.error("[Share]", e);
               }
             }}
-          isPlaying={isPlaying} onPlayPause={() => setIsPlaying(p=>!p)}
-          activeMode={activeMode} setActiveMode={setActiveMode}
         />
 
         <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
           {/* Sidebar */}
           <Sidebar open={sidebarOpen} activeTab={activeMenu} setActiveTab={setActiveMenu}>
-            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={setScenes} onSaveScene={() => saveNow()} onGenerateScene={() => {}}/></Safe>}
+            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel}/></Safe>}
             {activeMenu==="visuals"    && <Safe name="VisualsPanel"><VisualsPanel
               tab={visualsTab} setTab={setVisualsTab}
               scenes={scenes} activeScene={activeScene}
               activeSceneObj={scenes.find(s => s.id === activeScene) || null}
               onUpdateScene={updateScene}
-              onSelect={item => updateScene(activeScene, { mediaUrl: item.url || item.mediaUrl, thumbnail: item.thumbnail || item.thumb || item.url })}
-              onUseAiStudioItem={item => updateScene(activeScene, { mediaUrl: item.url, thumbnail: item.thumbnail })}
+              onSelect={item => {
+                const targetId = activeScene || scenes[0]?.id;
+                if (!targetId) return;
+                const url = item.url || item.mediaUrl;
+                const fullUrl = url?.startsWith('http') ? url : `https://onyx-reelz.com${url}`;
+                // Keep `thumbnail` (rendered by the timeline clip strip) and
+                // `stockThumb` (read first by VisualsPanel's "currently
+                // selected" pinned tile) in sync on every swap, so a new
+                // visual never leaves a stale stockThumb pointing at the
+                // previous asset (root cause of the S1/S2 mismatched-
+                // thumbnail bug on reel ad9959ee-b94d-4b5f-af60-e91b345d3b6e).
+                const newThumb = item.thumbnail || item.thumb || fullUrl;
+                updateScene(targetId, {
+                  mediaUrl: fullUrl,
+                  url: fullUrl,
+                  thumbnail: newThumb,
+                  stockThumb: newThumb,
+                  mediaType: item.mediaType || 'video'
+                });
+              }}
+              onUseAiStudioItem={item => {
+                const newThumb = item.thumbnail || item.thumb || item.url;
+                updateScene(activeScene, { mediaUrl: item.url, thumbnail: newThumb, stockThumb: newThumb });
+              }}
               aiStudioItems={aiStudioItems}
               apiBase=""
-              libraryKey={reelId || "default"}
+              libraryKey="onyx_ai_studio_library_v1"
             /></Safe>}
             {activeMenu==="audio"      && <Safe name="AudioPanel"><AudioPanel
-              tab={audioTab} setTab={setAudioTab}
-              scenes={scenes} activeScene={activeScene} setScenes={handleSetScenes}
               musicUrl={globalMusicUrl} setMusicUrl={setGlobalMusicUrl}
-              globalMusicUrl={globalMusicUrl} setGlobalMusicUrl={setGlobalMusicUrl}
-              globalMusicName={globalMusicName} setGlobalMusicName={setGlobalMusicName}
-              voiceoverVolume={voiceoverVolume} setVoiceoverVolume={setVoiceoverVolume}
+              setMusicName={setGlobalMusicName}
               musicVolume={musicVolume} setMusicVolume={setMusicVolume}
-              onUpdateScene={updateScene} onRegenerateAllVO={() => {}}
-              creditBalance={creditBalance} currentUser={currentUser} brand={brand}
             /></Safe>}
-            {activeMenu==="text"       && <Safe name="TextPanel"><TextPanel scenes={scenes} activeScene={activeScene} onUpdateScene={updateScene}/></Safe>}
-            {activeMenu==="elements"   && <Safe name="ElementsPanel"><ElementsPanel scenes={scenes} activeScene={activeScene} onUpdateScene={updateScene}/></Safe>}
-            {activeMenu==="styles"     && <Safe name="StylesPanel"><StylesPanel scenes={scenes} activeScene={activeScene} onUpdateScene={updateScene}/></Safe>}
+            {activeMenu==="voiceover"  && <Safe name="VoiceOverPanel"><VoiceOverPanel
+              scenes={scenes} setScenes={handleSetScenes}
+              voiceoverVolume={voiceoverVolume} setVoiceoverVolume={setVoiceoverVolume}
+              generatingVoiceoverScenes={generatingVoiceoverScenes}
+              setGeneratingVoiceoverScenes={setGeneratingVoiceoverScenes}
+              onSave={saveNow}
+            /></Safe>}
+            {activeMenu==="sfx"        && <Safe name="SfxPanel"><SfxPanel
+              tab={sfxTab} setTab={setSfxTab}
+              activeScene={activeScene}
+              activeSceneObj={scenes.find(s => s.id === activeScene) || null}
+              sfxVolume={sfxVolume} setSfxVolume={setSfxVolume}
+              applySfxToActiveScene={applySfxToActiveScene}
+              clearSceneSfx={clearSceneSfx}
+            /></Safe>}
+            {activeMenu==="library"    && <Safe name="AssetsLibraryPanel"><AssetsLibraryPanel
+              onApplyMusic={(url, name) => {
+                setGlobalMusicUrl(url || "");
+                if (name) setGlobalMusicName(name);
+                setSavedMsg(`${name || "Track"} applied to reel.`);
+              }}
+              onApplySfx={applySfxToActiveScene}
+              onApplyMedia={(item) => {
+                const targetId = activeScene || scenes[0]?.id;
+                if (!targetId) return;
+                const url = item.url || item.mediaUrl;
+                const fullUrl = url?.startsWith('http') ? url : `https://onyx-reelz.com${url}`;
+                const newThumb = item.thumbnail || item.thumb || fullUrl;
+                updateScene(targetId, {
+                  mediaUrl: fullUrl,
+                  url: fullUrl,
+                  thumbnail: newThumb,
+                  stockThumb: newThumb,
+                  mediaType: item.mediaType || 'video'
+                });
+              }}
+            /></Safe>}
+            {activeMenu==="text"       && <Safe name="TextPanel"><TextPanel dispatch={dispatchWithHistory} playhead={playhead} selectedClip={selectedFxClip} brand={brand}/></Safe>}
+            {activeMenu==="elements"   && <Safe name="ElementsPanel"><ElementsPanel scenes={scenes} setScenes={setScenes} activeScene={activeScene} onUpdateScene={updateScene} dispatch={dispatch} playhead={playhead} brand={brand}/></Safe>}
+            {activeMenu==="transitions" && <Safe name="TransitionsPanel"><TransitionsPanel onUpdateScene={updateScene} /></Safe>}
             {activeMenu==="branding"   && <Safe name="BrandingPanel">
-              <div style={{ padding: "16px 12px", display: "flex", flexDirection: "column", gap: 12, height: "100%", overflowY: "auto" }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.5px" }}>Brand Kit</div>
-                {brands.length === 0 ? (
-                  <div style={{ fontSize: 12, color: "#475569", textAlign: "center", padding: "16px 0" }}>
-                    No brands set up yet.<br />
-                    <a href="/branding" style={{ color: "#7c3aed", fontSize: 12, marginTop: 8, display: "inline-block" }}>Create a brand →</a>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {brands.map(b => {
-                      const isActive = selectedBrandId === b.id;
-                      return (
-                        <div key={b.id} onClick={() => { setSelectedBrandId(b.id); setBrand(prev => ({ ...prev, ...b })); }} style={{
-                          padding: "10px 12px", borderRadius: 8, cursor: "pointer",
-                          background: isActive ? "rgba(124,58,237,0.15)" : "#111827",
-                          border: isActive ? "1px solid rgba(124,58,237,0.4)" : "1px solid #1f2937",
-                          display: "flex", alignItems: "center", gap: 8,
-                        }}>
-                          <div style={{ width: 10, height: 10, borderRadius: "50%", background: b.primary_color || "#6366f1", flexShrink: 0 }} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? "#a78bfa" : "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {b.brand_label || b.brand_name || "Unnamed"}
+              <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+                {/* Tab bar */}
+                <div style={{ display: "flex", borderBottom: "0.5px solid var(--onyx-hairline,rgba(255,255,255,0.07))", flexShrink: 0 }}>
+                  {[["kit","Brand Kit"],["themes","Themes"],["captions","Captions"],["custom","Custom"]].map(([k,l]) => (
+                    <button key={k} onClick={() => setBrandTab(k)} style={{
+                      flex: 1, padding: "8px 2px", fontSize: 10, fontWeight: 700, cursor: "pointer",
+                      border: "none", background: "transparent",
+                      color: brandTab === k ? "#7de0ff" : "#475569",
+                      borderBottom: brandTab === k ? "2px solid #4dd0ff" : "2px solid transparent",
+                      fontFamily: "inherit",
+                    }}>{l}</button>
+                  ))}
+                </div>
+                {/* Brand Kit tab */}
+                {brandTab === "kit" && (
+                  <div style={{ flex: 1, overflowY: "auto", padding: "14px 12px", display: "flex", flexDirection: "column", gap: 12 }}>
+                    {brands.length === 0 ? (
+                      <div style={{ fontSize: 12, color: "#475569", textAlign: "center", padding: "16px 0" }}>
+                        No brands set up yet.<br />
+                        <a href="/branding" style={{ color: "#4dd0ff", fontSize: 12, marginTop: 8, display: "inline-block" }}>Create a brand →</a>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {brands.map(b => {
+                          const isActive = selectedBrandId === b.id;
+                          return (
+                            <div key={b.id} onClick={() => { setSelectedBrandId(b.id); setBrand(prev => ({ ...prev, ...b })); }} style={{
+                              padding: "10px 12px", borderRadius: 8, cursor: "pointer",
+                              background: isActive ? "rgba(77,208,255,0.15)" : "var(--onyx-surface)",
+                              border: isActive ? "1px solid rgba(77,208,255,0.4)" : "1px solid var(--onyx-hairline-strong)",
+                              display: "flex", alignItems: "center", gap: 8,
+                            }}>
+                              <div style={{ width: 10, height: 10, borderRadius: "50%", background: b.primary_color || "#6366f1", flexShrink: 0 }} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? "#7de0ff" : theme === "opal" ? "#06121b" : "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {b.brand_label || b.brand_name || "Unnamed"}
+                                </div>
+                                {b.is_default && <div style={{ fontSize: 9, color: "#4ade80", fontWeight: 700 }}>★ DEFAULT</div>}
+                              </div>
+                              {isActive && <span style={{ color: "#7de0ff", fontSize: 14 }}>✓</span>}
                             </div>
-                            {b.is_default && <div style={{ fontSize: 9, color: "#4ade80", fontWeight: 700 }}>★ DEFAULT</div>}
-                          </div>
-                          {isActive && <span style={{ color: "#a78bfa", fontSize: 14 }}>✓</span>}
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
+                      </div>
+                    )}
+                    {selectedBrandId && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 2 }}>
+                        <button
+                          onClick={() => applyBrandToScenes("scene")}
+                          disabled={applyingBrand || !activeScene}
+                          title={!activeScene ? "Select a scene in the timeline first" : ""}
+                          style={{
+                            padding: "9px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700,
+                            background: "rgba(77,208,255,0.12)", border: "1px solid rgba(77,208,255,0.35)",
+                            color: "#7de0ff", cursor: (applyingBrand || !activeScene) ? "not-allowed" : "pointer",
+                            opacity: (applyingBrand || !activeScene) ? 0.5 : 1,
+                          }}
+                        >{applyingBrand ? "Applying…" : "Apply to this scene"}</button>
+                        <button
+                          onClick={() => applyBrandToScenes("reel")}
+                          disabled={applyingBrand}
+                          style={{
+                            padding: "9px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700,
+                            background: "#4dd0ff", border: "1px solid #4dd0ff",
+                            color: "#06121b", cursor: applyingBrand ? "not-allowed" : "pointer",
+                            opacity: applyingBrand ? 0.5 : 1,
+                          }}
+                        >{applyingBrand ? "Applying…" : "Apply to all scenes"}</button>
+                      </div>
+                    )}
+                    <a href="/branding" style={{
+                      display: "block", padding: "8px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+                      textAlign: "center", textDecoration: "none",
+                      background: "transparent", border: "1px dashed #2b3442", color: "#4dd0ff", marginTop: 4,
+                    }}>✏️ Edit Brands →</a>
+                    {selectedBrandId && brand.default_avatar_id && (
+                      <div style={{ padding: "8px 10px", borderRadius: 6, fontSize: 11, color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
+                        This brand uses an avatar preset. Credits will be charged per scene when rendered.
+                      </div>
+                    )}
+                    {selectedBrandId && brand.default_voice_provider === "elevenlabs" && (
+                      <div style={{ padding: "8px 10px", borderRadius: 6, fontSize: 11, color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
+                        This brand uses a premium voice. Credits will be charged per scene when rendered.
+                      </div>
+                    )}
                   </div>
                 )}
-                <a href="/branding" style={{
-                  display: "block", padding: "8px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600,
-                  textAlign: "center", textDecoration: "none",
-                  background: "transparent", border: "1px dashed #2b3442", color: "#7c3aed", marginTop: 4,
-                }}>✏️ Edit Brands →</a>
-                {selectedBrandId && brand.default_avatar_id && (
-                  <div style={{ padding: "8px 10px", borderRadius: 6, fontSize: 11, color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
-                    ⚡ This brand uses an avatar preset. Credits will be charged per scene when rendered.
-                  </div>
-                )}
-                {selectedBrandId && brand.default_voice_provider === "elevenlabs" && (
-                  <div style={{ padding: "8px 10px", borderRadius: 6, fontSize: 11, color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)" }}>
-                    ⚡ This brand uses a premium voice. Credits will be charged per scene when rendered.
+                {/* Themes / Captions / Custom tabs — delegate to StylesPanel with forcedTab */}
+                {brandTab !== "kit" && (
+                  <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+                    <StylesPanel
+                      scenes={scenes}
+                      setScenes={setScenes}
+                      activeScene={activeScene}
+                      forcedTab={brandTab}
+                      brand={brand}
+                      onSave={saveNow}
+                    />
                   </div>
                 )}
               </div>
@@ -1385,6 +3005,7 @@ export default function EditorV2() {
               scenes={scenes} setScenes={setScenes}
               activeScene={activeScene}
               reelVideoUrl={reelVideoUrl}
+              timelineTracks={timelineState.tracks}
             /></Safe>}
           </Sidebar>
 
@@ -1404,49 +3025,51 @@ export default function EditorV2() {
             <PreviewCanvas
               scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene}
               isPlaying={isPlaying} playhead={playhead} totalSec={totalSec||1}
-              onSeek={t => dispatch({type:"SEEK",time:Math.max(0,t)})}
+              onSeek={t => dispatchWithHistory({type:"SEEK",time:Math.max(0,t)})}
               onPlayPause={() => setIsPlaying(p=>!p)}
               ratio={ratio}
-              captionsVisible={activeMode === "Captions"}
+              captionsVisible={captionsVisible}
               tracks={timelineState.tracks}
               brand={brand}
+              onFxUpdate={updateFxClip}
+              onFxDragEnd={saveNow}
+              selectedFxId={selectedFxId}
+              setSelectedFxId={setSelectedFxId}
+              uploadImgRef={uploadImgRef}
+              uploadVideoRef={uploadVideoRef}
+              brollImgRef={brollImgRef}
+              brollVideoRef={brollVideoRef}
+              theme={theme}
             />
           </div>
 
-          {/* Inspector toggle tab */}
-          <div onClick={() => setInspectorOpen(p => !p)} style={{
-            width: 16, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", background: "var(--panel-bg,rgba(6,9,15,0.5))",
-            borderLeft: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))",
-            color: "var(--onyx-text-faint,rgba(241,245,251,0.40))", fontSize: 10,
-            userSelect: "none",
-          }} title={inspectorOpen ? "Hide inspector (])" : "Show inspector (])"}>
-            {inspectorOpen ? "›" : "‹"}
-          </div>
-
-          {/* Inspector */}
-          <Inspector
-            scene={activeSceneObj} open={inspectorOpen}
-            onUpdateScene={updateScene} onRegenerate={regenerateScene}
-            generating={!!generatingScenes[activeScene]}
-            activeMode={activeMode} brand={brand}
-          />
         </div>
 
-        {/* Sequencer — V2 NLE timeline, always dark */}
-        <div data-theme="onyx">
+        {/* Sequencer */}
+        <div data-theme={theme} style={{ touchAction: "pan-y" }}>
           <Safe name="SequencerPanel">
             <SequencerPanel
-              timelineState={timelineState} dispatch={dispatch}
+              timelineState={timelineState} dispatch={dispatchWithHistory}
               isPlaying={isPlaying} onPlayPause={() => setIsPlaying(p => !p)}
               scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene}
               updateScene={updateScene}
               globalMusicUrl={globalMusicUrl} globalMusicName={globalMusicName}
               musicVolume={musicVolume} voiceoverVolume={voiceoverVolume}
               totalDuration={totalSec}
+              loopEnabled={loopEnabled} onLoopEnabledChange={setLoopEnabled}
+              loopIn={loopIn} loopOut={loopOut}
+              onLoopChange={(a, b) => { setLoopIn(a); setLoopOut(b); }}
+              ratio={ratio} onRatioChange={setRatio}
+              onUndo={undoTimeline} onRedo={redoTimeline}
+              onUpdateActiveScene={(changes) => updateScene(activeScene, changes)}
+              captionsVisible={captionsVisible}
+              onCaptionsToggle={() => setCaptionsVisible(p => !p)}
+              onDeleteScene={deleteScene}
+              onSfxOutOfRange={() => toast.show("SFX clip placed beyond the end of your video — it won't be included in the export.", "error")}
+              theme={theme}
               onSeek={p => {
                 const t = p * totalSec;
-                dispatch({ type: "SEEK", time: t });
+                dispatchWithHistory({ type: "SEEK", time: t });
                 // If playing, restart the play clock from the new position so the tick stays in sync
                 if (playStartRef.current) {
                   playStartRef.current = { wallTime: performance.now() / 1000, playheadAtStart: t };
@@ -1461,6 +3084,8 @@ export default function EditorV2() {
       </div>
 
       {ytModalOpen && <YouTubePublishModal onClose={() => setYtModalOpen(false)} scenes={scenes} title={title}/>}
+      <ChatBot />
+      <Toast toast={toast.toast} />
     </div>
   );
 }

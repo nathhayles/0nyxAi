@@ -18,7 +18,7 @@ export default function LoginPage() {
 
     <div style={{
       minHeight:"100vh",
-      background:"#06070a",
+      background:"var(--onyx-bg)",
       color:"#fff",
       display:"flex",
       alignItems:"center",
@@ -29,7 +29,7 @@ export default function LoginPage() {
         onSubmit={handleLogin}
         style={{
           width:380,
-          background:"#0c1016",
+          background:"var(--onyx-bg-2)",
           padding:40,
           borderRadius:14,
           border:"1px solid rgba(255,255,255,0.08)"
@@ -49,7 +49,7 @@ export default function LoginPage() {
             marginBottom:12,
             borderRadius:8,
             border:"1px solid rgba(255,255,255,0.1)",
-            background:"#06070a",
+            background:"var(--onyx-bg)",
             color:"#fff"
           }}
         />
@@ -65,7 +65,7 @@ export default function LoginPage() {
             marginBottom:20,
             borderRadius:8,
             border:"1px solid rgba(255,255,255,0.1)",
-            background:"#06070a",
+            background:"var(--onyx-bg)",
             color:"#fff"
           }}
         />

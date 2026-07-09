@@ -182,8 +182,8 @@ export default function HelpTooltip({ topic }) {
         style={{
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           width: 16, height: 16, borderRadius: "50%", fontSize: 10, fontWeight: 700,
-          background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.4)",
-          color: "#a78bfa", cursor: "pointer", flexShrink: 0, lineHeight: 1,
+          background: "rgba(77,208,255,0.15)", border: "1px solid rgba(77,208,255,0.4)",
+          color: "var(--onyx-cyan)", cursor: "pointer", flexShrink: 0, lineHeight: 1,
           padding: 0, verticalAlign: "middle"
         }}
       >

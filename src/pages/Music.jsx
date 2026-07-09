@@ -90,11 +90,11 @@ function applyTrackToEditor(track, reelKey = "onyx_editor_autosave_v2") {
 }
 
 const STEM_META = {
-  vocals:       { label: "🎤 Vocals",       color: "#f472b6" },
-  drums:        { label: "🥁 Drums",        color: "#fb923c" },
-  bass:         { label: "🎸 Bass",         color: "#a78bfa" },
-  melody:       { label: "🎹 Melody",       color: "#2dd4bf" },
-  instrumental: { label: "🎵 Instrumental", color: "#4ade80" },
+  vocals:       { label: "Vocals",       color: "#f472b6" },
+  drums:        { label: "Drums",        color: "#fb923c" },
+  bass:         { label: "Bass",         color: "#7de0ff" },
+  melody:       { label: "Melody",       color: "#2dd4bf" },
+  instrumental: { label: "Instrumental", color: "#4ade80" },
 };
 
 // ===========================
@@ -132,29 +132,29 @@ function AudioPreview({ src, volume = 70 }) {
   if (!src) return null;
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#070b10", border: "1px solid #1f2937", borderRadius: 8, padding: "8px 12px" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--onyx-bg)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 8, padding: "8px 12px" }}>
       <audio ref={ref} src={src}
         onTimeUpdate={() => { setCurrentTime(ref.current.currentTime); setProgress(ref.current.duration ? ref.current.currentTime / ref.current.duration : 0); }}
         onLoadedMetadata={() => setDuration(ref.current.duration)}
         onEnded={() => { setPlaying(false); setProgress(0); setCurrentTime(0); }}
         style={{ display: "none" }} />
-      <button onClick={toggle} style={{ width: 30, height: 30, borderRadius: "50%", background: "#7c3aed", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <button onClick={toggle} style={{ width: 30, height: 30, borderRadius: "50%", background: "#4dd0ff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
         {playing
           ? <svg width="10" height="12" viewBox="0 0 10 12" fill="white"><rect x="0" y="0" width="3" height="12" /><rect x="7" y="0" width="3" height="12" /></svg>
           : <svg width="10" height="12" viewBox="0 0 10 12" fill="white"><polygon points="0,0 10,6 0,12" /></svg>}
       </button>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-        <div style={{ height: 3, background: "#1f2937", borderRadius: 2, overflow: "hidden", cursor: "pointer" }}
+        <div style={{ height: 3, background: "var(--onyx-surface-2)", borderRadius: 2, overflow: "hidden", cursor: "pointer" }}
           onClick={e => {
             if (!ref.current?.duration) return;
             const rect = e.currentTarget.getBoundingClientRect();
             ref.current.currentTime = ((e.clientX - rect.left) / rect.width) * ref.current.duration;
           }}>
-          <div style={{ height: "100%", width: `${progress * 100}%`, background: "linear-gradient(90deg, #7c3aed, #ec4899)", borderRadius: 2, transition: "width 0.1s" }} />
+          <div style={{ height: "100%", width: `${progress * 100}%`, background: "linear-gradient(90deg, #4dd0ff, #ec4899)", borderRadius: 2, transition: "width 0.1s" }} />
         </div>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 10, color: "#94a3b8" }}>{fmt(currentTime)}</span>
-          <span style={{ fontSize: 10, color: "#94a3b8" }}>{fmt(duration)}</span>
+          <span style={{ fontSize: 10, color: "var(--onyx-text-dim)" }}>{fmt(currentTime)}</span>
+          <span style={{ fontSize: 10, color: "var(--onyx-text-dim)" }}>{fmt(duration)}</span>
         </div>
       </div>
     </div>
@@ -179,7 +179,7 @@ function TrackCard({ track, onApply, onSave, onExtend, onRename, onUseInTools, a
   };
 
   return (
-    <div style={{ background: "#0c1016", border: `1px solid ${applied ? "#8b5cf6" : "#1f2937"}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ background: "var(--onyx-bg-2)", border: `1px solid ${applied ? "#4dd0ff" : "#1f2937"}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {editing ? (
@@ -189,20 +189,20 @@ function TrackCard({ track, onApply, onSave, onExtend, onRename, onUseInTools, a
               onChange={e => setLocalName(e.target.value)}
               onBlur={commitRename}
               onKeyDown={e => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") { setLocalName(track.name || track.title || "Track"); setEditing(false); } }}
-              style={{ width: "100%", background: "#111827", border: "1px solid #7c3aed", borderRadius: 6, padding: "3px 8px", fontSize: 14, fontWeight: 700, color: "#f1f5f9", outline: "none" }}
+              style={{ width: "100%", background: "var(--onyx-surface)", border: "1px solid #4dd0ff", borderRadius: 6, padding: "3px 8px", fontSize: 14, fontWeight: 700, color: "var(--onyx-text)", outline: "none" }}
             />
           ) : (
             <div
               onClick={() => onRename && setEditing(true)}
               title={onRename ? "Click to rename" : undefined}
-              style={{ fontWeight: 700, fontSize: 14, color: "#f1f5f9", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: onRename ? "text" : "default" }}>
-              🎵 {localName}
+              style={{ fontWeight: 700, fontSize: 14, color: "var(--onyx-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: onRename ? "text" : "default" }}>
+              {localName}
             </div>
           )}
-          {track.description && <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2, lineHeight: 1.4 }}>{track.description}</div>}
+          {track.description && <div style={{ fontSize: 12, color: "var(--onyx-text-dim)", marginTop: 2, lineHeight: 1.4 }}>{track.description}</div>}
         </div>
         {formatDuration(track.duration) && (
-          <span style={{ fontSize: 11, color: "#94a3b8", padding: "3px 8px", background: "#111827", borderRadius: 20, flexShrink: 0 }}>
+          <span style={{ fontSize: 11, color: "var(--onyx-text-dim)", padding: "3px 8px", background: "var(--onyx-surface)", borderRadius: 20, flexShrink: 0 }}>
             {formatDuration(track.duration)}
           </span>
         )}
@@ -210,7 +210,7 @@ function TrackCard({ track, onApply, onSave, onExtend, onRename, onUseInTools, a
 
       {(track.mood || track.genre) && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {track.mood && <span style={{ fontSize: 11, color: "#a78bfa", padding: "2px 8px", background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.2)", borderRadius: 20 }}>{track.mood}</span>}
+          {track.mood && <span style={{ fontSize: 11, color: "#7de0ff", padding: "2px 8px", background: "rgba(77,208,255,0.12)", border: "1px solid rgba(77,208,255,0.2)", borderRadius: 20 }}>{track.mood}</span>}
           {track.genre && <span style={{ fontSize: 11, color: "#60a5fa", padding: "2px 8px", background: "rgba(96,165,250,0.12)", border: "1px solid rgba(96,165,250,0.2)", borderRadius: 20 }}>{track.genre}</span>}
         </div>
       )}
@@ -220,27 +220,27 @@ function TrackCard({ track, onApply, onSave, onExtend, onRename, onUseInTools, a
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {onSave && (
           <button onClick={() => onSave(track)} disabled={saved || saving}
-            style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: saved ? "default" : "pointer", background: saved ? "rgba(34,197,94,0.1)" : "#1f2937", border: saved ? "1px solid #22c55e" : "1px solid #2b3442", color: saved ? "#4ade80" : "#94a3b8" }}>
+            style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: saved ? "default" : "pointer", background: saved ? "rgba(34,197,94,0.1)" : "#1f2937", border: saved ? "1px solid #22c55e" : "1px solid var(--onyx-hairline-strong)", color: saved ? "#4ade80" : "#94a3b8" }}>
             {saved ? "✓ Saved" : saving ? "..." : "💾 Save"}
           </button>
         )}
         <a href={track.url} download={`${track.name || "track"}.mp3`} target="_blank" rel="noreferrer"
-          style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "#1f2937", border: "1px solid #2b3442", color: "#94a3b8", textDecoration: "none", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-dim)", textDecoration: "none", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
           ⬇ Download
         </a>
         {onExtend && (
           <button onClick={() => onExtend(track)} disabled={extending}
-            style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: extending ? "not-allowed" : "pointer", background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.3)", color: "#60a5fa" }}>
+            style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: extending ? "not-allowed" : "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)" }}>
             {extending ? "⏳" : "🔁 Extend"}
           </button>
         )}
         <button onClick={() => onApply(track)}
-          style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: applied ? "rgba(139,92,246,0.2)" : "rgba(37,99,235,0.15)", border: applied ? "1px solid #8b5cf6" : "1px solid rgba(37,99,235,0.4)", color: applied ? "#c4b5fd" : "#93c5fd" }}>
+          style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: applied ? "rgba(77,208,255,0.2)" : "var(--onyx-surface-2)", border: applied ? "1px solid var(--onyx-cyan)" : "1px solid var(--onyx-hairline-strong)", color: applied ? "var(--onyx-cyan)" : "var(--onyx-text)" }}>
           {applied ? "✓ Applied" : "Apply"}
         </button>
         {onUseInTools && (
           <button onClick={() => onUseInTools(track)}
-            style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "rgba(124,58,237,0.1)", border: "1px solid rgba(124,58,237,0.3)", color: "#c4b5fd" }}>
+            style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)" }}>
             🎛️ Tools
           </button>
         )}
@@ -362,6 +362,9 @@ export default function Music() {
   const [pendingApplyTrack, setPendingApplyTrack] = useState(null);
   const [reelSearch, setReelSearch] = useState('');
   const [appliedReelId, setAppliedReelId] = useState(null);
+
+  useEffect(() => {
+  }, [showReelPicker, pendingApplyTrack]);
 
   // Auth
   useEffect(() => {
@@ -486,6 +489,7 @@ export default function Music() {
 
   function applyTrack(track) {
     setPendingApplyTrack(track);
+    setAppliedReelId(null);
     loadReels();
     setShowReelPicker(true);
   }
@@ -712,56 +716,56 @@ export default function Music() {
 
   const chipStyle = (active) => ({
     padding: "5px 11px", borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: "pointer",
-    border: active ? "1px solid #7c3aed" : "1px solid #2b3442",
-    background: active ? "rgba(124,58,237,0.2)" : "rgba(255,255,255,0.03)",
-    color: active ? "#c4b5fd" : "#64748b",
+    border: active ? "1px solid #4dd0ff" : "1px solid var(--onyx-hairline-strong)",
+    background: active ? "rgba(77,208,255,0.2)" : "rgba(255,255,255,0.03)",
+    color: active ? "#7de0ff" : "var(--onyx-text-dim)",
     transition: "all 0.15s", userSelect: "none",
   });
 
-  const sectionLabel = { fontSize: 11, color: "#6b7280", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 8, marginTop: 16 };
-  const inputStyle = { width: "100%", background: "#0c1016", border: "1px solid #1f2937", color: "#f1f5f9", borderRadius: 8, padding: "10px 14px", fontSize: 13, boxSizing: "border-box", outline: "none" };
-  const filterChip = (active) => ({ padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: active ? "rgba(139,92,246,0.2)" : "#111827", border: active ? "1px solid #8b5cf6" : "1px solid #1f2937", color: active ? "#c4b5fd" : "#64748b" });
+  const sectionLabel = { fontSize: 11, color: "var(--onyx-text-faint)", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 8, marginTop: 16 };
+  const inputStyle = { width: "100%", background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)", borderRadius: 8, padding: "10px 14px", fontSize: 13, boxSizing: "border-box", outline: "none" };
+  const filterChip = (active) => ({ padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer", background: active ? "rgba(77,208,255,0.2)" : "var(--onyx-surface)", border: active ? "1px solid #4dd0ff" : "1px solid var(--onyx-hairline-strong)", color: active ? "#7de0ff" : "var(--onyx-text-dim)" });
 
   if (sessionLoading) return (
-    <div style={{ minHeight: "100vh", background: "#06070a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ color: "#94a3b8", fontSize: 14 }}>Loading...</div>
+    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ color: "var(--onyx-text-dim)", fontSize: 14 }}>Loading...</div>
     </div>
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", padding: "40px 24px" }}>
+    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)", padding: "40px 24px" }}>
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
 
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0, background: "linear-gradient(90deg, #ec4899, #8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              🎵 Music Studio
+            <h1 className="page-title">
+              Music Studio
             </h1>
             <HelpTooltip topic="music" />
           </div>
-          <p style={{ color: "#94a3b8", margin: 0, fontSize: 14 }}>
+          <p style={{ color: "var(--onyx-text-dim)", margin: 0, fontSize: 14 }}>
             Generate original AI music, browse the library, or hum into your mic to create a song.
           </p>
         </div>
 
         {/* Apply toast */}
         {applyMsg && (
-          <div style={{ marginBottom: 20, padding: "12px 16px", background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 10, fontSize: 13, color: "#c4b5fd", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ marginBottom: 20, padding: "12px 16px", background: "rgba(77,208,255,0.12)", border: "1px solid rgba(77,208,255,0.3)", borderRadius: 10, fontSize: 13, color: "#7de0ff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>✓ {applyMsg}</span>
-            <button onClick={() => navigate("/editor")} style={{ background: "#8b5cf6", border: "none", color: "#fff", borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            <button onClick={() => navigate("/editor")} style={{ background: "#4dd0ff", border: "none", color: "var(--onyx-text)", borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
               Open Editor →
             </button>
           </div>
         )}
 
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 32, background: "#0c1016", border: "1px solid #1f2937", borderRadius: 10, padding: 4 }}>
+        <div style={{ display: "flex", gap: 4, marginBottom: 32, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 10, padding: 4 }}>
           {[
-            { id: "generate", label: "✨ Generate" },
-            { id: "library", label: "🎧 Music Library" },
-            { id: "saved", label: "💾 My Music" },
-            { id: "tools", label: "🎛️ Tools" },
+            { id: "generate", label: "Generate" },
+            { id: "library", label: "Music Library" },
+            { id: "saved", label: "My Music" },
+            { id: "tools", label: "Tools" },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               style={{ flex: 1, padding: "9px 8px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: tab === t.id ? "#1f2937" : "transparent", border: "none", color: tab === t.id ? "#f1f5f9" : "#475569", transition: "all 0.15s" }}>
@@ -793,7 +797,7 @@ export default function Music() {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 8 }}>
                 {PROMPT_SUGGESTIONS.map(s => (
                   <span key={s} onClick={() => setPrompt(s)}
-                    style={{ fontSize: 11, padding: "3px 9px", borderRadius: 20, cursor: "pointer", background: "rgba(255,255,255,0.04)", border: "1px solid #2b3442", color: "#64748b", userSelect: "none" }}>
+                    style={{ fontSize: 11, padding: "3px 9px", borderRadius: 20, cursor: "pointer", background: "rgba(255,255,255,0.04)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-faint)", userSelect: "none" }}>
                     {s}
                   </span>
                 ))}
@@ -826,18 +830,18 @@ export default function Music() {
               {/* BPM + Key + Time */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 16 }}>
                 <div>
-                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>BPM: {bpm}</div>
-                  <input type="range" min="60" max="200" step="1" value={bpm} onChange={e => setBpm(Number(e.target.value))} style={{ width: "100%" }} />
+                  <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", marginBottom: 6 }}>BPM: {bpm}</div>
+                  <input type="range" min="60" max="200" step="1" value={bpm} onChange={e => setBpm(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--onyx-cyan)" }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>Key</div>
+                  <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", marginBottom: 6 }}>Key</div>
                   <select value={selectedKey} onChange={e => setSelectedKey(e.target.value)} style={{ ...inputStyle, padding: "7px 10px" }}>
                     <option value="">Any</option>
                     {KEYS.map(k => <option key={k} value={k}>{k}</option>)}
                   </select>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6 }}>Time Sig</div>
+                  <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", marginBottom: 6 }}>Time Sig</div>
                   <select value={timeSig} onChange={e => setTimeSig(e.target.value)} style={{ ...inputStyle, padding: "7px 10px" }}>
                     {TIME_SIGS.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
@@ -853,7 +857,7 @@ export default function Music() {
               {/* Vocals */}
               <div style={sectionLabel}>Vocals</div>
               <div style={{ display: "flex", gap: 8 }}>
-                {[["off", "— Off"], ["on", "🎤 Vocals On"], ["instrumental", "🎵 Instrumental"]].map(([val, label]) => (
+                {[["off", "— Off"], ["on", "Vocals On"], ["instrumental", "Instrumental"]].map(([val, label]) => (
                   <span key={val} style={{ ...chipStyle(vocalsMode === val), flex: 1, textAlign: "center" }} onClick={() => setVocalsMode(val)}>{label}</span>
                 ))}
               </div>
@@ -866,25 +870,25 @@ export default function Music() {
 
               {/* Generate Button */}
               <button onClick={handleGenerate} disabled={generating}
-                style={{ marginTop: 20, width: "100%", padding: "13px 16px", borderRadius: 10, fontSize: 14, fontWeight: 700, background: generating ? "#374151" : "linear-gradient(135deg, #7c3aed, #ec4899)", border: "none", color: "#fff", cursor: generating ? "not-allowed" : "pointer" }}>
-                {generating ? "⏳ Generating..." : "✨ Generate with Lyria 3 Pro — 10 credits"}
+                className="btn-teal"
+                style={{ marginTop: 20, width: "100%" }}>
+                {generating ? "Generating..." : "Generate with Lyria 3 Pro — 10 credits"}
               </button>
 
-              <div style={{ marginTop: 8, fontSize: 11, color: "#6b7280", textAlign: "center" }}>
-                🎵 Powered by Google Lyria 3 Pro via WaveSpeedAI — falls back to Suno if unavailable
+              <div style={{ marginTop: 8, fontSize: 11, color: "var(--onyx-text-faint)", textAlign: "center" }}>
+                Powered by Google Lyria 3 Pro via WaveSpeedAI — falls back to Suno if unavailable
               </div>
-              {genStatus && <div style={{ marginTop: 6, fontSize: 12, color: "#a78bfa", textAlign: "center" }}>{genStatus}</div>}
+              {genStatus && <div style={{ marginTop: 6, fontSize: 12, color: "#7de0ff", textAlign: "center" }}>{genStatus}</div>}
               {genError && <div style={{ marginTop: 6, fontSize: 12, color: "#f87171", textAlign: "center" }}>{genError}</div>}
             </div>
 
             {/* Right — results */}
             <div>
-              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 12 }}>Generated Tracks</div>
+              <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 12 }}>Generated Tracks</div>
 
               {generatedTracks.length === 0 && !generating && (
-                <div style={{ textAlign: "center", padding: "48px 24px", color: "#1f2937", border: "1px dashed #1f2937", borderRadius: 12 }}>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>🎵</div>
-                  <div style={{ fontSize: 13, color: "#374151" }}>Your generated tracks will appear here</div>
+                <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--onyx-text-dim)", border: "1px dashed var(--onyx-hairline-strong)", borderRadius: 12 }}>
+                  <div style={{ fontSize: 13, color: "var(--onyx-text-faint)" }}>Your generated tracks will appear here</div>
                 </div>
               )}
 
@@ -892,8 +896,8 @@ export default function Music() {
                 <div style={{ textAlign: "center", padding: "48px 24px", border: "1px dashed #2b3442", borderRadius: 12 }}>
                   <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
                   <div style={{ fontSize: 13, color: "#6b7280" }}>{genStatus}</div>
-                  <div style={{ marginTop: 16, height: 3, background: "#1f2937", borderRadius: 2, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: "60%", background: "linear-gradient(90deg, #7c3aed, #ec4899)", borderRadius: 2, animation: "slide 1.5s infinite" }} />
+                  <div style={{ marginTop: 16, height: 3, background: "var(--onyx-surface-2)", borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: "60%", background: "linear-gradient(90deg, #4dd0ff, #ec4899)", borderRadius: 2, animation: "slide 1.5s infinite" }} />
                   </div>
                 </div>
               )}
@@ -910,9 +914,9 @@ export default function Music() {
               {/* Saved Library preview */}
               {savedTracks.length > 0 && (
                 <div style={{ marginTop: 24 }}>
-                  <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
                     <span>My Saved Music</span>
-                    <button onClick={() => setTab("saved")} style={{ background: "none", border: "none", color: "#7c3aed", fontSize: 11, cursor: "pointer" }}>View all →</button>
+                    <button onClick={() => setTab("saved")} style={{ background: "none", border: "none", color: "#4dd0ff", fontSize: 11, cursor: "pointer" }}>View all →</button>
                   </div>
                   <div style={{ display: "grid", gap: 8 }}>
                     {savedTracks.slice(0, 3).map(track => (
@@ -933,13 +937,13 @@ export default function Music() {
                 onKeyDown={e => e.key === "Enter" && loadLibrary(libSearch, moodFilter, genreFilter)}
                 style={{ ...inputStyle, flex: 1 }} placeholder="Search by keyword, mood or genre..." />
               <button onClick={() => loadLibrary(libSearch, moodFilter, genreFilter)} disabled={libLoading}
-                style={{ padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "#2563eb", border: "none", color: "#fff", cursor: "pointer", flexShrink: 0 }}>
+                style={{ padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "var(--btn-primary-grad)", border: "none", color: "var(--onyx-text)", cursor: "pointer", flexShrink: 0 }}>
                 {libLoading ? "..." : "Search"}
               </button>
             </div>
 
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Mood</div>
+              <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Mood</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {LIB_MOODS.map(m => (
                   <button key={m} onClick={() => { setMoodFilter(m); loadLibrary(libSearch, m, genreFilter); }} style={filterChip(moodFilter === m)}>{m}</button>
@@ -948,7 +952,7 @@ export default function Music() {
             </div>
 
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Genre</div>
+              <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Genre</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {LIB_GENRES.map(g => (
                   <button key={g} onClick={() => { setGenreFilter(g); loadLibrary(libSearch, moodFilter, g); }} style={filterChip(genreFilter === g)}>{g}</button>
@@ -957,8 +961,8 @@ export default function Music() {
             </div>
 
             {libError && <div style={{ padding: 12, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, fontSize: 13, color: "#f87171", marginBottom: 16 }}>{libError}</div>}
-            {libLoading && <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Loading tracks...</div>}
-            {!libLoading && !libError && libTracks.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>No tracks found.</div>}
+            {libLoading && <div style={{ textAlign: "center", padding: 40, color: "var(--onyx-text-dim)" }}>Loading tracks...</div>}
+            {!libLoading && !libError && libTracks.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "var(--onyx-text-dim)" }}>No tracks found.</div>}
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
               {libTracks.map(track => (
@@ -972,18 +976,18 @@ export default function Music() {
         {tab === "saved" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <div style={{ fontSize: 14, color: "#94a3b8" }}>{savedTracks.length} saved track{savedTracks.length !== 1 ? "s" : ""}</div>
-              <button onClick={loadSaved} style={{ background: "none", border: "1px solid #2b3442", color: "#6b7280", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>↻ Refresh</button>
+              <div style={{ fontSize: 14, color: "var(--onyx-text-dim)" }}>{savedTracks.length} saved track{savedTracks.length !== 1 ? "s" : ""}</div>
+              <button onClick={loadSaved} style={{ background: "none", border: "1px solid var(--onyx-hairline-strong)", color: "#6b7280", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}>↻ Refresh</button>
             </div>
 
-            {savedLoading && <div style={{ textAlign: "center", padding: 40, color: "#94a3b8" }}>Loading...</div>}
+            {savedLoading && <div style={{ textAlign: "center", padding: 40, color: "var(--onyx-text-dim)" }}>Loading...</div>}
 
             {!savedLoading && savedTracks.length === 0 && (
-              <div style={{ textAlign: "center", padding: "60px 24px", border: "1px dashed #1f2937", borderRadius: 12 }}>
+              <div style={{ textAlign: "center", padding: "60px 24px", border: "1px dashed var(--onyx-hairline-strong)", borderRadius: 12 }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>💾</div>
-                <div style={{ fontSize: 14, color: "#374151", marginBottom: 8 }}>No saved tracks yet</div>
-                <div style={{ fontSize: 13, color: "#4b5563" }}>Generate music and hit Save to build your library</div>
-                <button onClick={() => setTab("generate")} style={{ marginTop: 16, padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "#7c3aed", border: "none", color: "#fff", cursor: "pointer" }}>
+                <div style={{ fontSize: 14, color: "var(--onyx-text-dim)", marginBottom: 8 }}>No saved tracks yet</div>
+                <div style={{ fontSize: 13, color: "var(--onyx-text-faint)" }}>Generate music and hit Save to build your library</div>
+                <button onClick={() => setTab("generate")} style={{ marginTop: 16, padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "#4dd0ff", border: "none", color: "var(--onyx-text)", cursor: "pointer" }}>
                   Start Generating →
                 </button>
               </div>
@@ -1005,12 +1009,12 @@ export default function Music() {
             {/* Header */}
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Audio Tools — powered by Fadr</div>
-              <div style={{ fontSize: 13, color: "#64748b" }}>Upload a track (MP3, WAV, M4A) to detect BPM &amp; key, remove vocals, or separate stems. ~$0.05/min of audio.</div>
+              <div style={{ fontSize: 13, color: "var(--onyx-text-faint)" }}>Upload a track (MP3, WAV, M4A) to detect BPM &amp; key, remove vocals, or separate stems. ~$0.05/min of audio.</div>
             </div>
 
             {/* File drop zone */}
             <div style={{ marginBottom: 20 }}>
-              <label style={{ display: "block", padding: "28px 20px", borderRadius: 12, border: `2px dashed ${fadrFile ? "#7c3aed" : "#1f2937"}`, background: fadrFile ? "rgba(124,58,237,0.06)" : "#0c1016", cursor: "pointer", textAlign: "center" }}>
+              <label style={{ display: "block", padding: "28px 20px", borderRadius: 12, border: `2px dashed ${fadrFile ? "#4dd0ff" : "#1f2937"}`, background: fadrFile ? "rgba(77,208,255,0.06)" : "var(--onyx-bg-2)", cursor: "pointer", textAlign: "center" }}>
                 <input type="file" accept="audio/*" style={{ display: "none" }}
                   onChange={e => {
                     const f = e.target.files?.[0];
@@ -1022,22 +1026,22 @@ export default function Music() {
                     audio.src = url;
                   }} />
                 {fadrFile
-                  ? <><div style={{ fontSize: 24, marginBottom: 6 }}>🎵</div><div style={{ fontSize: 13, fontWeight: 600, color: "#c4b5fd" }}>{fadrFile.name}</div><div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>{(fadrFile.size / 1024 / 1024).toFixed(1)} MB — click to change</div></>
-                  : <><div style={{ fontSize: 28, marginBottom: 6 }}>📂</div><div style={{ fontSize: 13, color: "#475569" }}>Click to upload an audio file</div><div style={{ fontSize: 11, color: "#334155", marginTop: 4 }}>MP3 · WAV · M4A · OGG</div></>}
+                  ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#7de0ff" }}>{fadrFile.name}</div><div style={{ fontSize: 11, color: "var(--onyx-text-faint)", marginTop: 4 }}>{(fadrFile.size / 1024 / 1024).toFixed(1)} MB — click to change</div></>
+                  : <><div style={{ fontSize: 28, marginBottom: 6 }}>📂</div><div style={{ fontSize: 13, color: "var(--onyx-text-faint)" }}>Click to upload an audio file</div><div style={{ fontSize: 11, color: "var(--onyx-text-faint)", marginTop: 4 }}>MP3 · WAV · M4A · OGG</div></>}
               </label>
             </div>
 
             {/* Or paste URL */}
             <div style={{ display: "flex", gap: 8, marginBottom: 24, alignItems: "center" }}>
-              <div style={{ flex: 1, height: 1, background: "#1f2937" }}/>
-              <span style={{ fontSize: 11, color: "#374151" }}>or paste URL</span>
-              <div style={{ flex: 1, height: 1, background: "#1f2937" }}/>
+              <div style={{ flex: 1, height: 1, background: "var(--onyx-surface-2)" }}/>
+              <span style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>or paste URL</span>
+              <div style={{ flex: 1, height: 1, background: "var(--onyx-surface-2)" }}/>
             </div>
             <input
               type="url" placeholder="https://example.com/track.mp3"
               value={fadrFileUrl}
               onChange={e => { setFadrFileUrl(e.target.value); if (e.target.value) { setFadrFile(null); setFadrDuration(null); setFadrResult(null); setFadrError(""); setResolvedStems(null); setSentConfirm(null); } }}
-              style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, background: "#0c1016", border: "1px solid #1f2937", color: "#f1f5f9", fontSize: 13, marginBottom: 24, outline: "none" }}
+              style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)", fontSize: 13, marginBottom: 24, outline: "none" }}
             />
 
             {/* Operation buttons */}
@@ -1098,11 +1102,11 @@ export default function Music() {
                           setFadrLoading(false);
                         }
                       }}
-                      style={{ padding: "10px 8px", borderRadius: 10, border: `1px solid ${fadrOp === op && fadrLoading ? "#7c3aed" : "#1f2937"}`, background: fadrOp === op && fadrLoading ? "rgba(124,58,237,0.12)" : "#0c1016", color: !hasSource ? "#334155" : "#e2e8f0", cursor: !hasSource ? "default" : "pointer", textAlign: "center" }}>
+                      style={{ padding: "10px 8px", borderRadius: 10, border: `1px solid ${fadrOp === op && fadrLoading ? "#4dd0ff" : "#1f2937"}`, background: fadrOp === op && fadrLoading ? "rgba(77,208,255,0.12)" : "var(--onyx-bg-2)", color: !hasSource ? "#334155" : "#e2e8f0", cursor: !hasSource ? "default" : "pointer", textAlign: "center" }}>
                       <div style={{ fontSize: 18, marginBottom: 4 }}>{icon}</div>
                       <div style={{ fontSize: 11, fontWeight: 600 }}>{label}</div>
-                      <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{desc}</div>
-                      {costLabel && <div style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: "#a78bfa", background: "rgba(124,58,237,0.15)", borderRadius: 4, padding: "2px 6px", display: "inline-block" }}>{costLabel}</div>}
+                      <div style={{ fontSize: 10, color: "var(--onyx-text-faint)", marginTop: 2 }}>{desc}</div>
+                      {costLabel && <div style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: "#7de0ff", background: "rgba(77,208,255,0.15)", borderRadius: 4, padding: "2px 6px", display: "inline-block" }}>{costLabel}</div>}
                     </button>
                   );
                 });
@@ -1111,10 +1115,10 @@ export default function Music() {
 
             {/* Loading state */}
             {fadrLoading && (
-              <div style={{ textAlign: "center", padding: "40px 20px", border: "1px solid #1f2937", borderRadius: 12, background: "#0c1016" }}>
+              <div style={{ textAlign: "center", padding: "40px 20px", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, background: "var(--onyx-bg-2)" }}>
                 <div style={{ fontSize: 28, marginBottom: 10 }}>⏳</div>
                 <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Processing…</div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>Fadr is analysing your audio. This usually takes 30–90 seconds.</div>
+                <div style={{ fontSize: 12, color: "var(--onyx-text-faint)" }}>Fadr is analysing your audio. This usually takes 30–90 seconds.</div>
               </div>
             )}
 
@@ -1127,13 +1131,13 @@ export default function Music() {
 
             {/* Results */}
             {fadrResult && !fadrLoading && (
-              <div style={{ padding: 20, borderRadius: 12, background: "#0c1016", border: "1px solid #1f2937" }}>
+              <div style={{ padding: 20, borderRadius: 12, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)" }}>
 
                 {/* BPM / Key always shown when present */}
                 {(fadrResult.bpm || fadrResult.key) && (
                   <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-                    {fadrResult.bpm && <span style={{ padding: "4px 12px", borderRadius: 999, background: "rgba(124,58,237,0.15)", border: "1px solid rgba(124,58,237,0.35)", color: "#c4b5fd", fontSize: 12, fontWeight: 600 }}>♩ {Math.round(fadrResult.bpm)} BPM</span>}
-                    {fadrResult.key && <span style={{ padding: "4px 12px", borderRadius: 999, background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd", fontSize: 12, fontWeight: 600 }}>🎵 {fadrResult.key}{fadrResult.mode ? ` ${fadrResult.mode}` : ""}</span>}
+                    {fadrResult.bpm && <span style={{ padding: "4px 12px", borderRadius: 999, background: "rgba(77,208,255,0.15)", border: "1px solid rgba(77,208,255,0.35)", color: "#7de0ff", fontSize: 12, fontWeight: 600 }}>♩ {Math.round(fadrResult.bpm)} BPM</span>}
+                    {fadrResult.key && <span style={{ padding: "4px 12px", borderRadius: 999, background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: "#93c5fd", fontSize: 12, fontWeight: 600 }}>Key: {fadrResult.key}{fadrResult.mode ? ` ${fadrResult.mode}` : ""}</span>}
                   </div>
                 )}
 
@@ -1142,10 +1146,10 @@ export default function Music() {
                   <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                     <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>🎸 Instrumental (vocals removed)</div>
                     <a href={fadrResult.instrumental} download target="_blank" rel="noreferrer"
-                      style={{ padding: "7px 16px", borderRadius: 8, background: "#7c3aed", border: "none", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", cursor: "pointer" }}>
+                      style={{ padding: "7px 16px", borderRadius: 8, background: "#4dd0ff", border: "none", color: "var(--onyx-text)", fontSize: 12, fontWeight: 600, textDecoration: "none", cursor: "pointer" }}>
                       ⬇️ Download
                     </a>
-                    <button onClick={() => applyTrackToEditor({ url: fadrResult.instrumental, name: "Instrumental", title: "Instrumental" })}
+                    <button onClick={() => applyTrack({ url: fadrResult.instrumental, name: "Instrumental", title: "Instrumental" })}
                       style={{ padding: "7px 16px", borderRadius: 8, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#86efac", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                       Apply to Reel
                     </button>
@@ -1165,7 +1169,7 @@ export default function Music() {
                           ✓ Stems assigned to <b>{sentConfirm.reelName}</b>
                         </span>
                         <a
-                          href={`/editor-v2?reelId=${sentConfirm.reelId}`}
+                          href={`/editor?reelId=${sentConfirm.reelId}`}
                           style={{
                             background: '#4ade80', color: '#060d16',
                             padding: '7px 16px', borderRadius: 6,
@@ -1182,7 +1186,7 @@ export default function Music() {
                         <span style={{ fontSize: 13, fontWeight: 600, flex: 1, color: m.color }}>{m.label.split(" ").slice(1).join(" ")}</span>
                         <AudioPreview src={fadrResult[k]} />
                         <a href={fadrResult[k]} download target="_blank" rel="noreferrer"
-                          style={{ padding: "5px 14px", borderRadius: 7, background: "#7c3aed", color: "#fff", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>
+                          style={{ padding: "5px 14px", borderRadius: 7, background: "#4dd0ff", color: "var(--onyx-text)", fontSize: 11, fontWeight: 600, textDecoration: "none" }}>
                           ⬇️ Download
                         </a>
                       </div>
@@ -1195,13 +1199,13 @@ export default function Music() {
                       </button>
                     )}
                     {Object.keys(STEM_META).every(k => !fadrResult[k]) && (
-                      <div style={{ fontSize: 13, color: "#64748b", textAlign: "center", padding: 16 }}>Stem URLs not returned — check server logs for raw response shape.</div>
+                      <div style={{ fontSize: 13, color: "var(--onyx-text-faint)", textAlign: "center", padding: 16 }}>Stem URLs not returned — check server logs for raw response shape.</div>
                     )}
                   </div>
                 )}
 
                 {fadrResult.op === "analyse" && !fadrResult.bpm && !fadrResult.key && (
-                  <div style={{ fontSize: 13, color: "#64748b", textAlign: "center", padding: 12 }}>No BPM/key data returned. The file may be too short or in an unsupported format.</div>
+                  <div style={{ fontSize: 13, color: "var(--onyx-text-faint)", textAlign: "center", padding: 12 }}>No BPM/key data returned. The file may be too short or in an unsupported format.</div>
                 )}
 
               </div>
@@ -1215,32 +1219,32 @@ export default function Music() {
       {/* Reel Picker Modal */}
       {showReelPicker && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }}>
-          <div style={{ background: "#0c1016", border: "1px solid #1f2937", borderRadius: 16, width: "100%", maxWidth: 480, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid #1f2937" }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: "#f1f5f9" }}>Apply to Reel</div>
+          <div style={{ background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 16, width: "100%", maxWidth: 480, maxHeight: "80vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--onyx-hairline-strong)" }}>
+              <div style={{ fontWeight: 700, fontSize: 15, color: "var(--onyx-text)" }}>Apply to Reel</div>
               <button onClick={() => { setShowReelPicker(false); setPendingApplyTrack(null); }}
                 style={{ background: "none", border: "none", color: "#6b7280", fontSize: 20, cursor: "pointer", lineHeight: 1 }}>✕</button>
             </div>
             <div style={{ overflowY: "auto", flex: 1, padding: "12px 20px" }}>
-              <input value={reelSearch} onChange={e => setReelSearch(e.target.value)} placeholder="Search reels..." style={{ width: "100%", padding: "8px 12px", background: "#0c1016", border: "1px solid #1f2937", borderRadius: 8, color: "#f1f5f9", fontSize: 13, marginBottom: 12, boxSizing: "border-box" }} />
+              <input value={reelSearch} onChange={e => setReelSearch(e.target.value)} placeholder="Search reels..." style={{ width: "100%", padding: "8px 12px", background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 8, color: "var(--onyx-text)", fontSize: 13, marginBottom: 12, boxSizing: "border-box" }} />
               {reels.length === 0 && (
-                <div style={{ textAlign: "center", padding: "32px 0", color: "#4b5563", fontSize: 13 }}>No reels found. Create a reel in the Editor first.</div>
+                <div style={{ textAlign: "center", padding: "32px 0", color: "var(--onyx-text-faint)", fontSize: 13 }}>No reels found. Create a reel in the Editor first.</div>
               )}
               <div style={{ display: "grid", gap: 8 }}>
                 {reels.filter(r => (r.title || '').toLowerCase().includes(reelSearch.toLowerCase())).map(reel => {
                   const isApplied = appliedReelId === reel.id;
                   return (
                   <div key={reel.id} onClick={() => !appliedReelId && confirmApplyToReel(reel)}
-                    style={{ display: "flex", alignItems: "center", gap: 12, padding: 10, border: `1px solid ${isApplied ? "#16a34a" : "#1f2937"}`, borderRadius: 10, background: isApplied ? "rgba(22,163,74,0.1)" : "#070b10", cursor: appliedReelId ? "default" : "pointer", transition: "border-color 0.2s, background 0.2s" }}>
+                    style={{ display: "flex", alignItems: "center", gap: 12, padding: 10, border: `1px solid ${isApplied ? "#16a34a" : "#1f2937"}`, borderRadius: 10, background: isApplied ? "rgba(22,163,74,0.1)" : "var(--onyx-bg)", cursor: appliedReelId ? "default" : "pointer", transition: "border-color 0.2s, background 0.2s" }}>
                     {reel.thumbnail_url && (
                       <img src={reel.thumbnail_url} alt="" style={{ width: 56, height: 40, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--onyx-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {reel.title || "Untitled Reel"}
                       </div>
                       {reel.updated_at && (
-                        <div style={{ fontSize: 11, color: "#4b5563" }}>{new Date(reel.updated_at).toLocaleDateString()}</div>
+                        <div style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>{new Date(reel.updated_at).toLocaleDateString()}</div>
                       )}
                     </div>
                     <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, color: isApplied ? "#86efac" : "#60a5fa" }}>
@@ -1251,14 +1255,14 @@ export default function Music() {
                 })}
               </div>
             </div>
-            <div style={{ padding: "12px 20px", borderTop: "1px solid #1f2937" }}>
+            <div style={{ padding: "12px 20px", borderTop: "1px solid var(--onyx-hairline-strong)" }}>
               {appliedReelId && (
                 <div style={{ marginBottom: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)", color: "#86efac", fontSize: 12, textAlign: "center" }}>
                   ✓ {applyMsg || "Track applied — open the Editor to use it."}
                 </div>
               )}
               <button onClick={saveAndClose}
-                style={{ width: "100%", padding: "9px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "rgba(124,58,237,0.15)", border: "1px solid rgba(124,58,237,0.3)", color: "#c4b5fd", cursor: "pointer" }}>
+                style={{ width: "100%", padding: "9px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "rgba(77,208,255,0.15)", border: "1px solid rgba(77,208,255,0.3)", color: "#7de0ff", cursor: "pointer" }}>
                 💾 Save to My Music instead
               </button>
             </div>
@@ -1273,7 +1277,7 @@ export default function Music() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
         }}>
           <div style={{
-            background: '#0a131e', border: '1px solid #1e2a38',
+            background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)',
             borderRadius: 14, padding: 28, width: 400,
             maxHeight: '70vh', overflowY: 'auto',
             boxShadow: '0 20px 60px rgba(0,0,0,0.6)'
@@ -1281,7 +1285,7 @@ export default function Music() {
             <h3 style={{ color: '#e2e8f0', marginBottom: 6, fontSize: 17 }}>
               Assign stems to which reel?
             </h3>
-            <p style={{ color: '#64748b', fontSize: 12, marginBottom: 18 }}>
+            <p style={{ color: 'var(--onyx-text-faint)', fontSize: 12, marginBottom: 18 }}>
               This will add {resolvedStems?.length} stem tracks to the reel&apos;s sequencer.
             </p>
 
@@ -1290,7 +1294,7 @@ export default function Music() {
             )}
 
             {!loadingReels && reels.length === 0 && (
-              <p style={{ color: '#64748b', textAlign: 'center' }}>No reels found. Create one first.</p>
+              <p style={{ color: 'var(--onyx-text-faint)', textAlign: 'center' }}>No reels found. Create one first.</p>
             )}
 
             {reels.map(reel => (
@@ -1300,7 +1304,7 @@ export default function Music() {
                 style={{
                   padding: '13px 16px', borderRadius: 8, marginBottom: 8,
                   background: stemSending ? '#0a0f1a' : '#0d1f30',
-                  border: '1px solid #1e2a38',
+                  border: '1px solid var(--onyx-hairline-strong)',
                   cursor: stemSending ? 'wait' : 'pointer',
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   transition: 'border-color 0.15s',
@@ -1322,8 +1326,8 @@ export default function Music() {
               disabled={stemSending}
               style={{
                 marginTop: 12, width: '100%', padding: '10px 0',
-                background: 'transparent', border: '1px solid #1e2a38',
-                borderRadius: 8, color: '#64748b', cursor: 'pointer', fontSize: 13
+                background: 'transparent', border: '1px solid var(--onyx-hairline-strong)',
+                borderRadius: 8, color: 'var(--onyx-text-faint)', cursor: 'pointer', fontSize: 13
               }}
             >
               Cancel

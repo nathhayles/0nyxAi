@@ -57,7 +57,7 @@ export default function UrlToVideo() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#06070a", color: "#fff", padding: "40px 24px", fontFamily: "sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)", padding: "40px 24px", fontFamily: "sans-serif" }}>
       <div style={{ maxWidth: 720, margin: "0 auto" }}>
         <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, marginBottom: 24, padding: 0 }}>
           ← Back to Studio
@@ -73,12 +73,13 @@ export default function UrlToVideo() {
             onChange={e => setUrl(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleAnalyse()}
             placeholder="https://yourbusiness.com/about"
-            style={{ flex: 1, padding: "13px 16px", borderRadius: 8, background: "#0c1016", border: "1px solid #1f2937", color: "#f1f5f9", fontSize: 14, outline: "none" }}
+            style={{ flex: 1, padding: "13px 16px", borderRadius: 8, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", color: "#f1f5f9", fontSize: 14, outline: "none" }}
           />
           <button
             onClick={handleAnalyse}
             disabled={loading}
-            style={{ padding: "13px 24px", borderRadius: 8, background: loading ? "#374151" : "linear-gradient(135deg, #7c3aed, #ec4899)", border: "none", color: "#fff", fontWeight: 700, fontSize: 14, cursor: loading ? "not-allowed" : "pointer" }}
+            className="btn-teal"
+            style={{ padding: "13px 24px" }}
           >
             {loading ? "Analysing..." : "Analyse"}
           </button>
@@ -91,21 +92,21 @@ export default function UrlToVideo() {
         )}
 
         {loading && (
-          <div style={{ padding: 20, background: "#0c1016", border: "1px solid #1f2937", borderRadius: 12, textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
+          <div style={{ padding: 20, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
             Fetching and analysing page content with AI...
           </div>
         )}
 
         {preview && (
-          <div style={{ background: "#0c1016", border: "1px solid #1f2937", borderRadius: 12, padding: 24 }}>
+          <div style={{ background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, padding: 24 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>{preview.title}</h2>
             <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 20 }}>{preview.summary}</p>
             <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>
               {preview.scenes?.length} scenes generated
             </div>
             {preview.scenes?.map((scene, i) => (
-              <div key={i} style={{ padding: "10px 14px", background: "#111827", borderRadius: 8, marginBottom: 8, fontSize: 13, color: "#94a3b8" }}>
-                <span style={{ color: "#7c3aed", fontWeight: 600 }}>Scene {i + 1}:</span> {scene.narration}
+              <div key={i} style={{ padding: "10px 14px", background: "var(--onyx-surface)", borderRadius: 8, marginBottom: 8, fontSize: 13, color: "#94a3b8" }}>
+                <span style={{ color: "#4dd0ff", fontWeight: 600 }}>Scene {i + 1}:</span> {scene.narration}
               </div>
             ))}
             <div style={{ marginBottom: 16 }}>
@@ -114,9 +115,10 @@ export default function UrlToVideo() {
             </div>
             <button
               onClick={handleGenerate}
-              style={{ width: "100%", marginTop: 16, padding: "13px", borderRadius: 8, background: "linear-gradient(135deg, #7c3aed, #ec4899)", border: "none", color: "#fff", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
+              className="btn-teal"
+              style={{ width: "100%", marginTop: 16 }}
             >
-              ✨ Open in Editor
+              Open in Editor
             </button>
           </div>
         )}
