@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [activeFolder, setActiveFolder] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [loadError, setLoadError] = useState("");
   const [showPaywall, setShowPaywall] = useState(false);
   const [publishHistory, setPublishHistory] = useState({});
 
@@ -55,11 +56,24 @@ export default function Dashboard() {
       fetch("/api/folders", { headers }),
       fetch("/api/reels/publish-history", { headers }),
     ]);
-    const reelsData = await reelsRes.json().catch(() => []);
-    setReels(Array.isArray(reelsData) ? reelsData : []);
-    const foldersData = await foldersRes.json().catch(() => []);
-    setFolders(Array.isArray(foldersData) ? foldersData : []);
-    setPublishHistory(await historyRes.json().catch(() => ({})) || {});
+    const reelsData = await reelsRes.json().catch(() => null);
+    const foldersData = await foldersRes.json().catch(() => null);
+    // A 403 (e.g. expired/missing trial) returns an error object, not an
+    // array — without this guard that object got assigned straight into
+    // state and crashed every .map() call below with "x.map is not a
+    // function", rendering a blank screen with no console-visible cause.
+    setReels(reelsRes.ok && Array.isArray(reelsData) ? reelsData : []);
+    setFolders(foldersRes.ok && Array.isArray(foldersData) ? foldersData : []);
+    // publish-history only feeds the per-platform status badges — it's
+    // supplementary, so a failure here must never crash the page or
+    // clobber the reels/folders loadError set below.
+    const historyData = await historyRes.json().catch(() => ({}));
+    setPublishHistory(historyRes.ok && historyData ? historyData : {});
+    if (!reelsRes.ok || !foldersRes.ok) {
+      setLoadError((!reelsRes.ok && reelsData?.message) || (!foldersRes.ok && foldersData?.message) || "Could not load your dashboard. Please try again.");
+    } else {
+      setLoadError("");
+    }
     setLoading(false);
   }
 
@@ -120,53 +134,50 @@ export default function Dashboard() {
 
   const visibleReels = reels.filter(r => activeFolder ? r.folder_id === activeFolder : !r.folder_id);
 
-  if (loading) return <div style={{color:"#fff",padding:40}}>Loading...</div>;
+  if (loading) return <div style={{color:"var(--onyx-text)",padding:40}}>Loading...</div>;
 
   return (
-    <div style={{minHeight:"100vh",color:"#fff",padding:"40px"}} onClick={() => setMenuOpen(null)}>
+    <div style={{minHeight:"100vh",color:"var(--onyx-text)",padding:"40px"}} onClick={() => setMenuOpen(null)}>
+      {loadError && (
+        <div style={{padding:"12px 16px",borderRadius:8,marginBottom:20,background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",color:"#f87171",fontSize:14}}>
+          {loadError} {loadError.toLowerCase().includes("trial") && <a href="/pricing" style={{color:"#f87171",textDecoration:"underline"}}>Upgrade now</a>}
+        </div>
+      )}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <h1 style={{margin:0,fontSize:28}}>Your Projects</h1>
+            <h1 className="page-title">Your Projects</h1>
             <HelpTooltip topic="dashboard" />
           </div>
-          <p style={{margin:"6px 0 0",opacity:0.4,fontSize:13}}>Drafts, scheduled videos, and published reels.</p>
+          <p style={{margin:"6px 0 0",color:"var(--onyx-text-faint)",fontSize:13}}>Drafts, scheduled videos, and published reels.</p>
         </div>
-        <button onClick={() => window.location.href="/studio"} style={{background:"#2563eb",color:"#fff",border:"none",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:14}}>+ New Reel</button>
+        <button onClick={() => window.location.href="/studio"} style={{background:"linear-gradient(180deg,#5edcff,#2db8ee)",color:"var(--btn-primary-text)",border:"none",borderRadius:8,padding:"10px 20px",cursor:"pointer",fontSize:14,fontWeight:600}}>+ New Reel</button>
       </div>
 
       {/* Folder tabs */}
       <div style={{display:"flex",gap:8,marginBottom:24,flexWrap:"wrap",alignItems:"center"}}>
-        <button onClick={() => setActiveFolder(null)} style={{padding:"6px 14px",borderRadius:20,border:"1px solid #2b3442",background:!activeFolder?"#2563eb":"transparent",color:"#fff",cursor:"pointer",fontSize:13}}>All Reels</button>
+        <button onClick={() => setActiveFolder(null)} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--onyx-hairline-strong)",background:!activeFolder?"linear-gradient(180deg,#5edcff,#2db8ee)":"transparent",color:!activeFolder?"var(--btn-primary-text)":"var(--onyx-text-dim)",cursor:"pointer",fontSize:13}}>All Reels</button>
         {folders.map(f => (
-          <button key={f.id} onClick={() => setActiveFolder(f.id)} style={{padding:"6px 14px",borderRadius:20,border:"1px solid #2b3442",background:activeFolder===f.id?"#2563eb":"transparent",color:"#fff",cursor:"pointer",fontSize:13}}>📁 {f.name}</button>
+          <button key={f.id} onClick={() => setActiveFolder(f.id)} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--onyx-hairline-strong)",background:activeFolder===f.id?"linear-gradient(180deg,#5edcff,#2db8ee)":"transparent",color:activeFolder===f.id?"var(--btn-primary-text)":"var(--onyx-text-dim)",cursor:"pointer",fontSize:13}}>📁 {f.name}</button>
         ))}
         {showNewFolder
-          ? <span style={{display:"flex",gap:6}}><input autoFocus value={newFolderName} onChange={e=>setNewFolderName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&createFolder()} placeholder="Folder name" style={{background:"#1a2030",color:"#fff",border:"1px solid #444",borderRadius:6,padding:"4px 10px",fontSize:13}} /><button onClick={createFolder} style={{background:"#2563eb",color:"#fff",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:13}}>Add</button></span>
-          : <button onClick={() => setShowNewFolder(true)} style={{padding:"6px 14px",borderRadius:20,border:"1px dashed #444",background:"transparent",color:"#888",cursor:"pointer",fontSize:13}}>+ New Folder</button>}
+          ? <span style={{display:"flex",gap:6}}><input autoFocus value={newFolderName} onChange={e=>setNewFolderName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&createFolder()} placeholder="Folder name" style={{background:"var(--input-bg)",color:"var(--onyx-text)",border:"1px solid var(--onyx-hairline-strong)",borderRadius:6,padding:"4px 10px",fontSize:13}} /><button onClick={createFolder} style={{background:"linear-gradient(180deg,#5edcff,#2db8ee)",color:"var(--btn-primary-text)",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:13}}>Add</button></span>
+          : <button onClick={() => setShowNewFolder(true)} style={{padding:"6px 14px",borderRadius:20,border:"1px dashed var(--onyx-hairline-strong)",background:"transparent",color:"var(--onyx-text-faint)",cursor:"pointer",fontSize:13}}>+ New Folder</button>}
       </div>
 
       {/* Reels grid */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:20}}>
         {visibleReels.map(r => (
-          <div key={r.id} style={{background:"#1a2030",borderRadius:12,border:"1px solid #2b3442",position:"relative"}} onClick={e=>e.stopPropagation()}>
+          <div key={r.id} style={{background:"var(--onyx-surface)",borderRadius:12,border:"1px solid var(--onyx-hairline-strong)",position:"relative"}} onClick={e=>e.stopPropagation()}>
             <div onClick={() => window.location.href=`/editor?reelId=${r.id}`} style={{cursor:"pointer"}}>
-              <div style={{height:120,background:"#111",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"12px 12px 0 0",overflow:"hidden"}}>
-                {r.thumbnail_url ? <img src={r.thumbnail_url} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e => { e.target.style.display="none"; }} /> : null}
-                {(!r.thumbnail_url) && <span style={{opacity:0.3,fontSize:12}}>No preview</span>}
+              <div style={{height:120,background:"var(--input-bg)",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"12px 12px 0 0",overflow:"hidden"}}>
+                {r.thumbnail_url ? <img src={r.thumbnail_url} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";e.target.nextSibling&&(e.target.nextSibling.style.display="flex");}} /> : <span style={{color:"var(--onyx-text-faint)",fontSize:12}}>No preview</span>}
               </div>
               <div style={{padding:"12px 14px 4px"}}>
                 {renaming===r.id
-                  ? <input autoFocus value={renameVal} onChange={e=>setRenameVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&renameReel(r.id)} onClick={e=>e.stopPropagation()} style={{background:"#0f141b",color:"#fff",border:"1px solid #444",borderRadius:4,padding:"4px 8px",width:"100%",fontSize:14}} />
-                  : <div style={{fontWeight:600,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.title||"Untitled Reel"}</div>}
-                <div style={{fontSize:11,opacity:0.4,marginTop:4}}>{new Date(r.updated_at).toLocaleDateString()}</div>
-                {(() => {
-                  const total = (r.scenes || []).reduce((sum, s) => sum + (s.duration || s.clip_duration || 3), 0);
-                  if (!total) return null;
-                  const mins = Math.floor(total / 60);
-                  const secs = Math.round(total % 60);
-                  return <div style={{fontSize:14,opacity:0.9,marginTop:4,color:'#cbd5e1',fontWeight:600}}>⏱ {mins > 0 ? `${mins}m ` : ""}{secs}s</div>;
-                })()}
+                  ? <input autoFocus value={renameVal} onChange={e=>setRenameVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&renameReel(r.id)} onClick={e=>e.stopPropagation()} style={{background:"var(--input-bg)",color:"var(--onyx-text)",border:"1px solid var(--onyx-hairline-strong)",borderRadius:4,padding:"4px 8px",width:"100%",fontSize:14}} />
+                  : <div style={{fontWeight:600,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",color:"var(--onyx-text)"}}>{r.title||"Untitled Reel"}</div>}
+                <div style={{fontSize:11,color:"var(--onyx-text-faint)",marginTop:4}}>{new Date(r.updated_at).toLocaleDateString()}</div>
                 {(() => {
                   const history = publishHistory[r.id];
                   if (!history || !history.length) return null;
@@ -184,27 +195,25 @@ export default function Dashboard() {
               </div>
             </div>
             <div style={{padding:"4px 14px 12px",display:"flex",justifyContent:"flex-end"}}>
-              <button onClick={e=>{e.stopPropagation();setMenuOpen(menuOpen===r.id?null:r.id);}} style={{background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:18,opacity:0.5,padding:"2px 6px"}}>⋯</button>
+              <button onClick={e=>{e.stopPropagation();setMenuOpen(menuOpen===r.id?null:r.id);}} style={{background:"none",border:"none",color:"var(--onyx-text-dim)",cursor:"pointer",fontSize:18,padding:"2px 6px"}}>⋯</button>
             </div>
             {menuOpen===r.id && (
-              <div style={{position:"absolute",bottom:"44px",right:"10px",background:"#1e2736",border:"1px solid #2b3442",borderRadius:8,zIndex:999,minWidth:170,boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
-                <div onClick={()=>window.location.href=`/editor?reelId=${r.id}`} style={{padding:"10px 16px",cursor:"pointer",fontSize:13}}>✏️ Edit</div>
-                <div onClick={()=>{setRenaming(r.id);setRenameVal(r.title||"");setMenuOpen(null);}} style={{padding:"10px 16px",cursor:"pointer",fontSize:13}}>🔤 Rename</div>
-                <div onClick={()=>setMovingReel(r.id)} style={{padding:"10px 16px",cursor:"pointer",fontSize:13}}>📁 Move to Folder</div>
-                <div onClick={async ()=>{ setMenuOpen(null); const headers = await getHeaders(); const reelRes = await fetch(`/api/reels/${r.id}`, { headers }); const reel = await reelRes.json(); if (!reel.scenes || !reel.scenes.length) { alert("No scenes in this reel yet."); return; } const renderRes = await fetch("/api/render", { method: "POST", headers: { ...(await getHeaders()), "Content-Type": "application/json" }, body: JSON.stringify({ scenes: reel.scenes.filter(s=>s.url||s.mediaUrl).map(s=>({ type: s.mediaType||"video", url: s.url||s.mediaUrl, duration: s.duration||3, voiceoverUrl: s.voiceoverUrl||null })), renderMode: "share" }) }); const data = await renderRes.json(); if (data.url) { const shareUrl = data.projectId
-        ? `${window.location.origin}/preview/${data.projectId}?ref=nathhayles`
-        : `${window.location.origin}${data.url}?ref=nathhayles`; await navigator.clipboard.writeText(shareUrl); alert("Share link copied to clipboard"); window.open(shareUrl, "_blank"); } else { alert("Share failed: " + (data.error||"unknown")); }}} style={{padding:"10px 16px",cursor:"pointer",fontSize:13}}>🔗 Copy Share Link</div>
-                <div onClick={async ()=>{ setMenuOpen(null); const headers = await getHeaders(); const reelRes = await fetch(`/api/reels/${r.id}`, { headers }); const reel = await reelRes.json(); if (!reel.scenes || !reel.scenes.length) { alert("No scenes in this reel yet."); return; } const renderRes = await fetch("/api/render", { method: "POST", headers: {...headers, "Content-Type": "application/json"}, body: JSON.stringify({ scenes: reel.scenes.filter(s=>s.url||s.mediaUrl).map(s=>({ type: s.mediaType||"video", url: s.url||s.mediaUrl, duration: s.duration||3, voiceoverUrl: s.voiceoverUrl||null })), renderMode: "download" }) }); const data = await renderRes.json(); if (data.url) { const a=document.createElement("a"); a.href=data.url; a.download=(r.title||"reel")+".mp4"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } else { alert("Download failed: " + (data.error||"unknown error")); }}} style={{padding:"10px 16px",cursor:"pointer",fontSize:13}}>⬇️ Download</div>
-                <div onClick={()=>{ setMenuOpen(null); window.location.href=`/publish?reelId=${r.id}`; }} style={{padding:"10px 16px",cursor:"pointer",fontSize:13}}>📤 Publish</div>
+              <div style={{position:"absolute",bottom:"44px",right:"10px",background:"var(--onyx-surface)",border:"1px solid var(--onyx-hairline-strong)",borderRadius:8,zIndex:999,minWidth:170,boxShadow:"0 4px 20px rgba(0,0,0,0.15)"}}>
+                <div onClick={()=>window.location.href=`/editor?reelId=${r.id}`} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>✏️ Edit</div>
+                <div onClick={()=>{setRenaming(r.id);setRenameVal(r.title||"");setMenuOpen(null);}} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>🔤 Rename</div>
+                <div onClick={()=>setMovingReel(r.id)} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>📁 Move to Folder</div>
+                <div onClick={async ()=>{ setMenuOpen(null); const headers = await getHeaders(); const reelRes = await fetch(`/api/reels/${r.id}`, { headers }); const reel = await reelRes.json(); if (!reel.scenes || !reel.scenes.length) { alert("No scenes in this reel yet."); return; } const renderRes = await fetch("/api/render", { method: "POST", headers: { ...(await getHeaders()), "Content-Type": "application/json" }, body: JSON.stringify({ scenes: reel.scenes.filter(s=>s.url||s.mediaUrl).map(s=>({ type: s.mediaType||"video", url: s.url||s.mediaUrl, duration: s.duration||3, voiceoverUrl: s.voiceoverUrl||null })), renderMode: "share" }) }); const data = await renderRes.json(); if (data.url) { const rawUrl = data.url.startsWith("http") ? data.url : window.location.origin + data.url; const encoded = btoa(rawUrl).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, ''); const shareUrl = `${window.location.origin}/preview/${encoded}?ref=nathhayles`; await navigator.clipboard.writeText(shareUrl); alert("Share link copied to clipboard"); window.open(shareUrl, "_blank"); } else { alert("Share failed: " + (data.error||"unknown")); }}} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>🔗 Copy Share Link</div>
+                <div onClick={async ()=>{ setMenuOpen(null); const headers = await getHeaders(); const reelRes = await fetch(`/api/reels/${r.id}`, { headers }); const reel = await reelRes.json(); if (!reel.scenes || !reel.scenes.length) { alert("No scenes in this reel yet."); return; } const renderRes = await fetch("/api/render", { method: "POST", headers: {...headers, "Content-Type": "application/json"}, body: JSON.stringify({ scenes: reel.scenes.filter(s=>s.url||s.mediaUrl).map(s=>({ type: s.mediaType||"video", url: s.url||s.mediaUrl, duration: s.duration||3, voiceoverUrl: s.voiceoverUrl||null })), renderMode: "download" }) }); const data = await renderRes.json(); if (data.url) { const a=document.createElement("a"); a.href=data.url; a.download=(r.title||"reel")+".mp4"; document.body.appendChild(a); a.click(); document.body.removeChild(a); } else { alert("Download failed: " + (data.error||"unknown error")); }}} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>⬇️ Download</div>
+                <div onClick={()=>{ setMenuOpen(null); window.location.href=`/publish?reelId=${r.id}`; }} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>📤 Publish</div>
                 <div onClick={()=>deleteReel(r.id)} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"#ef4444"}}>🗑️ Delete</div>
               </div>
             )}
             {movingReel===r.id && (
-              <div style={{position:"absolute",bottom:"44px",right:"10px",background:"#1e2736",border:"1px solid #2b3442",borderRadius:8,zIndex:1000,minWidth:170,boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
-                <div style={{padding:"8px 16px",fontSize:11,opacity:0.5,borderBottom:"1px solid #2b3442"}}>Move to folder</div>
-                <div onClick={()=>moveToFolder(r.id,null)} style={{padding:"10px 16px",cursor:"pointer",fontSize:13}}>📂 No folder</div>
+              <div style={{position:"absolute",bottom:"44px",right:"10px",background:"var(--onyx-surface)",border:"1px solid var(--onyx-hairline-strong)",borderRadius:8,zIndex:1000,minWidth:170,boxShadow:"0 4px 20px rgba(0,0,0,0.15)"}}>
+                <div style={{padding:"8px 16px",fontSize:11,color:"var(--onyx-text-faint)",borderBottom:"1px solid var(--onyx-hairline)"}}>Move to folder</div>
+                <div onClick={()=>moveToFolder(r.id,null)} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>📂 No folder</div>
                 {folders.map(f=>(
-                  <div key={f.id} onClick={()=>moveToFolder(r.id,f.id)} style={{padding:"10px 16px",cursor:"pointer",fontSize:13}}>📁 {f.name}</div>
+                  <div key={f.id} onClick={()=>moveToFolder(r.id,f.id)} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>📁 {f.name}</div>
                 ))}
               </div>
             )}

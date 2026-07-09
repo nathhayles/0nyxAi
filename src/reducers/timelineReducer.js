@@ -8,9 +8,10 @@ export const TRACK_TYPES = {
   VIDEO:     { id: 0, key: "video",     label: "Video",    icon: "🎬", color: "#7c3aed", kind: "video" },
   BROLL:     { id: 1, key: "broll",     label: "B-Roll",   icon: "📽",  color: "#3b82f6", kind: "video" },
   FX:        { id: 2, key: "fx",        label: "FX",       icon: "✨",  color: "#ec4899", kind: "fx"    },
-  VOICEOVER: { id: 3, key: "voiceover", label: "Voice",    icon: "🎤",  color: "#22c55e", kind: "audio" },
-  MUSIC:     { id: 4, key: "music",     label: "Music",    icon: "🎵",  color: "#8b5cf6", kind: "audio" },
-  SFX:       { id: 5, key: "sfx",       label: "SFX",      icon: "🔊",  color: "#f59e0b", kind: "audio" },
+  AVATAR:    { id: 3, key: "avatar",    label: "Avatar",   icon: "👤",  color: "#06b6d4", kind: "avatar" },
+  VOICEOVER: { id: 4, key: "voiceover", label: "Voice",    icon: "🎤",  color: "#22c55e", kind: "audio" },
+  MUSIC:     { id: 5, key: "music",     label: "Music",    icon: "🎵",  color: "#8b5cf6", kind: "audio" },
+  SFX:       { id: 6, key: "sfx",       label: "SFX",      icon: "🔊",  color: "#f59e0b", kind: "audio" },
 };
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -36,6 +37,11 @@ export function makeClip(overrides = {}) {
     fadeOut:    0,
     speed:      1,              // 0.5 | 1 | 1.5 | 2
     muted:      false,
+    // Volume automation: null = flat `volume` applies as-is (unchanged legacy
+    // behavior). When length >= 2, each point's `v` (0-100) is a percentage of
+    // `volume` (the ceiling), not an absolute level — see SET_VOLUME_POINTS.
+    // `t` is seconds local to the clip's trimmed span (0 = trimStart).
+    volumePoints: null,
     thumbnail:  "",
     label:      "",
     // legacy scene compat fields (populated when importing from scenes[])
@@ -68,8 +74,6 @@ export function makeInitialState() {
       color:  t.color,
       kind:   t.kind,
       clips:  [],
-      volume: 100,
-      muted:  false,
     })),
     joins:    [],               // transition objects
     playhead: 0,                // seconds
@@ -91,13 +95,19 @@ export function importFromScenes(scenes = [], globalMusicUrl = "", globalMusicNa
   let cursor = 0;
 
   const videoTrack     = state.tracks.find(t => t.key === "video");
+  const avatarTrack    = state.tracks.find(t => t.key === "avatar");
   const voiceTrack     = state.tracks.find(t => t.key === "voiceover");
   const musicTrack     = state.tracks.find(t => t.key === "music");
+  const sfxTrack       = state.tracks.find(t => t.key === "sfx");
 
   scenes.forEach((sc, i) => {
-    // Use sc.duration (intended play time) for clip width and cursor.
-    // sc.videoDuration is the full file length — used only by trim handles.
-    const dur = Number(sc.duration) || 3;
+    const rawDur = Number(sc.duration) || 3;
+    const voDur  = Number(sc.voiceoverDuration) || 0;
+    // Mirror render.js's Part 1 fix: when a voiceover exists, its live duration
+    // (+1.5s buffer) is what actually determines this scene's length in the
+    // export. sc.duration is a separate, often-stale field (legacy clip-length
+    // default) and must not override it.
+    const dur = voDur > 0 ? voDur + 1.5 : rawDur;
     const clip = makeClip({
       trackKey:        "video",
       startTime:       cursor,
@@ -119,17 +129,49 @@ export function importFromScenes(scenes = [], globalMusicUrl = "", globalMusicNa
     });
     videoTrack.clips.push(clip);
 
-    if (sc.voiceoverUrl) {
-      voiceTrack.clips.push(makeClip({
-        trackKey:  "voiceover",
+    if (sc.avatar_video_url && sc.avatar_status === "completed") {
+      avatarTrack.clips.push(makeClip({
+        trackKey:  "avatar",
         startTime: cursor,
         duration:  dur,
         trimStart: 0,
         trimEnd:   dur,
+        src:       sc.avatar_video_url,
+        type:      "video",
+        volume:    0,
+        label:     `AV S${i + 1}`,
+        sceneId:   sc.id,
+        avatarPosition: sc.avatar_position || "bottom-right",
+      }));
+    }
+
+    if (sc.voiceoverUrl) {
+      voiceTrack.clips.push(makeClip({
+        trackKey:  "voiceover",
+        startTime: cursor + 0.15,
+        duration:  voDur > 0 ? voDur : dur,
+        trimStart: 0,
+        trimEnd:   voDur > 0 ? voDur : dur,
         src:       sc.voiceoverUrl,
         type:      "audio",
         volume:    100,
         label:     `VO S${i + 1}`,
+        sceneId:   sc.id,
+      }));
+    }
+
+    if (sc.sfxUrl) {
+      sfxTrack.clips.push(makeClip({
+        trackKey:  "sfx",
+        startTime: cursor,
+        duration:  dur,
+        trimStart: 0,
+        trimEnd:   dur,
+        src:       sc.sfxUrl,
+        type:      "audio",
+        volume:    80,
+        label:     sc.sfxName || "SFX",
+        sceneId:   sc.id,
       }));
     }
 
@@ -180,6 +222,41 @@ export function snapTargets(state, excludeClipId = null) {
   return [...targets].sort((a, b) => a - b);
 }
 
+/** Piecewise-linear interpolation of a volume envelope at time t (seconds,
+ *  local to the clip). Holds flat before the first / after the last point.
+ *  Returns 100 (no attenuation) when points is null/empty/length 1. */
+export function evalVolumeEnvelope(points, t) {
+  if (!points || points.length < 2) return points?.[0]?.v ?? 100;
+  const pts = [...points].sort((a, b) => a.t - b.t);
+  if (t <= pts[0].t) return pts[0].v;
+  if (t >= pts[pts.length - 1].t) return pts[pts.length - 1].v;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (t >= a.t && t <= b.t) {
+      const frac = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
+      return a.v + (b.v - a.v) * frac;
+    }
+  }
+  return 100;
+}
+
+/** Overlap duration (seconds) between two ranges; <= 0 means no overlap. */
+export function rangesOverlapDuration(aStart, aEnd, bStart, bEnd) {
+  return Math.min(aEnd, bEnd) - Math.max(aStart, bStart);
+}
+
+/** True if a proposed [start, start+duration) span overlaps any clip already
+ *  on the given track (excluding excludeClipId, e.g. the clip being moved). */
+export function clipOverlapsTrack(track, start, duration, excludeClipId = null) {
+  const end = start + duration;
+  return (track?.clips || []).some(c => {
+    if (c.id === excludeClipId) return false;
+    const cStart = c.startTime || 0;
+    const cEnd   = cStart + ((c.trimEnd ?? c.duration ?? 0) - (c.trimStart ?? 0));
+    return rangesOverlapDuration(start, end, cStart, cEnd) > 0;
+  });
+}
+
 /** Find nearest snap target within threshold (seconds) */
 export function nearestSnap(value, targets, thresholdSec = 0.15) {
   let best = null, bestDist = Infinity;
@@ -216,7 +293,15 @@ export function timelineReducer(state, action) {
       // action: { clip } — clip.trackKey must be set
       const tracks = state.tracks.map(t =>
         t.key === action.clip.trackKey
-          ? { ...t, clips: [...t.clips, action.clip] }
+          ? {
+              ...t,
+              clips: action.clip.sceneId == null
+                ? [...t.clips, action.clip]
+                : [
+                    ...t.clips.filter(c => c.sceneId !== action.clip.sceneId),
+                    action.clip,
+                  ],
+            }
           : t
       );
       return { ...state, tracks };
@@ -230,6 +315,65 @@ export function timelineReducer(state, action) {
           c.id === action.clipId ? { ...c, ...action.changes } : c
         ),
       }));
+      return { ...state, tracks };
+    }
+
+    // action: { clipId, changes } — like UPDATE_CLIP, but when `changes.duration`
+    // differs from the clip's current duration, every clip on every track whose
+    // startTime is at or after this clip's end gets shifted by the same delta.
+    // Without this, scenes created with a placeholder duration (e.g. PPT-path
+    // scenes default to 3s before their real voiceover/video duration is known)
+    // get resized in place once the real duration arrives, but every later clip
+    // keeps its stale cumulative startTime — producing visual overlap on the
+    // timeline even though the render pipeline (which recomputes positions from
+    // each scene's own duration, never trusting stored startTime) is unaffected.
+    case "RESIZE_CLIP_REFLOW": {
+      let oldClip = null;
+      for (const t of state.tracks) {
+        const found = t.clips.find(c => c.id === action.clipId);
+        if (found) { oldClip = found; break; }
+      }
+      if (!oldClip) return state;
+
+      const oldDuration = Number(oldClip.duration) || 0;
+      const newDuration = action.changes.duration !== undefined ? Number(action.changes.duration) || 0 : oldDuration;
+      const delta = newDuration - oldDuration;
+      const threshold = oldClip.startTime + oldDuration - 0.05; // small epsilon for float rounding
+
+      const tracks = state.tracks.map(t => ({
+        ...t,
+        clips: t.clips.map(c => {
+          if (c.id === action.clipId) return { ...c, ...action.changes };
+          if (delta !== 0 && c.startTime >= threshold) {
+            return { ...c, startTime: Math.max(0, c.startTime + delta) };
+          }
+          return c;
+        }),
+      }));
+      return { ...state, tracks };
+    }
+
+    case "UPDATE_TRACK": {
+      // action: { trackKey, changes }
+      const tracks = state.tracks.map(t =>
+        t.key === action.trackKey ? { ...t, ...action.changes } : t
+      );
+      return { ...state, tracks };
+    }
+
+    case "TRACK_MUTE": {
+      // action: { trackKey }
+      const tracks = state.tracks.map(t =>
+        t.key === action.trackKey ? { ...t, muted: !t.muted } : t
+      );
+      return { ...state, tracks };
+    }
+
+    case "TRACK_VOLUME": {
+      // action: { trackKey, volume }
+      const tracks = state.tracks.map(t =>
+        t.key === action.trackKey ? { ...t, volume: action.volume } : t
+      );
       return { ...state, tracks };
     }
 
@@ -357,20 +501,13 @@ export function timelineReducer(state, action) {
       });
     }
 
-    case "TRACK_VOLUME": {
-      // action: { trackKey, volume }
-      const tracks = state.tracks.map(t =>
-        t.key === action.trackKey ? { ...t, volume: action.volume } : t
-      );
-      return { ...state, tracks };
-    }
-
-    case "TRACK_MUTE": {
-      // action: { trackKey }
-      const tracks = state.tracks.map(t =>
-        t.key === action.trackKey ? { ...t, muted: !t.muted } : t
-      );
-      return { ...state, tracks };
+    case "SET_VOLUME_POINTS": {
+      // action: { clipId, points } — points: Array<{t,v}>|null, full replace
+      return timelineReducer(state, {
+        type: "UPDATE_CLIP",
+        clipId: action.clipId,
+        changes: { volumePoints: action.points },
+      });
     }
 
     case "SPEED_CLIP": {
@@ -448,31 +585,47 @@ export function timelineReducer(state, action) {
         return t;
       });
 
-      // Ensure all 6 base tracks always exist — seed empty defaults if missing from DB.
-      // This prevents a stem-only save from wiping base tracks on reload.
+      // Ensure all 7 base tracks always exist — seed empty defaults if missing from DB.
+      // This prevents a stem-only save from wiping base tracks on reload, and also
+      // backfills tracks added after a reel was first saved (e.g. `avatar`, added
+      // when the avatar-overlay feature shipped — reels saved before that only have
+      // 6 tracks in `incoming`, and this per-key fallback seeds the missing one).
       const BASE_DEFAULTS = {
         video:     { key:'video',     id:'video',     label:'VIDEO',  type:'video',  clips:[], volume:100, muted:false },
         broll:     { key:'broll',     id:'broll',     label:'B-ROLL', type:'broll',  clips:[], volume:100, muted:false },
         fx:        { key:'fx',        id:'fx',        label:'FX',     type:'fx',     clips:[], volume:100, muted:false },
+        avatar:    { key:'avatar',    id:'avatar',    label:'AVATAR', type:'avatar', clips:[], volume:100, muted:false },
         voiceover: { key:'voiceover', id:'voiceover', label:'VOICE',  type:'audio',  clips:[], volume:100, muted:false },
         music:     { key:'music',     id:'music',     label:'MUSIC',  type:'audio',  clips:[], volume:100, muted:false },
         sfx:       { key:'sfx',       id:'sfx',       label:'SFX',    type:'audio',  clips:[], volume:100, muted:false },
       };
-      const REQUIRED_BASES = ['video','broll','fx','voiceover','music','sfx'];
+      const REQUIRED_BASES = ['video','broll','fx','avatar','voiceover','music','sfx'];
       const stemTracks = incoming.filter(t => (t.key || '').startsWith('stem-') || t.type === 'stem');
       const baseTracks = REQUIRED_BASES.map(k => incoming.find(t => t.key === k) || BASE_DEFAULTS[k]);
-      // stems sit after music (index 4), sfx stays last
-      const loadedTracks = [...baseTracks.slice(0,5), ...stemTracks, baseTracks[5]];
+      // Stems sit after music, sfx stays last — located by key, not a hardcoded
+      // index, since the base track list's length/order can change (e.g. AVATAR
+      // was inserted into TRACK_TYPES after this logic was first written, which
+      // silently broke a fixed baseTracks.slice(0,5)/baseTracks[5] version of this).
+      const musicIdx   = baseTracks.findIndex(t => t.key === "music");
+      const sfxTrack    = baseTracks.find(t => t.key === "sfx");
+      const withoutSfx  = baseTracks.filter(t => t.key !== "sfx");
+      const loadedTracks = [
+        ...withoutSfx.slice(0, musicIdx + 1),
+        ...stemTracks,
+        ...withoutSfx.slice(musicIdx + 1),
+        sfxTrack,
+      ];
 
-      console.log('[LOAD_STATE] tracks being set:', loadedTracks.map(t => t.key || t.id));
       return { ...makeInitialState(), ...action.state, tracks: loadedTracks };
     }
 
+    // ── dynamic stem tracks (added after Music Studio separation) ─────────
     case "ADD_STEM_TRACKS": {
-      // action.stems = [{ type, label, color, url, duration? }]
+      // action.stems = [{ type, label, color, url, duration? }] — see Music.jsx's
+      // resolvedStems construction, which is what actually populates this action.
       // Replaces any existing stem tracks, inserts after music track.
       const nonStemTracks = state.tracks.filter(t => !t.key.startsWith("stem-"));
-      const stemTracks = action.stems.map(stem => ({
+      const stemTracks = (action.stems || []).map(stem => ({
         key:      `stem-${stem.type}`,
         label:    stem.label,
         icon:     stem.label.split(" ")[0],
@@ -504,6 +657,41 @@ export function timelineReducer(state, action) {
           ...nonStemTracks.slice(insertAt),
         ],
       };
+    }
+
+    // ── avatar overlay clips ───────────────────────────────────────────────
+    case "ADD_AVATAR_CLIP": {
+      // action: { sceneId, src, startTime, duration, avatarPosition }
+      const { sceneId, src, startTime, duration, avatarPosition = "bottom-right" } = action;
+      const clip = makeClip({
+        trackKey: "avatar",
+        startTime,
+        duration,
+        trimStart: 0,
+        trimEnd:   duration,
+        src,
+        type:      "video",
+        volume:    0,
+        label:     "Avatar",
+        sceneId,
+        avatarPosition,
+      });
+      const tracks = state.tracks.map(t =>
+        t.key === "avatar"
+          ? { ...t, clips: [...t.clips.filter(c => c.sceneId !== sceneId), clip] }
+          : t
+      );
+      return { ...state, tracks };
+    }
+
+    case "REMOVE_AVATAR_CLIP": {
+      // action: { sceneId }
+      const tracks = state.tracks.map(t =>
+        t.key === "avatar"
+          ? { ...t, clips: t.clips.filter(c => c.sceneId !== action.sceneId) }
+          : t
+      );
+      return { ...state, tracks };
     }
 
     default:
