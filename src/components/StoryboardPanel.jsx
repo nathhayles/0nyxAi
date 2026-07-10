@@ -101,9 +101,11 @@ function CharacterTagTextarea({ value, onChange, placeholder, onClick, character
   );
 }
 
+// Kling's cost is duration-based (backend/routes/kling.js getSceneCost),
+// not flat — see the matching comment in Create.jsx's VIDEO_MODEL_OPTIONS.
 const REGEN_MODEL_OPTIONS = [
   { id: "wan-2.5",        label: "Wan 2.5", credits: 18  },
-  { id: "kling-2.6-pro",  label: "Kling 2.6 Pro", credits: 50  },
+  { id: "kling-2.6-pro",  label: "Kling 3 Pro", credits: 149, creditsLabel: "~75-150 cr/scene" },
   { id: "veo-3",          label: "Veo 3",          credits: 140 },
   { id: "seedance-1-pro", label: "Seedance 1 Pro", credits: 36  },
   { id: "vidu-q3-pro",    label: "Vidu Q3 Pro",    credits: 20  },
@@ -242,7 +244,7 @@ export default function StoryboardPanel({
             }}
           >
             {REGEN_MODEL_OPTIONS.map(opt => (
-              <option key={opt.id} value={opt.id} disabled={opt.disabled}>{opt.label}{opt.disabled ? "" : ` — ${opt.credits} cr/scene`}</option>
+              <option key={opt.id} value={opt.id} disabled={opt.disabled}>{opt.label}{opt.disabled ? "" : ` — ${opt.creditsLabel || `${opt.credits} cr/scene`}`}</option>
             ))}
           </select>
         </div>

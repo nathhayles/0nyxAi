@@ -1,0 +1,285 @@
+import React, { useState } from "react";
+import SEO from "../components/SEO";
+
+const SECTIONS = [
+  {
+    title: "Getting Started",
+    items: [
+      { q: "How do I create my first reel?", a: "Go to Studio → Text to Video. Enter your script, choose a duration per scene, select Stock or AI video, then click Generate. Your reel will appear in the editor automatically." },
+      { q: "What video formats are supported for upload?", a: "MP4, MOV, WebM, and common image formats (PNG, JPG). Files are stored securely on Cloudflare R2." },
+      { q: "How long does export take?", a: "Typically 1–3 minutes depending on reel length, number of scenes, and whether captions are enabled. AI-generated scenes take longer to produce before export begins." },
+      { q: "Can I dictate my script instead of typing it?", a: "Yes. On the Create, Viral Hooks, and Campaign pages you'll see a Dictate button (microphone icon). Click it to speak your script and it will be transcribed automatically. Dictation requires Chrome or Edge — the button is hidden on Safari and Firefox, which don't support the Web Speech API." },
+    ]
+  },
+  {
+    title: "Brand Kit",
+    items: [
+      { q: "How do I set up my brand?", a: "Go to /branding, click + New Brand, enter your brand name and tagline, then upload your logo. Once uploaded, click 'Extract palette from logo' to automatically generate a 5-colour brand palette from your logo." },
+      { q: "What does 'Apply all' do in the palette section?", a: "It applies all 5 extracted colours to your brand's colour fields (Primary, Secondary, Caption Background, Caption Text, Highlight) in one click and saves them to your brand record automatically." },
+      { q: "How do brand colours affect my reels?", a: "Brand colours set your caption background, text colour, and karaoke highlight colour by default. When you create a reel with a brand selected, these colours are applied automatically. You can override per-scene in the editor." },
+      { q: "Can I have multiple brands?", a: "Yes. Starter plan supports 1 brand, Creator 3, Pro 5, Agency unlimited. Switch between brands in the editor's Brand Kit tab." },
+      { q: "How do I connect social accounts to a brand?", a: "Social accounts (Instagram, TikTok, LinkedIn, YouTube) are connected under Account → Social Connections. Per-brand OAuth is coming — currently connections are account-wide and apply across all your brands." },
+    ]
+  },
+  {
+    title: "Captions",
+    items: [
+      { q: "How do I enable captions?", a: "In the editor, click the CC button in the toolbar. Captions will appear in the preview. Make sure your scenes have narration/voiceover text set." },
+      { q: "How do I change caption style?", a: "Click the Layers icon in the left sidebar → Captions tab. Choose from 14 styles including Karaoke, TikTok, Bubble, Neon, Gradient, Typewriter and more. Click 'Apply to this scene' or 'Apply to all'." },
+      // INTERNAL (not user-facing): bubble, typewriter, underline, and soft are now real
+      // implementations in export rather than approximations — still confirming all four are
+      // correctly reachable/selectable end-to-end from the Styles panel UI before we say so to users.
+      { q: "Are caption styles fully rendered in export, or just approximated?", a: "Caption styles including Bubble, Typewriter, Underline, and Soft are rendered using their real, dedicated implementation at export time — not a simplified approximation of the preview." },
+      { q: "How do I change caption colours?", a: "Go to the Custom tab in the left sidebar. Change Text colour, Background colour, and Karaoke Highlight colour. Click 'Apply to this scene' or 'Apply to all' to commit." },
+      { q: "What is Karaoke mode?", a: "Karaoke mode highlights each word as it's spoken in your voiceover. It requires word-level timestamps from the voiceover generation. The highlight colour is customisable in the Custom caption tab." },
+      { q: "Why are my captions not showing on export?", a: "Make sure 'Show captions on canvas' is enabled in the scene panel, and that the scene has narration text. Captions are burned in during export using FFmpeg." },
+      { q: "What fonts are available for captions?", a: "Noto Sans, Arial (Liberation), Roboto, DejaVu Sans, Georgia, Courier New, Impact, Sans Serif, Serif, Monospace. These are the fonts installed on the render server." },
+    ]
+  },
+  {
+    title: "Text Overlays",
+    items: [
+      { q: "How do I add text overlays?", a: "Click the T icon in the left sidebar to open Text Overlays. Click '+ Add Text' to place a text clip on the FX track at the current playhead position." },
+      { q: "What text animations are available?", a: "None, Fade In, Fade Out, Fade In+Out, Scroll Down, Scroll Up, Scroll Left, Scroll Right, Zoom In, Zoom Out, Typewriter. Animations are visible in the preview during playback and rendered on export." },
+      { q: "Can I change the font of a text overlay?", a: "Yes. Select a text clip, then choose from Noto Sans, Arial, Roboto, DejaVu Sans, Georgia, Courier New, or Impact in the Font selector." },
+      { q: "How do I position text overlays?", a: "Use the Position X and Position Y sliders in the Text panel. 50% = centre. You can also set left/center/right alignment." },
+    ]
+  },
+  {
+    title: "Avatar",
+    items: [
+      { q: "How do I add an AI avatar to a scene?", a: "In the editor, open the Avatar panel, choose an avatar and a position, then click 'Apply to this scene' or 'Apply to all scenes'. Both scopes now work correctly and the avatar appears reliably on the timeline." },
+      { q: "Why does my avatar have a green background?", a: "It shouldn't — the green-screen background behind the avatar is automatically removed, both in the live preview and in the final exported video." },
+      { q: "Does the avatar speak my scene's voiceover?", a: "No. Avatar lip-sync uses HeyGen's own generated audio for that scene rather than your separate voiceover/narration track." },
+    ]
+  },
+  {
+    title: "AI Studio",
+    items: [
+      { q: "What is AI Studio?", a: "AI Studio is your library of AI-generated video clips. When you generate a scene using an AI video model, you can save it to AI Studio for reuse across different reels." },
+      { q: "How do I save a clip to AI Studio?", a: "In the editor, click the AI button in the transport controls, or use the 'Save to AI Studio' option on a generated scene. Clips are saved to your account and persist across sessions." },
+      { q: "Are AI Studio clips private?", a: "Yes. AI Studio clips are stored per-user with row-level security. Only you can see your clips." },
+      { q: "How much does AI video generation cost?", a: "Cost depends on the model you choose. Wan 2.5 is 18 credits/scene, Vidu Q3 Pro is 20 credits/scene, Seedance 1 Pro is 36 credits/scene, Kling 3 Pro is ~75-150 credits/scene (based on the scene's actual length), and Veo 3 is 140 credits/scene. Credits can be purchased (100 credits = $1) or earned through the referral program." },
+      { q: "Which AI video model should I choose?", a: "Wan 2.5 (18 cr) is the cheapest option and great for quick, low-cost clips. Vidu Q3 Pro (20 cr) is also budget-friendly and good for quick clips. Seedance 1 Pro (36 cr) offers a balance of quality and cost. Kling 3 Pro (~75-150 cr, based on scene length) is our most popular model for high-quality cinematic output. Veo 3 (140 cr) is the premium option for the highest fidelity, especially for realism and motion. All are selectable in the Generate Model dropdown on the scene panel." },
+    ]
+  },
+  {
+    title: "AI Video Generation",
+    items: [
+      { q: "How do I keep a character looking consistent across multiple scenes?", a: "Use the Character Library (available from the main navigation). Create a character with a name, an optional short description, and 2-4 reference images (ideally clear, well-lit photos from the same time period/angle range — mixing very different-looking reference images, like paintings from different eras, will reduce consistency). Then, in any scene's Action/Background field, type @ followed by the character's name to tag them — autocomplete will show your saved characters. The tagged character's reference images will be used to help keep their appearance consistent in that generated scene." },
+    ]
+  },
+  {
+    title: "Library & Assets",
+    items: [
+      { q: "Where do my uploaded files live?", a: "All uploaded files — videos, images, audio, and generated assets — are accessible in the Library panel (folder icon in the left sidebar of the editor). Assets are grouped into collapsible sections by media type." },
+      { q: "How do I upload files to the Library?", a: "Use the Upload button at the top of the Library panel, or drag files from your computer directly onto the panel. Supported formats: MP4, MOV, WebM (video); PNG, JPG (images); MP3, WAV (audio)." },
+      { q: "How do folders work in the Library?", a: "Right-click any asset to get a context menu with options to create a new folder, move the asset to an existing folder, or rename/delete a folder. Use the folder filter at the top of the panel to browse by folder." },
+      { q: "How do I add a Library asset to my timeline?", a: "Drag any asset from the Library panel onto the VIDEO, B-Roll, or AUDIO track in the sequencer. The drop target highlights when you hover over it." },
+      { q: "Can I preview assets before adding them?", a: "Yes. Hover over any video or image asset in the Library for a moment and a preview tooltip will appear at your cursor position. Audio files play on click using the built-in preview player." },
+      { q: "My music files in the Library show a broken image.", a: "This was a known bug — now fixed. Music and audio files show a play-button icon, not a thumbnail. If you see a broken image on a music file, hard-refresh the page." },
+      { q: "Some of my PPT-to-Video scenes are blank.", a: "When a slide's content doesn't match any stock footage, the scene may be left blank. Simply click the blank scene in the editor, open the Visuals panel, and search for or select any stock video or uploaded clip to replace it. You can also use the 'Search Pexels videos' field directly in the Storyboard panel." },
+    ]
+  },
+  {
+    title: "Music & Audio",
+    items: [
+      { q: "How do I add background music?", a: "Click the Music icon in the left sidebar or transport bar. Browse stock tracks by mood/genre, or generate original music from a text prompt using Lyria." },
+      { q: "Can I separate stems from a music track?", a: "Yes. Use the Fadr stem separation feature (available on Creator+ plans) to split any track into Vocals, Drums, Bass, and Instrumental." },
+      { q: "How do I add voiceover?", a: "Click VO in the transport bar to open the Voice Over panel. Choose a tier (Standard or Premium), filter by gender/accent/language, preview a voice, then generate. Voiceover is automatically synced to your scene duration." },
+      { q: "What is BPM detection?", a: "Fadr automatically detects the BPM and key of your music track, helping you sync cuts and transitions to the beat." },
+      { q: "Why does my music track show the wrong title on the timeline?", a: "Track titles for stock and generated music now display correctly once applied via the Music panel's Apply button. Note: titles for manually uploaded tracks are not yet fixed — this is a known issue we're still working on." },
+    ]
+  },
+  {
+    title: "Voice Over",
+    items: [
+      { q: "What is the difference between Standard and Premium voices?", a: "Standard voices are fast and cost-effective — ideal for most reels. Premium voices offer richer, more expressive audio with broader multilingual coverage. Switch between tiers using the Standard / Premium toggle at the top of the Voice Over panel." },
+      { q: "How do I find the right voice?", a: "Use the filter controls (gender, accent, language) to narrow the catalog, or type in the search box. Click any voice card to hear a short preview before committing." },
+      { q: "Can I apply a voice to just one scene or all scenes?", a: "Both. After selecting a voice and entering your narration, click 'Apply to this scene' for the current scene only, or 'Apply to all scenes' to regenerate voiceover for every scene in the reel with the same voice." },
+      { q: "How do I control voiceover speed?", a: "Use the Speed slider in the Voice Over panel (range 0.5×–2.0×). Adjust before generating — the speed is baked into the audio at generation time." },
+      { q: "Are multilingual voices available?", a: "Yes. Standard tier includes multilingual voices that speak any language, plus regional voices for a chosen language (select from the Language dropdown). Premium tier voices automatically handle 29+ languages; you can also select a language to get additional regional Premium voices." },
+      { q: "Where are my favourite voices?", a: "Star any voice in the Voice Over panel (mic icon in the editor rail) — Standard or Premium tab. Click the Favourites toggle to filter to starred voices only. Favourites persist across sessions." },
+      { q: "I see \"Popular\" badges on some voices — what does that mean?", a: "Voices marked Popular are community-cited favourites. Currently Natasha and Aaron in the Premium tab carry this badge." },
+      { q: "What do \"Standard+\", \"Premium HD\" mean on voice badges?", a: "These are tier labels indicating voice quality level. Standard+ (formerly WaveNet) is high quality; Premium HD (formerly Chirp3-HD) is the highest quality tier." },
+    ]
+  },
+  {
+    title: "Sequencer & Timeline",
+    items: [
+      { q: "How do I reorder scenes?", a: "Drag scene clips in the VIDEO track of the sequencer to reorder them. The preview updates in real time." },
+      { q: "How do I trim a scene?", a: "Drag the left or right edge of a clip in the sequencer to trim its in/out points." },
+      { q: "What is the B-Roll track for?", a: "The B-Roll track lets you overlay additional footage on top of your main A-Roll video. Drag stock or uploaded clips onto the B-Roll track." },
+      { q: "How do I add transitions?", a: "Click the Transitions icon in the left sidebar. Choose Cut, Fade, Slide, or Zoom. Apply per-scene or to all scenes." },
+      { q: "What speed options are available?", a: "0.25x, 0.5x, 1x, 1.5x, 2x playback speed in the sequencer toolbar. Slow motion regions can be set per clip." },
+      { q: "How do I mute or change the volume of a clip?", a: "Use the mute button and volume slider on a track or clip in the sequencer — both now work correctly and the result is reflected in preview and export." },
+    ]
+  },
+  {
+    title: "Content Plan",
+    items: [
+      { q: "What is Content Plan?", a: "Content Plan (/content-plan) is a scheduling and ideation workspace that helps you plan, generate, and track reels across an entire month. You can see your content calendar at a glance and manage each piece from idea through to published." },
+      { q: "How does 'Plan a Month' work?", a: "Click '+ Plan a Month' and choose your brand, content pillars (Authority, Trend, Community), platforms, and posting frequency. Onyx generates a month-long schedule of content ideas with hook text, pillars, and target platforms pre-assigned. You can edit or delete individual items before saving." },
+      { q: "What are the Calendar and Kanban views?", a: "Calendar view shows your content mapped to specific dates — you can drag items between days to reschedule. Kanban view shows all items grouped by status (Idea → Hook Generated → Reel Generated → Scheduled → Published) so you can track production progress." },
+      { q: "How do I turn a plan item into a reel?", a: "Open any plan item and click 'Generate Reel'. This creates a draft reel in the editor pre-loaded with the item's hook text and platform. AI video generation inside the editor is a separate step." },
+      { q: "Does Content Plan cost extra credits?", a: "No. Planning a month and generating hooks uses the same credits as the standalone Hook Generator and Campaign Generator tools. Generating a reel from a plan item creates a stock-footage draft — no credits are charged at that step. AI video scenes inside the editor are charged separately per model." },
+      { q: "Can I add extra context to a Content Plan item before generating a reel?", a: "Yes — open any Content Plan item and look for the 'Additional Context (optional)' field below the Hook Text. Add talking points, specific stats, or details you want included. This context flows into the reel generation step and produces more specific, substantive scenes." },
+      { q: "Can I change the hook on a Content Plan item?", a: "Yes — click any of the 'Hook Variations' shown in the item detail. The selected variation becomes the active Hook Text, gets an 'ACTIVE' badge, and persists to the database." },
+    ]
+  },
+  {
+    title: "PPT to Video",
+    items: [
+      { q: "Does PPT to Video extract my slide images and colours?", a: "Yes — when you upload a PPTX, any embedded images are extracted and added to your Library panel in a folder named after the presentation. Your slide's colour scheme is also extracted and can be applied to a brand via the 'Apply to Brand' button shown after extraction." },
+      { q: "My PPT-generated reel has the wrong brand colours/logo.", a: "Ensure you select your brand from the dropdown on the PPT to Video page before clicking 'Open in Editor'. The brand selection now correctly flows through to the generated reel." },
+    ]
+  },
+  {
+    title: "Screen Recorder",
+    items: [
+      { q: "How do I record my screen with audio?", a: "Open Screen Recorder, select your audio mode before clicking Record: 'No audio' for video only; 'Tab audio' to capture a browser tab's audio (must share a Chrome Tab — not Window or Screen — and the tab must be actively playing audio before you click Record); 'Microphone' to record your voice alongside the screen. Note: some platforms (e.g. Skool) block tab audio capture — use video-only with captions enabled for those." },
+    ]
+  },
+  {
+    title: "Publishing",
+    items: [
+      { q: "Which platforms can I publish to?", a: "Instagram, TikTok, YouTube, and LinkedIn. Connect your accounts under Account → Social Connections." },
+      { q: "Why can't I publish to Instagram?", a: "Instagram requires Meta App Review for Advanced Access permissions. This is currently in progress. Once approved, Instagram publishing will work for all users." },
+      { q: "How do I connect my TikTok account?", a: "Go to your Account page and select the brand you want to connect TikTok to under Social Media Connections. Click Connect next to TikTok, log in with your TikTok account, and approve the requested permissions. Once connected, you'll see your TikTok account linked and ready for publishing." },
+      { q: "Why can't I publish to TikTok yet?", a: "Onyx Reelz's TikTok integration is currently pending TikTok's review. While your account can be connected, direct publishing to TikTok will activate automatically once TikTok approves the integration — no action is needed from you. We'll keep this page updated as that progresses." },
+      { q: "What permissions does Onyx Reelz need from TikTok?", a: "When you connect TikTok, Onyx Reelz requests access to your basic profile info (avatar and display name) and permission to post content directly to your TikTok profile on your behalf. We never post without you explicitly choosing to publish a reel." },
+      { q: "How do I disconnect TikTok?", a: "Go to your Account page, find TikTok under Social Media Connections for the relevant brand, and click Disconnect. This immediately revokes Onyx Reelz's access to your TikTok account." },
+      { q: "Can I schedule posts?", a: "Yes. When publishing, select a future date and time. The scheduler will automatically post at your chosen time." },
+      { q: "What video specs does each platform need?", a: "Onyx Reelz automatically exports in the correct format for each platform. 9:16 for Stories/Reels/Shorts, 16:9 for YouTube, 1:1 for feed posts." },
+    ]
+  },
+  {
+    title: "Account & Billing",
+    items: [
+      { q: "How does the credit system work?", a: "Credits are used for AI features. 100 credits = $1. Credits never expire. AI video generation cost varies by model (18–150 credits per scene). Voiceover uses minutes from your plan allowance." },
+      { q: "How do I earn free credits?", a: "Go to /earn. Share your reels with your referral link embedded. When someone signs up and subscribes, you earn 50–400 credits depending on their plan." },
+      { q: "What's included in each plan?", a: "Starter: 1 brand, 600 stock video mins, 400 VO mins. Creator: 3 brands, more minutes, stem separation. Pro: 5 brands, priority rendering. Agency: unlimited brands, white-label options." },
+      { q: "How do I reset my password?", a: "Click 'Forgot password' on the login page. A reset link will be sent to your email from noreply@onyx-reelz.com." },
+      { q: "Is yearly billing available?", a: "Not at the moment — the yearly billing toggle has been removed for now. Only monthly pricing is currently available on the Pricing page." },
+    ]
+  },
+  {
+    title: "Sharing",
+    items: [
+      { q: "My share link shows \"Sign in to watch this reel.\"", a: "This was a bug — now fixed. Share links are fully public and require no login. If you copied a share link before July 2026, try generating a new one from the Share button in the editor." },
+    ]
+  },
+  {
+    title: "Export",
+    items: [
+      { q: "When I click Export, the video opens in my browser instead of downloading.", a: "This was a bug — now fixed. Clicking Export triggers a direct file download. If it still opens in the browser, hard-refresh and try again." },
+    ]
+  },
+  {
+    title: "Troubleshooting",
+    items: [
+      { q: "My reel is stuck generating", a: "Try refreshing the page. If the issue persists, check your credits balance — AI generation costs vary by model (18–140 credits per scene). Contact support if the problem continues." },
+      { q: "Export failed with an error", a: "Check that all scenes have valid media (not broken URLs). Try removing and re-adding problematic scenes. If using AI-generated clips, ensure they completed successfully in AI Studio." },
+      { q: "My captions aren't appearing on export", a: "Ensure captions are enabled (CC button active), the scene has narration text, and 'Show captions on canvas' is checked in the scene panel." },
+      { q: "The editor is running slowly", a: "Close other browser tabs. The editor is desktop-only and works best in Chrome. Reduce the number of FX clips if performance is an issue." },
+      { q: "I can't connect my social account", a: "Make sure you're using a Business/Creator account for Instagram. Personal accounts don't support API publishing. Try disconnecting and reconnecting under Account settings." },
+    ]
+  },
+];
+
+function AccordionItem({ q, a }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ borderBottom: "0.5px solid var(--onyx-hairline)", overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ width: "100%", textAlign: "left", padding: "14px 0", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, color: "var(--onyx-text)" }}
+      >
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{q}</span>
+        <span style={{ fontSize: 18, color: "var(--onyx-cyan)", flexShrink: 0, transform: open ? "rotate(45deg)" : "none", transition: "transform 0.2s" }}>+</span>
+      </button>
+      {open && (
+        <div style={{ paddingBottom: 14, fontSize: 13, lineHeight: 1.7, color: "var(--onyx-text-dim)" }}>
+          {a}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Support() {
+  const [activeSection, setActiveSection] = useState(0);
+  const [search, setSearch] = useState("");
+
+  const filtered = search.trim()
+    ? SECTIONS.map(s => ({
+        ...s,
+        items: s.items.filter(i =>
+          i.q.toLowerCase().includes(search.toLowerCase()) ||
+          i.a.toLowerCase().includes(search.toLowerCase())
+        )
+      })).filter(s => s.items.length > 0)
+    : null;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)" }}>
+      <SEO
+        title="Support & FAQ"
+        description="Find answers about getting started, brand kits, captions, and audio features in Onyx Reelz."
+        path="/support"
+      />
+      {/* Header */}
+      <div style={{ background: "var(--onyx-bg)", padding: "48px 24px 40px", textAlign: "center", borderBottom: "0.5px solid var(--onyx-hairline)" }}>
+        <h1 className="page-title" style={{ marginBottom: 8 }}>Help Centre</h1>
+        <p style={{ color: "var(--onyx-text-dim)", fontSize: 16, marginBottom: 24 }}>Find answers to common questions about Onyx Reelz</p>
+        <div style={{ maxWidth: 480, margin: "0 auto" }}>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search help articles..."
+            style={{ width: "100%", boxSizing: "border-box", padding: "12px 16px", borderRadius: 10, border: "0.5px solid var(--onyx-hairline-strong)", fontSize: 14, background: "var(--onyx-surface)", color: "var(--onyx-text)", outline: "none" }}
+          />
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px", display: "flex", gap: 40, alignItems: "flex-start" }}>
+        {/* Sidebar nav — hidden when searching */}
+        {!search && (
+          <div style={{ width: 200, flexShrink: 0, position: "sticky", top: 24 }}>
+            {SECTIONS.map((s, i) => (
+              <button key={i} onClick={() => setActiveSection(i)}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 12px", borderRadius: 7, border: "none", cursor: "pointer", marginBottom: 2, fontSize: 13, fontWeight: activeSection === i ? 700 : 400, background: activeSection === i ? "var(--chip-bg-strong)" : "transparent", color: activeSection === i ? "var(--onyx-cyan)" : "var(--onyx-text-dim)" }}>
+                {s.title}
+              </button>
+            ))}
+            <div style={{ marginTop: 32, padding: "16px 12px", borderRadius: 10, background: "var(--onyx-surface)", border: "0.5px solid var(--onyx-hairline)" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--onyx-text-faint)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "1px" }}>Still stuck?</div>
+              <a href="mailto:support@onyx-reelz.com" style={{ fontSize: 13, color: "var(--onyx-cyan)", textDecoration: "none" }}>support@onyx-reelz.com</a>
+            </div>
+          </div>
+        )}
+
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {filtered ? (
+            filtered.length === 0 ? (
+              <div style={{ textAlign: "center", color: "var(--onyx-text-faint)", padding: "40px 0" }}>No results for "{search}"</div>
+            ) : (
+              filtered.map((s, i) => (
+                <div key={i} style={{ marginBottom: 32 }}>
+                  <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--onyx-cyan)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "1px" }}>{s.title}</h2>
+                  {s.items.map((item, j) => <AccordionItem key={j} {...item} />)}
+                </div>
+              ))
+            )
+          ) : (
+            <div>
+              <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, color: "var(--onyx-text)" }}>{SECTIONS[activeSection].title}</h2>
+              {SECTIONS[activeSection].items.map((item, j) => <AccordionItem key={j} {...item} />)}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

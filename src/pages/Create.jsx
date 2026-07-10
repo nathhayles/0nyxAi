@@ -12,9 +12,14 @@ import { useCredits } from "../state/CreditsContext.jsx";
 
 const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 
+// Kling's cost is duration-based now (backend/routes/kling.js getSceneCost),
+// not a flat number — `credits` here is the conservative upper bound (10s
+// tier) used for client-side "do you have enough credits" pre-flight checks
+// only; `creditsLabel` is what's actually shown to the user, since a single
+// flat number would misrepresent the real per-scene cost either direction.
 const VIDEO_MODEL_OPTIONS = [
   { id: "wan-2.5",       label: "Wan 2.5",        description: "Fast & affordable",          credits: 18  },
-  { id: "kling-2.6-pro", label: "Kling 2.6 Pro",  description: "Balanced quality (default)", credits: 50  },
+  { id: "kling-2.6-pro", label: "Kling 3 Pro",    description: "Balanced quality (default)", credits: 149, creditsLabel: "~75-150 credits/scene, final cost based on actual scene length" },
   { id: "veo-3",         label: "Veo 3",           description: "Highest quality (Google)",   credits: 140 },
   { id: "seedance-1-pro",label: "Seedance 1 Pro",  description: "Cinematic motion (ByteDance)", credits: 36 },
   { id: "vidu-q3-pro",   label: "Vidu Q3 Pro",    description: "Budget quality (Vidu)",      credits: 20  },
@@ -529,7 +534,7 @@ export default function CreatePage() {
                           fontSize: 12, fontWeight: 700,
                           color: videoModel === opt.id ? "#00d2ff" : "rgba(255,255,255,0.4)",
                           whiteSpace: "nowrap",
-                        }}>{opt.disabled ? "" : `${opt.credits} cr/scene`}</span>
+                        }}>{opt.disabled ? "" : (opt.creditsLabel || `${opt.credits} cr/scene`)}</span>
                       </label>
                     ))}
                   </div>
@@ -616,7 +621,7 @@ export default function CreatePage() {
               <div style={{ fontWeight: 600, marginBottom: 10, color: "var(--onyx-text)" }}>Estimator</div>
               <div style={{ color: "var(--onyx-text-faint)" }}>Words: {wordCount}</div>
               <div style={{ color: "var(--onyx-text-faint)" }}>Scenes: {estimatedScenes}</div>
-              {mode === "ai" && <div style={{ color: "var(--onyx-text-faint)" }}>{selectedModelOption.credits} credits × {estimatedScenes} scenes</div>}
+              {mode === "ai" && <div style={{ color: "var(--onyx-text-faint)" }}>{selectedModelOption.creditsLabel ? `${selectedModelOption.creditsLabel} (${estimatedScenes} scenes)` : `${selectedModelOption.credits} credits × ${estimatedScenes} scenes`}</div>}
               <div style={{ color: insufficientCredits ? "#ff5c5c" : "var(--onyx-text)" }}>
                 AI Credits Needed: {estimatedCredits}
               </div>
