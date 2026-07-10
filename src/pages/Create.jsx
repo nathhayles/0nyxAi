@@ -86,6 +86,7 @@ export default function CreatePage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
   const [selectedTheme, setSelectedTheme] = useState(null);
   const [brand, setBrand] = useState("");
+  const [contentMode, setContentMode] = useState("cinematic"); // "cinematic" | "marketing" — visual-direction style, see backend/routes/analyse.js CONTENT_MODE_COPY
   const [characterLock, setCharacterLock] = useState(false);
   const [styleRefUrl, setStyleRefUrl] = useState("");
   const [motionRefUrl, setMotionRefUrl] = useState("");
@@ -195,14 +196,14 @@ export default function CreatePage() {
         const analyseRes = await fetch("/api/analyse", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ script, voices }),
+          body: JSON.stringify({ script, voices, ratio, content_mode: contentMode }),
         });
         const analysis = analyseRes.ok ? await analyseRes.json() : null;
 
         const effectiveTheme = selectedTemplate
           ? `${selectedTemplate.id} ${selectedTemplate.promptPrefix}`
           : theme;
-        const klingBody = { prompt: script, theme: effectiveTheme, analysis, aspect_ratio: ratio, model: videoModel, brand_id: brand || null };
+        const klingBody = { prompt: script, theme: effectiveTheme, analysis, aspect_ratio: ratio, model: videoModel, brand_id: brand || null, content_mode: contentMode };
         if (characterLock) klingBody.character_lock = true;
         if (styleRefUrl.trim()) klingBody.style_ref_url = styleRefUrl.trim();
         if (motionRefUrl.trim()) klingBody.motion_ref_url = motionRefUrl.trim();
@@ -441,6 +442,36 @@ export default function CreatePage() {
               <option value="standard">Standard Storyboard</option>
               <option value="ai">AI Video</option>
             </select>
+
+            {mode === "ai" && (
+            <>
+            <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>Content mode</label>
+
+            <select
+              value={contentMode}
+              onChange={(e) => setContentMode(e.target.value)}
+              style={{
+                width: "100%",
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid var(--onyx-hairline-strong)",
+                background: "var(--onyx-bg-2)",
+                color: "var(--onyx-text)",
+                marginBottom: 8,
+                maxWidth: "100%",
+                boxSizing: "border-box"
+              }}
+            >
+              <option value="cinematic">Cinematic — dramatic, story-driven visuals</option>
+              {/* Marketing mode temporarily hidden 2026-07-10: shipped without a live
+                  output-quality test. Re-enable only after that test passes.
+                  <option value="marketing">Marketing — polished, commercial ad-style visuals</option> */}
+            </select>
+            <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", marginBottom: 20 }}>
+              Slower, story-paced scene count and dramatic camera direction, tuned for narrative content.
+            </div>
+            </>
+            )}
 
             <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>Aspect ratio</label>
 
