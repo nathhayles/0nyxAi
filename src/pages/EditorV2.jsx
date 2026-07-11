@@ -14,6 +14,7 @@ import StoryboardPanel  from "../components/StoryboardPanel.jsx";
 import VisualsPanel     from "../components/VisualsPanel.jsx";
 import StylesPanel      from "../components/StylesPanel.jsx";
 import TextPanel        from "../components/TextPanel.jsx";
+import BrollPanel       from "../components/BrollPanel.jsx";
 import ElementsPanel    from "../components/ElementsPanel.jsx";
 import TransitionsPanel from "../components/TransitionsPanel.jsx";
 import YouTubePublishModal from "../components/YouTubePublishModal.jsx";
@@ -87,6 +88,7 @@ const SIDEBAR_TABS = [
   { key: "sfx",         label: "SFX",          icon: "sfx"         },
   { key: "library",     label: "Library",      icon: "library"     },
   { key: "text",        label: "Text",         icon: "text"        },
+  { key: "broll",       label: "B-Roll",       icon: "broll"       },
   { key: "elements",    label: "FX",           icon: "fx"          },
   { key: "transitions", label: "Transitions",  icon: "transitions" },
   { key: "branding",    label: "Brand",        icon: "brand"       },
@@ -101,6 +103,7 @@ const EDITOR_ICONS = {
   sfx:         `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`,
   library:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`,
   text:        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>`,
+  broll:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="6" width="14" height="12" rx="1.5"/><path d="M16 10.5 21.5 7v10L16 13.5"/></svg>`,
   fx:          `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3z"/></svg>`,
   transitions: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14"/><path d="m15 6 6 6-6 6"/><path d="M3 6v12"/></svg>`,
   brand:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>`,
@@ -1465,6 +1468,10 @@ export default function EditorV2() {
   }, [timelineState, selectedFxId]);
   // B-roll position/size selection (Stage 1) — separate from fx selection.
   const [selectedBrollId, setSelectedBrollId] = useState(null);
+  const selectedBrollClip = useMemo(() => {
+    const brollTrack = timelineState.tracks.find(t => t.key === "broll");
+    return brollTrack?.clips?.find(c => c.id === selectedBrollId) ?? null;
+  }, [timelineState, selectedBrollId]);
   const playbackProgress = totalSec > 0 ? playhead / totalSec : 0;
   const activeSceneObj = useMemo(() => {
     const idx = scenes.findIndex(s => s.id === activeScene);
@@ -3025,6 +3032,7 @@ export default function EditorV2() {
               }}
             /></Safe>}
             {activeMenu==="text"       && <Safe name="TextPanel"><TextPanel dispatch={dispatchWithHistory} playhead={playhead} selectedClip={selectedFxClip} brand={brand}/></Safe>}
+            {activeMenu==="broll"      && <Safe name="BrollPanel"><BrollPanel dispatch={dispatchWithHistory} selectedClip={selectedBrollClip}/></Safe>}
             {activeMenu==="elements"   && <Safe name="ElementsPanel"><ElementsPanel scenes={scenes} setScenes={setScenes} activeScene={activeScene} onUpdateScene={updateScene} dispatch={dispatch} playhead={playhead} brand={brand}/></Safe>}
             {activeMenu==="transitions" && <Safe name="TransitionsPanel"><TransitionsPanel onUpdateScene={updateScene} /></Safe>}
             {activeMenu==="branding"   && <Safe name="BrandingPanel">
