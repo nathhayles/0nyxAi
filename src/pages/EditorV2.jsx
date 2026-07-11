@@ -1432,6 +1432,9 @@ export default function EditorV2() {
   const [generatingVoiceoverScenes, setGeneratingVoiceoverScenes] = useState(() => new Set());
   const [globalMusicUrl,   setGlobalMusicUrl]   = useState("");
   const [globalMusicName,  setGlobalMusicName]  = useState("");
+  // Which Library section to auto-expand next time it mounts — set right
+  // before jumping there from AudioPanel's "Change in Library" button.
+  const [libraryInitialSection, setLibraryInitialSection] = useState(null);
   const [musicVolume,      setMusicVolume]      = useState(60);
   const [voiceoverVolume,  setVoiceoverVolume]  = useState(100);
   const [sfxVolume,        setSfxVolume]        = useState(80);
@@ -2633,7 +2636,9 @@ export default function EditorV2() {
     });
   }, [scenes, dispatchWithHistory, setScenes]);
 
-  // Sync globalMusicUrl into the Music track whenever Apply is clicked in AudioPanel.
+  // Sync globalMusicUrl into the Music track whenever Apply is clicked in the
+  // Library panel's Music section (the only place music is picked — see
+  // onApplyMusic below and clearMusic/openLibraryForMusic just after this).
   // Only rebuild when the track is genuinely missing/empty or the URL actually
   // changed — same guard pattern used for sfx at load time (see sfxNeedsRebuild
   // above). `[globalMusicUrl]` alone can't distinguish "user just clicked Apply
@@ -2666,6 +2671,25 @@ export default function EditorV2() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [globalMusicUrl]);
+
+  // Clears the applied music entirely — the sync effect above only ever
+  // *adds* a clip when globalMusicUrl becomes truthy, it does nothing on the
+  // way back to empty, so this also has to remove the Music track's clip(s)
+  // directly or a stale clip would keep playing/exporting after "Clear".
+  const clearMusic = useCallback(() => {
+    setGlobalMusicUrl("");
+    setGlobalMusicName("");
+    const musicTrack = timelineState.tracks.find(t => t.key === "music");
+    musicTrack?.clips.forEach(c => dispatchWithHistory({ type: "DELETE_CLIP", clipId: c.id }));
+  }, [timelineState, dispatchWithHistory]);
+
+  // AudioPanel's "Change in Library" button — music selection lives only in
+  // the Library panel now, this just jumps there and asks it to open with
+  // the Music section already expanded instead of landing on a blank list.
+  const openLibraryForMusic = useCallback(() => {
+    setLibraryInitialSection("music");
+    setActiveMenu("library");
+  }, []);
 
   const moveScene      = useCallback((from, to) => { setScenes(prev => { const n=[...prev]; const [m]=n.splice(from,1); n.splice(to,0,m); return n; }); }, []);
   const duplicateScene = useCallback((id) => { setScenes(prev => { const idx=prev.findIndex(s=>s.id===id); if(idx<0) return prev; const mx=prev.reduce((m,s)=>Math.max(m,Number(s.id)||0),0)+1; const n=[...prev]; n.splice(idx+1,0,{...prev[idx],id:mx}); return n; }); }, []);
@@ -3024,9 +3048,10 @@ export default function EditorV2() {
               libraryKey="onyx_ai_studio_library_v1"
             /></Safe>}
             {activeMenu==="audio"      && <Safe name="AudioPanel"><AudioPanel
-              musicUrl={globalMusicUrl} setMusicUrl={setGlobalMusicUrl}
-              setMusicName={setGlobalMusicName}
               musicVolume={musicVolume} setMusicVolume={setMusicVolume}
+              musicName={globalMusicName}
+              onChangeInLibrary={openLibraryForMusic}
+              onClearMusic={clearMusic}
             /></Safe>}
             {activeMenu==="voiceover"  && <Safe name="VoiceOverPanel"><VoiceOverPanel
               scenes={scenes} setScenes={handleSetScenes}
@@ -3044,6 +3069,7 @@ export default function EditorV2() {
               clearSceneSfx={clearSceneSfx}
             /></Safe>}
             {activeMenu==="library"    && <Safe name="AssetsLibraryPanel"><AssetsLibraryPanel
+              initialExpandedType={libraryInitialSection}
               onApplyMusic={(url, name) => {
                 setGlobalMusicUrl(url || "");
                 if (name) setGlobalMusicName(name);

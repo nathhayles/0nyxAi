@@ -233,6 +233,47 @@ const S = {
     textAlign: "right",
     flexShrink: 0,
   },
+  nowPlayingRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "2px 12px 10px",
+  },
+  nowPlayingName: {
+    flex: 1,
+    fontSize: 12,
+    color: "var(--onyx-text, #f1f5fb)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  smallBtn: {
+    padding: "4px 10px",
+    borderRadius: 6,
+    fontSize: 11,
+    fontWeight: 600,
+    background: "rgba(77,208,255,0.10)",
+    border: "0.5px solid rgba(77,208,255,0.3)",
+    color: "var(--onyx-cyan, #4dd0ff)",
+    cursor: "pointer",
+    fontFamily: "inherit",
+    whiteSpace: "nowrap",
+    flexShrink: 0,
+  },
+  smallBtnGhost: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    border: "none",
+    background: "rgba(255,255,255,0.08)",
+    color: "var(--onyx-text-dim, rgba(241,245,251,0.62))",
+    cursor: "pointer",
+    fontSize: 11,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
   regenBtn: {
     margin: "8px 12px",
     padding: "7px 12px",
@@ -278,8 +319,10 @@ function genderIcon(gender) {
 // ── AudioPanel ─────────────────────────────────────────────────────────────────
 
 export default function AudioPanel({
-  voiceoverVolume = 100, setVoiceoverVolume,
   musicVolume = 60,       setMusicVolume,
+  musicName = "",
+  onChangeInLibrary,
+  onClearMusic,
   onRegenerateAllVO,
   brand = {},
 }) {
@@ -529,13 +572,19 @@ export default function AudioPanel({
 
       <div style={S.divider} />
 
-      {/* Volume controls */}
-      <div style={S.sectionTitle}>Mix</div>
-      <div style={S.volumeRow}>
-        <span style={S.volumeLabel}>Voice Over</span>
-        <input type="range" min={0} max={100} value={voiceoverVolume}
-          onChange={e => setVoiceoverVolume(Number(e.target.value))} style={S.slider} />
-        <span style={S.volumeValue}>{voiceoverVolume}%</span>
+      {/* Music is picked in the Library panel now — this just shows what's
+          applied and controls its volume, no picker duplicated here. */}
+      <div style={S.sectionTitle}>Music</div>
+      <div style={S.nowPlayingRow}>
+        {musicName ? (
+          <>
+            <span style={S.nowPlayingName} title={musicName}>{musicName}</span>
+            <button style={S.smallBtn} onClick={onChangeInLibrary}>Change</button>
+            <button style={S.smallBtnGhost} onClick={onClearMusic} title="Remove music">✕</button>
+          </>
+        ) : (
+          <button style={S.smallBtn} onClick={onChangeInLibrary}>+ Pick music in Library</button>
+        )}
       </div>
       <div style={S.volumeRow}>
         <span style={S.volumeLabel}>Music</span>
