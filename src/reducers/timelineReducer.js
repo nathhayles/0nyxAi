@@ -49,6 +49,11 @@ export function makeClip(overrides = {}) {
     captionsEnabled: true,
     voiceoverUrl:    "",
     narration:       "",
+    // Position/size for broll clips (same xPct/yPct/sizePct convention as fx
+    // clips — see TextPanel.jsx/EditorV2.jsx). Deliberately NOT defaulted
+    // here: undefined means "full-frame" (today's only behavior) in both the
+    // live preview and the ffmpeg export. Only set via UPDATE_CLIP once a
+    // user actually drags/resizes a broll clip in the preview canvas.
     ...overrides,
   };
 }

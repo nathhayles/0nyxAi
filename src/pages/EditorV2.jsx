@@ -368,7 +368,7 @@ function applyTransition(type, cur, nxt, onDone) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, selectedFxId, setSelectedFxId, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, theme }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, selectedFxId, setSelectedFxId, onBrollUpdate, onBrollDragEnd, selectedBrollId, setSelectedBrollId, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, theme }) {
   const activeIdx = scenes.findIndex(s => s.id === activeScene);
   const scene = scenes[activeIdx >= 0 ? activeIdx : 0] || null;
 
@@ -389,6 +389,9 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
   // ── FX interactive state ──────────────────────────────────────────────────
   const frameRef     = useRef(null);
   const fxDragRef    = useRef(null); // { type:"move"|"resize", clipId, startX, startY, startXPct, startYPct, startSizePct }
+  // Parallel, separate drag state for B-roll position/size — deliberately not
+  // sharing fxDragRef/handleFxMouseMove so fx-specific code stays untouched.
+  const brollDragRef = useRef(null); // { type:"move"|"resize", clipId, startX, startY, startXPct, startYPct, startSizePct }
   const avatarVideoRef    = useRef(null);
   const avatarCanvasRef   = useRef(null);
   const avatarOffscreenRef = useRef(null);
@@ -510,6 +513,49 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
     fxDragRef.current = null;
   }
 
+  // ── B-roll interactive state (Stage 1: position/size only, no animation) ──
+  function activeBrollClip() {
+    const brollTrack = tracks?.find(t => t.key === "broll");
+    if (!brollTrack?.clips?.length) return null;
+    return brollTrack.clips.find(c =>
+      playhead >= (c.startTime||0) && playhead < (c.startTime||0)+((c.trimEnd||c.duration||3)-(c.trimStart||0))
+    ) || null;
+  }
+
+  function handleBrollMouseMove(e) {
+    if (!brollDragRef.current || !frameRef.current) return;
+    const { type, clipId, startX, startY, startXPct, startYPct, startSizePct } = brollDragRef.current;
+    const rect = frameRef.current.getBoundingClientRect();
+    const dx = ((e.clientX - startX) / rect.width)  * 100;
+    const dy = ((e.clientY - startY) / rect.height) * 100;
+    if (type === "move") {
+      onBrollUpdate?.(clipId, {
+        xPct: Math.max(3, Math.min(97, startXPct + dx)),
+        yPct: Math.max(3, Math.min(97, startYPct + dy)),
+      });
+    } else {
+      const delta = (Math.abs(dx) > Math.abs(dy) ? dx : dy);
+      const newSizePct = Math.max(10, Math.min(100, startSizePct + delta));
+      brollDragRef.current.currentSizePct = newSizePct;
+      onBrollUpdate?.(clipId, { sizePct: newSizePct });
+    }
+  }
+
+  function handleBrollMouseUp() {
+    if (brollDragRef.current) {
+      const { type, clipId, startXPct, startYPct, startSizePct, currentSizePct } = brollDragRef.current;
+      if (type === "resize") {
+        onBrollUpdate?.(clipId, {
+          sizePct: currentSizePct ?? startSizePct,
+          xPct: startXPct,
+          yPct: startYPct,
+        });
+      }
+      onBrollDragEnd?.();
+    }
+    brollDragRef.current = null;
+  }
+
   // ── Avatar video sync ─────────────────────────────────────────────────────
   useEffect(() => {
     const v = avatarVideoRef.current;
@@ -579,10 +625,10 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
         <div
           id="onyx-preview-frame"
           ref={frameRef}
-          onMouseMove={handleFxMouseMove}
-          onMouseUp={handleFxMouseUp}
-          onMouseLeave={handleFxMouseUp}
-          onClick={() => setSelectedFxId(null)}
+          onMouseMove={e => { handleFxMouseMove(e); handleBrollMouseMove(e); }}
+          onMouseUp={() => { handleFxMouseUp(); handleBrollMouseUp(); }}
+          onMouseLeave={() => { handleFxMouseUp(); handleBrollMouseUp(); }}
+          onClick={() => { setSelectedFxId(null); setSelectedBrollId?.(null); }}
           style={{
             ...(ratioStyles[ratio] || ratioStyles["9:16"]),
             maxWidth: "100%",
@@ -625,19 +671,72 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                   style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 10, display: 'none' }}
                   playsInline muted
                 />
-                {/* B-roll upload overlays — above A-roll overlays */}
-                <img
-                  ref={brollImgRef}
-                  className="v2-preview-broll-img"
-                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', zIndex: 11, display: 'none', background: 'transparent' }}
-                  alt=""
-                />
-                <video
-                  ref={brollVideoRef}
-                  className="v2-preview-broll-video"
-                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 11, display: 'none' }}
-                  playsInline muted
-                />
+                {/* B-roll upload overlays — above A-roll overlays. Stage 1:
+                    position/size only (no animation). Wrapper's style is
+                    ONLY the custom xPct/yPct/sizePct box when all three are
+                    set on the active broll clip; otherwise it's the exact
+                    original top:0/left:0/100%/100% full-frame box — today's
+                    behavior is unchanged unless a user actually drags/resizes. */}
+                {(() => {
+                  const brollActive = activeBrollClip();
+                  const bXPct = brollActive?.xPct ?? 50;
+                  const bYPct = brollActive?.yPct ?? 50;
+                  const bSizePct = brollActive?.sizePct ?? 100;
+                  const isCustom = brollActive?.xPct != null && brollActive?.yPct != null && brollActive?.sizePct != null;
+                  const isSelected = !!brollActive && brollActive.id === selectedBrollId;
+
+                  const wrapperStyle = isCustom
+                    ? { position: 'absolute', left: `${bXPct}%`, top: `${bYPct}%`, width: `${bSizePct}%`, height: 'auto', transform: 'translate(-50%,-50%)' }
+                    : { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' };
+
+                  const corners = isSelected
+                    ? [["nw",-1,-1],["ne",1,-1],["se",1,1],["sw",-1,1]].map(([k,sx,sy]) => (
+                        <div key={k}
+                          onMouseDown={e => {
+                            e.stopPropagation();
+                            brollDragRef.current = { type:"resize", clipId:brollActive.id, startX:e.clientX, startY:e.clientY, startXPct:bXPct, startYPct:bYPct, startSizePct:bSizePct };
+                          }}
+                          style={{
+                            position:"absolute", width:10, height:10,
+                            background:"#4dd0ff", borderRadius:2, zIndex:21,
+                            cursor: sx===sy ? "nwse-resize" : "nesw-resize",
+                            ...(sy < 0 ? {top:-5} : {bottom:-5}),
+                            ...(sx < 0 ? {left:-5} : {right:-5}),
+                          }}/>
+                      ))
+                    : null;
+
+                  return (
+                    <div
+                      style={{
+                        ...wrapperStyle, zIndex: 11,
+                        outline: isSelected ? "2px solid #4dd0ff" : "2px solid transparent",
+                        outlineOffset: 3, cursor: brollActive ? "move" : "default",
+                      }}
+                      onClick={e => { if (brollActive) { e.stopPropagation(); setSelectedBrollId?.(brollActive.id); } }}
+                      onMouseDown={e => {
+                        if (!brollActive) return;
+                        e.stopPropagation();
+                        setSelectedBrollId?.(brollActive.id);
+                        brollDragRef.current = { type:"move", clipId:brollActive.id, startX:e.clientX, startY:e.clientY, startXPct:bXPct, startYPct:bYPct, startSizePct:bSizePct };
+                      }}
+                    >
+                      <img
+                        ref={brollImgRef}
+                        className="v2-preview-broll-img"
+                        style={{ width: '100%', height: isCustom ? 'auto' : '100%', objectFit: 'contain', display: 'none', background: 'transparent' }}
+                        alt=""
+                      />
+                      <video
+                        ref={brollVideoRef}
+                        className="v2-preview-broll-video"
+                        style={{ width: '100%', height: isCustom ? 'auto' : '100%', objectFit: isCustom ? 'contain' : 'cover', display: 'none' }}
+                        playsInline muted
+                      />
+                      {corners}
+                    </div>
+                  );
+                })()}
                 {(captionScene?.mediaType === 'image' ||
                   (!captionScene?.mediaType && captionScene?.mediaUrl &&
                    !/\.(mp4|webm|mov|m4v)(\?|$)/i.test(captionScene.mediaUrl))) && captionScene?.mediaUrl && (
@@ -1061,6 +1160,12 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       brollUrl:          brollClip?.src || brollClip?.url || brollClip?.mediaUrl || null,
       brollStart:        brollClip ? (brollClip.startTime || 0) - cStart : 0,
       brollEnd:          brollClip ? (brollClip.startTime || 0) - cStart + ((brollClip.trimEnd - brollClip.trimStart) || brollClip.duration || 3) : 0,
+      // Stage 1 position/size (no animation yet) — undefined when the clip was
+      // never resized, which render.js treats as "full-frame" (today's only
+      // behavior). Only present when the user actually dragged/resized it.
+      brollXPct:         brollClip?.xPct,
+      brollYPct:         brollClip?.yPct,
+      brollSizePct:      brollClip?.sizePct,
       avatar_status:     scene.avatar_status || null,
       avatar_video_url:  scene.avatar_video_url || null,
       avatar_position:   scene.avatar_position || null,
@@ -1088,6 +1193,12 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
             sizePct:     fx.sizePct ?? 20,
             color:       fx.color || (fx.elementType === "text" ? brand?.primary_color : undefined),
             fontWeight:  fx.fontWeight,
+            animation:   fx.animation,
+            font:        fx.font,
+            shadow:      fx.shadow,
+            outlineColor: fx.outlineColor,
+            bgStyle:     fx.bgStyle,
+            textAlign:   fx.textAlign,
             startTime:   Math.max(0, fxS - cS),
             duration:    Math.min(fxD, (cS + cD) - Math.max(fxS, cS)),
           };
@@ -1340,6 +1451,8 @@ export default function EditorV2() {
     const fxTrack = timelineState.tracks.find(t => t.key === "fx");
     return fxTrack?.clips?.find(c => c.id === selectedFxId && c.elementType === "text") ?? null;
   }, [timelineState, selectedFxId]);
+  // B-roll position/size selection (Stage 1) — separate from fx selection.
+  const [selectedBrollId, setSelectedBrollId] = useState(null);
   const playbackProgress = totalSec > 0 ? playhead / totalSec : 0;
   const activeSceneObj = useMemo(() => {
     const idx = scenes.findIndex(s => s.id === activeScene);
@@ -2561,6 +2674,10 @@ export default function EditorV2() {
     dispatchWithHistory({ type: "UPDATE_CLIP", clipId, changes });
   }, [dispatchWithHistory]);
 
+  const updateBrollClip = useCallback((clipId, changes) => {
+    dispatchWithHistory({ type: "UPDATE_CLIP", clipId, changes });
+  }, [dispatchWithHistory]);
+
   const saveNowRef = useRef(saveNow);
   useEffect(() => { saveNowRef.current = saveNow; }, [saveNow]);
   // Stable callback: always invokes the latest saveNow after React has flushed the pending state update.
@@ -3035,6 +3152,10 @@ export default function EditorV2() {
               onFxDragEnd={saveNow}
               selectedFxId={selectedFxId}
               setSelectedFxId={setSelectedFxId}
+              onBrollUpdate={updateBrollClip}
+              onBrollDragEnd={saveNow}
+              selectedBrollId={selectedBrollId}
+              setSelectedBrollId={setSelectedBrollId}
               uploadImgRef={uploadImgRef}
               uploadVideoRef={uploadVideoRef}
               brollImgRef={brollImgRef}
