@@ -285,6 +285,23 @@
 .text-anim-zoom-in      { animation: text-anim-zoom-in      0.5s ease forwards; }
 .text-anim-bounce       { animation: text-anim-bounce       0.6s ease forwards; }
 
+/* B-roll Stage 2 enter-animation preview only — matches the fx system's own
+   precedent of covering enter animations but not exit in the live preview
+   (fx's CSS never implemented fade-out/scroll-up/scroll-down/zoom-out either;
+   the ffmpeg export is the source of truth for both enter AND exit, see
+   render.js). Composes with the wrapper's own translate(-50%,-50%) centering
+   from Stage 1's positioning (EditorV2.jsx), rather than replacing it. */
+@keyframes broll-anim-slide-in {
+  from { transform: translate(-50%, calc(-50% + 60px)); opacity: 0; }
+  to   { transform: translate(-50%, -50%);              opacity: 1; }
+}
+@keyframes broll-anim-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.broll-anim-slide-in { animation: broll-anim-slide-in 0.5s ease forwards; }
+.broll-anim-fade-in  { animation: broll-anim-fade-in  0.5s ease forwards; }
+
 /* ============================================================================
    Page title — gradient heading used across all main pages
    ============================================================================ */

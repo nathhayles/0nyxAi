@@ -706,8 +706,16 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                       ))
                     : null;
 
+                  // Stage 2: enter-animation preview only (slide-in/fade-in) — see
+                  // onyx.css comment for why exit isn't previewed here (matches
+                  // fx's own precedent; the ffmpeg export handles both fully).
+                  const enterAnimClass = isCustom && brollActive?.enterAnim === "slide" ? "broll-anim-slide-in"
+                    : isCustom && brollActive?.enterAnim === "fade" ? "broll-anim-fade-in"
+                    : "";
+
                   return (
                     <div
+                      className={enterAnimClass}
                       style={{
                         ...wrapperStyle, zIndex: 11,
                         outline: isSelected ? "2px solid #4dd0ff" : "2px solid transparent",
@@ -1166,6 +1174,10 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       brollXPct:         brollClip?.xPct,
       brollYPct:         brollClip?.yPct,
       brollSizePct:      brollClip?.sizePct,
+      // Stage 2 — independent enter/exit animation, only meaningful when
+      // the above position/size fields are also set (render.js gates on it).
+      brollEnterAnim:    brollClip?.enterAnim,
+      brollExitAnim:     brollClip?.exitAnim,
       avatar_status:     scene.avatar_status || null,
       avatar_video_url:  scene.avatar_video_url || null,
       avatar_position:   scene.avatar_position || null,

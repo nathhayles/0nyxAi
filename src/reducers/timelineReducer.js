@@ -54,6 +54,10 @@ export function makeClip(overrides = {}) {
     // here: undefined means "full-frame" (today's only behavior) in both the
     // live preview and the ffmpeg export. Only set via UPDATE_CLIP once a
     // user actually drags/resizes a broll clip in the preview canvas.
+    // Stage 2: enterAnim/exitAnim ("slide"|"fade"|undefined), independent
+    // fields (not fx's single combined enum) so enter and exit can differ —
+    // e.g. slide in, fade out. Only take effect server-side when position/
+    // size are ALSO set (render.js gates on hasCustomBrollPosition).
     ...overrides,
   };
 }
