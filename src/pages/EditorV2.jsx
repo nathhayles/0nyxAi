@@ -371,7 +371,7 @@ function applyTransition(type, cur, nxt, onDone) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, selectedFxId, setSelectedFxId, onBrollUpdate, onBrollDragEnd, selectedBrollId, setSelectedBrollId, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, theme }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, theme }) {
   const activeIdx = scenes.findIndex(s => s.id === activeScene);
   const scene = scenes[activeIdx >= 0 ? activeIdx : 0] || null;
 
@@ -631,7 +631,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
           onMouseMove={e => { handleFxMouseMove(e); handleBrollMouseMove(e); }}
           onMouseUp={() => { handleFxMouseUp(); handleBrollMouseUp(); }}
           onMouseLeave={() => { handleFxMouseUp(); handleBrollMouseUp(); }}
-          onClick={() => { setSelectedFxId(null); setSelectedBrollId?.(null); }}
+          onClick={() => onSelectClip?.(null)}
           style={{
             ...(ratioStyles[ratio] || ratioStyles["9:16"]),
             maxWidth: "100%",
@@ -686,7 +686,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                   const bYPct = brollActive?.yPct ?? 50;
                   const bSizePct = brollActive?.sizePct ?? 100;
                   const isCustom = brollActive?.xPct != null && brollActive?.yPct != null && brollActive?.sizePct != null;
-                  const isSelected = !!brollActive && brollActive.id === selectedBrollId;
+                  const isSelected = !!brollActive && brollActive.id === selectedClipId;
 
                   const wrapperStyle = isCustom
                     ? { position: 'absolute', left: `${bXPct}%`, top: `${bYPct}%`, width: `${bSizePct}%`, height: 'auto', transform: 'translate(-50%,-50%)' }
@@ -724,11 +724,11 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                         outline: isSelected ? "2px solid #4dd0ff" : "2px solid transparent",
                         outlineOffset: 3, cursor: brollActive ? "move" : "default",
                       }}
-                      onClick={e => { if (brollActive) { e.stopPropagation(); setSelectedBrollId?.(brollActive.id); } }}
+                      onClick={e => { if (brollActive) { e.stopPropagation(); onSelectClip?.(brollActive.id); } }}
                       onMouseDown={e => {
                         if (!brollActive) return;
                         e.stopPropagation();
-                        setSelectedBrollId?.(brollActive.id);
+                        onSelectClip?.(brollActive.id);
                         brollDragRef.current = { type:"move", clipId:brollActive.id, startX:e.clientX, startY:e.clientY, startXPct:bXPct, startYPct:bYPct, startSizePct:bSizePct };
                       }}
                     >
@@ -925,7 +925,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
               const canvasW  = frameRef.current?.getBoundingClientRect().width  || 300;
               const canvasH  = frameRef.current?.getBoundingClientRect().height || 500;
               const pxSize   = (sizePct / 100) * canvasW;
-              const isSelected = clip.id === selectedFxId;
+              const isSelected = clip.id === selectedClipId;
 
               const animClass = clip.animation
                 ? `text-anim-${clip.animation.replace(/\s+/g, '-').toLowerCase()}`
@@ -955,10 +955,10 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
 
               return (
                 <div key={clip.id}
-                  onClick={e => { e.stopPropagation(); setSelectedFxId(clip.id); }}
+                  onClick={e => { e.stopPropagation(); onSelectClip?.(clip.id); }}
                   onMouseDown={e => {
                     e.stopPropagation();
-                    setSelectedFxId(clip.id);
+                    onSelectClip?.(clip.id);
                     fxDragRef.current = { type:"move", clipId:clip.id, startX:e.clientX, startY:e.clientY, startXPct:xPct, startYPct:yPct, startSizePct:sizePct };
                   }}
                   style={{
@@ -1461,17 +1461,25 @@ export default function EditorV2() {
   const [reelLoaded,      setReelLoaded]      = useState(false);
   const totalSec = useMemo(() => { try { return calcTotalDuration(timelineState) || 0; } catch { return 0; } }, [timelineState]);
   const playhead = timelineState.playhead ?? 0;
-  const [selectedFxId, setSelectedFxId] = useState(null);
+  // Unified clip selection — a single source of truth (timelineState.selected,
+  // the existing generic reducer field the timeline's own clip clicks already
+  // wrote to via SELECT) shared by canvas clicks, timeline clicks, fx, and
+  // broll alike. Previously fx/broll each had their own separate local
+  // useState, reachable ONLY from canvas clicks — clicking a clip in the
+  // timeline (SequencerPanel's ClipBlock) dispatched SELECT but nothing read
+  // timelineState.selected for panel purposes, so timeline clicks silently
+  // did nothing for opening TextPanel/BrollPanel. Fixed 2026-07-12 by
+  // deriving both panel-selection memos from the same field the timeline
+  // already writes to, and routing the canvas's own selection clicks through
+  // the same SELECT action instead of a separate local state.
   const selectedFxClip = useMemo(() => {
     const fxTrack = timelineState.tracks.find(t => t.key === "fx");
-    return fxTrack?.clips?.find(c => c.id === selectedFxId && c.elementType === "text") ?? null;
-  }, [timelineState, selectedFxId]);
-  // B-roll position/size selection (Stage 1) — separate from fx selection.
-  const [selectedBrollId, setSelectedBrollId] = useState(null);
+    return fxTrack?.clips?.find(c => c.id === timelineState.selected && c.elementType === "text") ?? null;
+  }, [timelineState]);
   const selectedBrollClip = useMemo(() => {
     const brollTrack = timelineState.tracks.find(t => t.key === "broll");
-    return brollTrack?.clips?.find(c => c.id === selectedBrollId) ?? null;
-  }, [timelineState, selectedBrollId]);
+    return brollTrack?.clips?.find(c => c.id === timelineState.selected) ?? null;
+  }, [timelineState]);
   const playbackProgress = totalSec > 0 ? playhead / totalSec : 0;
   const activeSceneObj = useMemo(() => {
     const idx = scenes.findIndex(s => s.id === activeScene);
@@ -2697,6 +2705,13 @@ export default function EditorV2() {
     dispatchWithHistory({ type: "UPDATE_CLIP", clipId, changes });
   }, [dispatchWithHistory]);
 
+  // Unified selection — same SELECT action the timeline's clip clicks
+  // already dispatch (SequencerPanel.jsx ClipBlock onSelect); canvas clicks
+  // now route through this too instead of separate local fx/broll state.
+  const onSelectClip = useCallback((clipId) => {
+    dispatchWithHistory({ type: "SELECT", clipId });
+  }, [dispatchWithHistory]);
+
   const saveNowRef = useRef(saveNow);
   useEffect(() => { saveNowRef.current = saveNow; }, [saveNow]);
   // Stable callback: always invokes the latest saveNow after React has flushed the pending state update.
@@ -3170,12 +3185,10 @@ export default function EditorV2() {
               brand={brand}
               onFxUpdate={updateFxClip}
               onFxDragEnd={saveNow}
-              selectedFxId={selectedFxId}
-              setSelectedFxId={setSelectedFxId}
               onBrollUpdate={updateBrollClip}
               onBrollDragEnd={saveNow}
-              selectedBrollId={selectedBrollId}
-              setSelectedBrollId={setSelectedBrollId}
+              selectedClipId={timelineState.selected}
+              onSelectClip={onSelectClip}
               uploadImgRef={uploadImgRef}
               uploadVideoRef={uploadVideoRef}
               brollImgRef={brollImgRef}
