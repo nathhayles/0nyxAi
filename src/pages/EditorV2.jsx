@@ -1480,6 +1480,25 @@ export default function EditorV2() {
     const brollTrack = timelineState.tracks.find(t => t.key === "broll");
     return brollTrack?.clips?.find(c => c.id === timelineState.selected) ?? null;
   }, [timelineState]);
+  // Sync the sidebar tab to whichever clip just got selected — selection
+  // itself (timelineState.selected) already works from both the canvas AND
+  // the timeline (see onSelectClip / SequencerPanel's own SELECT dispatch),
+  // but nothing previously switched the VISIBLE tab to match, so a timeline
+  // click on a b-roll/text clip would select it internally with no visible
+  // effect unless the user had already manually opened that tab first.
+  // Deliberately keyed on timelineState.selected alone (the id), not on
+  // selectedFxClip/selectedBrollClip (which are useMemo'd off the whole
+  // timelineState and would re-fire this on unrelated field edits, e.g.
+  // during a drag-resize) — this only switches tabs on an actual selection
+  // change, not on every edit to the currently-selected clip. Only fx/broll
+  // have a dedicated selection-driven panel today, so other track types
+  // (video/audio/etc.) intentionally leave activeMenu untouched — this is
+  // not a general "always follow selection" mechanism.
+  useEffect(() => {
+    if (!timelineState.selected) return;
+    if (selectedFxClip) setActiveMenu("text");
+    else if (selectedBrollClip) setActiveMenu("broll");
+  }, [timelineState.selected]); // eslint-disable-line react-hooks/exhaustive-deps
   const playbackProgress = totalSec > 0 ? playhead / totalSec : 0;
   const activeSceneObj = useMemo(() => {
     const idx = scenes.findIndex(s => s.id === activeScene);
