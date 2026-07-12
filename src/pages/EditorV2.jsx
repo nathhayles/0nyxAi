@@ -371,7 +371,7 @@ function applyTransition(type, cur, nxt, onDone) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, theme }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme }) {
   const activeIdx = scenes.findIndex(s => s.id === activeScene);
   const scene = scenes[activeIdx >= 0 ? activeIdx : 0] || null;
 
@@ -688,8 +688,16 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                   const isCustom = brollActive?.xPct != null && brollActive?.yPct != null && brollActive?.sizePct != null;
                   const isSelected = !!brollActive && brollActive.id === selectedClipId;
 
+                  // aspectRatio starts as a 16/9 placeholder (never a collapsed
+                  // box, even before any metadata has ever arrived) and gets
+                  // overwritten with the real ratio by onLoadedMetadata/onLoad
+                  // below — driven by the media's own dimensions becoming known,
+                  // not by incidental reflows from the playback tick loop. This
+                  // is what actually fixes the pause-triggered collapse: the box
+                  // no longer depends on the video/img's own auto-height
+                  // resolution at all, so it can't get stuck stale when paused.
                   const wrapperStyle = isCustom
-                    ? { position: 'absolute', left: `${bXPct}%`, top: `${bYPct}%`, width: `${bSizePct}%`, height: 'auto', transform: 'translate(-50%,-50%)' }
+                    ? { position: 'absolute', left: `${bXPct}%`, top: `${bYPct}%`, width: `${bSizePct}%`, height: 'auto', aspectRatio: '16 / 9', transform: 'translate(-50%,-50%)' }
                     : { position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' };
 
                   const corners = isSelected
@@ -716,8 +724,26 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                     : isCustom && brollActive?.enterAnim === "fade" ? "broll-anim-fade-in"
                     : "";
 
+                  // Reads the media's real dimensions the moment they're known
+                  // and writes them straight onto the wrapper (not state — this
+                  // must apply synchronously regardless of isPlaying/render
+                  // timing, and re-fires on every reload, e.g. a clip change).
+                  const measureWrapperFromVideo = () => {
+                    const v = brollVideoRef.current;
+                    if (v?.videoWidth && v?.videoHeight && brollWrapperRef.current) {
+                      brollWrapperRef.current.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`;
+                    }
+                  };
+                  const measureWrapperFromImg = () => {
+                    const img = brollImgRef.current;
+                    if (img?.naturalWidth && img?.naturalHeight && brollWrapperRef.current) {
+                      brollWrapperRef.current.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+                    }
+                  };
+
                   return (
                     <div
+                      ref={brollWrapperRef}
                       className={enterAnimClass}
                       style={{
                         ...wrapperStyle, zIndex: 11,
@@ -735,13 +761,15 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                       <img
                         ref={brollImgRef}
                         className="v2-preview-broll-img"
-                        style={{ width: '100%', height: isCustom ? 'auto' : '100%', objectFit: 'contain', display: 'none', background: 'transparent' }}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'none', background: 'transparent' }}
+                        onLoad={measureWrapperFromImg}
                         alt=""
                       />
                       <video
                         ref={brollVideoRef}
                         className="v2-preview-broll-video"
-                        style={{ width: '100%', height: isCustom ? 'auto' : '100%', objectFit: isCustom ? 'contain' : 'cover', display: 'none' }}
+                        style={{ width: '100%', height: '100%', objectFit: isCustom ? 'contain' : 'cover', display: 'none' }}
+                        onLoadedMetadata={measureWrapperFromVideo}
                         playsInline muted
                       />
                       {corners}
@@ -1884,6 +1912,7 @@ export default function EditorV2() {
   const uploadVideoRef     = useRef(null);
   const brollImgRef        = useRef(null);
   const brollVideoRef      = useRef(null);
+  const brollWrapperRef    = useRef(null);
   const prevBrollClipRef   = useRef(null);
   const tracksRef = useRef(timelineState.tracks);
   useEffect(() => { tracksRef.current = timelineState.tracks; }, [timelineState.tracks]);
@@ -3238,6 +3267,7 @@ export default function EditorV2() {
               uploadVideoRef={uploadVideoRef}
               brollImgRef={brollImgRef}
               brollVideoRef={brollVideoRef}
+              brollWrapperRef={brollWrapperRef}
               theme={theme}
             />
           </div>
