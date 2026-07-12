@@ -1966,6 +1966,27 @@ export default function EditorV2() {
     return () => clearInterval(poll);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Whether the b-roll clip currently on screen genuinely covers the preview
+  // frame edge-to-edge, vs. being a partial inset (position/size feature).
+  // Only the former should suppress A-roll's own overlay underneath it —
+  // compares real rendered geometry (not raw xPct/yPct/sizePct math) so it
+  // stays correct regardless of the b-roll asset's aspect ratio vs the
+  // canvas's own. No custom position/size at all = today's original
+  // full-frame behavior, unchanged.
+  function brollCoversFrame(brollClip) {
+    if (!brollClip) return false;
+    const isCustom = brollClip.xPct != null && brollClip.yPct != null && brollClip.sizePct != null;
+    if (!isCustom) return true;
+    const wrapper = brollWrapperRef.current;
+    const frame = document.getElementById("onyx-preview-frame");
+    if (!wrapper || !frame) return true; // can't measure yet — fail safe to prior (hide) behavior
+    const wRect = wrapper.getBoundingClientRect();
+    const fRect = frame.getBoundingClientRect();
+    const EPS = 2;
+    return wRect.left <= fRect.left + EPS && wRect.top <= fRect.top + EPS &&
+      wRect.right >= fRect.right - EPS && wRect.bottom >= fRect.bottom - EPS;
+  }
+
   // Sync preview on scrub (not playing) — dual-buffer crossfade, no black frame.
   useEffect(() => {
     if (isPlaying) return;
@@ -1985,6 +2006,7 @@ export default function EditorV2() {
     const targetSrc = clip?.src || clip?.url || clip?.mediaUrl || sc?.mediaUrl || sc?.url || "";
 
     const brollClipScrub = findAt("broll");
+    const videoClipScrub = findAt("video");
     const isBrollScrub = !!brollClipScrub;
 
     if (!targetSrc) {
@@ -2002,15 +2024,47 @@ export default function EditorV2() {
 
     const localTime = clip ? Math.max(0, ph - clip.startTime + clip.trimStart) : 0;
 
+    // Sets imgEl/vidEl's src+time so it shows `src` at `atTime` — shared by
+    // the primary clip sync below and the "A-roll stays visible underneath
+    // a partial b-roll inset" case, so both stay in lockstep.
+    function syncOverlay(imgEl, vidEl, src, atTime) {
+      if (!src) return;
+      const isVid = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src);
+      if (isVid) {
+        if (imgEl) imgEl.style.display = 'none';
+        if (vidEl) {
+          vidEl.style.display = 'block';
+          if (vidEl.getAttribute('data-src') !== src) {
+            vidEl.src = src;
+            vidEl.setAttribute('data-src', src);
+            vidEl.muted = true;
+            vidEl.load();
+            vidEl.oncanplay = () => { vidEl.oncanplay = null; vidEl.currentTime = atTime; };
+          } else {
+            vidEl.currentTime = atTime;
+          }
+        }
+      } else {
+        if (vidEl) { vidEl.style.display = 'none'; vidEl.pause(); }
+        if (imgEl) { imgEl.src = src; imgEl.style.display = 'block'; }
+      }
+    }
+
     const isUpload = !targetSrc.includes('videos.pexels.com');
     if (isUpload) {
-      const isVideoUpload = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(targetSrc);
       const imgEl = isBrollScrub ? brollImgRef.current : uploadImgRef.current;
       const vidEl = isBrollScrub ? brollVideoRef.current : uploadVideoRef.current;
-      // Hide the other overlay set
       if (isBrollScrub) {
-        if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
-        if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+        if (brollCoversFrame(brollClipScrub)) {
+          if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+          if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+        } else {
+          // Partial inset — keep A-roll visible and correctly seeked
+          // underneath it, instead of leaving it hidden/stale.
+          const arollSrc = videoClipScrub?.src || videoClipScrub?.url || videoClipScrub?.mediaUrl || sc?.mediaUrl || sc?.url || "";
+          const arollLocalTime = videoClipScrub ? Math.max(0, ph - videoClipScrub.startTime + videoClipScrub.trimStart) : 0;
+          syncOverlay(uploadImgRef.current, uploadVideoRef.current, arollSrc, arollLocalTime);
+        }
       } else {
         if (brollImgRef.current) brollImgRef.current.style.display = 'none';
         if (brollVideoRef.current) { brollVideoRef.current.style.display = 'none'; brollVideoRef.current.pause(); }
@@ -2019,24 +2073,7 @@ export default function EditorV2() {
       const slotB = document.querySelector('.v2-preview-video-b');
       if (slotA) slotA.style.visibility = 'hidden';
       if (slotB) slotB.style.visibility = 'hidden';
-      if (isVideoUpload) {
-        if (imgEl) imgEl.style.display = 'none';
-        if (vidEl) {
-          vidEl.style.display = 'block';
-          if (vidEl.getAttribute('data-src') !== targetSrc) {
-            vidEl.src = targetSrc;
-            vidEl.setAttribute('data-src', targetSrc);
-            vidEl.muted = true;
-            vidEl.load();
-            vidEl.oncanplay = () => { vidEl.oncanplay = null; vidEl.currentTime = localTime; };
-          } else {
-            vidEl.currentTime = localTime;
-          }
-        }
-      } else {
-        if (vidEl) { vidEl.style.display = 'none'; vidEl.pause(); }
-        if (imgEl) { imgEl.src = targetSrc; imgEl.style.display = 'block'; }
-      }
+      syncOverlay(imgEl, vidEl, targetSrc, localTime);
       return;
     }
 
