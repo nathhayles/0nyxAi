@@ -2003,7 +2003,14 @@ export default function EditorV2() {
       .find(c => ph >= c.startTime && ph < c.startTime + (c.trimEnd - c.trimStart));
     const clip = findAt("broll") ?? findAt("video");
     const sc = scenes.find(s => s.id === activeScene);
-    const targetSrc = clip?.src || clip?.url || clip?.mediaUrl || sc?.mediaUrl || sc?.url || "";
+    // The sc.mediaUrl/sc.url fallback only applies when a clip was actually
+    // found (belt-and-suspenders for a clip missing its own url fields) —
+    // it must NOT fire when there's no clip at all (a genuine gap, e.g.
+    // B-roll has outlived A-roll's own clip and neither track has anything
+    // active here), or this falls through to the scene's raw media at
+    // time 0 instead of hitting the !targetSrc hide-everything branch
+    // below, which is what a real gap should do.
+    const targetSrc = clip ? (clip.src || clip.url || clip.mediaUrl || sc?.mediaUrl || sc?.url || "") : "";
 
     const brollClipScrub = findAt("broll");
     const videoClipScrub = findAt("video");
@@ -2065,12 +2072,22 @@ export default function EditorV2() {
       if (brollCoversFrame(brollClipScrub)) {
         if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
         if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
-      } else {
-        // Partial inset — keep A-roll visible and correctly seeked
-        // underneath it, instead of leaving it hidden/stale.
-        const arollSrc = videoClipScrub?.src || videoClipScrub?.url || videoClipScrub?.mediaUrl || sc?.mediaUrl || sc?.url || "";
-        const arollLocalTime = videoClipScrub ? Math.max(0, ph - videoClipScrub.startTime + videoClipScrub.trimStart) : 0;
+      } else if (videoClipScrub) {
+        // Partial inset with a real A-roll clip underneath — keep it
+        // visible and correctly seeked. Deliberately NOT falling back to
+        // sc.mediaUrl/sc.url when there's no actual clip (see the branch
+        // below) — that fallback used to show A-roll's scene frozen at
+        // time 0 instead of clearing it once A-roll's own clip has ended.
+        const arollSrc = videoClipScrub.src || videoClipScrub.url || videoClipScrub.mediaUrl || "";
+        const arollLocalTime = Math.max(0, ph - videoClipScrub.startTime + videoClipScrub.trimStart);
         syncOverlay(uploadImgRef.current, uploadVideoRef.current, arollSrc, arollLocalTime);
+      } else {
+        // No A-roll clip active at all (B-roll can outlive A-roll's own
+        // clip — see clip_broll_1 on reel 9c3ed13d spanning 2.1875-21.1875
+        // against an 8s A-roll clip) — nothing to show underneath, so
+        // clear it instead of freezing on whatever was there before.
+        if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+        if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
       }
 
       syncOverlay(brollImgRef.current, brollVideoRef.current, targetSrc, localTime);
@@ -2203,6 +2220,34 @@ export default function EditorV2() {
       const videoClip = findActive("video");
       const clip = brollClip ?? videoClip;
       const isBroll = !!brollClip;
+      const brollFullyCovers = !isBroll || brollCoversFrame(brollClip);
+      // Keeps A-roll's own overlay in sync with the actual A-roll clip
+      // underneath a partial-inset B-roll box, or explicitly clears it when
+      // there's no A-roll clip active at all (B-roll can outlive A-roll's
+      // own clip — see clip_broll_1 on reel 9c3ed13d spanning 2.1875-21.1875
+      // against an 8s A-roll clip). Leaving it untouched froze A-roll on its
+      // last real frame indefinitely instead of clearing once it ends.
+      function syncOrHideAroll() {
+        const vidEl = uploadVideoRef.current;
+        const arollSrc = videoClip ? (videoClip.url || videoClip.mediaUrl || videoClip.src || "") : "";
+        if (arollSrc && vidEl) {
+          const arollSpeed = videoClip.speed || 1;
+          const arollLocalTime = (newPH - videoClip.startTime) * arollSpeed + videoClip.trimStart;
+          if (vidEl.getAttribute('data-src') !== arollSrc) {
+            vidEl.src = arollSrc;
+            vidEl.setAttribute('data-src', arollSrc);
+            vidEl.muted = true;
+            vidEl.load();
+            vidEl.oncanplay = () => { vidEl.oncanplay = null; vidEl.currentTime = arollLocalTime; };
+          } else if (Math.abs(vidEl.currentTime - arollLocalTime) > 0.3) {
+            vidEl.currentTime = arollLocalTime;
+          }
+          vidEl.style.display = 'block';
+          return;
+        }
+        if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+        if (vidEl) { vidEl.style.display = 'none'; vidEl.pause(); }
+      }
       if (clip) {
         const clipSrc = clip.url || clip.mediaUrl || clip.src || "";
         const isUpload = !clipSrc.includes('videos.pexels.com');
@@ -2251,6 +2296,7 @@ export default function EditorV2() {
               bVidEl.playbackRate = clipSpeed;
               if (bVidEl.paused) bVidEl.play().catch(() => {});
             }
+            if (!brollFullyCovers) syncOrHideAroll();
             // Pause A-roll only when B-roll is a video (not image/PNG/etc)
             const isBrollVideo = isVideoUpload;
             if (isBrollVideo) {
@@ -2300,7 +2346,6 @@ export default function EditorV2() {
           // inset should leave A-roll visible underneath, same principle
           // the isUpload+isBroll branch above already gets for free (it
           // never hides A-roll's overlay in the first place).
-          const brollFullyCovers = !isBroll || brollCoversFrame(brollClip);
           if (brollFullyCovers) {
             if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
             if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
@@ -2329,27 +2374,7 @@ export default function EditorV2() {
               bVidEl.playbackRate = clipSpeed;
               if (bVidEl.paused) bVidEl.play().catch(() => {});
             }
-            if (!brollFullyCovers && videoClip) {
-              // Partial inset — keep A-roll actively synced underneath
-              // instead of leaving it hidden or stale from before B-roll
-              // became active.
-              const arollSrc = videoClip.url || videoClip.mediaUrl || videoClip.src || "";
-              const vidEl = uploadVideoRef.current;
-              if (arollSrc && vidEl) {
-                const arollSpeed = videoClip.speed || 1;
-                const arollLocalTime = (newPH - videoClip.startTime) * arollSpeed + videoClip.trimStart;
-                if (vidEl.getAttribute('data-src') !== arollSrc) {
-                  vidEl.src = arollSrc;
-                  vidEl.setAttribute('data-src', arollSrc);
-                  vidEl.muted = true;
-                  vidEl.load();
-                  vidEl.oncanplay = () => { vidEl.oncanplay = null; vidEl.currentTime = arollLocalTime; };
-                } else if (Math.abs(vidEl.currentTime - arollLocalTime) > 0.3) {
-                  vidEl.currentTime = arollLocalTime;
-                }
-                vidEl.style.display = 'block';
-              }
-            }
+            if (!brollFullyCovers) syncOrHideAroll();
             // Pause A-roll while stock broll video plays
             const { cur: arollCur } = getSlotsTick();
             if (arollCur && !arollCur.paused) arollCur.pause();
