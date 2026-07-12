@@ -480,8 +480,12 @@ function VolumeEnvelope({ clip, w, dispatch, trackKey, trackVolume }) {
   return (
     <svg data-clip-envelope="1" width={w} height={H}
       style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none", overflow: "visible" }}>
-      {/* wide invisible hit-area, easier to grab than the visible 1.5px stroke */}
-      <polyline points={polylineStr} fill="none" stroke="rgba(0,0,0,0.01)" strokeWidth={10}
+      {/* Widened invisible hit-area around the visible 1.5px stroke — was 10px,
+          which on a short/narrow clip (esp. music, before the real-duration
+          fix above) covered nearly the whole clip body and stole plain
+          click-drags meant to move the clip, not touch its volume line.
+          4px keeps the line comfortably grabbable without eating the clip. */}
+      <polyline points={polylineStr} fill="none" stroke="rgba(0,0,0,0.01)" strokeWidth={4}
         data-volume-line="1" style={{ pointerEvents: "all", cursor: "copy" }}
         onMouseDown={onLineMouseDown}
         onMouseEnter={e => { setLineHovered(true); showHintIfFirstTime(e); }}

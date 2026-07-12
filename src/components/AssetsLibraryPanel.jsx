@@ -43,6 +43,23 @@ function assetKindLabel(item) {
   return "Image";
 }
 
+// media_assets has no duration column (recordMediaAsset never stores one), so
+// item.duration is always undefined for every Library row — without this,
+// buildDragPayload's fallback below silently drops a real ~161s music track
+// onto the timeline as a 5-second clip. Probed client-side, once per item,
+// the same way AssetPreviewTooltip already determines audio duration for its
+// hover card — just fed back into the item itself instead of being thrown
+// away after one tooltip render.
+function probeAudioDuration(url) {
+  return new Promise((resolve) => {
+    const audio = new Audio();
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => resolve(audio.duration || null);
+    audio.onerror = () => resolve(null);
+    audio.src = url;
+  });
+}
+
 // Same "application/onyx-media" shape used by VisualsPanel/MediaPanel/SfxPanel/
 // ElementsPanel, so SequencerPanel's handleDrop() consumes Library drags
 // identically to drags from those panels.
@@ -317,8 +334,21 @@ function AssetSection({ section, expanded, onToggle, brandId, folderId, query, f
       if (query) params.set("q", query);
       const res = await fetch(`/api/media/assets?${params.toString()}`, { cache: "no-store", headers: await getAuthHeaders() });
       const data = await res.json().catch(() => []);
-      setItems(Array.isArray(data) ? data : []);
+      const list = Array.isArray(data) ? data : [];
+      setItems(list);
       setLoadedFor(filterKey);
+
+      // Real duration isn't in the DB row at all — probe it in the background
+      // so drags started after this resolves (typically well under a second,
+      // metadata-only) carry the real value instead of buildDragPayload's
+      // hardcoded fallback.
+      for (const item of list) {
+        if (detectMediaKind(item) !== "audio" || !item.url) continue;
+        probeAudioDuration(item.url).then((duration) => {
+          if (!duration) return;
+          setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, duration } : i)));
+        });
+      }
     } catch (err) {
       console.error("assets load error", err);
       setError("Failed to load.");
