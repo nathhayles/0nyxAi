@@ -2050,38 +2050,52 @@ export default function EditorV2() {
       }
     }
 
-    const isUpload = !targetSrc.includes('videos.pexels.com');
-    if (isUpload) {
-      const imgEl = isBrollScrub ? brollImgRef.current : uploadImgRef.current;
-      const vidEl = isBrollScrub ? brollVideoRef.current : uploadVideoRef.current;
-      if (isBrollScrub) {
-        if (brollCoversFrame(brollClipScrub)) {
-          if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
-          if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
-        } else {
-          // Partial inset — keep A-roll visible and correctly seeked
-          // underneath it, instead of leaving it hidden/stale.
-          const arollSrc = videoClipScrub?.src || videoClipScrub?.url || videoClipScrub?.mediaUrl || sc?.mediaUrl || sc?.url || "";
-          const arollLocalTime = videoClipScrub ? Math.max(0, ph - videoClipScrub.startTime + videoClipScrub.trimStart) : 0;
-          syncOverlay(uploadImgRef.current, uploadVideoRef.current, arollSrc, arollLocalTime);
-        }
-      } else {
-        if (brollImgRef.current) brollImgRef.current.style.display = 'none';
-        if (brollVideoRef.current) { brollVideoRef.current.style.display = 'none'; brollVideoRef.current.pause(); }
-      }
+    if (isBrollScrub) {
+      // B-roll always uses the dedicated, position-aware elements regardless
+      // of source type (upload or Pexels/stock) — the streaming/dual-buffer
+      // path below is only for A-roll's own scene-to-scene crossfade, which
+      // doesn't apply to a single overlaid clip. Previously Pexels-sourced
+      // B-roll fell through to that dual-buffer path instead, rendering
+      // full-frame with no position/size applied at all while paused.
       const slotA = document.querySelector('.v2-preview-video-a');
       const slotB = document.querySelector('.v2-preview-video-b');
       if (slotA) slotA.style.visibility = 'hidden';
       if (slotB) slotB.style.visibility = 'hidden';
-      syncOverlay(imgEl, vidEl, targetSrc, localTime);
+
+      if (brollCoversFrame(brollClipScrub)) {
+        if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+        if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+      } else {
+        // Partial inset — keep A-roll visible and correctly seeked
+        // underneath it, instead of leaving it hidden/stale.
+        const arollSrc = videoClipScrub?.src || videoClipScrub?.url || videoClipScrub?.mediaUrl || sc?.mediaUrl || sc?.url || "";
+        const arollLocalTime = videoClipScrub ? Math.max(0, ph - videoClipScrub.startTime + videoClipScrub.trimStart) : 0;
+        syncOverlay(uploadImgRef.current, uploadVideoRef.current, arollSrc, arollLocalTime);
+      }
+
+      syncOverlay(brollImgRef.current, brollVideoRef.current, targetSrc, localTime);
       return;
     }
 
-    // Pexels/streaming: hide all overlays and let dual-buffer handle it
-    if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
-    if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+    // A-roll itself is the active clip (no B-roll) — same upload-vs-Pexels/
+    // streaming distinction as before, since that's what crossfades between
+    // sequential A-roll scenes.
     if (brollImgRef.current) brollImgRef.current.style.display = 'none';
     if (brollVideoRef.current) { brollVideoRef.current.style.display = 'none'; brollVideoRef.current.pause(); }
+
+    const isUpload = !targetSrc.includes('videos.pexels.com');
+    if (isUpload) {
+      const slotA = document.querySelector('.v2-preview-video-a');
+      const slotB = document.querySelector('.v2-preview-video-b');
+      if (slotA) slotA.style.visibility = 'hidden';
+      if (slotB) slotB.style.visibility = 'hidden';
+      syncOverlay(uploadImgRef.current, uploadVideoRef.current, targetSrc, localTime);
+      return;
+    }
+
+    // Pexels/streaming A-roll scene: hide upload overlay, use dual-buffer crossfade
+    if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+    if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
 
     // Same src AND same clip — just seek
     if (cur.getAttribute("data-src") === targetSrc && cur.getAttribute("data-clip-id") === (clip?.id || '')) {
@@ -2281,9 +2295,16 @@ export default function EditorV2() {
             skipArollSync = true;
           }
         } else {
-          // Pexels/streaming clip: hide all upload overlays
-          if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
-          if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+          // Pexels/streaming clip: hide upload overlays — but only
+          // unconditionally when B-roll isn't a partial inset. A partial
+          // inset should leave A-roll visible underneath, same principle
+          // the isUpload+isBroll branch above already gets for free (it
+          // never hides A-roll's overlay in the first place).
+          const brollFullyCovers = !isBroll || brollCoversFrame(brollClip);
+          if (brollFullyCovers) {
+            if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+            if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+          }
           if (!isBroll) {
             if (brollImgRef.current) brollImgRef.current.style.display = 'none';
             if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
@@ -2307,6 +2328,27 @@ export default function EditorV2() {
               if (Math.abs(bVidEl.currentTime - localTime) > 0.3) bVidEl.currentTime = localTime;
               bVidEl.playbackRate = clipSpeed;
               if (bVidEl.paused) bVidEl.play().catch(() => {});
+            }
+            if (!brollFullyCovers && videoClip) {
+              // Partial inset — keep A-roll actively synced underneath
+              // instead of leaving it hidden or stale from before B-roll
+              // became active.
+              const arollSrc = videoClip.url || videoClip.mediaUrl || videoClip.src || "";
+              const vidEl = uploadVideoRef.current;
+              if (arollSrc && vidEl) {
+                const arollSpeed = videoClip.speed || 1;
+                const arollLocalTime = (newPH - videoClip.startTime) * arollSpeed + videoClip.trimStart;
+                if (vidEl.getAttribute('data-src') !== arollSrc) {
+                  vidEl.src = arollSrc;
+                  vidEl.setAttribute('data-src', arollSrc);
+                  vidEl.muted = true;
+                  vidEl.load();
+                  vidEl.oncanplay = () => { vidEl.oncanplay = null; vidEl.currentTime = arollLocalTime; };
+                } else if (Math.abs(vidEl.currentTime - arollLocalTime) > 0.3) {
+                  vidEl.currentTime = arollLocalTime;
+                }
+                vidEl.style.display = 'block';
+              }
             }
             // Pause A-roll while stock broll video plays
             const { cur: arollCur } = getSlotsTick();
