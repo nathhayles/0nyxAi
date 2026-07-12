@@ -84,11 +84,13 @@ const SECTIONS = [
   {
     title: "Music & Audio",
     items: [
-      { q: "How do I add background music?", a: "Click the Music icon in the left sidebar or transport bar. Browse stock tracks by mood/genre, or generate original music from a text prompt using Lyria." },
+      { q: "How do I add background music?", a: "Open the Library panel (folder icon in the left sidebar) and expand the Music section. Browse your saved or generated tracks and click Apply on the one you want, or generate original music from a text prompt using Lyria. Music selection now lives entirely in the Library panel — the older picker previously in the Audio tab has been removed." },
+      { q: "How do I see what music is currently applied, or remove it?", a: "Open the Audio tab in the editor sidebar. Once music is applied, you'll see \"Now playing: [track name]\" along with a Change button (jumps back to the Library's Music section to pick something else) and a Clear button (removes the music track entirely). The Music volume slider is also here and works the same as always." },
       { q: "Can I separate stems from a music track?", a: "Yes. Use the Fadr stem separation feature (available on Creator+ plans) to split any track into Vocals, Drums, Bass, and Instrumental." },
       { q: "How do I add voiceover?", a: "Click VO in the transport bar to open the Voice Over panel. Choose a tier (Standard or Premium), filter by gender/accent/language, preview a voice, then generate. Voiceover is automatically synced to your scene duration." },
       { q: "What is BPM detection?", a: "Fadr automatically detects the BPM and key of your music track, helping you sync cuts and transitions to the beat." },
       { q: "Why does my music track show the wrong title on the timeline?", a: "Track titles for stock and generated music now display correctly once applied via the Music panel's Apply button. Note: titles for manually uploaded tracks are not yet fixed — this is a known issue we're still working on." },
+      { q: "Why did my long music track show as a short clip on the timeline?", a: "This was a bug — now fixed. Music tracks now correctly display and can be dragged at their real, full duration on the timeline. Previously, longer tracks could appear as a short, fixed-length clip regardless of their actual length." },
     ]
   },
   {
@@ -110,6 +112,8 @@ const SECTIONS = [
       { q: "How do I reorder scenes?", a: "Drag scene clips in the VIDEO track of the sequencer to reorder them. The preview updates in real time." },
       { q: "How do I trim a scene?", a: "Drag the left or right edge of a clip in the sequencer to trim its in/out points." },
       { q: "What is the B-Roll track for?", a: "The B-Roll track lets you overlay additional footage on top of your main A-Roll video. Drag stock or uploaded clips onto the B-Roll track." },
+      { q: "Can I resize and reposition B-Roll clips?", a: "Yes. Click a B-Roll clip's icon in the timeline, or click it directly in the canvas during its active time window, to open the B-Roll panel. From there, drag the clip directly on the canvas or use the Position X, Position Y, and Size sliders. Leaving all sliders untouched keeps the clip full-frame, exactly as before." },
+      { q: "Can B-Roll clips animate in and out?", a: "Yes. In the B-Roll panel, set an Enter animation and an Exit animation independently — Slide or Fade for each — so a clip can, for example, slide in and fade out." },
       { q: "How do I add transitions?", a: "Click the Transitions icon in the left sidebar. Choose Cut, Fade, Slide, or Zoom. Apply per-scene or to all scenes." },
       { q: "What speed options are available?", a: "0.25x, 0.5x, 1x, 1.5x, 2x playback speed in the sequencer toolbar. Slow motion regions can be set per clip." },
       { q: "How do I mute or change the volume of a clip?", a: "Use the mute button and volume slider on a track or clip in the sequencer — both now work correctly and the result is reflected in preview and export." },
