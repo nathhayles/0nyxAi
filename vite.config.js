@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // /srv/onyx/shared — constants shared with the backend (see audioConstants.js).
 // Lives outside this project's own root, so Vite needs an explicit fs.allow
 // entry plus an alias to resolve imports into it.
-const sharedDir = path.resolve(__dirname, '../../../../shared')
+const sharedDir = path.resolve(__dirname, '../../../shared')
 
 export default defineConfig({
   plugins: [react()],
