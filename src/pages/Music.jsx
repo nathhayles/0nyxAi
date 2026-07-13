@@ -1031,7 +1031,7 @@ export default function Music() {
               </div>
 
               <button onClick={generateRapLyrics} disabled={rapLyricsLoading || !rapTopic.trim()}
-                style={{ marginTop: 16, width: "100%", padding: "11px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: rapLyricsLoading ? "default" : "pointer", background: rapLyricsLoading ? "var(--onyx-surface-2)" : "#1f2937", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)" }}>
+                className="btn-teal" style={{ marginTop: 16, width: "100%" }}>
                 {rapLyricsLoading ? "Writing lyrics... ⏳" : rapDraft ? "✍️ Rewrite Lyrics" : "✍️ Write Lyrics"}
               </button>
               {rapLyricsError && <div style={{ color: "#f87171", fontSize: 12, marginTop: 8 }}>{rapLyricsError}</div>}
@@ -1049,7 +1049,7 @@ export default function Music() {
                     style={{ ...inputStyle, resize: "vertical", fontFamily: "ui-monospace, monospace", fontSize: 12, lineHeight: 1.6 }} />
 
                   <button onClick={generateRapTrack} disabled={rapGenerating}
-                    style={{ marginTop: 12, width: "100%", padding: "11px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: rapGenerating ? "default" : "pointer", background: rapGenerating ? "var(--onyx-surface-2)" : "linear-gradient(90deg, #4dd0ff, #ec4899)", border: "none", color: rapGenerating ? "var(--onyx-text-dim)" : "#0a0a0f" }}>
+                    className="btn-teal" style={{ marginTop: 12, width: "100%" }}>
                     {rapGenerating ? "Generating... ⏳" : "🎤 Generate Track — 10 credits"}
                   </button>
                 </div>
