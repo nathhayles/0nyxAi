@@ -279,6 +279,18 @@ export default function Music() {
   const pollRef = useRef(null);
   const [extendingId, setExtendingId] = useState(null);
   const [extendStatus, setExtendStatus] = useState({});
+
+  // ── AI Rapper (MiniMax Music 2.0) ──────────────────────────────────────────
+  const [rapTopic, setRapTopic] = useState("");
+  const [rapMood, setRapMood] = useState("");
+  const [rapLengthTier, setRapLengthTier] = useState("standard");
+  const [rapLyricsLoading, setRapLyricsLoading] = useState(false);
+  const [rapLyricsError, setRapLyricsError] = useState("");
+  const [rapDraft, setRapDraft] = useState(null); // { style_prompt, lyrics_prompt, estimated_seconds }
+  const [rapGenerating, setRapGenerating] = useState(false);
+  const [rapGenStatus, setRapGenStatus] = useState("");
+  const [rapGenError, setRapGenError] = useState("");
+  const [rapGeneratedTracks, setRapGeneratedTracks] = useState([]);
   const extendPollRef = useRef(null);
 
   // Library state
@@ -473,6 +485,66 @@ export default function Music() {
       setGenError(`Save error: ${err.message}`);
     }
     setSavingId(null);
+  };
+
+  // ── AI Rapper handlers ──────────────────────────────────────────────────────
+  // Two-step deliberately: lyrics generation is a cheap/free GPT call the user
+  // can re-roll or hand-edit before spending credits on the actual (paid)
+  // audio generation below.
+  const generateRapLyrics = async () => {
+    if (!rapTopic.trim()) { setRapLyricsError("Enter a topic first"); return; }
+    setRapLyricsLoading(true);
+    setRapLyricsError("");
+    try {
+      const res = await fetch("/api/music/generate-rap-lyrics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...await getAuthHeaders() },
+        body: JSON.stringify({ topic: rapTopic, mood: rapMood, lengthTier: rapLengthTier }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setRapLyricsError(data?.error || `Failed (${res.status})`); setRapLyricsLoading(false); return; }
+      setRapDraft(data);
+    } catch (err) {
+      setRapLyricsError(err.message);
+    }
+    setRapLyricsLoading(false);
+  };
+
+  const generateRapTrack = async () => {
+    if (!rapDraft?.style_prompt || !rapDraft?.lyrics_prompt) return;
+    setRapGenerating(true);
+    setRapGenError("");
+    // MiniMax generation has run 50-90s+ in testing — set expectations up front
+    // rather than a bare spinner with no context.
+    setRapGenStatus("Generating your track — this usually takes 1-2 minutes... ⏳");
+    try {
+      const res = await fetch("/api/music/generate-rap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...await getAuthHeaders() },
+        body: JSON.stringify({ style_prompt: rapDraft.style_prompt, lyrics_prompt: rapDraft.lyrics_prompt }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setRapGenError(data?.error || `Failed (${res.status})`);
+        setRapGenerating(false);
+        setRapGenStatus("");
+        return;
+      }
+      // Actual (ffprobed) duration ships on data.track.duration and renders via
+      // TrackCard's existing duration badge — surfaced here before the user
+      // can Apply it to a reel, since generated length reliably differs from
+      // whatever the lengthTier implied (verified live: 74s/64s/96s across 3
+      // identical-prompt runs). No auto-retry-to-target-length: that would
+      // burn credits with no guarantee of converging, since the variance
+      // comes from the model's own discrete chorus-repeat/ad-lib choices, not
+      // a continuous knob. The user decides — accept, or hit Regenerate below.
+      setRapGeneratedTracks(prev => [data.track, ...prev]);
+      setRapGenStatus("");
+    } catch (err) {
+      setRapGenError(err.message);
+      setRapGenStatus("");
+    }
+    setRapGenerating(false);
   };
 
   // ===========================
@@ -763,6 +835,7 @@ export default function Music() {
         <div style={{ display: "flex", gap: 4, marginBottom: 32, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 10, padding: 4 }}>
           {[
             { id: "generate", label: "Generate" },
+            { id: "rapper", label: "AI Rapper" },
             { id: "library", label: "Music Library" },
             { id: "saved", label: "My Music" },
             { id: "tools", label: "Tools" },
@@ -923,6 +996,87 @@ export default function Music() {
                       <TrackCard key={track.id} track={track} onApply={applyTrack} appliedId={appliedId} />
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ======================== AI RAPPER TAB ======================== */}
+        {tab === "rapper" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--onyx-text-faint)", lineHeight: 1.5, marginBottom: 4 }}>
+                Vocals and instrumental generated together in one pass (MiniMax Music 2.0) — write lyrics for free first, then generate the track once you're happy with them.
+              </div>
+
+              <div style={sectionLabel}>Topic</div>
+              <textarea value={rapTopic} onChange={e => setRapTopic(e.target.value)} rows={2}
+                placeholder="What's the song about? e.g. grinding to build a business from nothing, staying up late, believing in yourself"
+                style={{ ...inputStyle, resize: "vertical" }} />
+
+              <div style={sectionLabel}>Mood (optional)</div>
+              <input value={rapMood} onChange={e => setRapMood(e.target.value)} placeholder="e.g. motivational, gritty"
+                style={inputStyle} />
+
+              <div style={sectionLabel}>Length</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[
+                  { id: "short", label: "Short (~30-45s)" },
+                  { id: "standard", label: "Standard (~60-90s)" },
+                  { id: "full", label: "Full song (~2.5-3min)" },
+                ].map(t => (
+                  <button key={t.id} onClick={() => setRapLengthTier(t.id)} style={chipStyle(rapLengthTier === t.id)}>{t.label}</button>
+                ))}
+              </div>
+
+              <button onClick={generateRapLyrics} disabled={rapLyricsLoading || !rapTopic.trim()}
+                style={{ marginTop: 16, width: "100%", padding: "11px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: rapLyricsLoading ? "default" : "pointer", background: rapLyricsLoading ? "var(--onyx-surface-2)" : "#1f2937", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)" }}>
+                {rapLyricsLoading ? "Writing lyrics... ⏳" : rapDraft ? "✍️ Rewrite Lyrics" : "✍️ Write Lyrics"}
+              </button>
+              {rapLyricsError && <div style={{ color: "#f87171", fontSize: 12, marginTop: 8 }}>{rapLyricsError}</div>}
+
+              {rapDraft && (
+                <div style={{ marginTop: 20, padding: 14, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12 }}>
+                  <div style={sectionLabel}>Style prompt <span style={{ color: "var(--onyx-text-faint)", fontWeight: 400, textTransform: "none" }}>({rapDraft.style_prompt.length}/300)</span></div>
+                  <textarea value={rapDraft.style_prompt} maxLength={300} rows={2}
+                    onChange={e => setRapDraft(d => ({ ...d, style_prompt: e.target.value }))}
+                    style={{ ...inputStyle, resize: "vertical" }} />
+
+                  <div style={sectionLabel}>Lyrics <span style={{ color: "var(--onyx-text-faint)", fontWeight: 400, textTransform: "none" }}>({rapDraft.lyrics_prompt.length}/3000 — edit freely, [Verse]/[Chorus]/[Bridge] tags are what MiniMax reads as song structure)</span></div>
+                  <textarea value={rapDraft.lyrics_prompt} maxLength={3000} rows={12}
+                    onChange={e => setRapDraft(d => ({ ...d, lyrics_prompt: e.target.value }))}
+                    style={{ ...inputStyle, resize: "vertical", fontFamily: "ui-monospace, monospace", fontSize: 12, lineHeight: 1.6 }} />
+
+                  <button onClick={generateRapTrack} disabled={rapGenerating}
+                    style={{ marginTop: 12, width: "100%", padding: "11px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: rapGenerating ? "default" : "pointer", background: rapGenerating ? "var(--onyx-surface-2)" : "linear-gradient(90deg, #4dd0ff, #ec4899)", border: "none", color: rapGenerating ? "var(--onyx-text-dim)" : "#0a0a0f" }}>
+                    {rapGenerating ? "Generating... ⏳" : "🎤 Generate Track — 10 credits"}
+                  </button>
+                </div>
+              )}
+              {rapGenError && <div style={{ color: "#f87171", fontSize: 12, marginTop: 8 }}>{rapGenError}</div>}
+            </div>
+
+            <div>
+              {rapGenerating && (
+                <div style={{ textAlign: "center", padding: "48px 24px", border: "1px dashed #2b3442", borderRadius: 12 }}>
+                  <div style={{ fontSize: 32, marginBottom: 12 }}>🎤</div>
+                  <div style={{ fontSize: 13, color: "#6b7280" }}>{rapGenStatus}</div>
+                  <div style={{ marginTop: 16, height: 3, background: "var(--onyx-surface-2)", borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: "60%", background: "linear-gradient(90deg, #4dd0ff, #ec4899)", borderRadius: 2, animation: "slide 1.5s infinite" }} />
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: "grid", gap: 10 }}>
+                {rapGeneratedTracks.map(track => (
+                  <TrackCard key={track.id} track={track} onApply={applyTrack} onSave={saveTrack}
+                    appliedId={appliedId} savedIds={savedIds} saving={savingId === track.id} />
+                ))}
+              </div>
+              {!rapGenerating && rapGeneratedTracks.length === 0 && (
+                <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--onyx-text-mute)", fontSize: 12, border: "1px dashed #2b3442", borderRadius: 12 }}>
+                  Write lyrics, then generate — your track (with its actual length, which can differ from the tier above) will show up here.
                 </div>
               )}
             </div>
