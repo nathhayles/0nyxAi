@@ -717,12 +717,31 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                       ))
                     : null;
 
-                  // Stage 2: enter-animation preview only (slide-in/fade-in) — see
-                  // onyx.css comment for why exit isn't previewed here (matches
-                  // fx's own precedent; the ffmpeg export handles both fully).
-                  const enterAnimClass = isCustom && brollActive?.enterAnim === "slide" ? "broll-anim-slide-in"
-                    : isCustom && brollActive?.enterAnim === "fade" ? "broll-anim-fade-in"
+                  // Stage 3: enter AND exit animation preview, direction-aware for
+                  // slide, mirroring render.js's own enterEnd/exitStart window math
+                  // (same 40%-of-duration-capped-at-1s slideDur) so the preview and
+                  // the export agree on when the transition plays, even though the
+                  // preview uses CSS `ease` timing and the export uses a linear
+                  // ffmpeg expression — a visual approximation, not pixel-identical.
+                  const bTotalDur = brollActive ? (brollActive.trimEnd ?? brollActive.duration ?? 3) - (brollActive.trimStart ?? 0) : 0;
+                  const bLocalTime = brollActive ? playhead - (brollActive.startTime || 0) : 0;
+                  const bSlideDur = Math.min(bTotalDur * 0.4, 1.0);
+                  const inExitWindow = isCustom && !!brollActive && bLocalTime >= (bTotalDur - bSlideDur);
+
+                  const activeAnim = inExitWindow ? brollActive?.exitAnim : brollActive?.enterAnim;
+                  const enterAnimClass = !isCustom ? ""
+                    : activeAnim === "slide" ? (inExitWindow ? "broll-anim-slide-out" : "broll-anim-slide-in")
+                    : activeAnim === "fade"  ? (inExitWindow ? "broll-anim-fade-out"  : "broll-anim-fade-in")
+                    : activeAnim === "spin"  ? (inExitWindow ? "broll-anim-spin-out"  : "broll-anim-spin-in")
                     : "";
+
+                  function slideDirectionOffset(dir) {
+                    if (dir === "top")   return "translateY(-60px)";
+                    if (dir === "left")  return "translateX(-60px)";
+                    if (dir === "right") return "translateX(60px)";
+                    return "translateY(60px)"; // "bottom" (default) — matches render.js's default
+                  }
+                  const activeDirection = inExitWindow ? (brollActive?.exitDirection || "bottom") : (brollActive?.enterDirection || "bottom");
 
                   // Reads the media's real dimensions the moment they're known
                   // and writes them straight onto the wrapper (not state — this
@@ -749,6 +768,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                         ...wrapperStyle, zIndex: 11,
                         outline: isSelected ? "2px solid #4dd0ff" : "2px solid transparent",
                         outlineOffset: 3, cursor: brollActive ? "move" : "default",
+                        "--broll-slide-offset": slideDirectionOffset(activeDirection),
                       }}
                       onClick={e => { if (brollActive) { e.stopPropagation(); onSelectClip?.(brollActive.id); } }}
                       onMouseDown={e => {
@@ -1209,6 +1229,11 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       // the above position/size fields are also set (render.js gates on it).
       brollEnterAnim:    brollClip?.enterAnim,
       brollExitAnim:     brollClip?.exitAnim,
+      // Direction only matters when the respective anim above is "slide";
+      // undefined falls back to "bottom" server-side (render.js), matching
+      // slide's original hardcoded direction.
+      brollEnterDirection: brollClip?.enterDirection,
+      brollExitDirection:  brollClip?.exitDirection,
       avatar_status:     scene.avatar_status || null,
       avatar_video_url:  scene.avatar_video_url || null,
       avatar_position:   scene.avatar_position || null,

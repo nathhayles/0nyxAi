@@ -2,6 +2,8 @@ import React from "react";
 
 const btn = { padding: "6px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer", border: "0.5px solid var(--onyx-hairline-strong)", background: "var(--chip-bg)", color: "var(--onyx-text-dim)" };
 const label = { fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.2px", marginBottom: 4 };
+const select = { width: "100%", background: "var(--input-bg)", border: "0.5px solid var(--onyx-hairline-strong)", borderRadius: 7, padding: "7px 10px", color: "var(--onyx-text)", fontSize: 12, outline: "none", cursor: "pointer" };
+const DIRECTIONS = [["bottom", "Bottom"], ["top", "Top"], ["left", "Left"], ["right", "Right"]];
 
 function activeBtn(active) {
   return {
@@ -103,12 +105,22 @@ export default function BrollPanel({ dispatch, selectedClip }) {
               <select
                 value={selectedClip.enterAnim || "none"}
                 onChange={e => update({ enterAnim: e.target.value === "none" ? undefined : e.target.value })}
-                style={{ width: "100%", background: "var(--input-bg)", border: "0.5px solid var(--onyx-hairline-strong)", borderRadius: 7, padding: "7px 10px", color: "var(--onyx-text)", fontSize: 12, outline: "none", cursor: "pointer" }}
+                style={select}
               >
                 <option value="none">None</option>
                 <option value="slide">Slide in</option>
                 <option value="fade">Fade in</option>
+                <option value="spin">Spin in</option>
               </select>
+              {selectedClip.enterAnim === "slide" && (
+                <select
+                  value={selectedClip.enterDirection || "bottom"}
+                  onChange={e => update({ enterDirection: e.target.value })}
+                  style={{ ...select, marginTop: 6 }}
+                >
+                  {DIRECTIONS.map(([v, l]) => <option key={v} value={v}>From {l}</option>)}
+                </select>
+              )}
             </div>
 
             {/* Exit animation */}
@@ -117,12 +129,22 @@ export default function BrollPanel({ dispatch, selectedClip }) {
               <select
                 value={selectedClip.exitAnim || "none"}
                 onChange={e => update({ exitAnim: e.target.value === "none" ? undefined : e.target.value })}
-                style={{ width: "100%", background: "var(--input-bg)", border: "0.5px solid var(--onyx-hairline-strong)", borderRadius: 7, padding: "7px 10px", color: "var(--onyx-text)", fontSize: 12, outline: "none", cursor: "pointer" }}
+                style={select}
               >
                 <option value="none">None</option>
                 <option value="slide">Slide out</option>
                 <option value="fade">Fade out</option>
+                <option value="spin">Spin out</option>
               </select>
+              {selectedClip.exitAnim === "slide" && (
+                <select
+                  value={selectedClip.exitDirection || "bottom"}
+                  onChange={e => update({ exitDirection: e.target.value })}
+                  style={{ ...select, marginTop: 6 }}
+                >
+                  {DIRECTIONS.map(([v, l]) => <option key={v} value={v}>To {l}</option>)}
+                </select>
+              )}
             </div>
           </div>
 

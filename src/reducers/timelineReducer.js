@@ -54,10 +54,18 @@ export function makeClip(overrides = {}) {
     // here: undefined means "full-frame" (today's only behavior) in both the
     // live preview and the ffmpeg export. Only set via UPDATE_CLIP once a
     // user actually drags/resizes a broll clip in the preview canvas.
-    // Stage 2: enterAnim/exitAnim ("slide"|"fade"|undefined), independent
-    // fields (not fx's single combined enum) so enter and exit can differ —
-    // e.g. slide in, fade out. Only take effect server-side when position/
-    // size are ALSO set (render.js gates on hasCustomBrollPosition).
+    // Stage 2: enterAnim/exitAnim ("slide"|"fade"|"spin"|undefined),
+    // independent fields (not fx's single combined enum) so enter and exit
+    // can differ — e.g. slide in, fade out. Only take effect server-side
+    // when position/size are ALSO set (render.js gates on
+    // hasCustomBrollPosition).
+    // enterDirection/exitDirection ("left"|"right"|"top"|"bottom"|undefined)
+    // only matter when the respective anim is "slide" — independent per
+    // enter/exit, same as the anim fields themselves. Undefined defaults to
+    // "bottom" (render.js and the live preview both apply this fallback),
+    // matching slide's original hardcoded direction exactly, so clips saved
+    // before directions existed keep rendering identically. Spin has no
+    // direction option yet (fixed rotation sense both ways).
     ...overrides,
   };
 }

@@ -285,22 +285,46 @@
 .text-anim-zoom-in      { animation: text-anim-zoom-in      0.5s ease forwards; }
 .text-anim-bounce       { animation: text-anim-bounce       0.6s ease forwards; }
 
-/* B-roll Stage 2 enter-animation preview only — matches the fx system's own
-   precedent of covering enter animations but not exit in the live preview
-   (fx's CSS never implemented fade-out/scroll-up/scroll-down/zoom-out either;
-   the ffmpeg export is the source of truth for both enter AND exit, see
-   render.js). Composes with the wrapper's own translate(-50%,-50%) centering
-   from Stage 1's positioning (EditorV2.jsx), rather than replacing it. */
+/* B-roll Stage 3: enter AND exit animation preview, direction-aware for slide
+   via the --broll-slide-offset custom property (set inline per-clip in
+   EditorV2.jsx based on enterDirection/exitDirection) so one keyframe pair
+   covers all four directions instead of duplicating keyframes per direction.
+   Composes with the wrapper's own translate(-50%,-50%) centering from Stage 1's
+   positioning, rather than replacing it. This preview uses CSS `ease` timing as
+   a visual approximation; the ffmpeg export (render.js) is the linear,
+   expression-driven source of truth — the two need not be pixel-identical. */
 @keyframes broll-anim-slide-in {
-  from { transform: translate(-50%, calc(-50% + 60px)); opacity: 0; }
-  to   { transform: translate(-50%, -50%);              opacity: 1; }
+  from { transform: translate(-50%, -50%) var(--broll-slide-offset, translateY(60px)); opacity: 0; }
+  to   { transform: translate(-50%, -50%);                                             opacity: 1; }
+}
+@keyframes broll-anim-slide-out {
+  from { transform: translate(-50%, -50%);                                             opacity: 1; }
+  to   { transform: translate(-50%, -50%) var(--broll-slide-offset, translateY(60px)); opacity: 0; }
 }
 @keyframes broll-anim-fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-.broll-anim-slide-in { animation: broll-anim-slide-in 0.5s ease forwards; }
-.broll-anim-fade-in  { animation: broll-anim-fade-in  0.5s ease forwards; }
+@keyframes broll-anim-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+/* Spin has no direction option yet (fixed rotation sense both ways), so its
+   keyframes are plain — no custom property involved. */
+@keyframes broll-anim-spin-in {
+  from { transform: translate(-50%, -50%) rotate(360deg); opacity: 0; }
+  to   { transform: translate(-50%, -50%) rotate(0deg);   opacity: 1; }
+}
+@keyframes broll-anim-spin-out {
+  from { transform: translate(-50%, -50%) rotate(0deg);   opacity: 1; }
+  to   { transform: translate(-50%, -50%) rotate(360deg); opacity: 0; }
+}
+.broll-anim-slide-in  { animation: broll-anim-slide-in  0.5s ease forwards; }
+.broll-anim-slide-out { animation: broll-anim-slide-out 0.5s ease forwards; }
+.broll-anim-fade-in   { animation: broll-anim-fade-in   0.5s ease forwards; }
+.broll-anim-fade-out  { animation: broll-anim-fade-out  0.5s ease forwards; }
+.broll-anim-spin-in   { animation: broll-anim-spin-in   0.5s ease forwards; }
+.broll-anim-spin-out  { animation: broll-anim-spin-out  0.5s ease forwards; }
 
 /* ============================================================================
    Page title — gradient heading used across all main pages
