@@ -389,6 +389,13 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
   const cssRatio = RATIOS[ratio]?.css || "9/16";
   const progress = totalSec > 0 ? (playhead / totalSec) * 100 : 0;
 
+  // id of the broll clip whose real media dimensions are now known (set by
+  // measureWrapperFromImg/Video below, once onLoad/onLoadedMetadata fires).
+  // Gates the enter/exit animation on a freshly-activated clip so it never
+  // starts mid-flight against the wrapper's 16:9 placeholder aspectRatio —
+  // see the flash-at-rest-position bug this fixes, documented below.
+  const [brollReadyId, setBrollReadyId] = useState(null);
+
   // ── FX interactive state ──────────────────────────────────────────────────
   const frameRef     = useRef(null);
   const fxDragRef    = useRef(null); // { type:"move"|"resize", clipId, startX, startY, startXPct, startYPct, startSizePct }
@@ -728,8 +735,26 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                   const bSlideDur = Math.min(bTotalDur * 0.4, 1.0);
                   const inExitWindow = isCustom && !!brollActive && bLocalTime >= (bTotalDur - bSlideDur);
 
+                  // Gates the animation on the wrapper's real aspect ratio being
+                  // known for THIS clip — until then, brollDimsReady is false and
+                  // the wrapper renders hidden (see style below) instead of
+                  // animating. Without this, the enter animation starts the
+                  // instant the clip becomes active, using the wrapper's 16:9
+                  // placeholder aspectRatio for its percentage-based
+                  // translate(-50%,-50%) centering; once the real dimensions
+                  // arrive (measureWrapperFromImg/Video, async — onLoad can take
+                  // a while for an APNG in particular), the box's own height
+                  // changes underneath the still-running animation, so the
+                  // percentage-based centering recalculates mid-flight and
+                  // visibly snaps to a different position — reported as
+                  // "flashes at its default/reset position for a frame before
+                  // finding its correct slide start position." Fast-loading
+                  // assets whose real ratio is already close to 16:9 clear this
+                  // gate almost immediately, so this is a no-op for them.
+                  const brollDimsReady = !isCustom || !brollActive || brollReadyId === brollActive.id;
+
                   const activeAnim = inExitWindow ? brollActive?.exitAnim : brollActive?.enterAnim;
-                  const enterAnimClass = !isCustom ? ""
+                  const enterAnimClass = !isCustom || !brollDimsReady ? ""
                     : activeAnim === "slide" ? (inExitWindow ? "broll-anim-slide-out" : "broll-anim-slide-in")
                     : activeAnim === "fade"  ? (inExitWindow ? "broll-anim-fade-out"  : "broll-anim-fade-in")
                     : activeAnim === "spin"  ? (inExitWindow ? "broll-anim-spin-out"  : "broll-anim-spin-in")
@@ -751,12 +776,14 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                     const v = brollVideoRef.current;
                     if (v?.videoWidth && v?.videoHeight && brollWrapperRef.current) {
                       brollWrapperRef.current.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`;
+                      if (brollActive) setBrollReadyId(brollActive.id);
                     }
                   };
                   const measureWrapperFromImg = () => {
                     const img = brollImgRef.current;
                     if (img?.naturalWidth && img?.naturalHeight && brollWrapperRef.current) {
                       brollWrapperRef.current.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+                      if (brollActive) setBrollReadyId(brollActive.id);
                     }
                   };
 
@@ -769,6 +796,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                         outline: isSelected ? "2px solid #4dd0ff" : "2px solid transparent",
                         outlineOffset: 3, cursor: brollActive ? "move" : "default",
                         "--broll-slide-offset": slideDirectionOffset(activeDirection),
+                        ...(brollDimsReady ? null : { visibility: "hidden" }),
                       }}
                       onClick={e => { if (brollActive) { e.stopPropagation(); onSelectClip?.(brollActive.id); } }}
                       onMouseDown={e => {
