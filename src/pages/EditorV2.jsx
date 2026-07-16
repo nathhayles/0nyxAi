@@ -1212,6 +1212,7 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       trimStart:         clip.trimStart || null,
       trimEnd:           clip.trimEnd || null,
       voiceoverUrl:      voClip?.src || scene.voiceoverUrl || null,
+      lipSynced:         !!scene.lipSynced,
       voiceoverVolume:   voiceoverVolume ?? 100,
       voiceoverVolumePoints: voClip?.volumePoints || null,
       voiceoverDuration: voClip ? (voClip.trimEnd - voClip.trimStart) : null,
@@ -2986,6 +2987,7 @@ export default function EditorV2() {
           duration: scene.duration || 5,
           model: regenModel,
           brand_id: selectedBrandId,
+          voiceoverUrl: scene.voiceoverUrl || null,
         }),
       });
       const { jobId, error: submitErr } = await submitRes.json();
@@ -2993,15 +2995,17 @@ export default function EditorV2() {
 
       setGeneratingScenes(p => ({ ...p, [id]: { status: "polling" } }));
 
-      // Poll until completed or failed (max 15 min — backend falPoll takes up to 10 min + download)
-      const deadline = Date.now() + 900000;
+      // Poll until completed or failed (max 20 min — backend falPoll takes up to 10 min +
+      // download, then an optional Sync.so lip-sync pass adds up to another 5 min when
+      // this scene has a voiceoverUrl; rounded up with buffer for extraction/upload overhead)
+      const deadline = Date.now() + 1200000;
       while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 5000));
         const ph = await getAuthHeaders();
         const poll = await (await fetch(`/api/kling/status/${jobId}`, { headers: ph })).json();
         if (poll.status === "completed") {
           if (!poll.videoUrl) throw new Error("Job completed but no video URL returned");
-          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, thumbnail: poll.thumbnailUrl || poll.videoUrl });
+          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced });
           return;
         }
         if (poll.status === "failed") throw new Error(poll.error || "Generation failed");
