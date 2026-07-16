@@ -54,19 +54,29 @@ const SECTIONS = [
     ]
   },
   {
+    title: "AI Lip-Sync",
+    items: [
+      { q: "How do I make my AI-generated character speak the narration?", a: "Attach narration/voiceover to a scene, then click Regenerate on that scene in the editor. Lip-sync runs automatically as part of generation — the character's mouth movement is synced to the voiceover audio. There's no separate toggle; it happens whenever the scene being regenerated has a voiceover track attached." },
+      { q: "Does lip-sync cost extra credits?", a: "Yes. When a scene has narration attached at the time you regenerate it, a lip-sync surcharge is added on top of the base video-generation cost, reflecting the real processing cost of the lip-sync pass." },
+      { q: "What happens if lip-sync fails?", a: "The scene still generates successfully as a silent clip, with your narration playing as its own audio track exactly as before. Lip-sync failing never blocks or fails the scene generation as a whole." },
+      { q: "Does lip-sync work when generating a full storyboard from a script on the Create page?", a: "Not yet — lip-sync is currently only available when regenerating a single scene in the editor. If you generate a full reel from a script, add narration to a scene afterwards and click Regenerate on that scene in the editor to lip-sync it." },
+    ]
+  },
+  {
     title: "AI Studio",
     items: [
       { q: "What is AI Studio?", a: "AI Studio is your library of AI-generated video clips. When you generate a scene using an AI video model, you can save it to AI Studio for reuse across different reels." },
       { q: "How do I save a clip to AI Studio?", a: "In the editor, click the AI button in the transport controls, or use the 'Save to AI Studio' option on a generated scene. Clips are saved to your account and persist across sessions." },
       { q: "Are AI Studio clips private?", a: "Yes. AI Studio clips are stored per-user with row-level security. Only you can see your clips." },
-      { q: "How much does AI video generation cost?", a: "Cost depends on the model you choose. Wan 2.5 is 18 credits/scene, Vidu Q3 Pro is 20 credits/scene, Seedance 1 Pro is 36 credits/scene, Kling 3 Pro is ~75-150 credits/scene (based on the scene's actual length), and Veo 3 is 140 credits/scene. Credits can be purchased (100 credits = $1) or earned through the referral program." },
+      { q: "How much does AI video generation cost?", a: "Cost depends on the model you choose. Wan 2.5 is 18 credits/scene, Vidu Q3 Pro is 20 credits/scene, Seedance 1 Pro is 36 credits/scene, Kling 3 Pro is ~75-150 credits/scene (based on the scene's actual length), and Veo 3 is 140 credits/scene. If a scene has narration/voiceover attached when you regenerate it in the editor, a lip-sync surcharge is added on top of the base cost — see the AI Lip-Sync section. Credits can be purchased (100 credits = $1) or earned through the referral program." },
       { q: "Which AI video model should I choose?", a: "Wan 2.5 (18 cr) is the cheapest option and great for quick, low-cost clips. Vidu Q3 Pro (20 cr) is also budget-friendly and good for quick clips. Seedance 1 Pro (36 cr) offers a balance of quality and cost. Kling 3 Pro (~75-150 cr, based on scene length) is our most popular model for high-quality cinematic output. Veo 3 (140 cr) is the premium option for the highest fidelity, especially for realism and motion. All are selectable in the Generate Model dropdown on the scene panel." },
     ]
   },
   {
     title: "AI Video Generation",
     items: [
-      { q: "How do I keep a character looking consistent across multiple scenes?", a: "Use the Character Library (available from the main navigation). Create a character with a name, an optional short description, and 2-4 reference images (ideally clear, well-lit photos from the same time period/angle range — mixing very different-looking reference images, like paintings from different eras, will reduce consistency). Then, in any scene's Action/Background field, type @ followed by the character's name to tag them — autocomplete will show your saved characters. The tagged character's reference images will be used to help keep their appearance consistent in that generated scene." },
+      { q: "How do I keep a character looking consistent across multiple scenes?", a: "Use the Character Library (available from the main navigation). Create a character with a name, optional structured details (build, age, hair, eyes, wardrobe, accessories, and more), and 2-4 reference images (ideally clear, well-lit photos from the same time period/angle range — mixing very different-looking reference images, like paintings from different eras, will reduce consistency). Then, in any scene's Action/Background field, type @ followed by the character's name to tag them — autocomplete will show your saved characters. The tagged character's reference images and details will be used to help keep their appearance consistent in that generated scene." },
+      { q: "How do I keep a specific product or object looking accurate across scenes?", a: "Use the Prop Library, the same way as Character Library. Create a prop with a name and one or more reference images of the real item — clothing, packaging, a branded product, anything that needs to look accurate rather than AI-invented. Tag it with @PropName in a scene's Action/Background field, the same @-tag mechanism as characters. Characters and props can be tagged together in the same scene (for example \"@Sarah wearing @BlueDenimJacket\") and both will resolve correctly in that generation." },
     ]
   },
   {
