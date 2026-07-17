@@ -362,6 +362,33 @@ export default function StoryboardPanel({
                     })}
                   </div>
                 )}
+                {/* Only surfaced when a tagged character actually has reference
+                    photos -- a scene tagging a character with none, or no tag
+                    at all, has nothing for this to apply to. Backend precedence
+                    (routes/kling.js/resolveTaggedEntities.js): this per-scene
+                    value beats the character's own stored default when set;
+                    unset (the default, "Use character default") lets each
+                    tagged character in the scene fall back to its own setting. */}
+                {parseTaggedNames(sc.action).some((name) =>
+                  characters.some((c) => normalizeTagName(c.name) === normalizeTagName(name) && (c.character_reference_images || []).length > 0)
+                ) && (
+                  <div style={{ marginBottom: 4 }} onClick={(e) => e.stopPropagation()}>
+                    <select
+                      value={sc.referenceMode || ""}
+                      onChange={(e) => updateField(sc.id, "referenceMode", e.target.value || null)}
+                      title="Whether this scene's tagged character(s) generate from the prompt (Scene Accuracy) or anchor the video to their reference photo (Character Consistency). Defaults to each character's own setting."
+                      style={{
+                        fontSize: 11, padding: "3px 6px", borderRadius: 6,
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        background: "var(--onyx-bg)", color: "var(--onyx-text-faint)",
+                      }}
+                    >
+                      <option value="">Reference: use character default</option>
+                      <option value="scene_accuracy">Reference: scene accuracy</option>
+                      <option value="character_consistency">Reference: character consistency</option>
+                    </select>
+                  </div>
+                )}
                 <CharacterTagTextarea
                   placeholder="Action / Background"
                   value={sc.action || ""}

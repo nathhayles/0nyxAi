@@ -89,6 +89,7 @@ export default function Characters() {
   const [defaultWardrobe, setDefaultWardrobe] = useState("");
   const [accessories, setAccessories] = useState(""); // raw comma-separated text
   const [wardrobeMode, setWardrobeMode] = useState("flexible"); // DB default; matches the check constraint
+  const [referenceMode, setReferenceMode] = useState("scene_accuracy"); // DB default; matches the check constraint
   const [linkedVoiceId, setLinkedVoiceId] = useState(null);
   const [linkedVoiceProvider, setLinkedVoiceProvider] = useState(null);
   const [category, setCategory] = useState("");
@@ -148,7 +149,7 @@ export default function Characters() {
     setEthnicity(""); setSkinTone(""); setHairColor(""); setHairLength("");
     setHairStyle(""); setHairTexture(""); setEyeColor(""); setDistinguishingFeatures("");
     setMannerisms(""); setRestingExpression(""); setDefaultWardrobe(""); setAccessories("");
-    setWardrobeMode("flexible"); setLinkedVoiceId(null); setLinkedVoiceProvider(null); setCategory("");
+    setWardrobeMode("flexible"); setReferenceMode("scene_accuracy"); setLinkedVoiceId(null); setLinkedVoiceProvider(null); setCategory("");
     setVoiceTier("standard");
   }
 
@@ -188,6 +189,7 @@ export default function Characters() {
     setDefaultWardrobe(character.default_wardrobe || "");
     setAccessories((character.accessories || []).join(", "));
     setWardrobeMode(character.wardrobe_mode || "flexible");
+    setReferenceMode(character.reference_mode || "scene_accuracy");
     setLinkedVoiceId(character.linked_voice_id || null);
     setLinkedVoiceProvider(character.linked_voice_provider || null);
     setVoiceTier(character.linked_voice_provider === "elevenlabs" ? "premium" : "standard");
@@ -298,6 +300,7 @@ export default function Characters() {
         default_wardrobe: defaultWardrobe || null,
         accessories: splitCommaList(accessories),
         wardrobe_mode: wardrobeMode,
+        reference_mode: referenceMode,
         linked_voice_id: linkedVoiceId || null,
         linked_voice_provider: linkedVoiceId ? linkedVoiceProvider : null,
         category: category || null,
@@ -701,6 +704,28 @@ export default function Characters() {
                   This will work, but adding {MIN_RECOMMENDED - 1}-{MAX_RECOMMENDED - 1} more angles (side, 3/4, etc) generally gives better, more consistent results.
                 </div>
               )}
+
+              <div style={{ marginTop: 14 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--onyx-text-faint)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Reference mode
+                </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "var(--onyx-text)", cursor: "pointer" }}>
+                    <input type="radio" name="reference-mode" checked={referenceMode === "scene_accuracy"} onChange={() => setReferenceMode("scene_accuracy")} style={{ marginTop: 2 }} />
+                    <span>
+                      Scene accuracy <span style={{ color: "var(--onyx-text-faint)" }}>(default)</span>
+                      <div style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>Scenes follow your prompt exactly. This character's look comes from the description above, not the photos.</div>
+                    </span>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "var(--onyx-text)", cursor: "pointer" }}>
+                    <input type="radio" name="reference-mode" checked={referenceMode === "character_consistency"} onChange={() => setReferenceMode("character_consistency")} style={{ marginTop: 2 }} />
+                    <span>
+                      Character consistency
+                      <div style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>Scenes closely match this character's reference photo, but may start the video anchored to that photo rather than the described scene.</div>
+                    </span>
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>

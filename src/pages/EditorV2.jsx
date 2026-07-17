@@ -2988,6 +2988,7 @@ export default function EditorV2() {
           model: regenModel,
           brand_id: selectedBrandId,
           voiceoverUrl: scene.voiceoverUrl || null,
+          reference_mode: scene.referenceMode || null,
         }),
       });
       const { jobId, error: submitErr } = await submitRes.json();
