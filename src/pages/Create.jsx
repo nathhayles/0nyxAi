@@ -228,10 +228,28 @@ export default function CreatePage() {
         const results = new Array(jobs.length).fill(null);
         const pending = new Set(jobs.map((_, i) => i));
         const startTime = Date.now();
-        while (pending.size > 0 && Date.now() - startTime < 600000) {
+        // 20 min ceiling, matching EditorV2.jsx's regenerateScene poll. Backend
+        // falPoll alone allows up to 10 min for Kling generation (routes/kling.js),
+        // plus up to 5 min more for an optional Sync.so lip-sync pass
+        // (lib/syncLipSync.js maxWaitMs), plus download/thumbnail/ffmpeg overhead.
+        // The previous 10-minute cap only covered the Kling-generation ceiling and
+        // left no room for lip-sync, so scenes with a voiceover could silently
+        // time out on the client while still completing normally server-side.
+        const POLL_DEADLINE_MS = 1200000;
+        // Above the observed field median (~216s) for a same-model scene with no
+        // lip-sync -- once we're past this, the remaining scenes are plausibly in
+        // (or waiting on) the slower lip-sync path, so say so instead of leaving
+        // the progress text looking stuck.
+        const SLOW_SCENE_WARNING_MS = 180000;
+        while (pending.size > 0 && Date.now() - startTime < POLL_DEADLINE_MS) {
           await new Promise(r => setTimeout(r, 5000));
+          const elapsed = Date.now() - startTime;
           setProgressPercent(Math.min(90, 20 + Math.round(((jobs.length - pending.size) / jobs.length) * 70)));
-          setProgressStep(`Generating AI videos... ${jobs.length - pending.size}/${jobs.length} scenes ready`);
+          setProgressStep(
+            elapsed > SLOW_SCENE_WARNING_MS
+              ? `Generating AI videos... ${jobs.length - pending.size}/${jobs.length} scenes ready (some scenes are taking longer than usual — still working)`
+              : `Generating AI videos... ${jobs.length - pending.size}/${jobs.length} scenes ready`
+          );
           await Promise.all([...pending].map(async (i) => {
             const job = jobs[i];
             const { data: { session: pollSession } } = await supabase.auth.getSession();
@@ -246,6 +264,15 @@ export default function CreatePage() {
               pending.delete(i);
             }
           }));
+        }
+        // Anything still pending at the deadline is very likely still running
+        // server-side (pollAndStore has its own, longer-lived ceiling and never
+        // learns the client gave up) -- keep it in the storyboard as a resumable
+        // placeholder rather than silently dropping it via .filter(Boolean),
+        // which made it look like that scene was never generated at all.
+        for (const i of pending) {
+          const job = jobs[i];
+          results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai", generationPending: true, jobId: job.jobId };
         }
         scenes = results.filter(Boolean);
       }

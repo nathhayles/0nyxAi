@@ -86,8 +86,8 @@ export default function SceneStrip({
                   )
                 ) : (
                   <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                    <div style={{ fontSize:9, color:"#475569", textAlign:"center", padding:"0 6px", lineHeight:1.3 }}>
-                      {(sc.narration||sc.action||"").slice(0,40) || "No media"}
+                    <div style={{ fontSize:9, color: sc.generationPending ? "#f59e0b" : "#475569", textAlign:"center", padding:"0 6px", lineHeight:1.3 }}>
+                      {sc.generationPending ? "Still generating…" : ((sc.narration||sc.action||"").slice(0,40) || "No media")}
                     </div>
                   </div>
                 )}
@@ -108,7 +108,8 @@ export default function SceneStrip({
                 <div style={{ position:"absolute", top:4, right:4, display:"flex", flexDirection:"column", gap:2 }}>
                   {hasVO    && <div style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e" }} title="Has voiceover" />}
                   {hasMusic && <div style={{ width:6, height:6, borderRadius:"50%", background:"var(--onyx-cyan)" }} title="Has music" />}
-                  {sc.isAiGenerated && <div style={{ width:6, height:6, borderRadius:"50%", background:"#f59e0b" }} title="AI generated" />}
+                  {sc.generationPending && <div style={{ width:6, height:6, borderRadius:"50%", background:"#f59e0b" }} title="Still generating — check back soon" />}
+                  {sc.isAiGenerated && !sc.generationPending && <div style={{ width:6, height:6, borderRadius:"50%", background:"#f59e0b" }} title="AI generated" />}
                 </div>
               </div>
 
