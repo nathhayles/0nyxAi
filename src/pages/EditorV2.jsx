@@ -826,7 +826,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                 })()}
                 {(captionScene?.mediaType === 'image' ||
                   (!captionScene?.mediaType && captionScene?.mediaUrl &&
-                   !/\.(mp4|webm|mov|m4v)(\?|$)/i.test(captionScene.mediaUrl))) && captionScene?.mediaUrl && (
+                   !(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(captionScene.mediaUrl) || /^https:\/\/api\.sync\.so\//i.test(captionScene.mediaUrl)))) && captionScene?.mediaUrl && (
                   <img src={captionScene.mediaUrl.startsWith('http') ? captionScene.mediaUrl : `https://onyx-reelz.com${captionScene.mediaUrl}`} style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, zIndex: 4 }} alt="" />
                 )}
               </div>
@@ -1165,6 +1165,7 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
   const brollTrack = timelineState.tracks.find(t => t.key === "broll");
   function isVid(url) {
     if (!url) return false;
+    if (/^https:\/\/api\.sync\.so\//i.test(url)) return true;
     const ext = url.split("?")[0].split(".").pop().toLowerCase();
     return ["mp4","webm","mov","m4v"].includes(ext);
   }
@@ -2092,7 +2093,7 @@ export default function EditorV2() {
     // a partial b-roll inset" case, so both stay in lockstep.
     function syncOverlay(imgEl, vidEl, src, atTime) {
       if (!src) return;
-      const isVid = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src);
+      const isVid = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src) || /^https:\/\/api\.sync\.so\//i.test(src);
       if (isVid) {
         if (imgEl) imgEl.style.display = 'none';
         if (vidEl) {
@@ -2310,7 +2311,7 @@ export default function EditorV2() {
         let skipArollSync = false;
 
         if (isUpload) {
-          const isVideoUpload = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(clipSrc);
+          const isVideoUpload = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(clipSrc) || /^https:\/\/api\.sync\.so\//i.test(clipSrc);
 
           if (isBroll) {
             // B-roll upload: use dedicated brollVideoRef/brollImgRef
@@ -2955,7 +2956,7 @@ export default function EditorV2() {
     const scene = scenes.find(s => s.id === id);
     const sceneUrl = scene?.mediaUrl || scene?.url;
     if (!scene || !sceneUrl) return;
-    const isVid = (u) => /\.(mp4|webm|mov|m4v)(\?|$)/i.test(u);
+    const isVid = (u) => /\.(mp4|webm|mov|m4v)(\?|$)/i.test(u) || /^https:\/\/api\.sync\.so\//i.test(u);
     const item = {
       id: `ai_${Date.now()}`,
       name: scene.action?.slice(0, 40) || `Scene ${id}`,
