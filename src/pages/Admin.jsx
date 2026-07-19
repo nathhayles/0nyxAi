@@ -79,6 +79,8 @@ export default function AdminPanel() {
 
       <ModelUsagePanel />
 
+      <GenerationsPanel />
+
       <input
         value={search}
         onChange={e => setSearch(e.target.value)}
@@ -268,6 +270,146 @@ function ModelUsagePanel() {
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+const GENERATIONS_PAGE_SIZE = 50;
+
+const STATUS_COLORS = {
+  completed: '#4ade80',
+  failed: '#f87171',
+  pending: '#4dd0ff',
+  submitting: '#fbbf24',
+  waiting: '#64748b',
+};
+
+// Per-generation list with user attribution -- lets support/admin trace a
+// specific video (or a fal.ai/WaveSpeed request_id straight from their own
+// dashboard) back to the Onyx user who made it. q matches task_id/
+// fal_request_id/kling_task_id server-side, exactly the ids a provider
+// dashboard or support ticket would hand you.
+function GenerationsPanel() {
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [q, setQ] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const headers = await getAuthHeaders();
+        const params = new URLSearchParams({ page: String(page), limit: String(GENERATIONS_PAGE_SIZE) });
+        if (q.trim()) params.set('q', q.trim());
+        const res = await fetch(`/api/admin/generations?${params}`, { headers });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Failed to load');
+        if (!cancelled) { setRows(d.generations || []); setTotal(d.total || 0); }
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [page, q]);
+
+  const totalPages = Math.max(1, Math.ceil(total / GENERATIONS_PAGE_SIZE));
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h3 style={{ color: '#4dd0ff', fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
+          Generations
+        </h3>
+        <span style={{ color: '#64748b', fontSize: 12 }}>{total} total</span>
+      </div>
+
+      <input
+        value={q}
+        onChange={e => { setQ(e.target.value); setPage(1); }}
+        placeholder="Search by task ID or fal.ai/WaveSpeed request ID..."
+        style={s.search}
+      />
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={s.table}>
+          <thead>
+            <tr>
+              <th style={s.th}>Video</th>
+              <th style={s.th}>Model</th>
+              <th style={s.th}>Status</th>
+              <th style={s.th}>User</th>
+              <th style={s.th}>Request ID</th>
+              <th style={s.th}>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={6} style={{ ...s.td, color: '#4dd0ff' }}>Loading...</td></tr>
+            ) : error ? (
+              <tr><td colSpan={6} style={{ ...s.td, color: '#f87171' }}>Failed to load: {error}</td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={6} style={{ ...s.td, color: '#64748b' }}>No generations found.</td></tr>
+            ) : rows.map(g => (
+              <tr key={g.task_id} style={s.row}>
+                <td style={s.td}>
+                  {g.video_url ? (
+                    <a href={g.video_url} target="_blank" rel="noreferrer">
+                      {g.thumbnail_url ? (
+                        <img src={g.thumbnail_url} alt="" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4, display: 'block' }} />
+                      ) : (
+                        <div style={{ width: 48, height: 48, borderRadius: 4, background: '#0d1825', border: '1px solid var(--onyx-hairline-strong)' }} />
+                      )}
+                    </a>
+                  ) : g.thumbnail_url ? (
+                    <img src={g.thumbnail_url} alt="" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4, display: 'block' }} />
+                  ) : (
+                    <div style={{ width: 48, height: 48, borderRadius: 4, background: '#0d1825' }} />
+                  )}
+                </td>
+                <td style={s.td}>{MODEL_LABELS[g.model] || g.model || '—'}</td>
+                <td style={s.td}>
+                  <span style={{ ...s.badge, background: (STATUS_COLORS[g.status] || '#64748b') + '22', color: STATUS_COLORS[g.status] || '#64748b' }}>
+                    {g.status}
+                  </span>
+                </td>
+                <td style={s.td}>
+                  <span style={{ color: '#e2e8f0', fontSize: 12 }}>{g.user_email || '—'}</span>
+                </td>
+                <td style={{ ...s.td, color: '#334155', fontSize: 10, fontFamily: 'monospace' }} title={g.fal_request_id || g.task_id || ''}>
+                  {(g.fal_request_id || g.task_id || '').slice(0, 18)}...
+                </td>
+                <td style={{ ...s.td, color: '#64748b', fontSize: 12 }}>
+                  {new Date(g.created_at).toLocaleString()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: 10 }}>
+        <button
+          onClick={() => setPage(p => Math.max(1, p - 1))}
+          disabled={page <= 1 || loading}
+          style={{ ...s.grantBtn, opacity: page <= 1 ? 0.4 : 1 }}
+        >
+          ← Prev
+        </button>
+        <span style={{ color: '#64748b', fontSize: 12 }}>Page {page} of {totalPages}</span>
+        <button
+          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+          disabled={page >= totalPages || loading}
+          style={{ ...s.grantBtn, opacity: page >= totalPages ? 0.4 : 1 }}
+        >
+          Next →
+        </button>
       </div>
     </div>
   );
