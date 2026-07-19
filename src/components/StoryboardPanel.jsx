@@ -307,6 +307,16 @@ export default function StoryboardPanel({
                     ? "Starting…"
                     : generatingScenes[sc.id]?.status === "polling"
                     ? "Generating…"
+                    // Create.jsx's initial pipeline poll can time out client-side
+                    // while the job is still likely running server-side, leaving a
+                    // scene marked generationPending with no media yet. Gated on
+                    // !(mediaUrl || url) rather than trusting the flag alone, so
+                    // this can never get stuck once real media actually lands via
+                    // any path (regenerate, stock swap, upload) -- none of those
+                    // paths explicitly clear the flag, so the flag alone isn't a
+                    // reliable signal once media exists.
+                    : sc.generationPending && !(sc.mediaUrl || sc.url)
+                    ? "Still generating…"
                     : "Generate"}
                 </button>
               )}
