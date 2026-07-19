@@ -1700,8 +1700,8 @@ export default function EditorV2() {
             mode: sc.mode || "ai",
             word_timestamps: sc.word_timestamps || sc.wordTimings || undefined,
           }));
-          setScenes(norm);
           if (norm.length) {
+            setScenes(norm);
             setActiveScene(norm[0].id);
             dispatch({ type: "IMPORT_SCENES", scenes: norm });
           }
@@ -1749,8 +1749,10 @@ export default function EditorV2() {
           }));
 
         // Show scenes immediately — don't block on video probing for large reels
-        setScenes(norm);
-        if (norm.length) setActiveScene(norm[0].id);
+        if (norm.length) {
+          setScenes(norm);
+          setActiveScene(norm[0].id);
+        }
         if (d?.timeline?.tracks?.some(t => t.clips?.length)) {
           const savedTracks  = d.timeline.tracks;
           let timelineToLoad = d.timeline;
