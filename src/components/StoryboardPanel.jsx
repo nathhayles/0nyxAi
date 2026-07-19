@@ -616,7 +616,7 @@ export default function StoryboardPanel({
                       onBlur={e => {
                         const url = e.target.value.trim();
                         if (!url) return;
-                        const isVideo = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url);
+                        const isVideo = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url) || /^https:\/\/api\.sync\.so\//i.test(url);
                         updateScenes(prev => prev.map(s => s.id === sc.id ? {
                           ...s,
                           url,
