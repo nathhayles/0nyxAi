@@ -3053,7 +3053,7 @@ export default function EditorV2() {
         const poll = await (await fetch(`/api/kling/status/${jobId}`, { headers: ph })).json();
         if (poll.status === "completed") {
           if (!poll.videoUrl) throw new Error("Job completed but no video URL returned");
-          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced });
+          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade });
           return;
         }
         if (poll.status === "failed") throw new Error(poll.error || "Generation failed");
