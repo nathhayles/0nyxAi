@@ -1214,6 +1214,13 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       trimEnd:           clip.trimEnd || null,
       voiceoverUrl:      voClip?.src || scene.voiceoverUrl || null,
       lipSynced:         !!scene.lipSynced,
+      // Set by regenerateScene/Create.jsx from the kling job status response
+      // when this scene's i2v request used the neutral placeholder start
+      // frame (character_consistency background-bleed fix) -- render.js's
+      // Step 1a fade-in gates on this. Was correctly threaded onto scene/clip
+      // state but never forwarded into the actual render request payload, so
+      // the fade never fired despite the flag being right there in memory.
+      needsBleedFade:    !!(clip.needsBleedFade || scene.needsBleedFade),
       voiceoverVolume:   voiceoverVolume ?? 100,
       voiceoverVolumePoints: voClip?.volumePoints || null,
       voiceoverDuration: voClip ? (voClip.trimEnd - voClip.trimStart) : null,
