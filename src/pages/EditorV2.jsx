@@ -1222,7 +1222,11 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       sfxItems:          sfxItems.length ? sfxItems : (scene.sfxUrl ? [{ url: scene.sfxUrl, volume: scene.sfxVolume ?? sfxVolume ?? 80, startTime: 0 }] : []),
       sourceAudioVolume: scene.sourceAudioVolume ?? 100,
       sourceAudioMuted:  scene.sourceAudioMuted ?? false,
-      narration:         clip.narration || scene.narration || scene.action || null,
+      // No scene.action fallback here -- action is the internal AI generation
+      // prompt, never meant to be user-facing. An empty narration must mean
+      // no caption, not "show the raw prompt instead" (see sourcePrompt below
+      // for the one place action is legitimately supposed to travel to render.js).
+      narration:         clip.narration || scene.narration || null,
       // Raw scene prompt (with literal @CharacterName tags), independent of
       // narration/captions — real-person disclosure detection server-side
       // needs this regardless of whether narration/captions are enabled.
@@ -2748,6 +2752,21 @@ export default function EditorV2() {
             dispatchWithHistory({ type: "UPDATE_CLIP", clipId: vidClip.id, changes: { src: newMedia, thumbnail: scene.thumbnail || newMedia } });
           } else {
             console.warn('[handleSetScenes] no vidClip found for sceneId', scene.id, 'clips:', vidTrack?.clips.map(c => c.sceneId));
+          }
+        }
+
+        // Sync captionsEnabled into the video track clip -- buildV2RenderRequest
+        // reads clip.captionsEnabled (EditorV2.jsx), not scene.captionsEnabled,
+        // but StoryboardPanel's "Show captions on canvas" checkbox only ever
+        // updated the scene. Without this, the clip stayed frozen at whatever
+        // importFromScenes set it to at initial load, so toggling the checkbox
+        // after that point looked like it worked (the live preview reads
+        // scene.captionsEnabled directly and updated correctly) but had zero
+        // effect on what actually got exported.
+        if (old.captionsEnabled !== scene.captionsEnabled) {
+          const vidClip = vidTrack?.clips.find(c => c.sceneId === scene.id);
+          if (vidClip) {
+            dispatchWithHistory({ type: "UPDATE_CLIP", clipId: vidClip.id, changes: { captionsEnabled: scene.captionsEnabled !== false } });
           }
         }
 
