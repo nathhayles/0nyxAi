@@ -142,7 +142,12 @@ export function importFromScenes(scenes = [], globalMusicUrl = "", globalMusicNa
       sceneId:         sc.id,
       captionsEnabled: sc.captionsEnabled !== false,
       voiceoverUrl:    sc.voiceoverUrl || "",
-      narration:       sc.narration   || sc.action || "",
+      // sc.action is the internal AI generation prompt, never user-facing --
+      // falling back to it here silently turned "no narration" into "caption
+      // reads the raw prompt text" at export time. No narration means no
+      // caption, same as normalizeScene's own narration field (no action
+      // fallback there either).
+      narration:       sc.narration || "",
     });
     videoTrack.clips.push(clip);
 
