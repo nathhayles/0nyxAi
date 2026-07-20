@@ -2241,9 +2241,17 @@ export default function EditorV2() {
     let rafId;
 
     function tick() {
+      // Moved ahead of the wallTime read below (it used to run one line
+      // after dereferencing playStartRef.current.wallTime -- if that ref
+      // were ever actually null, that dereference would throw before this
+      // check could even run, making the guard unreachable dead code).
+      // Reschedules instead of a bare return -- a bare return here
+      // permanently killed the whole requestAnimationFrame loop with no
+      // error and no way to recover except pause/replay, since nothing else
+      // ever calls tick() again once it stops rescheduling itself.
+      if (seekingRef.current && !playStartRef.current) { rafId = requestAnimationFrame(tick); return; }
       const now     = performance.now() / 1000;
       const elapsed = now - playStartRef.current.wallTime;
-      if (seekingRef.current && !playStartRef.current) return; // only suppress tick when paused
       const newPH   = playStartRef.current.playheadAtStart + elapsed;
 
       // Stop at end, or wrap for loop
@@ -2318,6 +2326,7 @@ export default function EditorV2() {
             const bImgEl = brollImgRef.current;
             const bVidEl = brollVideoRef.current;
             // Flash fix — detect clip change and reload immediately
+            let brollFreshlyLoaded = false;
             if (prevBrollClipRef.current !== clip.id) {
               prevBrollClipRef.current = clip.id;
               if (isVideoUpload) {
@@ -2335,23 +2344,34 @@ export default function EditorV2() {
                         const ph = playStartRef.current.playheadAtStart + (performance.now() / 1000 - playStartRef.current.wallTime);
                         arollCur.currentTime = Math.max(0, (ph - arollClipOnEnd.startTime) * (arollClipOnEnd.speed || 1) + arollClipOnEnd.trimStart);
                       }
-                      arollCur.play().catch(() => {});
+                      arollCur.play().catch(err => console.error("[preview] play() failed resuming A-roll after broll ended:", err));
                     }
                   };
                   bVidEl.load();
-                  bVidEl.play().catch(() => {});
+                  // Calling .play() synchronously right after .load() races the
+                  // browser's own readiness state (readyState resets to
+                  // HAVE_NOTHING) and commonly rejects -- gate on oncanplay
+                  // instead, same pattern syncOrHideAroll() already uses for
+                  // currentTime. brollFreshlyLoaded skips the per-tick retry
+                  // below on this same tick so there's only one attempt until
+                  // the browser actually signals ready.
+                  bVidEl.oncanplay = () => {
+                    bVidEl.oncanplay = null;
+                    bVidEl.play().catch(err => console.error("[preview] oncanplay play() failed for broll upload:", err));
+                  };
+                  brollFreshlyLoaded = true;
                 }
               } else {
                 if (bVidEl) { bVidEl.style.display = 'none'; bVidEl.pause(); }
                 if (bImgEl) { bImgEl.src = clipSrc; bImgEl.style.display = 'block'; }
               }
             }
-            if (isVideoUpload && bVidEl) {
+            if (isVideoUpload && bVidEl && !brollFreshlyLoaded) {
               const clipSpeed = clip.speed || 1;
               const localTime = (newPH - clip.startTime) * clipSpeed + clip.trimStart;
               if (Math.abs(bVidEl.currentTime - localTime) > 0.3) bVidEl.currentTime = localTime;
               bVidEl.playbackRate = clipSpeed;
-              if (bVidEl.paused) bVidEl.play().catch(() => {});
+              if (bVidEl.paused) bVidEl.play().catch(err => console.error("[preview] play() failed for broll upload:", err));
             }
             if (!brollFullyCovers) syncOrHideAroll();
             // Pause A-roll only when B-roll is a video (not image/PNG/etc)
@@ -2372,6 +2392,7 @@ export default function EditorV2() {
             prevBrollClipRef.current = null;
             const imgEl = uploadImgRef.current;
             const vidEl = uploadVideoRef.current;
+            let arollFreshlyLoaded = false;
             if (previewSrcRef.current !== clipSrc) {
               previewSrcRef.current = clipSrc;
               if (isVideoUpload) {
@@ -2382,6 +2403,21 @@ export default function EditorV2() {
                   vidEl.setAttribute('data-src', clipSrc);
                   vidEl.muted = true;
                   vidEl.load();
+                  // Calling .play() synchronously right after .load() races the
+                  // browser's own readiness state (readyState resets to
+                  // HAVE_NOTHING) and commonly rejects with AbortError -- gate
+                  // on oncanplay instead, same pattern syncOrHideAroll() above
+                  // already uses for currentTime. This is the main A-roll
+                  // preview path for any non-Pexels source (AI-generated,
+                  // uploaded, character-consistency, ...) -- previewSrcRef is
+                  // force-reset to null on every pause (see the !isPlaying
+                  // branch above), so this exact load()-then-play() race fires
+                  // on every single Play press, not just once.
+                  vidEl.oncanplay = () => {
+                    vidEl.oncanplay = null;
+                    vidEl.play().catch(err => console.error("[preview] oncanplay play() failed for A-roll upload:", err));
+                  };
+                  arollFreshlyLoaded = true;
                 }
               } else {
                 if (vidEl) { vidEl.style.display = 'none'; vidEl.pause(); }
@@ -2393,7 +2429,7 @@ export default function EditorV2() {
               const localTime = (newPH - clip.startTime) * clipSpeed + clip.trimStart;
               if (Math.abs(vidEl.currentTime - localTime) > 0.3) vidEl.currentTime = localTime;
               vidEl.playbackRate = clipSpeed;
-              if (vidEl.paused) vidEl.play().catch(() => {});
+              if (!arollFreshlyLoaded && vidEl.paused) vidEl.play().catch(err => console.error("[preview] play() failed for A-roll upload:", err));
             }
             skipArollSync = true;
           }
@@ -2415,13 +2451,21 @@ export default function EditorV2() {
             // Stock/Pexels broll video — show it over A-roll
             const bVidEl = brollVideoRef.current;
             if (bVidEl) {
+              let stockBrollFreshlyLoaded = false;
               if (prevBrollClipRef.current !== clip.id) {
                 prevBrollClipRef.current = clip.id;
                 bVidEl.src = clipSrc;
                 bVidEl.setAttribute('data-src', clipSrc);
                 bVidEl.muted = true;
                 bVidEl.load();
-                bVidEl.play().catch(() => {});
+                // Same load()-then-play() race as the other spots in this
+                // effect -- gate on oncanplay instead of calling play()
+                // synchronously right after load().
+                bVidEl.oncanplay = () => {
+                  bVidEl.oncanplay = null;
+                  bVidEl.play().catch(err => console.error("[preview] oncanplay play() failed for stock broll:", err));
+                };
+                stockBrollFreshlyLoaded = true;
               }
               bVidEl.style.display = 'block';
               bVidEl.style.zIndex = '10';
@@ -2429,7 +2473,7 @@ export default function EditorV2() {
               const localTime = (newPH - clip.startTime) * clipSpeed + clip.trimStart;
               if (Math.abs(bVidEl.currentTime - localTime) > 0.3) bVidEl.currentTime = localTime;
               bVidEl.playbackRate = clipSpeed;
-              if (bVidEl.paused) bVidEl.play().catch(() => {});
+              if (!stockBrollFreshlyLoaded && bVidEl.paused) bVidEl.play().catch(err => console.error("[preview] play() failed for stock broll:", err));
             }
             if (!brollFullyCovers) syncOrHideAroll();
             // Pause A-roll while stock broll video plays
@@ -2476,7 +2520,7 @@ export default function EditorV2() {
                 nxt.onerror = null;
                 nxt.currentTime = Math.max(0, newPH - arollClip.startTime + arollClip.trimStart);
                 nxt.style.visibility = "visible";
-                nxt.play().catch(() => {});
+                nxt.play().catch(err => console.error("[preview] oncanplay play() failed for dual-buffer crossfade:", err));
                 applyTransition(playTransType, cur, nxt, () => {
                   cur.pause();
                   cur.style.visibility = 'hidden';
@@ -2499,7 +2543,7 @@ export default function EditorV2() {
               const localTime = arollClip ? ((newPH - arollClip.startTime) * arollSpeed + arollClip.trimStart) : 0;
               if (Math.abs(cur.currentTime - localTime) > 0.3) cur.currentTime = localTime;
               cur.playbackRate = arollSpeed;
-              if (cur.paused) cur.play().catch(() => {});
+              if (cur.paused) cur.play().catch(err => console.error("[preview] play() failed for active preview slot:", err));
             }
           }
         }
@@ -2547,7 +2591,7 @@ export default function EditorV2() {
           if (inRange) {
             const localTime = newPH - clip.startTime + clip.trimStart;
             if (Math.abs(el.currentTime - localTime) > 0.25) el.currentTime = localTime;
-            if (el.paused) el.play().catch(() => {});
+            if (el.paused) el.play().catch(err => console.error(`[preview] play() failed for audio track "${key}":`, err));
           } else {
             if (!el.paused) el.pause();
           }
