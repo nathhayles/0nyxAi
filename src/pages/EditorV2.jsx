@@ -7,6 +7,7 @@ import React, {
 import { timelineReducer, makeInitialState, makeClip, importFromScenes, rangesOverlapDuration } from "../reducers/timelineReducer.js";
 import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
+import { generateReelTitle } from "../utils/autoTitle.js";
 import "../styles/editor.css";
 
 import SequencerPanel   from "../components/SequencerPanel.jsx";
@@ -1909,6 +1910,37 @@ export default function EditorV2() {
       saveNowRef.current?.();
     }, 500);
   }, [scenes, reelLoaded]);
+
+  // Auto-title for reels that never went through Create.jsx's own auto-title
+  // call (a blank "New Reel" built up scene-by-scene via the Storyboard
+  // panel's Generate button -- regenerateScene and StoryboardPanel's
+  // narration/action text edits both just update scene state and never
+  // touched title at all, so these reels stayed "Untitled Reel" forever).
+  // Reactive on scenes/title instead of hooking regenerateScene or
+  // StoryboardPanel's updateField individually -- one effect covers both the
+  // "prompt text typed" and "generation completed" triggers (and any future
+  // path that populates scene 0) without duplicating this logic per call site.
+  // autoTitleFiredRef is a genuine one-shot guard checked at debounce-fire
+  // time, not at schedule time -- same clear+reschedule debounce shape as
+  // the nuclear-sync save above it, so rapid typing keeps pushing the fire
+  // time out, but only the first debounce cycle that actually elapses is
+  // allowed to call the API, however many times this effect re-runs.
+  const autoTitleFiredRef = useRef(false);
+  const autoTitleTimerRef = useRef(null);
+  useEffect(() => {
+    if (!reelLoaded || autoTitleFiredRef.current) return;
+    const hasRealTitle = title && title.trim() !== "" && title !== "Untitled Reel";
+    if (hasRealTitle) { autoTitleFiredRef.current = true; return; }
+    const firstPrompt = (scenes[0]?.narration || scenes[0]?.action || scenes[0]?.visual_prompt || "").trim();
+    if (!firstPrompt) return;
+    clearTimeout(autoTitleTimerRef.current);
+    autoTitleTimerRef.current = setTimeout(async () => {
+      if (autoTitleFiredRef.current) return;
+      autoTitleFiredRef.current = true;
+      const generated = await generateReelTitle(firstPrompt, "[EditorV2/autoTitle]");
+      if (generated) setTitle(generated);
+    }, 800);
+  }, [scenes, title, reelLoaded]);
 
   useEffect(() => {
     function onKey(e) {

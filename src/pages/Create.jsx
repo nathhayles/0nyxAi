@@ -9,6 +9,7 @@ import ThemeSelectorPill from "../components/ThemeSelectorPill.jsx";
 import { TEMPLATES } from "../data/templates.js";
 import { useSpeechInput } from "../hooks/useSpeechInput.js";
 import { useCredits } from "../state/CreditsContext.jsx";
+import { generateReelTitle } from "../utils/autoTitle.js";
 
 const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 
@@ -308,44 +309,13 @@ export default function CreatePage() {
 
       const snapshot = {
         title: await (async () => {
-          // This whole call was previously wrapped in a single bare `catch(_) {}`
-          // with no logging anywhere on the failure path -- every distinct
-          // failure mode (missing/expired session token -> 401, trial expired
-          // -> 403, OpenAI hiccup -> 500, a thrown network/parse error, or a
-          // 200 with no title in the body) collapsed identically and silently
-          // into "Untitled Reel", with zero way to tell which one actually
-          // happened. Traced live 2026-07-20: real AI-generated reels going
-          // back to at least 2026-07-05 all had non-empty scenes[0].action at
-          // this point, ruling out empty-prompt as the cause -- the call
-          // itself was failing. Logging now, not guessing at which failure
-          // mode to silently work around.
-          try {
-            const { data: { session: ts } } = await supabase.auth.getSession();
-            const firstPrompt = scenes[0]?.narration || scenes[0]?.action || scenes[0]?.visual_prompt || "";
-            if (!firstPrompt.trim()) {
-              console.warn("[Create/autoTitle] no narration/action/visual_prompt on scenes[0] -- falling back to Untitled Reel", scenes[0]);
-              return "Untitled Reel";
-            }
-            if (!ts?.access_token) {
-              console.warn("[Create/autoTitle] no access_token on current session -- /api/analyse/title will 401");
-            }
-            const tr = await fetch("/api/analyse/title", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", ...(ts?.access_token ? { Authorization: `Bearer ${ts.access_token}` } : {}) },
-              body: JSON.stringify({ prompt: firstPrompt }),
-            });
-            if (!tr.ok) {
-              const errBody = await tr.text().catch(() => "<unreadable>");
-              console.error(`[Create/autoTitle] /api/analyse/title returned ${tr.status}:`, errBody);
-              return "Untitled Reel";
-            }
-            const td = await tr.json();
-            if (td.title) return td.title;
-            console.error("[Create/autoTitle] /api/analyse/title returned 200 with no title:", td);
-          } catch (err) {
-            console.error("[Create/autoTitle] threw while generating title:", err);
+          const firstPrompt = scenes[0]?.narration || scenes[0]?.action || scenes[0]?.visual_prompt || "";
+          if (!firstPrompt.trim()) {
+            console.warn("[Create/autoTitle] no narration/action/visual_prompt on scenes[0] -- falling back to Untitled Reel", scenes[0]);
+            return "Untitled Reel";
           }
-          return "Untitled Reel";
+          const generated = await generateReelTitle(firstPrompt, "[Create/autoTitle]");
+          return generated || "Untitled Reel";
         })(),
         ratio,
         pipelineId: pipelineId || null,
