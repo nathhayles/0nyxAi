@@ -253,10 +253,21 @@ export default function CreatePage() {
           );
           await Promise.all([...pending].map(async (i) => {
             const job = jobs[i];
-            const { data: { session: pollSession } } = await supabase.auth.getSession();
-            const pollToken = pollSession?.access_token || token;
-            const r = await fetch(`/api/kling/status/${job.jobId}`, { headers: pollToken ? { Authorization: `Bearer ${pollToken}` } : {} });
-            const d = await r.json();
+            let d;
+            try {
+              const { data: { session: pollSession } } = await supabase.auth.getSession();
+              const pollToken = pollSession?.access_token || token;
+              const r = await fetch(`/api/kling/status/${job.jobId}`, { headers: pollToken ? { Authorization: `Bearer ${pollToken}` } : {} });
+              d = await r.json();
+            } catch (pollErr) {
+              // Transient failure for this one scene (offline, DNS, a gateway
+              // error page instead of JSON) -- the job itself is unaffected
+              // server-side. Leave it in `pending` and retry next tick instead
+              // of letting it reject this Promise.all and kill tracking for
+              // every other scene still polling this tick too.
+              console.warn("[Create] pipeline poll transient failure for scene", i, pollErr);
+              return;
+            }
             if (d.status === "completed" && d.videoUrl) {
               results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaUrl: d.videoUrl, thumbnail: d.thumbnailUrl || null, mediaType: "video", isAiGenerated: true, generatedAt: new Date().toISOString(), mode: "ai", needsBleedFade: !!d.needsBleedFade };
               pending.delete(i);

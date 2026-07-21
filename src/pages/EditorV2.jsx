@@ -1834,6 +1834,14 @@ export default function EditorV2() {
             })
             .catch(() => {});
         }
+
+        // Reconcile any scene whose generation was still pending when this
+        // reel was last saved -- the poll loop that would normally deliver
+        // the result may have died (tab backgrounded, network drop, laptop
+        // closed) while the job kept running/completing server-side.
+        // Silently backfill instead of leaving the scene empty forever with
+        // only a jobId as a trail.
+        reconcilePendingScenes();
       } catch (e) { console.error("[EditorV2] load", e); }
     }
     load();
@@ -2693,6 +2701,57 @@ export default function EditorV2() {
   const updateSceneRef = useRef(updateScene);
   updateSceneRef.current = updateScene;
 
+  // Backfills any scene left with a jobId + generationPending:true but no
+  // real media -- the trail regenerateScene now leaves behind when its own
+  // poll loop dies instead of delivering a result. Runs on initial reel load
+  // and again on tab visibility/focus regain (see effects below), so both
+  // "closed the laptop and came back later" and "backgrounded the tab and
+  // switched back" self-heal without a support ticket or manual DB lookup.
+  const reconcilingJobsRef = useRef(new Set());
+  const reconcilePendingScenes = useCallback(async () => {
+    const list = scenesRef.current || [];
+    const pending = list.filter(sc =>
+      sc.generationPending && sc.jobId && !(sc.mediaUrl || sc.url) && !reconcilingJobsRef.current.has(sc.jobId)
+    );
+    if (!pending.length) return;
+    for (const sc of pending) {
+      reconcilingJobsRef.current.add(sc.jobId);
+      try {
+        const ph = await getAuthHeaders();
+        const poll = await (await fetch(`/api/kling/status/${sc.jobId}`, { headers: ph })).json();
+        if (poll.status === "completed" && poll.videoUrl) {
+          updateSceneRef.current(sc.id, {
+            mediaUrl: poll.videoUrl, url: poll.videoUrl,
+            thumbnail: poll.thumbnailUrl || poll.videoUrl,
+            lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade,
+            generationPending: false, jobId: null,
+          });
+        } else if (poll.status === "failed") {
+          updateSceneRef.current(sc.id, { generationPending: false });
+        }
+        // else still genuinely pending -- leave as-is, picked up again next
+        // load or the next visibility/focus reconciliation pass.
+      } catch (e) {
+        console.warn("[EditorV2] reconcile pending scene failed:", sc.id, e);
+      } finally {
+        reconcilingJobsRef.current.delete(sc.jobId);
+      }
+    }
+  }, []);
+
+  // Re-arm reconciliation whenever the tab regains focus/visibility -- catches
+  // "backgrounded the tab mid-generation, came back later" without requiring
+  // a full page reload (the load() effect below only covers a fresh load).
+  useEffect(() => {
+    const handler = () => { if (document.visibilityState === "visible") reconcilePendingScenes(); };
+    document.addEventListener("visibilitychange", handler);
+    window.addEventListener("focus", handler);
+    return () => {
+      document.removeEventListener("visibilitychange", handler);
+      window.removeEventListener("focus", handler);
+    };
+  }, [reconcilePendingScenes]);
+
   const [applyingBrand, setApplyingBrand] = useState(false);
 
   // Brand Quick-Apply: pushes the selected brand's default VO voice / avatar /
@@ -3099,6 +3158,12 @@ export default function EditorV2() {
       const { jobId, error: submitErr } = await submitRes.json();
       if (!jobId) throw new Error(submitErr || "No jobId returned");
 
+      // Persisted onto the scene immediately (not just tracked in local
+      // generatingScenes state) so the jobId survives a poll-loop death --
+      // network suspension, tab backgrounded/slept, any uncaught fetch error
+      // -- via the next autosave tick. Without this, a dead poll loop leaves
+      // no trace of the job anywhere the reel itself can recover from.
+      updateSceneRef.current(id, { jobId, generationPending: true });
       setGeneratingScenes(p => ({ ...p, [id]: { status: "polling" } }));
 
       // Poll until completed or failed (max 20 min — backend falPoll takes up to 10 min +
@@ -3107,11 +3172,21 @@ export default function EditorV2() {
       const deadline = Date.now() + 1200000;
       while (Date.now() < deadline) {
         await new Promise(r => setTimeout(r, 5000));
-        const ph = await getAuthHeaders();
-        const poll = await (await fetch(`/api/kling/status/${jobId}`, { headers: ph })).json();
+        let poll;
+        try {
+          const ph = await getAuthHeaders();
+          poll = await (await fetch(`/api/kling/status/${jobId}`, { headers: ph })).json();
+        } catch (pollErr) {
+          // Transient failure (offline, DNS, a 502/504 HTML body instead of
+          // JSON -- exactly what tends to come back right after a laptop
+          // wakes from sleep). The job itself is unaffected server-side --
+          // keep polling instead of treating one hiccup as a hard failure.
+          console.warn("[EditorV2] regen poll transient failure, retrying:", pollErr);
+          continue;
+        }
         if (poll.status === "completed") {
           if (!poll.videoUrl) throw new Error("Job completed but no video URL returned");
-          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade });
+          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade, generationPending: false, jobId: null });
           return;
         }
         if (poll.status === "failed") throw new Error(poll.error || "Generation failed");
@@ -3120,6 +3195,7 @@ export default function EditorV2() {
     } catch(e) {
       console.error("[EditorV2] regen", e);
       toast.show(e.message || "Generation failed", "error");
+      updateSceneRef.current(id, { generationPending: false });
     }
     finally { setGeneratingScenes(p => ({ ...p, [id]: false })); }
   }, [scenes, ratio, regenModel, toast]);
