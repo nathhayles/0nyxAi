@@ -665,10 +665,23 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
               : `brightness(${br * 2}%) contrast(${con * 2}%) saturate(${sat * 2}%)`;
             return (
               <div style={{ position: "absolute", inset: 0, zIndex: 2, filter }}>
+                {/* objectFit: "contain" (not "cover") so a scene whose native
+                    video shape doesn't match the canvas ratio (e.g. a 9:16
+                    generation viewed on a 16:9 canvas) scales to fit and
+                    letterboxes/pillarboxes here exactly like render.js's own
+                    ffmpeg filter (scale...force_original_aspect_ratio=decrease,
+                    pad=...) -- "cover" was cropping to a small zoomed-in slice
+                    of the frame instead of matching what export actually
+                    produces. No JS measurement needed for this: unlike the
+                    avatar/pause-frame canvases elsewhere in this file, these
+                    are real <video> elements already pinned to width/height
+                    100% of a fixed-ratio frame, so the browser's native
+                    object-fit does the scale-to-fit-and-letterbox itself from
+                    the video's own intrinsic dimensions. */}
                 <video className="v2-preview-video-a"
-                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 2, visibility: "hidden" }} playsInline/>
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", zIndex: 2, visibility: "hidden" }} playsInline/>
                 <video className="v2-preview-video-b"
-                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 2, visibility: "hidden" }} playsInline/>
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", zIndex: 2, visibility: "hidden" }} playsInline/>
                 {/* Upload overlay elements — sit above both buffer slots */}
                 <img
                   ref={uploadImgRef}
