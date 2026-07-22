@@ -81,6 +81,8 @@ export default function AdminPanel() {
 
       <GenerationsPanel />
 
+      <FlaggedUploadsPanel />
+
       <input
         value={search}
         onChange={e => setSearch(e.target.value)}
@@ -387,6 +389,126 @@ function GenerationsPanel() {
                 </td>
                 <td style={{ ...s.td, color: '#64748b', fontSize: 12 }}>
                   {new Date(g.created_at).toLocaleString()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: 10 }}>
+        <button
+          onClick={() => setPage(p => Math.max(1, p - 1))}
+          disabled={page <= 1 || loading}
+          style={{ ...s.grantBtn, opacity: page <= 1 ? 0.4 : 1 }}
+        >
+          ← Prev
+        </button>
+        <span style={{ color: '#64748b', fontSize: 12 }}>Page {page} of {totalPages}</span>
+        <button
+          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+          disabled={page >= totalPages || loading}
+          style={{ ...s.grantBtn, opacity: page >= totalPages ? 0.4 : 1 }}
+        >
+          Next →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const FLAGGED_UPLOADS_PAGE_SIZE = 50;
+
+// Content-classification gate log (routes/characters.js POST
+// /:id/reference-images, is_real_person:true characters only) -- lets
+// admin/support review what the upload-time classifier rejected, mirroring
+// GenerationsPanel's fetch/pagination shape against a dedicated admin route.
+function FlaggedUploadsPanel() {
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const headers = await getAuthHeaders();
+        const params = new URLSearchParams({ page: String(page), limit: String(FLAGGED_UPLOADS_PAGE_SIZE) });
+        const res = await fetch(`/api/admin/flagged-uploads?${params}`, { headers });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Failed to load');
+        if (!cancelled) { setRows(d.flagged_uploads || []); setTotal(d.total || 0); }
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [page]);
+
+  const totalPages = Math.max(1, Math.ceil(total / FLAGGED_UPLOADS_PAGE_SIZE));
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h3 style={{ color: '#4dd0ff', fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
+          Flagged Uploads
+        </h3>
+        <span style={{ color: '#64748b', fontSize: 12 }}>{total} total</span>
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={s.table}>
+          <thead>
+            <tr>
+              <th style={s.th}>Image</th>
+              <th style={s.th}>Character</th>
+              <th style={s.th}>Category</th>
+              <th style={s.th}>User</th>
+              <th style={s.th}>Reviewed</th>
+              <th style={s.th}>Flagged</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={6} style={{ ...s.td, color: '#4dd0ff' }}>Loading...</td></tr>
+            ) : error ? (
+              <tr><td colSpan={6} style={{ ...s.td, color: '#f87171' }}>Failed to load: {error}</td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={6} style={{ ...s.td, color: '#64748b' }}>No flagged uploads.</td></tr>
+            ) : rows.map(f => (
+              <tr key={f.id} style={s.row}>
+                <td style={s.td}>
+                  {f.image_url ? (
+                    <a href={f.image_url} target="_blank" rel="noreferrer">
+                      <img src={f.image_url} alt="" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 4, display: 'block' }} />
+                    </a>
+                  ) : (
+                    <div style={{ width: 48, height: 48, borderRadius: 4, background: '#0d1825', border: '1px solid var(--onyx-hairline-strong)' }} />
+                  )}
+                </td>
+                <td style={s.td}>
+                  <span style={{ color: '#e2e8f0', fontSize: 12 }}>{f.character_name || '—'}</span>
+                </td>
+                <td style={s.td}>
+                  <span style={{ ...s.badge, background: '#f8717122', color: '#f87171' }}>{f.category}</span>
+                </td>
+                <td style={s.td}>
+                  <span style={{ color: '#e2e8f0', fontSize: 12 }}>{f.user_email || '—'}</span>
+                </td>
+                <td style={s.td}>
+                  {f.reviewed ? (
+                    <span style={{ ...s.badge, background: '#4ade8022', color: '#4ade80' }}>Reviewed</span>
+                  ) : (
+                    <span style={{ ...s.badge, background: '#fbbf2422', color: '#fbbf24' }}>Pending</span>
+                  )}
+                </td>
+                <td style={{ ...s.td, color: '#64748b', fontSize: 12 }}>
+                  {new Date(f.created_at).toLocaleString()}
                 </td>
               </tr>
             ))}
