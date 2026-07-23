@@ -41,6 +41,8 @@ export default function Publish() {
   const [tiktokAllowComment, setTiktokAllowComment] = useState(true);
   const [tiktokAllowDuet, setTiktokAllowDuet]       = useState(true);
   const [tiktokAllowStitch, setTiktokAllowStitch]   = useState(true);
+  const [tiktokBrandOrganic, setTiktokBrandOrganic] = useState(false);
+  const [tiktokBrandContent, setTiktokBrandContent] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -154,6 +156,8 @@ export default function Publish() {
           disable_comment: !tiktokAllowComment,
           disable_duet: !tiktokAllowDuet,
           disable_stitch: !tiktokAllowStitch,
+          brand_organic_toggle: tiktokBrandOrganic,
+          brand_content_toggle: tiktokBrandContent,
         } : {};
         const res = await fetch("/api/publish/now", {
           method: "POST", headers,
@@ -340,11 +344,13 @@ export default function Publish() {
                   <label style={{ fontSize: 12, color: "#94a3b8" }}>Who can view this video</label>
                   <select style={{ ...inputS }} value={tiktokPrivacy} onChange={e => setTiktokPrivacy(e.target.value)}>
                     {(tiktokInfo.privacy_level_options || []).map(opt => (
-                      <option key={opt} value={opt}>{PRIVACY_LABELS[opt] || opt}</option>
+                      <option key={opt} value={opt} disabled={tiktokBrandContent && opt === "SELF_ONLY"}>
+                        {PRIVACY_LABELS[opt] || opt}{tiktokBrandContent && opt === "SELF_ONLY" ? " (unavailable for branded content)" : ""}
+                      </option>
                     ))}
                   </select>
                 </div>
-                <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 12 }}>
                   <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: tiktokInfo.comment_disabled ? "#475569" : "#94a3b8" }}>
                     <input type="checkbox" checked={tiktokAllowComment} disabled={tiktokInfo.comment_disabled} onChange={e => setTiktokAllowComment(e.target.checked)} />
                     Allow comments{tiktokInfo.comment_disabled && " (disabled by account)"}
@@ -357,6 +363,32 @@ export default function Publish() {
                     <input type="checkbox" checked={tiktokAllowStitch} disabled={tiktokInfo.stitch_disabled} onChange={e => setTiktokAllowStitch(e.target.checked)} />
                     Allow Stitch{tiktokInfo.stitch_disabled && " (disabled by account)"}
                   </label>
+                </div>
+                <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 8 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#94a3b8" }}>
+                    <input type="checkbox" checked={tiktokBrandOrganic} onChange={e => setTiktokBrandOrganic(e.target.checked)} />
+                    Your Brand
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#94a3b8" }}>
+                    <input type="checkbox" checked={tiktokBrandContent} onChange={e => {
+                      const checked = e.target.checked;
+                      setTiktokBrandContent(checked);
+                      if (checked && tiktokPrivacy === "SELF_ONLY") {
+                        const options = tiktokInfo.privacy_level_options || [];
+                        const nonPrivate = options.filter(o => o !== "SELF_ONLY");
+                        setTiktokPrivacy(nonPrivate.includes("PUBLIC_TO_EVERYONE") ? "PUBLIC_TO_EVERYONE" : (nonPrivate[0] || tiktokPrivacy));
+                      }
+                    }} />
+                    Branded Content
+                  </label>
+                </div>
+                {(tiktokBrandOrganic || tiktokBrandContent) && (
+                  <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 8 }}>
+                    Your photo/video will be labeled as '{tiktokBrandContent ? "Paid partnership" : "Promotional content"}'.
+                  </div>
+                )}
+                <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                  By posting, you agree to TikTok's {(tiktokBrandOrganic || tiktokBrandContent) ? "Branded Content Policy and " : ""}Music Usage Confirmation.
                 </div>
               </>
             )}
