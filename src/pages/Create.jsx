@@ -94,7 +94,6 @@ export default function CreatePage() {
   const [brand, setBrand] = useState("");
   const [contentMode, setContentMode] = useState("cinematic"); // "cinematic" | "marketing" — visual-direction style, see backend/routes/analyse.js CONTENT_MODE_COPY
   const [characterLock, setCharacterLock] = useState(false);
-  const [styleRefUrl, setStyleRefUrl] = useState("");
   const [motionRefUrl, setMotionRefUrl] = useState("");
   const [videoModel, setVideoModel] = useState("kling-2.6-pro");
 
@@ -211,7 +210,6 @@ export default function CreatePage() {
           : theme;
         const klingBody = { prompt: script, theme: effectiveTheme, analysis, aspect_ratio: ratio, model: videoModel, brand_id: brand || null, content_mode: contentMode };
         if (characterLock) klingBody.character_lock = true;
-        if (styleRefUrl.trim()) klingBody.style_ref_url = styleRefUrl.trim();
         if (motionRefUrl.trim()) klingBody.motion_ref_url = motionRefUrl.trim();
 
         const res = await fetch("/api/kling/", {
@@ -594,30 +592,6 @@ export default function CreatePage() {
                     </div>
                   </div>
                 </label>
-
-                {/* Style Reference URL */}
-                <div style={{
-                  padding: "10px 14px", borderRadius: 10,
-                  background: "var(--onyx-bg-2)", border: `1px solid ${styleRefUrl.trim() ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
-                  marginBottom: 10,
-                }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Style Reference</div>
-                  <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 8 }}>
-                    Paste a URL to an image — applied as a visual style guide across all scenes
-                  </div>
-                  <input
-                    type="url"
-                    value={styleRefUrl}
-                    onChange={(e) => setStyleRefUrl(e.target.value)}
-                    placeholder="https://example.com/style-frame.jpg"
-                    style={{
-                      width: "100%", padding: "8px 10px", borderRadius: 8,
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      background: "var(--onyx-bg)", color: "var(--onyx-text)", fontSize: 13,
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
 
                 {/* Motion Reference URL */}
                 <div style={{
