@@ -34,6 +34,13 @@ export default function Publish() {
   const [aiPrompt, setAiPrompt]                   = useState('');
   const [generatingCaption, setGeneratingCaption] = useState(false);
   const [trialStatus, setTrialStatus]             = useState({ is_trial: false, trial_expired: false, days_remaining: null, has_paid_plan: false });
+  const [tiktokInfo, setTiktokInfo]               = useState(null);
+  const [tiktokInfoLoading, setTiktokInfoLoading] = useState(false);
+  const [tiktokInfoError, setTiktokInfoError]     = useState("");
+  const [tiktokPrivacy, setTiktokPrivacy]         = useState("");
+  const [tiktokAllowComment, setTiktokAllowComment] = useState(true);
+  const [tiktokAllowDuet, setTiktokAllowDuet]       = useState(true);
+  const [tiktokAllowStitch, setTiktokAllowStitch]   = useState(true);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -52,6 +59,35 @@ export default function Publish() {
     if (!session) return;
     loadAccounts(session, selectedBrandId);
   }, [session, selectedBrandId]);
+
+  useEffect(() => {
+    if (!session || !selectedPlatforms.includes("tiktok") || !accounts.tiktok) {
+      setTiktokInfo(null);
+      return;
+    }
+    setTiktokInfoLoading(true);
+    setTiktokInfoError("");
+    const qs = selectedBrandId ? `?brand_id=${selectedBrandId}` : "";
+    fetch(`/api/social/tiktok/creator-info${qs}`, { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error("Failed to load TikTok account options")))
+      .then(info => {
+        setTiktokInfo(info);
+        const options = info.privacy_level_options || [];
+        setTiktokPrivacy(options.includes("PUBLIC_TO_EVERYONE") ? "PUBLIC_TO_EVERYONE" : (options[0] || ""));
+        setTiktokAllowComment(!info.comment_disabled);
+        setTiktokAllowDuet(!info.duet_disabled);
+        setTiktokAllowStitch(!info.stitch_disabled);
+      })
+      .catch(err => setTiktokInfoError(err.message))
+      .finally(() => setTiktokInfoLoading(false));
+  }, [session, selectedPlatforms, accounts.tiktok, selectedBrandId]);
+
+  const PRIVACY_LABELS = {
+    PUBLIC_TO_EVERYONE: "Everyone",
+    MUTUAL_FOLLOW_FRIENDS: "Friends",
+    FOLLOWER_OF_CREATOR: "Followers",
+    SELF_ONLY: "Only me",
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -113,9 +149,15 @@ export default function Publish() {
     const videoUrl = selectedProject.output_url || selectedProject.render_url;
     for (const platform of selectedPlatforms) {
       try {
+        const tiktokFields = platform === "tiktok" ? {
+          privacy_level: tiktokPrivacy || null,
+          disable_comment: !tiktokAllowComment,
+          disable_duet: !tiktokAllowDuet,
+          disable_stitch: !tiktokAllowStitch,
+        } : {};
         const res = await fetch("/api/publish/now", {
           method: "POST", headers,
-          body: JSON.stringify({ platform, video_url: videoUrl, caption, hashtags, title: selectedProject.title, brand_id: selectedBrandId }),
+          body: JSON.stringify({ platform, video_url: videoUrl, caption, hashtags, title: selectedProject.title, brand_id: selectedBrandId, ...tiktokFields }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Publish failed");
@@ -281,6 +323,43 @@ export default function Publish() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {selectedPlatforms.includes("tiktok") && accounts.tiktok && (
+          <div style={{ ...card, padding: "14px 20px" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>TikTok Options</div>
+            {tiktokInfoLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading account options…</div>}
+            {tiktokInfoError && <div style={{ fontSize: 13, color: "#ef4444" }}>{tiktokInfoError}</div>}
+            {tiktokInfo && !tiktokInfoLoading && (
+              <>
+                <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
+                  Posting as <strong style={{ color: "#e2e8f0" }}>{tiktokInfo.creator_nickname ? `${tiktokInfo.creator_nickname} (@${tiktokInfo.creator_username})` : `@${tiktokInfo.creator_username || accounts.tiktok}`}</strong>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, color: "#94a3b8" }}>Who can view this video</label>
+                  <select style={{ ...inputS }} value={tiktokPrivacy} onChange={e => setTiktokPrivacy(e.target.value)}>
+                    {(tiktokInfo.privacy_level_options || []).map(opt => (
+                      <option key={opt} value={opt}>{PRIVACY_LABELS[opt] || opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: tiktokInfo.comment_disabled ? "#475569" : "#94a3b8" }}>
+                    <input type="checkbox" checked={tiktokAllowComment} disabled={tiktokInfo.comment_disabled} onChange={e => setTiktokAllowComment(e.target.checked)} />
+                    Allow comments{tiktokInfo.comment_disabled && " (disabled by account)"}
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: tiktokInfo.duet_disabled ? "#475569" : "#94a3b8" }}>
+                    <input type="checkbox" checked={tiktokAllowDuet} disabled={tiktokInfo.duet_disabled} onChange={e => setTiktokAllowDuet(e.target.checked)} />
+                    Allow Duet{tiktokInfo.duet_disabled && " (disabled by account)"}
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: tiktokInfo.stitch_disabled ? "#475569" : "#94a3b8" }}>
+                    <input type="checkbox" checked={tiktokAllowStitch} disabled={tiktokInfo.stitch_disabled} onChange={e => setTiktokAllowStitch(e.target.checked)} />
+                    Allow Stitch{tiktokInfo.stitch_disabled && " (disabled by account)"}
+                  </label>
+                </div>
+              </>
+            )}
           </div>
         )}
 
