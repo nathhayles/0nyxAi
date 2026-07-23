@@ -340,6 +340,9 @@ export default function Publish() {
             {msg.text && (
               <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14, fontSize: 13, fontWeight: 600, background: msg.type === "success" ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`, color: msg.type === "success" ? "#4ade80" : "#f87171" }}>{msg.text}</div>
             )}
+            {selectedPlatforms.includes("tiktok") && (
+              <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 14 }}>This video will be labeled AI-generated on TikTok.</div>
+            )}
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={handlePublishNow} disabled={!canSubmit} style={{ padding: "12px 24px", borderRadius: 8, border: "none", background: canSubmit ? "var(--btn-primary-grad)" : "var(--chip-bg-strong)", color: canSubmit ? "var(--btn-primary-text)" : "var(--onyx-text-faint)", fontWeight: 700, fontSize: 14, cursor: canSubmit ? "pointer" : "not-allowed" }}>
                 {submitting ? "Publishing..." : "Publish Now"}
