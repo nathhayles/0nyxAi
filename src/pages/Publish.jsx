@@ -41,8 +41,10 @@ export default function Publish() {
   const [tiktokAllowComment, setTiktokAllowComment] = useState(true);
   const [tiktokAllowDuet, setTiktokAllowDuet]       = useState(true);
   const [tiktokAllowStitch, setTiktokAllowStitch]   = useState(true);
+  const [tiktokDisclosureEnabled, setTiktokDisclosureEnabled] = useState(false);
   const [tiktokBrandOrganic, setTiktokBrandOrganic] = useState(false);
   const [tiktokBrandContent, setTiktokBrandContent] = useState(false);
+  const [tiktokPublishStatus, setTiktokPublishStatus] = useState(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -144,13 +146,43 @@ export default function Publish() {
     );
   }
 
+  const TIKTOK_TERMINAL_STATUSES = new Set(["PUBLISH_COMPLETE", "SEND_TO_USER_INBOX", "FAILED"]);
+
+  // TikTok's guideline requires clients to surface real post-publish status,
+  // not just assume success the moment the upload call returns 2xx -- a
+  // publish can still fail downstream (encoding, moderation, etc.) after
+  // this app has already told the user it succeeded. Polls every 3s, up to
+  // 20 times (~60s), stopping early on any terminal status.
+  async function pollTiktokPublishStatus(publishId) {
+    setTiktokPublishStatus({ status: "PROCESSING", failReason: null });
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await new Promise(r => setTimeout(r, 3000));
+      try {
+        const qs = selectedBrandId ? `?brand_id=${selectedBrandId}` : "";
+        const res = await fetch(`/api/social/tiktok/publish-status/${publishId}${qs}`, {
+          headers: { Authorization: `Bearer ${session?.access_token}` },
+        });
+        if (!res.ok) continue; // transient fetch error -- keep polling rather than giving up
+        const data = await res.json();
+        setTiktokPublishStatus({ status: data.status, failReason: data.fail_reason });
+        if (TIKTOK_TERMINAL_STATUSES.has(data.status)) return;
+      } catch (_) {
+        // network hiccup -- keep polling, same as a non-ok response above
+      }
+    }
+    // Gave up after ~60s without a terminal status -- not necessarily a
+    // failure, TikTok's own processing can take longer than that. Leave
+    // whatever the last-seen status was rather than overwriting with an
+    // invented "unknown" state.
+  }
+
   async function handlePublishNow() {
     if (trialStatus.trial_expired) return setMsg({ text: "Your trial has expired. Upgrade to publish.", type: "error" });
     if (!selectedProject) return setMsg({ text: "Select a project first", type: "error" });
     if (selectedPlatforms.length === 0) return setMsg({ text: "Select at least one platform", type: "error" });
     if (!canAutopost) return setMsg({ text: "Auto-posting requires an upgrade.", type: "error" });
     if (selectedPlatforms.includes("tiktok") && !tiktokPrivacy) return setMsg({ text: "Choose who can view this video on TikTok before publishing.", type: "error" });
-    setSubmitting(true); setMsg({ text: "", type: "" });
+    setSubmitting(true); setMsg({ text: "", type: "" }); setTiktokPublishStatus(null);
     const results = [];
     const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` };
     const videoUrl = selectedProject.output_url || selectedProject.render_url;
@@ -171,6 +203,9 @@ export default function Publish() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Publish failed");
         results.push(platform);
+        if (platform === "tiktok" && data.publishId) {
+          pollTiktokPublishStatus(data.publishId); // fire-and-forget -- updates tiktokPublishStatus as it goes, doesn't block this loop
+        }
       } catch (err) {
         results.push(`FAIL: ${platform}: ${err.message}`);
       }
@@ -370,25 +405,38 @@ export default function Publish() {
                     Allow Stitch{tiktokInfo.stitch_disabled && " (disabled by account)"}
                   </label>
                 </div>
-                <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 8 }}>
+                <div style={{ marginBottom: tiktokDisclosureEnabled ? 12 : 8 }}>
                   <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#94a3b8" }}>
-                    <input type="checkbox" checked={tiktokBrandOrganic} onChange={e => setTiktokBrandOrganic(e.target.checked)} />
-                    Your Brand
-                  </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#94a3b8" }}>
-                    <input type="checkbox" checked={tiktokBrandContent} onChange={e => {
+                    <input type="checkbox" checked={tiktokDisclosureEnabled} onChange={e => {
                       const checked = e.target.checked;
-                      setTiktokBrandContent(checked);
-                      if (checked && tiktokPrivacy === "SELF_ONLY") {
-                        const options = tiktokInfo.privacy_level_options || [];
-                        const nonPrivate = options.filter(o => o !== "SELF_ONLY");
-                        setTiktokPrivacy(nonPrivate.includes("PUBLIC_TO_EVERYONE") ? "PUBLIC_TO_EVERYONE" : (nonPrivate[0] || tiktokPrivacy));
-                      }
+                      setTiktokDisclosureEnabled(checked);
+                      if (!checked) { setTiktokBrandOrganic(false); setTiktokBrandContent(false); }
                     }} />
-                    Branded Content
+                    Content Disclosure Setting
                   </label>
+                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Turn on if this video promotes yourself/your business, or another brand/product.</div>
                 </div>
-                {(tiktokBrandOrganic || tiktokBrandContent) && (
+                {tiktokDisclosureEnabled && (
+                  <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 8 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#94a3b8" }}>
+                      <input type="checkbox" checked={tiktokBrandOrganic} onChange={e => setTiktokBrandOrganic(e.target.checked)} />
+                      Your Brand
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#94a3b8" }}>
+                      <input type="checkbox" checked={tiktokBrandContent} onChange={e => {
+                        const checked = e.target.checked;
+                        setTiktokBrandContent(checked);
+                        if (checked && tiktokPrivacy === "SELF_ONLY") {
+                          const options = tiktokInfo.privacy_level_options || [];
+                          const nonPrivate = options.filter(o => o !== "SELF_ONLY");
+                          setTiktokPrivacy(nonPrivate.includes("PUBLIC_TO_EVERYONE") ? "PUBLIC_TO_EVERYONE" : (nonPrivate[0] || tiktokPrivacy));
+                        }
+                      }} />
+                      Branded Content
+                    </label>
+                  </div>
+                )}
+                {tiktokDisclosureEnabled && (tiktokBrandOrganic || tiktokBrandContent) && (
                   <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 8 }}>
                     Your photo/video will be labeled as '{tiktokBrandContent ? "Paid partnership" : "Promotional content"}'.
                   </div>
@@ -396,6 +444,15 @@ export default function Publish() {
                 <div style={{ fontSize: 12, color: "#94a3b8" }}>
                   By posting, you agree to TikTok's {tiktokBrandContent ? "Branded Content Policy and " : ""}Music Usage Confirmation.
                 </div>
+                {tiktokPublishStatus && (
+                  <div style={{ fontSize: 12, marginTop: 10, color: tiktokPublishStatus.status === "FAILED" ? "#ef4444" : tiktokPublishStatus.status === "PUBLISH_COMPLETE" || tiktokPublishStatus.status === "SEND_TO_USER_INBOX" ? "#4ade80" : "#fbbf24" }}>
+                    TikTok status: {tiktokPublishStatus.status === "FAILED"
+                      ? `Failed${tiktokPublishStatus.failReason ? ` — ${tiktokPublishStatus.failReason}` : ""}`
+                      : tiktokPublishStatus.status === "PUBLISH_COMPLETE" ? "Published"
+                      : tiktokPublishStatus.status === "SEND_TO_USER_INBOX" ? "Sent to your TikTok inbox for review"
+                      : "Processing…"}
+                  </div>
+                )}
               </>
             )}
           </div>
