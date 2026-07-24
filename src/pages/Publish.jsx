@@ -45,6 +45,7 @@ export default function Publish() {
   const [tiktokDisclosureEnabled, setTiktokDisclosureEnabled] = useState(false);
   const [tiktokBrandOrganic, setTiktokBrandOrganic] = useState(false);
   const [tiktokBrandContent, setTiktokBrandContent] = useState(false);
+  const [tiktokPrivacyAutoSwitchNotice, setTiktokPrivacyAutoSwitchNotice] = useState("");
   const [tiktokPublishStatus, setTiktokPublishStatus] = useState(null);
 
   useEffect(() => {
@@ -204,6 +205,7 @@ export default function Publish() {
     if (selectedPlatforms.includes("tiktok") && tiktokInfo?.max_video_post_duration_sec && selectedVideoDurationSec && selectedVideoDurationSec > tiktokInfo.max_video_post_duration_sec) {
       return setMsg({ text: `This video (${Math.round(selectedVideoDurationSec)}s) is longer than TikTok's ${tiktokInfo.max_video_post_duration_sec}s limit for this account.`, type: "error" });
     }
+    if (tiktokDisclosureIncomplete) return setMsg({ text: "Select 'Your Brand' or 'Branded Content' (or both) to disclose this content, or turn off Content Disclosure Setting.", type: "error" });
     setSubmitting(true); setMsg({ text: "", type: "" }); setTiktokPublishStatus(null);
     const results = [];
     const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` };
@@ -301,7 +303,13 @@ export default function Publish() {
   const inputS = { width: "100%", background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", color: "#e2e8f0", borderRadius: 8, padding: "10px 14px", fontSize: 14, boxSizing: "border-box", outline: "none", marginTop: 6 };
   const allConnected = selectedPlatforms.length > 0 && selectedPlatforms.every(p => accounts[p]);
   const selectedBrand = brands.find(b => b.id === selectedBrandId);
-  const canSubmit = !submitting && selectedPlatforms.length > 0 && allConnected && canAutopost;
+  // TikTok's guideline: "at least one of the options above [Your Brand /
+  // Branded Content] must be chosen to proceed with publishing... If neither
+  // is selected, the publish button remains disabled" -- only applies once
+  // the disclosure toggle itself is on; the toggle being off is a valid,
+  // fully-allowed state (this content simply isn't commercial).
+  const tiktokDisclosureIncomplete = selectedPlatforms.includes("tiktok") && tiktokDisclosureEnabled && !tiktokBrandOrganic && !tiktokBrandContent;
+  const canSubmit = !submitting && selectedPlatforms.length > 0 && allConnected && canAutopost && !tiktokDisclosureIncomplete;
 
   if (loading) return <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>Loading...</div>;
 
@@ -409,7 +417,7 @@ export default function Publish() {
                 </div>
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 12, color: "#94a3b8" }}>Who can view this video</label>
-                  <select style={{ ...inputS }} value={tiktokPrivacy} onChange={e => setTiktokPrivacy(e.target.value)}>
+                  <select style={{ ...inputS }} value={tiktokPrivacy} onChange={e => { setTiktokPrivacy(e.target.value); setTiktokPrivacyAutoSwitchNotice(""); }}>
                     <option value="" disabled>Select who can view this video…</option>
                     {(tiktokInfo.privacy_level_options || []).map(opt => (
                       <option key={opt} value={opt} disabled={tiktokBrandContent && opt === "SELF_ONLY"}>
@@ -417,6 +425,9 @@ export default function Publish() {
                       </option>
                     ))}
                   </select>
+                  {tiktokPrivacyAutoSwitchNotice && (
+                    <div style={{ fontSize: 11, color: "#fbbf24", marginTop: 4 }}>{tiktokPrivacyAutoSwitchNotice}</div>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginBottom: 12 }}>
                   <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: tiktokInfo.comment_disabled ? "#475569" : "#94a3b8" }}>
@@ -456,7 +467,11 @@ export default function Publish() {
                         if (checked && tiktokPrivacy === "SELF_ONLY") {
                           const options = tiktokInfo.privacy_level_options || [];
                           const nonPrivate = options.filter(o => o !== "SELF_ONLY");
-                          setTiktokPrivacy(nonPrivate.includes("PUBLIC_TO_EVERYONE") ? "PUBLIC_TO_EVERYONE" : (nonPrivate[0] || tiktokPrivacy));
+                          const newPrivacy = nonPrivate.includes("PUBLIC_TO_EVERYONE") ? "PUBLIC_TO_EVERYONE" : (nonPrivate[0] || tiktokPrivacy);
+                          setTiktokPrivacy(newPrivacy);
+                          setTiktokPrivacyAutoSwitchNotice(`Privacy changed to ${PRIVACY_LABELS[newPrivacy] || newPrivacy} — Branded Content can't be posted as private.`);
+                        } else if (!checked) {
+                          setTiktokPrivacyAutoSwitchNotice("");
                         }
                       }} />
                       Branded Content
@@ -517,6 +532,18 @@ export default function Publish() {
                 {selectedPlatforms.length > 0 && <span style={{ color: "#64748b", marginLeft: 8 }}>→ {selectedPlatforms.join(", ")}</span>}
               </div>
             </div>
+            {(selectedProject.output_url || selectedProject.render_url) && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 12, color: "#94a3b8", display: "block", marginBottom: 6 }}>Preview — this is exactly what will be posted</label>
+                <video
+                  key={selectedProject.id}
+                  src={selectedProject.output_url || selectedProject.render_url}
+                  controls
+                  playsInline
+                  style={{ width: "100%", maxWidth: 320, borderRadius: 8, border: "1px solid var(--onyx-hairline-strong)", background: "#000", display: "block" }}
+                />
+              </div>
+            )}
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 12, color: "#94a3b8" }}>Describe your reel...</label>
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
