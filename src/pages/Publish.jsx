@@ -24,6 +24,7 @@ export default function Publish() {
   const [projects, setProjects]                   = useState([]);
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
   const [selectedProject, setSelectedProject]     = useState(null);
+  const [selectedVideoDurationSec, setSelectedVideoDurationSec] = useState(null);
   const [caption, setCaption]                     = useState("");
   const [hashtags, setHashtags]                   = useState("");
   const [scheduleAt, setScheduleAt]               = useState("");
@@ -89,6 +90,23 @@ export default function Publish() {
       .catch(err => setTiktokInfoError(err.message))
       .finally(() => setTiktokInfoLoading(false));
   }, [session, selectedPlatforms, accounts.tiktok, selectedBrandId]);
+
+  // Probes the ACTUAL video file's real duration rather than trusting any
+  // stored/summed value -- this project has a documented history of stored
+  // duration figures going stale vs. the real rendered file (see the
+  // lip-sync duration-mismatch investigation), and neither `reels` nor
+  // `renders` stores a duration column at all today, so there's nothing
+  // reliable to read instead. Used by the TikTok max-duration guard below.
+  useEffect(() => {
+    const url = selectedProject?.output_url || selectedProject?.render_url;
+    setSelectedVideoDurationSec(null);
+    if (!url) return;
+    const videoEl = document.createElement("video");
+    videoEl.preload = "metadata";
+    videoEl.onloadedmetadata = () => setSelectedVideoDurationSec(videoEl.duration || null);
+    videoEl.onerror = () => setSelectedVideoDurationSec(null);
+    videoEl.src = url;
+  }, [selectedProject]);
 
   const PRIVACY_LABELS = {
     PUBLIC_TO_EVERYONE: "Everyone",
@@ -182,6 +200,10 @@ export default function Publish() {
     if (selectedPlatforms.length === 0) return setMsg({ text: "Select at least one platform", type: "error" });
     if (!canAutopost) return setMsg({ text: "Auto-posting requires an upgrade.", type: "error" });
     if (selectedPlatforms.includes("tiktok") && !tiktokPrivacy) return setMsg({ text: "Choose who can view this video on TikTok before publishing.", type: "error" });
+    if (selectedPlatforms.includes("tiktok") && tiktokInfo?.creator_can_post === false) return setMsg({ text: "TikTok says you can't post right now. Please try again later.", type: "error" });
+    if (selectedPlatforms.includes("tiktok") && tiktokInfo?.max_video_post_duration_sec && selectedVideoDurationSec && selectedVideoDurationSec > tiktokInfo.max_video_post_duration_sec) {
+      return setMsg({ text: `This video (${Math.round(selectedVideoDurationSec)}s) is longer than TikTok's ${tiktokInfo.max_video_post_duration_sec}s limit for this account.`, type: "error" });
+    }
     setSubmitting(true); setMsg({ text: "", type: "" }); setTiktokPublishStatus(null);
     const results = [];
     const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` };
@@ -375,7 +397,12 @@ export default function Publish() {
             <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 12 }}>TikTok Options</div>
             {tiktokInfoLoading && <div style={{ fontSize: 13, color: "#64748b" }}>Loading account options…</div>}
             {tiktokInfoError && <div style={{ fontSize: 13, color: "#ef4444" }}>{tiktokInfoError}</div>}
-            {tiktokInfo && !tiktokInfoLoading && (
+            {tiktokInfo && !tiktokInfoLoading && tiktokInfo.creator_can_post === false && (
+              <div style={{ fontSize: 13, color: "#ef4444" }}>
+                TikTok says you can't post right now{tiktokInfo.creator_cant_post_reason === "spam_risk_user_banned_from_posting" ? " — this account is currently restricted from posting" : " — you've reached your posting limit for now"}. Please try again later.
+              </div>
+            )}
+            {tiktokInfo && !tiktokInfoLoading && tiktokInfo.creator_can_post !== false && (
               <>
                 <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
                   Posting as <strong style={{ color: "#e2e8f0" }}>{tiktokInfo.creator_nickname ? `${tiktokInfo.creator_nickname} (@${tiktokInfo.creator_username})` : `@${tiktokInfo.creator_username || accounts.tiktok}`}</strong>
