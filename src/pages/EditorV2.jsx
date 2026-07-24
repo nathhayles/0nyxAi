@@ -3154,6 +3154,15 @@ export default function EditorV2() {
     try {
       const scene = scenes.find(s => s.id === id); if (!scene) return;
       const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
+      // A scene's own uploaded/pasted image (StoryboardPanel's "Upload file" /
+      // "Or paste a direct video/image URL" fields, mediaType: "image") was
+      // never actually sent here -- the backend's /api/kling/generate route
+      // has always supported image_url for image-to-video, but this call
+      // silently dropped it, so a user-supplied reference image had no
+      // effect on generation at all. Only meaningful when the scene's own
+      // media is an image, not a video (a video there means "use this
+      // footage as-is", handled elsewhere, not an i2v seed).
+      const sceneImageUrl = scene.mediaType === "image" ? (scene.mediaUrl || scene.url || null) : null;
       const submitRes = await fetch("/api/kling/generate", {
         method: "POST",
         headers: h,
@@ -3166,6 +3175,7 @@ export default function EditorV2() {
           brand_id: selectedBrandId,
           voiceoverUrl: scene.voiceoverUrl || null,
           reference_mode: scene.referenceMode || null,
+          image_url: sceneImageUrl,
         }),
       });
       const { jobId, error: submitErr } = await submitRes.json();
