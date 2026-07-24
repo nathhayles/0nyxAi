@@ -3,15 +3,15 @@ import SEO from "../components/SEO";
 
 export default function PrivacyPage() {
   return (
-    <div className="page" style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px", color: "#e2e8f0", fontFamily: "sans-serif", lineHeight: 1.7 }}>
+    <div className="page" style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px", color: "var(--onyx-text)", fontFamily: "sans-serif", lineHeight: 1.7 }}>
       <SEO
         title="Privacy Policy"
         description="Onyx Reelz Privacy Policy describing what data we collect, how it's processed, and which third-party services we use."
         path="/privacy"
       />
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Privacy Policy</h1>
-      <p style={{ color: "#64748b", marginBottom: 8 }}>Last updated: May 2026</p>
-      <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 40 }}>
+      <p style={{ color: "var(--onyx-text-faint)", marginBottom: 8 }}>Last updated: May 2026</p>
+      <p style={{ color: "var(--onyx-text-dim)", fontSize: 14, lineHeight: 1.6, marginBottom: 40 }}>
         Onyx Reelz<br />
         128 City Road<br />
         London, United Kingdom<br />
@@ -73,7 +73,7 @@ export default function PrivacyPage() {
 
       <h2 style={{ fontSize: 20, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>11. Contact</h2>
       <p>For privacy-related questions, contact us at <a href="mailto:support@onyx-reelz.com" style={{ color: "#4dd0ff" }}>support@onyx-reelz.com</a>.</p>
-      <p style={{ marginTop: 16, color: "#94a3b8", fontSize: 14, lineHeight: 1.6 }}>
+      <p style={{ marginTop: 16, color: "var(--onyx-text-dim)", fontSize: 14, lineHeight: 1.6 }}>
         Onyx Reelz<br />
         128 City Road<br />
         London, United Kingdom<br />
