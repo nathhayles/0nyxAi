@@ -74,8 +74,12 @@ export default function Publish() {
       .then(r => r.ok ? r.json() : Promise.reject(new Error("Failed to load TikTok account options")))
       .then(info => {
         setTiktokInfo(info);
-        const options = info.privacy_level_options || [];
-        setTiktokPrivacy(options.includes("PUBLIC_TO_EVERYONE") ? "PUBLIC_TO_EVERYONE" : (options[0] || ""));
+        // No default privacy value, deliberately -- TikTok's guideline requires
+        // the user to make an explicit selection, not have one silently
+        // pre-chosen for them. tiktokPrivacy stays "" until they pick one; the
+        // dropdown shows a disabled placeholder option, and publish is blocked
+        // until a real choice is made (see handlePublishNow).
+        setTiktokPrivacy("");
         setTiktokAllowComment(!info.comment_disabled);
         setTiktokAllowDuet(!info.duet_disabled);
         setTiktokAllowStitch(!info.stitch_disabled);
@@ -145,6 +149,7 @@ export default function Publish() {
     if (!selectedProject) return setMsg({ text: "Select a project first", type: "error" });
     if (selectedPlatforms.length === 0) return setMsg({ text: "Select at least one platform", type: "error" });
     if (!canAutopost) return setMsg({ text: "Auto-posting requires an upgrade.", type: "error" });
+    if (selectedPlatforms.includes("tiktok") && !tiktokPrivacy) return setMsg({ text: "Choose who can view this video on TikTok before publishing.", type: "error" });
     setSubmitting(true); setMsg({ text: "", type: "" });
     const results = [];
     const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` };
@@ -343,6 +348,7 @@ export default function Publish() {
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ fontSize: 12, color: "#94a3b8" }}>Who can view this video</label>
                   <select style={{ ...inputS }} value={tiktokPrivacy} onChange={e => setTiktokPrivacy(e.target.value)}>
+                    <option value="" disabled>Select who can view this video…</option>
                     {(tiktokInfo.privacy_level_options || []).map(opt => (
                       <option key={opt} value={opt} disabled={tiktokBrandContent && opt === "SELF_ONLY"}>
                         {PRIVACY_LABELS[opt] || opt}{tiktokBrandContent && opt === "SELF_ONLY" ? " (unavailable for branded content)" : ""}
@@ -388,7 +394,7 @@ export default function Publish() {
                   </div>
                 )}
                 <div style={{ fontSize: 12, color: "#94a3b8" }}>
-                  By posting, you agree to TikTok's {(tiktokBrandOrganic || tiktokBrandContent) ? "Branded Content Policy and " : ""}Music Usage Confirmation.
+                  By posting, you agree to TikTok's {tiktokBrandContent ? "Branded Content Policy and " : ""}Music Usage Confirmation.
                 </div>
               </>
             )}
