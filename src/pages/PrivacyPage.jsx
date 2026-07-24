@@ -44,7 +44,7 @@ export default function PrivacyPage() {
       <p>When you connect a social media account (Instagram, LinkedIn), we store an access token that allows us to publish content on your behalf. We only publish content when you explicitly initiate a publish action. We do not read your social media feed, contacts, or private messages. You can disconnect any social account at any time from your Account settings, which revokes our access.</p>
 
       <h2 style={{ fontSize: 20, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>4a. TikTok</h2>
-      <p>When you connect TikTok, we request the <code>user.info.basic</code>, <code>video.publish</code> and <code>video.upload</code> permissions. The only information we read from your TikTok account at connection time is your <code>open_id</code> — a unique account identifier. We do not read your profile information, follower data, or video list.</p>
+      <p>When you connect TikTok, we request only the <code>video.publish</code> permission. The only information we read from your TikTok account at connection time is your <code>open_id</code> — a unique account identifier. We do not read your profile information, follower data, or video list.</p>
       <p>We write to your TikTok account only when you explicitly publish a video through Onyx Reelz, including the caption text, hashtags, and your chosen privacy, duet, comment and stitch settings for that post.</p>
       <p>Your TikTok access token is stored securely and used only to publish content on your behalf when you choose to post. When you disconnect TikTok, we revoke your access token directly with TikTok's servers and delete our stored copy immediately — your token can no longer be used by us or anyone after disconnecting.</p>
 
