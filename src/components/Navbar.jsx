@@ -218,6 +218,7 @@ export default function Navbar({ session }) {
               { label: "Studio",       to: "/studio" },
               { label: "Content Plan", to: "/content-plan" },
               { label: "Characters",   to: "/characters" },
+              { label: "Learn",        to: "/learn" },
               { label: "Pricing",      to: "/pricing" },
             ].map(({ label, to }) => (
               <Link key={to} to={to} className="onyx-nav__link">{label}</Link>
