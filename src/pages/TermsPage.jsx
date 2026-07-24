@@ -2,15 +2,15 @@ import SEO from "../components/SEO";
 
 export default function TermsPage() {
   return (
-    <div className="page" style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px", color: "#e2e8f0", fontFamily: "sans-serif", lineHeight: 1.7 }}>
+    <div className="page" style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px", color: "var(--onyx-text)", fontFamily: "sans-serif", lineHeight: 1.7 }}>
       <SEO
         title="Terms of Service"
         description="Terms of Service for Onyx Reelz, covering account usage, payments, subscriptions, content ownership, and acceptable use."
         path="/terms"
       />
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Terms of Service</h1>
-      <p style={{ color: "#64748b", marginBottom: 8 }}>Last updated: June 9, 2026</p>
-      <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 40 }}>
+      <p style={{ color: "var(--onyx-text-faint)", marginBottom: 8 }}>Last updated: June 9, 2026</p>
+      <p style={{ color: "var(--onyx-text-dim)", fontSize: 14, lineHeight: 1.6, marginBottom: 40 }}>
         Onyx Reelz<br />
         128 City Road<br />
         London, United Kingdom<br />
@@ -114,7 +114,7 @@ export default function TermsPage() {
       <h2 style={{ fontSize: 20, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>12. Contact</h2>
       <p>For questions about these Terms of Service, contact us at <a href="mailto:support@onyx-reelz.com" style={{ color: "#4dd0ff" }}>support@onyx-reelz.com</a>.</p>
       <p style={{ marginTop: 8 }}>For DMCA takedown notices, contact: <a href="mailto:dmca@onyx-reelz.com" style={{ color: "#4dd0ff" }}>dmca@onyx-reelz.com</a>.</p>
-      <p style={{ marginTop: 16, color: "#94a3b8", fontSize: 14, lineHeight: 1.6 }}>
+      <p style={{ marginTop: 16, color: "var(--onyx-text-dim)", fontSize: 14, lineHeight: 1.6 }}>
         Onyx Reelz<br />
         128 City Road<br />
         London, United Kingdom<br />
