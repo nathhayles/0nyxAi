@@ -19,42 +19,57 @@ export default function LearnWanPrompting() {
         How to write prompts for Wan, our fast and affordable AI video model.
       </p>
 
-      <h2 style={h2Style}>Onyx Reelz's fastest, most affordable model</h2>
+      <h2 style={h2Style}>Built for speed and iteration</h2>
       <p style={pStyle}>
-        Wan is built for speed and value — ideal for drafts, iteration, and
-        high-volume content where you want to try ideas quickly before
-        committing credits to a higher-tier generation.
+        Wan is Onyx Reelz's fastest and most affordable video model — the right
+        tool when you want to test an idea quickly, generate a high volume of
+        content, or draft several variations before committing real credits to
+        a final, polished render.
       </p>
 
-      <h2 style={h2Style}>Same core structure as any strong video prompt</h2>
+      <h2 style={h2Style}>The same prompt structure, kept concrete</h2>
       <p style={pStyle}>
-        Subject and action first, then camera, then lighting and style — see our{" "}
+        Subject and action first, then camera, then lighting and style — the
+        same order that works across every model on Onyx Reelz. See our{" "}
         <Link to="/learn/camera-glossary" style={{ color: "var(--onyx-cyan)" }}>Camera Glossary</Link>{" "}
-        for camera movement and shot composition terms. Keep it concrete —
-        specific nouns and verbs outperform vague mood words every time.
+        for camera movement and shot composition terms. Because Wan is often
+        used for rapid iteration, it's worth being especially concrete rather
+        than relying on the model to fill in vague gaps: specific nouns and
+        verbs consistently outperform mood-only language like "epic" or
+        "cinematic" on their own.
       </p>
 
-      <h2 style={h2Style}>Seed-locking: draft cheap, then upgrade</h2>
+      <h2 style={h2Style}>Seed-locking: Wan's real advantage</h2>
       <p style={pStyle}>
-        Wan supports a reproducible seed. Generate a rough draft first, and once
-        you're happy with the composition and motion, reuse the same seed on a
-        longer or higher-quality re-run — you get the same shot, just refined,
-        instead of a new roll of the dice. Kling doesn't support this, so Wan
-        and Veo are your go-to models when you want to lock in a look before
-        spending more.
+        Unlike Kling, Wan supports a reproducible seed — a number that
+        determines the specific random variation the model uses to generate a
+        clip. Generate a rough draft first without worrying about final
+        quality. Once you're happy with the composition, camera movement, and
+        overall feel, reuse that exact seed on a longer or higher-resolution
+        re-run. You get the same underlying shot, refined — not a fresh roll of
+        the dice that might land somewhere completely different.
+      </p>
+      <p style={pStyle}>
+        This workflow is genuinely useful for anyone iterating on a specific
+        look: draft cheap on Wan, lock the seed the moment something clicks,
+        then decide whether to finalize on Wan itself or carry the same seed
+        into Veo for a quality upgrade.
       </p>
 
       <h2 style={h2Style}>One action per scene</h2>
       <p style={pStyle}>
-        Like every model on Onyx Reelz, Wan performs best with a single, clear
-        motion per clip rather than several actions stacked together.
+        Same principle as every model here — a single, clearly described motion
+        produces sharper, more predictable results than several actions
+        competing for the same few seconds of clip.
       </p>
 
       <h2 style={h2Style}>When to reach for Wan</h2>
       <p style={pStyle}>
-        Choose it for early drafts, testing an idea's composition and pacing,
-        or high-volume content where the cheapest generation cost matters more
-        than maximum visual fidelity.
+        Choose Wan for early-stage drafts, testing whether a scene's
+        composition and pacing work before spending more on a higher tier, or
+        for high-volume content where the lowest generation cost matters more
+        than maximum visual fidelity. It's also the natural starting point for
+        the seed-lock workflow described above.
       </p>
 
       <p style={{ ...pStyle, marginBottom: 0 }}>

@@ -19,39 +19,49 @@ export default function LearnVeoPrompting() {
         How to get the best results from Google's Veo 3.1, our highest-fidelity AI video model.
       </p>
 
-      <h2 style={h2Style}>Google's highest-fidelity video model</h2>
+      <h2 style={h2Style}>Google's highest-fidelity model on Onyx Reelz</h2>
       <p style={pStyle}>
-        Veo 3.1 is our top-tier model for visual quality — sharp detail, native
-        vertical framing, and support for longer, continuous scenes.
+        Veo 3.1 is our top-tier model for raw visual quality — sharper detail,
+        genuinely native vertical framing (rather than a landscape shot cropped
+        to fit), and support for longer, more continuous scenes than our other
+        engines typically handle well.
       </p>
 
-      <h2 style={h2Style}>Structure your prompt with intention</h2>
+      <h2 style={h2Style}>Prompt with real intention</h2>
       <p style={pStyle}>
-        Subject and action first, then{" "}
+        The same subject-then-{" "}
         <Link to="/learn/camera-glossary" style={{ color: "var(--onyx-cyan)" }}>camera movement, shot composition</Link>
-        , lighting, and style — the same proven order that works across every
-        model on Onyx Reelz. Veo rewards real specificity: name the actual
-        lighting condition, the actual lens behavior, not just "cinematic."
+        -then-lighting structure applies, but Veo rewards precision more than
+        most. Naming the actual lighting condition — "overcast diffuse
+        daylight" rather than just "nice lighting" — or the actual lens
+        behavior — "shallow depth of field, soft background blur" rather than
+        "cinematic" — tends to produce noticeably more controlled,
+        intentional-looking results.
       </p>
 
-      <h2 style={h2Style}>Seed-locking is supported</h2>
+      <h2 style={h2Style}>Seed-locking, same as Wan</h2>
       <p style={pStyle}>
-        Like Wan, Veo lets you fix a seed and reuse it — draft a composition,
-        lock it in, then re-run at higher settings without losing the shot you
-        liked.
+        Veo 3.1 also supports a reproducible seed, the same workflow described
+        in our Wan guide: draft a composition, lock in the seed once it's
+        right, then re-run at higher settings without losing the specific shot
+        you liked. This makes Veo a natural "finishing" step after drafting on
+        Wan — carry the seed forward, upgrade the quality.
       </p>
 
       <h2 style={h2Style}>One action per scene</h2>
       <p style={pStyle}>
-        A single, clearly described motion produces sharper, more predictable
-        results than stacking multiple beats into one clip.
+        As with every model, a single well-described motion outperforms
+        several actions stacked into one short clip.
       </p>
 
       <h2 style={h2Style}>When to reach for Veo 3.1</h2>
       <p style={pStyle}>
-        Choose it when visual quality is the priority — hero shots, key scenes
-        in a narrative, anything meant to be the best-looking clip in your
-        reel.
+        Choose Veo when visual quality is genuinely the priority — a hero shot
+        in a reel, a key narrative beat, or any clip meant to be the
+        best-looking moment in your video. It costs more than Kling, and the
+        difference is most visible in detail-heavy or texture-heavy scenes —
+        skin, fabric, water, reflective surfaces — where Veo's extra fidelity
+        actually shows.
       </p>
 
       <p style={{ ...pStyle, marginBottom: 0 }}>
