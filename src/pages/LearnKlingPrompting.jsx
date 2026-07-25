@@ -38,6 +38,16 @@ export default function LearnKlingPrompting() {
       </p>
 
       <h2 style={h2Style}>The four-part structure</h2>
+      <svg viewBox="0 0 500 100" role="img" aria-labelledby="kling-structure-title" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        <title id="kling-structure-title">Kling AI video prompt structure: subject and action, then camera movement, then shot composition, then lighting and style</title>
+        {["Subject & Action", "Camera Movement", "Shot Composition", "Lighting & Style"].map((label, i) => (
+          <g key={label} transform={`translate(${i * 125 + 5}, 20)`}>
+            <rect width="110" height="55" rx="6" fill="none" stroke="var(--onyx-cyan)" />
+            <text x="55" y="32" textAnchor="middle" fill="var(--onyx-text)" fontSize="10">{label}</text>
+            {i < 3 && <text x="118" y="35" fill="var(--onyx-text-faint)" fontSize="16">→</text>}
+          </g>
+        ))}
+      </svg>
       <p style={pStyle}>Every strong Kling prompt covers four things, roughly in this order:</p>
       <ol style={olStyle}>
         <li style={liStyle}>
@@ -84,6 +94,15 @@ export default function LearnKlingPrompting() {
       </p>
 
       <h2 style={h2Style}>Reference tags: @Element1, @Element2</h2>
+      <svg viewBox="0 0 400 140" role="img" aria-labelledby="kling-element-tag-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <title id="kling-element-tag-title">How Kling's @Element1 reference tag binds to an uploaded character reference photo</title>
+        <rect x="20" y="30" width="90" height="70" rx="6" fill="var(--onyx-text-dim)" />
+        <text x="65" y="115" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">Reference photo</text>
+        <line x1="115" y1="65" x2="220" y2="65" stroke="var(--onyx-cyan)" strokeWidth="1.5" />
+        <rect x="225" y="35" width="150" height="55" rx="6" fill="none" stroke="var(--onyx-hairline-strong)" />
+        <text x="300" y="58" textAnchor="middle" fill="var(--onyx-text)" fontSize="11" fontFamily="monospace">@Element1</text>
+        <text x="300" y="75" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="9">in your prompt</text>
+      </svg>
       <p style={pStyle}>
         When you tag a Character from your library directly in a prompt —
         @Element1 — Kling doesn't render that text on screen. Instead, it binds

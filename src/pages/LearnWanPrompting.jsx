@@ -26,6 +26,16 @@ export default function LearnWanPrompting() {
         content, or draft several variations before committing real credits to
         a final, polished render.
       </p>
+      <svg viewBox="0 0 400 140" role="img" aria-labelledby="wan-cost-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <title id="wan-cost-title">Wan is Onyx Reelz's fastest and most affordable AI video generation model</title>
+        {[["Wan", 30, "var(--onyx-cyan)"], ["Kling", 60, "var(--onyx-text-dim)"], ["Veo 3.1", 100, "var(--onyx-text-dim)"]].map(([label, w, color], i) => (
+          <g key={label} transform={`translate(10, ${i * 40 + 10})`}>
+            <text x="0" y="14" fill="var(--onyx-text)" fontSize="10">{label}</text>
+            <rect x="60" y="2" width={w} height="16" rx="3" fill={color} />
+          </g>
+        ))}
+        <text x="10" y="135" fill="var(--onyx-text-faint)" fontSize="9">Relative generation cost</text>
+      </svg>
 
       <h2 style={h2Style}>The same prompt structure, kept concrete</h2>
       <p style={pStyle}>
@@ -40,6 +50,16 @@ export default function LearnWanPrompting() {
       </p>
 
       <h2 style={h2Style}>Seed-locking: Wan's real advantage</h2>
+      <svg viewBox="0 0 500 100" role="img" aria-labelledby="wan-seedlock-title" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        <title id="wan-seedlock-title">Wan seed-locking workflow: draft cheaply, lock the seed, then upgrade quality without losing the composition</title>
+        {["Draft (cheap)", "Lock seed", "Upgrade quality"].map((label, i) => (
+          <g key={label} transform={`translate(${i * 170 + 5}, 20)`}>
+            <rect width="150" height="55" rx="6" fill="none" stroke="var(--onyx-cyan)" />
+            <text x="75" y="32" textAnchor="middle" fill="var(--onyx-text)" fontSize="11">{label}</text>
+            {i < 2 && <text x="160" y="35" fill="var(--onyx-text-faint)" fontSize="16">→</text>}
+          </g>
+        ))}
+      </svg>
       <p style={pStyle}>
         Unlike Kling, Wan supports a reproducible seed — a number that
         determines the specific random variation the model uses to generate a

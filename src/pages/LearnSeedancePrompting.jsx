@@ -53,6 +53,18 @@ export default function LearnSeedancePrompting() {
       </p>
 
       <h2 style={h2Style}>Native audio, genuinely included</h2>
+      <svg viewBox="0 0 500 140" role="img" aria-labelledby="seedance-audio-title" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        <title id="seedance-audio-title">Seedance 2.0 generates video and audio together in one pass, unlike other AI video models that need a separate lip-sync step</title>
+        <text x="10" y="20" fill="var(--onyx-text-faint)" fontSize="11">Other models</text>
+        <rect x="10" y="35" width="120" height="40" rx="6" fill="none" stroke="var(--onyx-hairline-strong)" />
+        <text x="70" y="59" textAnchor="middle" fill="var(--onyx-text)" fontSize="10">Video</text>
+        <text x="155" y="59" fill="var(--onyx-text-faint)" fontSize="14">→</text>
+        <rect x="180" y="35" width="120" height="40" rx="6" fill="none" stroke="var(--onyx-hairline-strong)" />
+        <text x="240" y="59" textAnchor="middle" fill="var(--onyx-text)" fontSize="10">Separate audio/lip-sync</text>
+        <text x="10" y="105" fill="var(--onyx-cyan)" fontSize="11">Seedance 2.0</text>
+        <rect x="10" y="115" width="290" height="20" rx="6" fill="none" stroke="var(--onyx-cyan)" />
+        <text x="155" y="129" textAnchor="middle" fill="var(--onyx-text)" fontSize="10">Video + audio, one pass</text>
+      </svg>
       <p style={pStyle}>
         This is Seedance 2.0's real differentiator. Dialogue, ambient sound, and
         music are generated as part of the same pass as the video — matched to
@@ -81,6 +93,14 @@ export default function LearnSeedancePrompting() {
       </p>
 
       <h2 style={h2Style}>When to reach for Seedance 2.0</h2>
+      <svg viewBox="0 0 400 100" role="img" aria-labelledby="seedance-usecase-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <title id="seedance-usecase-title">Seedance 2.0 is best suited for scenes with complex physical motion like dance, sports, and action</title>
+        <line x1="20" y1="60" x2="380" y2="60" stroke="var(--onyx-hairline-strong)" />
+        <text x="20" y="80" fill="var(--onyx-text-faint)" fontSize="9">Simple dialogue</text>
+        <text x="340" y="80" fill="var(--onyx-cyan)" fontSize="9">Action / dance / sports</text>
+        <circle cx="340" cy="60" r="8" fill="var(--onyx-cyan)" />
+        <text x="200" y="40" textAnchor="middle" fill="var(--onyx-text)" fontSize="11">Motion complexity →</text>
+      </svg>
       <p style={pStyle}>
         Choose it for scenes with genuine physical complexity — a dance
         sequence, an action beat, sports footage, anything where realistic

@@ -26,6 +26,16 @@ export default function LearnVeoPrompting() {
         to fit), and support for longer, more continuous scenes than our other
         engines typically handle well.
       </p>
+      <svg viewBox="0 0 400 140" role="img" aria-labelledby="veo-fidelity-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <title id="veo-fidelity-title">Veo 3.1 offers the highest visual fidelity of Onyx Reelz's AI video models, with native vertical framing</title>
+        {[["Wan", 40], ["Kling", 65], ["Veo 3.1", 95]].map(([label, w], i) => (
+          <g key={label} transform={`translate(10, ${i * 40 + 10})`}>
+            <text x="0" y="14" fill="var(--onyx-text)" fontSize="10">{label}</text>
+            <rect x="60" y="2" width={w} height="16" rx="3" fill={label === "Veo 3.1" ? "var(--onyx-cyan)" : "var(--onyx-text-dim)"} />
+          </g>
+        ))}
+        <text x="10" y="135" fill="var(--onyx-text-faint)" fontSize="9">Relative visual fidelity</text>
+      </svg>
 
       <h2 style={h2Style}>Prompt with real intention</h2>
       <p style={pStyle}>
@@ -40,6 +50,16 @@ export default function LearnVeoPrompting() {
       </p>
 
       <h2 style={h2Style}>Seed-locking, same as Wan</h2>
+      <svg viewBox="0 0 500 100" role="img" aria-labelledby="veo-seedlock-title" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        <title id="veo-seedlock-title">Veo 3.1 supports seed-locking, letting you finalize a composition drafted on Wan at higher quality</title>
+        {["Draft on Wan", "Lock seed", "Finish on Veo 3.1"].map((label, i) => (
+          <g key={label} transform={`translate(${i * 170 + 5}, 20)`}>
+            <rect width="150" height="55" rx="6" fill="none" stroke="var(--onyx-cyan)" />
+            <text x="75" y="32" textAnchor="middle" fill="var(--onyx-text)" fontSize="11">{label}</text>
+            {i < 2 && <text x="160" y="35" fill="var(--onyx-text-faint)" fontSize="16">→</text>}
+          </g>
+        ))}
+      </svg>
       <p style={pStyle}>
         Veo 3.1 also supports a reproducible seed, the same workflow described
         in our Wan guide: draft a composition, lock in the seed once it's
