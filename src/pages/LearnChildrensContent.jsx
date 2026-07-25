@@ -41,6 +41,18 @@ export default function LearnChildrensContent() {
         works, see our{" "}
         <Link to="/learn/character-consistency" style={{ color: "var(--onyx-cyan)" }}>Character Consistency Guide</Link>.
       </p>
+      <svg viewBox="0 0 500 160" role="img" aria-labelledby="kids-mascot-title" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        <title id="kids-mascot-title">A consistent animated character or mascot built from reference photos in the Character Library, used across multiple episodes</title>
+        <circle cx="50" cy="80" r="30" fill="var(--onyx-cyan)" />
+        <text x="50" y="130" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">Mascot reference</text>
+        {[0, 1, 2].map(i => (
+          <g key={i}>
+            <line x1="85" y1="80" x2="180" y2={30 + i * 55} stroke="var(--onyx-cyan)" strokeWidth="1.5" />
+            <rect x="185" y={10 + i * 55} width="100" height="40" rx="6" fill="none" stroke="var(--onyx-hairline-strong)" />
+            <text x="235" y={35 + i * 55} textAnchor="middle" fill="var(--onyx-text)" fontSize="9">Episode {i + 1}</text>
+          </g>
+        ))}
+      </svg>
 
       <h2 style={h2Style}>Prompt for a lighter visual style</h2>
       <p style={pStyle}>
@@ -51,6 +63,13 @@ export default function LearnChildrensContent() {
         animation, bold clean linework, simple rounded shapes" gives the
         model a much clearer target than "cartoon style" alone.
       </p>
+      <svg viewBox="0 0 400 100" role="img" aria-labelledby="kids-style-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <title id="kids-style-title">Bright, flat-color visual style recommended for kids and animated AI video content</title>
+        {[0, 1, 2, 3, 4].map(i => (
+          <rect key={i} x={10 + i * 78} y="10" width="68" height="50" rx="8" fill="var(--onyx-cyan)" opacity={0.4 + i * 0.15} />
+        ))}
+        <text x="200" y="85" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">Bright, simple, flat color</text>
+      </svg>
 
       <h2 style={h2Style}>Keep scenes short and simple</h2>
       <p style={pStyle}>

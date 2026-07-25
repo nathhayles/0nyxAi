@@ -31,6 +31,15 @@ export default function LearnInfluencerContent() {
         <Link to="/learn/character-consistency" style={{ color: "var(--onyx-cyan)" }}>Character Consistency Guide</Link>{" "}
         for the full walkthrough.
       </p>
+      <svg viewBox="0 0 400 120" role="img" aria-labelledby="influencer-presence-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <title id="influencer-presence-title">A consistent creator persona held the same across every published reel</title>
+        {[0, 1, 2, 3].map(i => (
+          <g key={i} transform={`translate(${i * 95 + 15}, 10)`}>
+            <circle cx="35" cy="35" r="22" fill="var(--onyx-cyan)" opacity={0.6 + i * 0.1} />
+            <text x="35" y="85" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="9">Reel {i + 1}</text>
+          </g>
+        ))}
+      </svg>
 
       <h2 style={h2Style}>From idea to published post, in one place</h2>
       <p style={pStyle}>
@@ -41,6 +50,16 @@ export default function LearnInfluencerContent() {
         volume: creators publishing daily or near-daily benefit enormously
         from cutting the manual steps between an idea and a live post.
       </p>
+      <svg viewBox="0 0 500 100" role="img" aria-labelledby="influencer-pipeline-title" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        <title id="influencer-pipeline-title">From AI video generation to publishing on TikTok, all in one platform</title>
+        {["Generate", "Voice & captions", "Publish to TikTok"].map((label, i) => (
+          <g key={label} transform={`translate(${i * 170 + 5}, 20)`}>
+            <rect width="150" height="55" rx="6" fill="none" stroke="var(--onyx-cyan)" />
+            <text x="75" y="32" textAnchor="middle" fill="var(--onyx-text)" fontSize="11">{label}</text>
+            {i < 2 && <text x="160" y="35" fill="var(--onyx-text-faint)" fontSize="16">→</text>}
+          </g>
+        ))}
+      </svg>
 
       <h2 style={h2Style}>Motion reference for a signature style</h2>
       <p style={pStyle}>

@@ -42,6 +42,21 @@ export default function LearnHistoricalCinematic() {
         for the complete toolkit and when each choice actually earns its
         place in a scene.
       </p>
+      <svg viewBox="0 0 400 140" role="img" aria-labelledby="historical-angle-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <title id="historical-angle-title">Low camera angle conveys power in historical storytelling, high camera angle conveys vulnerability</title>
+        <g transform="translate(20,10)">
+          <polygon points="60,10 45,40 75,40" fill="var(--onyx-cyan)" />
+          <circle cx="60" cy="70" r="16" fill="var(--onyx-text-dim)" />
+          <text x="60" y="115" textAnchor="middle" fill="var(--onyx-text)" fontSize="10">Low angle</text>
+          <text x="60" y="130" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="9">powerful, heroic</text>
+        </g>
+        <g transform="translate(220,10)">
+          <circle cx="60" cy="40" r="16" fill="var(--onyx-text-dim)" />
+          <polygon points="60,100 45,70 75,70" fill="var(--onyx-cyan)" />
+          <text x="60" y="115" textAnchor="middle" fill="var(--onyx-text)" fontSize="10">High angle</text>
+          <text x="60" y="130" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="9">vulnerable, small</text>
+        </g>
+      </svg>
 
       <h2 style={h2Style}>Keep a character consistent across a long story</h2>
       <p style={pStyle}>
@@ -65,6 +80,16 @@ export default function LearnHistoricalCinematic() {
         often what separates something that feels like a real story from a
         series of disconnected clips.
       </p>
+      <svg viewBox="0 0 500 100" role="img" aria-labelledby="historical-chain-title" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        <title id="historical-chain-title">Character Lock chains multiple scenes together for continuous historical narrative storytelling</title>
+        {[0, 1, 2, 3].map(i => (
+          <g key={i} transform={`translate(${i * 125 + 10}, 20)`}>
+            <rect width="100" height="55" rx="6" fill="none" stroke="var(--onyx-cyan)" />
+            <text x="50" y="32" textAnchor="middle" fill="var(--onyx-text)" fontSize="10">Scene {i + 1}</text>
+            {i < 3 && <text x="108" y="35" fill="var(--onyx-text-faint)" fontSize="14">→</text>}
+          </g>
+        ))}
+      </svg>
 
       <h2 style={h2Style}>Choosing the right model for dramatic weight</h2>
       <p style={pStyle}>

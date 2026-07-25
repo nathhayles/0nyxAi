@@ -36,6 +36,17 @@ export default function LearnMusicPromotion() {
         genuinely useful for promoting a release without needing separate
         audio production tools.
       </p>
+      <svg viewBox="0 0 400 120" role="img" aria-labelledby="music-stems-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <title id="music-stems-title">Fadr stem separation splits a song into isolated vocal and instrumental tracks</title>
+        <rect x="10" y="40" width="80" height="30" rx="6" fill="var(--onyx-text-dim)" />
+        <text x="50" y="90" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="9">Original track</text>
+        <line x1="95" y1="55" x2="160" y2="30" stroke="var(--onyx-cyan)" strokeWidth="1.5" />
+        <line x1="95" y1="55" x2="160" y2="80" stroke="var(--onyx-cyan)" strokeWidth="1.5" />
+        <rect x="165" y="15" width="90" height="30" rx="6" fill="none" stroke="var(--onyx-cyan)" />
+        <text x="210" y="34" textAnchor="middle" fill="var(--onyx-text)" fontSize="9">Vocals</text>
+        <rect x="165" y="65" width="90" height="30" rx="6" fill="none" stroke="var(--onyx-cyan)" />
+        <text x="210" y="84" textAnchor="middle" fill="var(--onyx-text)" fontSize="9">Instrumental</text>
+      </svg>
 
       <h2 style={h2Style}>Sync visuals to your music's energy</h2>
       <p style={pStyle}>
@@ -49,6 +60,15 @@ export default function LearnMusicPromotion() {
         <Link to="/learn/camera-glossary" style={{ color: "var(--onyx-cyan)" }}>Camera Glossary</Link>{" "}
         covers the full vocabulary.
       </p>
+      <svg viewBox="0 0 400 100" role="img" aria-labelledby="music-tempo-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <title id="music-tempo-title">Matching camera cut pace and movement to a music track's tempo and energy</title>
+        <text x="10" y="20" fill="var(--onyx-text-faint)" fontSize="9">Slow section</text>
+        <rect x="10" y="30" width="170" height="20" rx="4" fill="var(--onyx-text-dim)" />
+        <text x="220" y="20" fill="var(--onyx-cyan)" fontSize="9">High-energy section</text>
+        {[0, 1, 2, 3, 4].map(i => (
+          <rect key={i} x={220 + i * 33} y="30" width="28" height="20" rx="3" fill="var(--onyx-cyan)" />
+        ))}
+      </svg>
 
       <h2 style={h2Style}>Consistent artist presence</h2>
       <p style={pStyle}>

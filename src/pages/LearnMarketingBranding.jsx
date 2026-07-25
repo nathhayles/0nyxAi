@@ -28,6 +28,14 @@ export default function LearnMarketingBranding() {
         manually recreating that consistency scene by scene is both slow and
         error-prone.
       </p>
+      <svg viewBox="0 0 400 120" role="img" aria-labelledby="marketing-brand-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <title id="marketing-brand-title">Consistent brand color palette and identity applied across every marketing video</title>
+        <rect x="10" y="10" width="20" height="80" fill="var(--onyx-cyan)" />
+        {[0, 1, 2].map(i => (
+          <rect key={i} x={60 + i * 110} y="10" width="90" height="80" rx="6" fill="none" stroke="var(--onyx-cyan)" strokeWidth="2" />
+        ))}
+        <text x="200" y="110" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">Same palette, every reel</text>
+      </svg>
 
       <h2 style={h2Style}>A recurring brand presenter</h2>
       <p style={pStyle}>
@@ -60,6 +68,13 @@ export default function LearnMarketingBranding() {
         points into a single shot usually dilutes all of them — better to let
         each scene do one job well.
       </p>
+      <svg viewBox="0 0 400 100" role="img" aria-labelledby="marketing-message-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <title id="marketing-message-title">One clear product message and call to action per marketing video scene</title>
+        <rect x="10" y="20" width="380" height="30" rx="6" fill="none" stroke="var(--onyx-hairline-strong)" />
+        <text x="200" y="40" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">Multiple messages = diluted</text>
+        <rect x="10" y="60" width="380" height="30" rx="6" fill="none" stroke="var(--onyx-cyan)" strokeWidth="2" />
+        <text x="200" y="80" textAnchor="middle" fill="var(--onyx-text)" fontSize="10">One message = clear</text>
+      </svg>
 
       <h2 style={h2Style}>Choosing a model for commercial content</h2>
       <p style={pStyle}>
