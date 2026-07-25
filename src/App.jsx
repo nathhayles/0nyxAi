@@ -19,6 +19,7 @@ const Earn = lazy(() => import("./pages/Earn"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const Learn = lazy(() => import("./pages/Learn"));
 const LearnKlingPrompting = lazy(() => import("./pages/LearnKlingPrompting"));
+const LearnSeedancePrompting = lazy(() => import("./pages/LearnSeedancePrompting"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const Account = lazy(() => import("./pages/Account"));
 const Preview = lazy(() => import("./pages/Preview"));
@@ -357,6 +358,7 @@ export default function App() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/learn" element={<Learn />} />
         <Route path="/learn/kling-prompting" element={<LearnKlingPrompting />} />
+        <Route path="/learn/seedance-prompting" element={<LearnSeedancePrompting />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/account" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Account /></ProtectedRoute>} />
         <Route path="/branding" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><BrandingPanel onApply={(brand) => navigate("/projects", { state: { applyBrandId: brand.id } })} /></ProtectedRoute>} />

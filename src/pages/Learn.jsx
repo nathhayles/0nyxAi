@@ -10,6 +10,11 @@ const GUIDES = [
     description: "How to write prompts that get the most out of Kling video generation.",
     to: "/learn/kling-prompting",
   },
+  {
+    title: "Seedance 2.0 Prompting Guide",
+    description: "How to get the best results from Seedance 2.0, our premium AI video model with native audio generation.",
+    to: "/learn/seedance-prompting",
+  },
 ];
 
 export default function Learn() {
