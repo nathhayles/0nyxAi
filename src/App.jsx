@@ -25,6 +25,11 @@ const LearnVeoPrompting = lazy(() => import("./pages/LearnVeoPrompting"));
 const LearnChoosingAModel = lazy(() => import("./pages/LearnChoosingAModel"));
 const LearnCharacterConsistency = lazy(() => import("./pages/LearnCharacterConsistency"));
 const LearnCameraGlossary = lazy(() => import("./pages/LearnCameraGlossary"));
+const LearnChildrensContent = lazy(() => import("./pages/LearnChildrensContent"));
+const LearnHistoricalCinematic = lazy(() => import("./pages/LearnHistoricalCinematic"));
+const LearnMarketingBranding = lazy(() => import("./pages/LearnMarketingBranding"));
+const LearnInfluencerContent = lazy(() => import("./pages/LearnInfluencerContent"));
+const LearnMusicPromotion = lazy(() => import("./pages/LearnMusicPromotion"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const Account = lazy(() => import("./pages/Account"));
 const Preview = lazy(() => import("./pages/Preview"));
@@ -369,6 +374,11 @@ export default function App() {
         <Route path="/learn/choosing-a-model" element={<LearnChoosingAModel />} />
         <Route path="/learn/character-consistency" element={<LearnCharacterConsistency />} />
         <Route path="/learn/camera-glossary" element={<LearnCameraGlossary />} />
+        <Route path="/learn/childrens-content" element={<LearnChildrensContent />} />
+        <Route path="/learn/historical-cinematic" element={<LearnHistoricalCinematic />} />
+        <Route path="/learn/marketing-branding" element={<LearnMarketingBranding />} />
+        <Route path="/learn/influencer-content" element={<LearnInfluencerContent />} />
+        <Route path="/learn/music-promotion" element={<LearnMusicPromotion />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/account" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Account /></ProtectedRoute>} />
         <Route path="/branding" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><BrandingPanel onApply={(brand) => navigate("/projects", { state: { applyBrandId: brand.id } })} /></ProtectedRoute>} />

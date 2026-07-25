@@ -40,6 +40,31 @@ const GUIDES = [
     description: "A plain-English glossary of camera movements and shot compositions for your video prompts.",
     to: "/learn/camera-glossary",
   },
+  {
+    title: "Creating Kids & Animated Content",
+    description: "How to create bright, family-friendly animated video content.",
+    to: "/learn/childrens-content",
+  },
+  {
+    title: "Historical & Cinematic Storytelling",
+    description: "How to create dramatic, film-quality historical and narrative content.",
+    to: "/learn/historical-cinematic",
+  },
+  {
+    title: "AI Video for Marketing & Brand Content",
+    description: "How to create branded, on-message video content for your business.",
+    to: "/learn/marketing-branding",
+  },
+  {
+    title: "AI Video for Influencers & Content Creators",
+    description: "How creators use Onyx Reelz to build a consistent on-screen presence and publish faster.",
+    to: "/learn/influencer-content",
+  },
+  {
+    title: "AI Video for Musicians & Music Promotion",
+    description: "How musicians use Onyx Reelz to create music videos, lyric videos, and promotional content.",
+    to: "/learn/music-promotion",
+  },
 ];
 
 export default function Learn() {
