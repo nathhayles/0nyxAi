@@ -15,6 +15,31 @@ const GUIDES = [
     description: "How to get the best results from Seedance 2.0, our premium AI video model with native audio generation.",
     to: "/learn/seedance-prompting",
   },
+  {
+    title: "Wan Prompting Guide",
+    description: "How to write prompts for Wan, our fast and affordable AI video model.",
+    to: "/learn/wan-prompting",
+  },
+  {
+    title: "Veo 3.1 Prompting Guide",
+    description: "How to get the best results from Google's Veo 3.1, our highest-fidelity AI video model.",
+    to: "/learn/veo-prompting",
+  },
+  {
+    title: "Choosing the Right AI Video Model",
+    description: "A guide to Onyx Reelz's AI video models — Wan, Kling, Veo, and Seedance — and when to use each one.",
+    to: "/learn/choosing-a-model",
+  },
+  {
+    title: "Character Consistency Guide",
+    description: "How to keep an AI-generated character looking the same across every scene, using the Character Library.",
+    to: "/learn/character-consistency",
+  },
+  {
+    title: "Camera Movement & Shot Composition Glossary",
+    description: "A plain-English glossary of camera movements and shot compositions for your video prompts.",
+    to: "/learn/camera-glossary",
+  },
 ];
 
 export default function Learn() {
