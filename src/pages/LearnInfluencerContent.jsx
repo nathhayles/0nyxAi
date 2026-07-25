@@ -21,37 +21,64 @@ export default function LearnInfluencerContent() {
 
       <h2 style={h2Style}>A consistent on-screen presence</h2>
       <p style={pStyle}>
-        Build a Character in your Character Library as your recurring
-        on-screen persona — the same face and appearance held consistently,
-        reel after reel. See our{" "}
+        Whatever your content niche, a recognizable, consistent on-screen
+        presence is often what turns casual viewers into a real following.
+        Build a Character in your{" "}
+        <Link to="/characters" style={{ color: "var(--onyx-cyan)" }}>Character Library</Link>{" "}
+        as your recurring on-screen persona — the same face and appearance
+        held consistently across every reel, without needing to film new
+        footage of yourself for every single piece of content. See our{" "}
         <Link to="/learn/character-consistency" style={{ color: "var(--onyx-cyan)" }}>Character Consistency Guide</Link>{" "}
         for the full walkthrough.
       </p>
 
-      <h2 style={h2Style}>From idea to published post</h2>
+      <h2 style={h2Style}>From idea to published post, in one place</h2>
       <p style={pStyle}>
-        Generate your video, add voiceover and captions, then publish directly
-        to TikTok and other platforms from inside Onyx Reelz — no manual
-        export-and-reupload step.
+        Generate your video, add voiceover and captions, then publish
+        directly to TikTok and other connected platforms from inside Onyx
+        Reelz — no manual export, no re-uploading, no switching between
+        separate tools for creation and publishing. This matters most at
+        volume: creators publishing daily or near-daily benefit enormously
+        from cutting the manual steps between an idea and a live post.
       </p>
 
-      <h2 style={h2Style}>Motion reference for signature moves</h2>
+      <h2 style={h2Style}>Motion reference for a signature style</h2>
       <p style={pStyle}>
-        Attach a motion reference clip to carry a specific movement or camera
-        style into a new generation — useful for building a recognizable
-        visual signature across your content.
+        Attach a motion reference clip to carry a specific movement, gesture,
+        or camera style into a new generation. If you've established a
+        particular visual signature — a specific way you move, a
+        recognizable camera style — motion reference lets you carry that
+        signature forward into new content rather than reinventing it from
+        scratch each time.
       </p>
 
       <h2 style={h2Style}>Stay compliant automatically</h2>
       <p style={pStyle}>
-        Onyx Reelz's TikTok publishing includes AI-content labeling, Music
-        Usage Confirmation, and privacy controls pulled live from your
-        connected account — built to keep your content compliant without you
-        having to think about it.
+        Onyx Reelz's TikTok publishing flow includes AI-content labeling, the
+        required Music Usage Confirmation, and privacy controls pulled live
+        from your connected account — built to keep your content compliant
+        with platform rules without you having to manually track
+        requirements that change over time.
       </p>
 
+      <h2 style={h2Style}>Choosing the right model for your content type</h2>
+      <p style={pStyle}>
+        High-volume, low-stakes content benefits from Wan's speed and low
+        cost. Anything built around your consistent on-screen character
+        benefits from Kling's Character Library integration. A single hero
+        piece meant to be your best work benefits from Veo 3.1's extra
+        fidelity. Our full{" "}
+        <Link to="/learn/choosing-a-model" style={{ color: "var(--onyx-cyan)" }}>model guide</Link>{" "}
+        walks through the complete tradeoffs.
+      </p>
+
+      <h2 style={h2Style}>Getting started</h2>
       <p style={{ ...pStyle, marginBottom: 0 }}>
-        Ready to try it? <Link to="/characters" style={{ color: "var(--onyx-cyan)" }}>Build your Character Library</Link> on Onyx Reelz.
+        Build your Character, connect your TikTok account, and start creating
+        on{" "}
+        <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Create</Link>{" "}
+        — from first generation to published post, without leaving the
+        platform.
       </p>
     </LearnPageLayout>
   );

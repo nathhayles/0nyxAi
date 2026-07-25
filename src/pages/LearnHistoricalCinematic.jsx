@@ -21,37 +21,72 @@ export default function LearnHistoricalCinematic() {
 
       <h2 style={h2Style}>Built for narrative from the ground up</h2>
       <p style={pStyle}>
-        Cinematic is Onyx Reelz's default creative mode — tuned for dramatic
-        lighting, considered camera work, and a genuine film look.
+        Cinematic is Onyx Reelz's default creative mode, tuned for dramatic
+        lighting, considered camera work, and a genuine film look rather than
+        a flat, commercial aesthetic. For historical drama, period
+        storytelling, or any narrative content where visual atmosphere
+        carries real weight, this is the natural starting point.
       </p>
 
-      <h2 style={h2Style}>Use the full camera vocabulary</h2>
+      <h2 style={h2Style}>Use the full camera vocabulary deliberately</h2>
       <p style={pStyle}>
-        Low angles for power, high angles for vulnerability, tracking shots
-        for immersion, crash zooms for urgency. See our{" "}
+        Cinematic storytelling depends on camera choices that mean something,
+        not just movement for its own sake. A low angle makes a figure feel
+        powerful or imposing — useful for a commanding historical leader or a
+        moment of triumph. A high angle does the opposite, making a subject
+        feel small or overwhelmed — fitting for a moment of defeat or
+        vulnerability. A slow tracking shot pulls a viewer into a scene's
+        motion; a static wide establishing shot lets a moment breathe. See
+        our full{" "}
         <Link to="/learn/camera-glossary" style={{ color: "var(--onyx-cyan)" }}>Camera Glossary</Link>{" "}
-        for the full toolkit and when to reach for each one.
+        for the complete toolkit and when each choice actually earns its
+        place in a scene.
       </p>
 
-      <h2 style={h2Style}>Keep characters consistent across a scene</h2>
+      <h2 style={h2Style}>Keep a character consistent across a long story</h2>
       <p style={pStyle}>
-        Historical and narrative content often needs the same character
-        across many scenes. Use the Character Library and Character Lock to
-        hold their appearance steady from the opening shot to the last — see
-        our{" "}
+        Historical and narrative content often follows the same character
+        across many scenes — sometimes an entire arc. Use the Character
+        Library and Character Lock to hold their appearance steady from the
+        opening shot to the last, rather than relying on a text description
+        that reinterprets them slightly differently each time. Our{" "}
         <Link to="/learn/character-consistency" style={{ color: "var(--onyx-cyan)" }}>Character Consistency Guide</Link>{" "}
-        for the full walkthrough.
+        covers the full setup.
       </p>
 
-      <h2 style={h2Style}>Chain scenes for continuity</h2>
+      <h2 style={h2Style}>Chain scenes for real continuity</h2>
       <p style={pStyle}>
-        Multi-scene pipelines carry visual continuity forward automatically —
-        lighting, setting, and character appearance flow from one scene into
-        the next rather than resetting each time.
+        A multi-scene pipeline with Character Lock enabled carries visual
+        continuity forward automatically — lighting, setting, and character
+        appearance flow from one scene into the next the way a real
+        continuous story would, rather than resetting with each new
+        generation. This matters especially for historical content, where
+        maintaining a believable, consistent world across many scenes is
+        often what separates something that feels like a real story from a
+        series of disconnected clips.
       </p>
 
+      <h2 style={h2Style}>Choosing the right model for dramatic weight</h2>
+      <p style={pStyle}>
+        Not every scene in a historical narrative needs the same visual
+        fidelity. Draft your pacing and composition cheaply on Wan, build the
+        character-driven dialogue scenes on Kling with Character Lock, and
+        reserve Veo 3.1 for the single hero shot that needs to carry real
+        dramatic weight — a defining moment, a striking landscape, a
+        close-up meant to linger. Our full{" "}
+        <Link to="/learn/choosing-a-model" style={{ color: "var(--onyx-cyan)" }}>model comparison</Link>{" "}
+        walks through when each choice earns its cost.
+      </p>
+
+      <h2 style={h2Style}>Getting started</h2>
       <p style={{ ...pStyle, marginBottom: 0 }}>
-        Ready to try it? <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Start creating</Link> on Onyx Reelz.
+        Build your central character in the{" "}
+        <Link to="/characters" style={{ color: "var(--onyx-cyan)" }}>Character Library</Link>,
+        then start structuring your narrative scene by scene on{" "}
+        <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Create</Link>{" "}
+        — naming camera movement and composition deliberately where the
+        story calls for it, and letting the system fill in fitting choices
+        where it doesn't.
       </p>
     </LearnPageLayout>
   );

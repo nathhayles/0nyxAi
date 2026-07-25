@@ -19,38 +19,66 @@ export default function LearnMusicPromotion() {
         How musicians use Onyx Reelz to create music videos, lyric videos, and promotional content.
       </p>
 
-      <h2 style={h2Style}>Original hip-hop content, start to finish</h2>
+      <h2 style={h2Style}>Original content, start to finish</h2>
       <p style={pStyle}>
         Onyx Reelz's AI Rapper feature generates an instrumental beat and
         matching lyrics, then performs them in your chosen voice — a complete
-        track built from a single prompt.
+        original track built from a single prompt, without needing a
+        producer, a studio session, or a separate vocalist.
       </p>
 
-      <h2 style={h2Style}>Turn a song into a promo video</h2>
+      <h2 style={h2Style}>Turn an existing song into a promo video</h2>
       <p style={pStyle}>
-        Use Fadr's stem separation to isolate vocals or instrumentals from an
-        existing track, then build visuals around them — lyric videos,
-        backing-track content, or remix material.
+        Beyond original tracks, Onyx Reelz's Fadr stem-separation integration
+        lets you isolate the vocal or instrumental stem from an existing
+        song. Use an isolated instrumental as the backing track for new
+        visual content, or build a lyric video around isolated vocals —
+        genuinely useful for promoting a release without needing separate
+        audio production tools.
       </p>
 
       <h2 style={h2Style}>Sync visuals to your music's energy</h2>
       <p style={pStyle}>
-        Match camera movement and pacing to your track's tempo — quicker cuts
-        and more dynamic camera work for high-energy sections, slower and
-        steadier for a ballad or bridge.
+        Camera movement and pacing should match a track's actual energy.
+        Quicker cuts and more dynamic camera work — crash zooms, whip pans,
+        tracking shots — suit high-energy sections; slower, steadier shots
+        suit a ballad or a quieter bridge. Naming the right movement
+        deliberately, rather than leaving it to chance, is what makes a music
+        video actually feel synced to its soundtrack rather than just cut to
+        length. Our{" "}
+        <Link to="/learn/camera-glossary" style={{ color: "var(--onyx-cyan)" }}>Camera Glossary</Link>{" "}
+        covers the full vocabulary.
       </p>
 
       <h2 style={h2Style}>Consistent artist presence</h2>
       <p style={pStyle}>
         If you're featuring yourself or a consistent artist persona across
-        content, use the Character Library to keep their appearance steady
-        across every video. See our{" "}
+        your content, use the{" "}
+        <Link to="/characters" style={{ color: "var(--onyx-cyan)" }}>Character Library</Link>{" "}
+        to keep their appearance steady across every video — the same face,
+        the same presence, whether it's a lyric video, a promotional clip, or
+        behind-the-scenes content. See our{" "}
         <Link to="/learn/character-consistency" style={{ color: "var(--onyx-cyan)" }}>Character Consistency Guide</Link>{" "}
         for the full walkthrough.
       </p>
 
+      <h2 style={h2Style}>Choosing a model for music content</h2>
+      <p style={pStyle}>
+        Seedance 2.0's native audio generation is worth knowing about here
+        specifically — it's the one Onyx Reelz model that generates audio and
+        video together, which can be useful for atmosphere or ambient sound
+        layered around your actual track, though your primary music should
+        still come from AI Rapper or your own source audio. For visual-only
+        content synced to existing music, Kling's balance of quality and
+        Character Library support usually fits best.
+      </p>
+
+      <h2 style={h2Style}>Getting started</h2>
       <p style={{ ...pStyle, marginBottom: 0 }}>
-        Ready to try it? <Link to="/characters" style={{ color: "var(--onyx-cyan)" }}>Build your Character Library</Link> on Onyx Reelz.
+        Try AI Rapper for an original track, or bring your own song through
+        Fadr's stem separation, then build your visuals on{" "}
+        <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Create</Link>{" "}
+        — matching camera energy to the music as you go.
       </p>
     </LearnPageLayout>
   );
