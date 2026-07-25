@@ -35,6 +35,25 @@ export default function LearnCameraGlossary() {
       </p>
 
       <h2 style={h2Style}>Camera movement — how the camera itself moves</h2>
+      <svg viewBox="0 0 500 160" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        <circle cx="250" cy="90" r="16" fill="var(--onyx-text-dim)" />
+        <text x="250" y="95" textAnchor="middle" fill="var(--onyx-bg)" fontSize="10">SUBJ</text>
+        {/* Dolly */}
+        <line x1="250" y1="30" x2="250" y2="55" stroke="var(--onyx-cyan)" strokeWidth="2" markerEnd="url(#arrow)" />
+        <text x="250" y="20" textAnchor="middle" fill="var(--onyx-text)" fontSize="11">Dolly in / out</text>
+        {/* Pan */}
+        <line x1="130" y1="90" x2="90" y2="90" stroke="var(--onyx-cyan)" strokeWidth="2" markerEnd="url(#arrow)" />
+        <line x1="370" y1="90" x2="410" y2="90" stroke="var(--onyx-cyan)" strokeWidth="2" markerEnd="url(#arrow)" />
+        <text x="60" y="94" textAnchor="middle" fill="var(--onyx-text)" fontSize="11">Pan</text>
+        <text x="440" y="94" textAnchor="middle" fill="var(--onyx-text)" fontSize="11">Pan</text>
+        {/* Tilt */}
+        <text x="250" y="150" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">Tilt moves on a vertical axis, same idea rotated 90°</text>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="var(--onyx-cyan)" />
+          </marker>
+        </defs>
+      </svg>
       <p style={{ ...pStyle, ...termStyle }}>
         <strong style={termLabel}>Dolly in / pull back</strong> — the camera physically moves toward or away from the subject, changing perspective and depth as it travels, distinct from a zoom (which changes framing without moving position).
       </p>
@@ -64,6 +83,34 @@ export default function LearnCameraGlossary() {
       </p>
 
       <h2 style={h2Style}>Shot composition — where the camera sits relative to the subject</h2>
+      <svg viewBox="0 0 500 180" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        {/* Low angle */}
+        <g transform="translate(10,10)">
+          <rect x="0" y="0" width="140" height="160" rx="8" fill="none" stroke="var(--onyx-hairline-strong)" />
+          <circle cx="70" cy="120" r="18" fill="var(--onyx-text-dim)" />
+          <rect x="55" y="138" width="30" height="20" fill="var(--onyx-text-dim)" />
+          <polygon points="70,10 55,45 85,45" fill="var(--onyx-cyan)" />
+          <text x="70" y="70" textAnchor="middle" fill="var(--onyx-text)" fontSize="11">camera looks UP</text>
+          <text x="70" y="175" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">Low angle — powerful</text>
+        </g>
+        {/* Eye level */}
+        <g transform="translate(180,10)">
+          <rect x="0" y="0" width="140" height="160" rx="8" fill="none" stroke="var(--onyx-hairline-strong)" />
+          <circle cx="70" cy="80" r="18" fill="var(--onyx-text-dim)" />
+          <rect x="55" y="98" width="30" height="45" fill="var(--onyx-text-dim)" />
+          <circle cx="70" cy="80" r="4" fill="var(--onyx-cyan)" />
+          <text x="70" y="175" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">Eye level — neutral</text>
+        </g>
+        {/* High angle */}
+        <g transform="translate(350,10)">
+          <rect x="0" y="0" width="140" height="160" rx="8" fill="none" stroke="var(--onyx-hairline-strong)" />
+          <circle cx="70" cy="60" r="18" fill="var(--onyx-text-dim)" />
+          <rect x="55" y="78" width="30" height="60" fill="var(--onyx-text-dim)" />
+          <polygon points="70,150 55,115 85,115" fill="var(--onyx-cyan)" />
+          <text x="70" y="30" textAnchor="middle" fill="var(--onyx-text)" fontSize="11">camera looks DOWN</text>
+          <text x="70" y="175" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">High angle — vulnerable</text>
+        </g>
+      </svg>
       <p style={{ ...pStyle, ...termStyle }}>
         <strong style={termLabel}>Close-up</strong> — tight framing on a face or object, used to convey emotion, tension, or fine detail that a wider shot would lose.
       </p>

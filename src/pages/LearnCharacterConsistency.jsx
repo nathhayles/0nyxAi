@@ -30,6 +30,19 @@ export default function LearnCharacterConsistency() {
         For any content built around a recurring character, this
         inconsistency undermines the whole point.
       </p>
+      <svg viewBox="0 0 500 160" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        <text x="120" y="20" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="11">Text description</text>
+        {[0, 1, 2].map(i => (
+          <circle key={i} cx={60 + i * 60} cy="80" r={16 + i * 3} fill="var(--onyx-text-faint)" opacity={0.5 + i * 0.15} />
+        ))}
+        <text x="120" y="140" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">drifts each generation</text>
+        <line x1="250" y1="10" x2="250" y2="150" stroke="var(--onyx-hairline-strong)" />
+        <text x="380" y="20" textAnchor="middle" fill="var(--onyx-cyan)" fontSize="11">Reference photo</text>
+        {[0, 1, 2].map(i => (
+          <circle key={i} cx={350 + i * 60} cy="80" r="17" fill="var(--onyx-cyan)" opacity="0.85" />
+        ))}
+        <text x="380" y="140" textAnchor="middle" fill="var(--onyx-text)" fontSize="10">stays consistent</text>
+      </svg>
 
       <h2 style={h2Style}>The fix: real reference photos, not adjectives</h2>
       <p style={pStyle}>
@@ -39,6 +52,19 @@ export default function LearnCharacterConsistency() {
         Character draws from the same concrete visual source — the same face,
         the same features, held consistently rather than reimagined each time.
       </p>
+      <svg viewBox="0 0 500 200" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        <rect x="10" y="70" width="80" height="60" rx="6" fill="var(--onyx-text-dim)" />
+        <text x="50" y="145" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">Reference photo</text>
+        {[0, 1, 2].map(i => (
+          <g key={i}>
+            <line x1="95" y1="100" x2="180" y2={40 + i * 60} stroke="var(--onyx-cyan)" strokeWidth="1.5" />
+            <rect x="185" y={20 + i * 60} width="90" height="50" rx="6" fill="none" stroke="var(--onyx-hairline-strong)" />
+            <circle cx="230" cy={45 + i * 60} r="12" fill="var(--onyx-text-dim)" />
+            <text x="230" y={90 + i * 60} textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="9">Scene {i + 1}</text>
+          </g>
+        ))}
+        <text x="300" y="100" fill="var(--onyx-text)" fontSize="12">Same face, every scene</text>
+      </svg>
 
       <h2 style={h2Style}>Tagging a character in your prompt</h2>
       <p style={pStyle}>

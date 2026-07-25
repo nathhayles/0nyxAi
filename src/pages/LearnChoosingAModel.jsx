@@ -28,6 +28,27 @@ export default function LearnChoosingAModel() {
         every time out of habit.
       </p>
 
+      <svg viewBox="0 0 400 400" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
+        <line x1="40" y1="20" x2="40" y2="360" stroke="var(--onyx-hairline-strong)" />
+        <line x1="40" y1="360" x2="380" y2="360" stroke="var(--onyx-hairline-strong)" />
+        <text x="20" y="15" fill="var(--onyx-text-faint)" fontSize="11">High Quality</text>
+        <text x="20" y="378" fill="var(--onyx-text-faint)" fontSize="11">Low Quality</text>
+        <text x="330" y="378" fill="var(--onyx-text-faint)" fontSize="11">Fast/Cheap</text>
+        <text x="330" y="392" fill="var(--onyx-text-faint)" fontSize="11" textAnchor="end">→</text>
+        {/* Wan - fast, budget */}
+        <circle cx="320" cy="300" r="10" fill="var(--onyx-cyan)" />
+        <text x="320" y="325" textAnchor="middle" fill="var(--onyx-text)" fontSize="12">Wan</text>
+        {/* Kling - balanced */}
+        <circle cx="220" cy="200" r="10" fill="var(--onyx-cyan)" />
+        <text x="220" y="225" textAnchor="middle" fill="var(--onyx-text)" fontSize="12">Kling</text>
+        {/* Veo - high quality, premium */}
+        <circle cx="120" cy="90" r="10" fill="var(--onyx-cyan)" />
+        <text x="120" y="115" textAnchor="middle" fill="var(--onyx-text)" fontSize="12">Veo 3.1</text>
+        {/* Seedance - highest quality+audio, premium */}
+        <circle cx="90" cy="60" r="10" fill="var(--onyx-cyan)" />
+        <text x="90" y="45" textAnchor="middle" fill="var(--onyx-text)" fontSize="12">Seedance 2.0</text>
+      </svg>
+
       <h2 style={h2Style}>Wan — fastest and most affordable</h2>
       <p style={pStyle}>
         Wan is the model to reach for when you're testing an idea, iterating on
@@ -88,6 +109,15 @@ export default function LearnChoosingAModel() {
         audio genuinely calls for it — not as a default, but as a deliberate
         choice for the shots that need it most.
       </p>
+      <svg viewBox="0 0 500 100" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>
+        {["Draft (Wan)", "Build (Kling)", "Finish (Veo)"].map((label, i) => (
+          <g key={label} transform={`translate(${i * 170 + 10}, 20)`}>
+            <rect width="150" height="60" rx="8" fill="none" stroke="var(--onyx-cyan)" />
+            <text x="75" y="35" textAnchor="middle" fill="var(--onyx-text)" fontSize="13">{label}</text>
+            {i < 2 && <text x="160" y="40" fill="var(--onyx-text-faint)" fontSize="18">→</text>}
+          </g>
+        ))}
+      </svg>
 
       <h2 style={h2Style}>Mixing models within one reel</h2>
       <p style={pStyle}>
