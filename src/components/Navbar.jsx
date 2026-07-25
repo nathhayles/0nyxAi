@@ -217,6 +217,7 @@ export default function Navbar({ session }) {
               { label: "Dashboard",    to: "/dashboard" },
               { label: "Studio",       to: "/studio" },
               { label: "Content Plan", to: "/content-plan" },
+              { label: "Planner",      to: "/planner" },
               { label: "Characters",   to: "/characters" },
               { label: "Learn",        to: "/learn" },
               { label: "Pricing",      to: "/pricing" },

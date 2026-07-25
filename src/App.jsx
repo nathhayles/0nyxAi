@@ -40,6 +40,7 @@ const UrlToVideo = lazy(() => import("./pages/UrlToVideo"));
 const PptToVideo = lazy(() => import("./pages/PptToVideo"));
 const AudioToVideo = lazy(() => import("./pages/AudioToVideo"));
 const Publish = lazy(() => import("./pages/Publish"));
+const Planner = lazy(() => import("./pages/Planner"));
 const BrandingPanel = lazy(() => import("./components/BrandingPanel"));
 const BrandSetupWizard = lazy(() => import("./pages/BrandSetupWizard"));
 const ScreenRecorder = lazy(() => import("./pages/ScreenRecorder.jsx"));
@@ -422,6 +423,7 @@ export default function App() {
         <Route path="/audio-to-video" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><AudioToVideo /></ProtectedRoute>} />
         <Route path="/publish" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Publish /></ProtectedRoute>} />
         <Route path="/scheduler" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Publish /></ProtectedRoute>} />
+        <Route path="/planner" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Planner /></ProtectedRoute>} />
         <Route path="/screen-recorder" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ScreenRecorder /></ProtectedRoute>} />
         <Route path="/webcam-recorder" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><WebcamRecorder /></ProtectedRoute>} />
         <Route path="/viral-hooks" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ViralHooks /></ProtectedRoute>} />
