@@ -14,6 +14,16 @@ function setMetaTag(attr, key, content) {
   el.setAttribute("content", content);
 }
 
+function setCanonicalTag(href) {
+  let el = document.querySelector('link[rel="canonical"]');
+  if (!el) {
+    el = document.createElement("link");
+    el.setAttribute("rel", "canonical");
+    document.head.appendChild(el);
+  }
+  el.setAttribute("href", href);
+}
+
 export default function SEO({ title, description, path = "/", ogImage = DEFAULT_OG_IMAGE }) {
   useEffect(() => {
     const fullTitle = title ? `${title} | Onyx Reelz` : "Onyx Reelz";
@@ -25,6 +35,7 @@ export default function SEO({ title, description, path = "/", ogImage = DEFAULT_
     setMetaTag("property", "og:image", ogImage);
     setMetaTag("property", "og:url", `${SITE_URL}${path}`);
     setMetaTag("property", "og:type", "website");
+    setCanonicalTag(`${SITE_URL}${path}`);
   }, [title, description, path, ogImage]);
 
   return null;

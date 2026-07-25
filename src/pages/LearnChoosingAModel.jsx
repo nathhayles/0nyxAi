@@ -30,7 +30,8 @@ export default function LearnChoosingAModel() {
       <p style={pStyle}>
         Best for drafts, testing ideas, and high-volume content. Supports
         seed-locking, so you can iterate cheaply before committing to a final
-        render.
+        render. Read the full{" "}
+        <Link to="/learn/wan-prompting" style={{ color: "var(--onyx-cyan)" }}>Wan Prompting Guide</Link>.
       </p>
 
       <h2 style={h2Style}>Kling — our balanced default</h2>
@@ -39,14 +40,16 @@ export default function LearnChoosingAModel() {
         character consistency via reference photos, and support for motion
         reference clips. It doesn't support seed-locking, so treat each
         generation as a fresh attempt rather than something to fine-tune
-        iteratively.
+        iteratively. Read the full{" "}
+        <Link to="/learn/kling-prompting" style={{ color: "var(--onyx-cyan)" }}>Kling Prompting Guide</Link>.
       </p>
 
       <h2 style={h2Style}>Veo 3.1 — highest visual fidelity</h2>
       <p style={pStyle}>
         Google's top-tier model. Sharper detail, native vertical framing, and
         seed-locking support. Costs more, and earns it for hero shots and key
-        scenes.
+        scenes. Read the full{" "}
+        <Link to="/learn/veo-prompting" style={{ color: "var(--onyx-cyan)" }}>Veo 3.1 Prompting Guide</Link>.
       </p>
 
       <h2 style={h2Style}>Seedance 2.0 — premium quality with native audio</h2>
@@ -54,14 +57,19 @@ export default function LearnChoosingAModel() {
         Our most expensive model, and the only one that generates audio and
         video together in a single pass — no separate lip-sync step. Best for
         scenes with complex physical motion (action, dance, sports) or when you
-        want sound baked directly into the clip.
+        want sound baked directly into the clip. Read the full{" "}
+        <Link to="/learn/seedance-prompting" style={{ color: "var(--onyx-cyan)" }}>Seedance 2.0 Prompting Guide</Link>.
       </p>
 
       <h2 style={h2Style}>A simple rule of thumb</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         Draft and iterate on Wan. Build your reel on Kling. Upgrade your best
         shot to Veo. Reach for Seedance when a scene's motion or audio
         genuinely needs it.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try one? <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Start creating</Link> on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );

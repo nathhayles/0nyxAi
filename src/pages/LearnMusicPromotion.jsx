@@ -41,10 +41,16 @@ export default function LearnMusicPromotion() {
       </p>
 
       <h2 style={h2Style}>Consistent artist presence</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         If you're featuring yourself or a consistent artist persona across
         content, use the Character Library to keep their appearance steady
-        across every video.
+        across every video. See our{" "}
+        <Link to="/learn/character-consistency" style={{ color: "var(--onyx-cyan)" }}>Character Consistency Guide</Link>{" "}
+        for the full walkthrough.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try it? <Link to="/characters" style={{ color: "var(--onyx-cyan)" }}>Build your Character Library</Link> on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );

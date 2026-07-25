@@ -30,7 +30,9 @@ export default function LearnMarketingBranding() {
       <p style={pStyle}>
         Build a Character to act as your brand's on-screen presenter or
         spokesperson — consistent face, consistent presentation, across as
-        much content as you need.
+        much content as you need. See our{" "}
+        <Link to="/learn/character-consistency" style={{ color: "var(--onyx-cyan)" }}>Character Consistency Guide</Link>{" "}
+        for the full walkthrough.
       </p>
 
       <h2 style={h2Style}>Publish with the right disclosures</h2>
@@ -49,10 +51,14 @@ export default function LearnMarketingBranding() {
       </p>
 
       <h2 style={h2Style}>Dedicated Marketing Mode (coming soon)</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         We're building a dedicated Marketing Content Mode that automatically
         tunes visual style and pacing for commercial, ad-style content in one
         click. Check back soon.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try it? <Link to="/characters" style={{ color: "var(--onyx-cyan)" }}>Build your Character Library</Link> on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );

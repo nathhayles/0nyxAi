@@ -23,7 +23,9 @@ export default function LearnInfluencerContent() {
       <p style={pStyle}>
         Build a Character in your Character Library as your recurring
         on-screen persona — the same face and appearance held consistently,
-        reel after reel.
+        reel after reel. See our{" "}
+        <Link to="/learn/character-consistency" style={{ color: "var(--onyx-cyan)" }}>Character Consistency Guide</Link>{" "}
+        for the full walkthrough.
       </p>
 
       <h2 style={h2Style}>From idea to published post</h2>
@@ -41,11 +43,15 @@ export default function LearnInfluencerContent() {
       </p>
 
       <h2 style={h2Style}>Stay compliant automatically</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         Onyx Reelz's TikTok publishing includes AI-content labeling, Music
         Usage Confirmation, and privacy controls pulled live from your
         connected account — built to keep your content compliant without you
         having to think about it.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try it? <Link to="/characters" style={{ color: "var(--onyx-cyan)" }}>Build your Character Library</Link> on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );

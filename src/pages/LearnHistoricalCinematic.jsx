@@ -37,14 +37,21 @@ export default function LearnHistoricalCinematic() {
       <p style={pStyle}>
         Historical and narrative content often needs the same character
         across many scenes. Use the Character Library and Character Lock to
-        hold their appearance steady from the opening shot to the last.
+        hold their appearance steady from the opening shot to the last — see
+        our{" "}
+        <Link to="/learn/character-consistency" style={{ color: "var(--onyx-cyan)" }}>Character Consistency Guide</Link>{" "}
+        for the full walkthrough.
       </p>
 
       <h2 style={h2Style}>Chain scenes for continuity</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         Multi-scene pipelines carry visual continuity forward automatically —
         lighting, setting, and character appearance flow from one scene into
         the next rather than resetting each time.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try it? <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Start creating</Link> on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );

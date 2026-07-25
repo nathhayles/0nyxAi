@@ -51,12 +51,16 @@ export default function LearnCharacterConsistency() {
       </p>
 
       <h2 style={h2Style}>Reference mode: two settings, two purposes</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         Scene Accuracy lets the character adapt naturally to each scene's
         described action and setting. Character Consistency locks appearance
         more tightly, prioritizing "always looks like them" over scene-specific
         variation. Choose based on whether visual continuity or scene
         flexibility matters more for a given reel.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try it? <Link to="/characters" style={{ color: "var(--onyx-cyan)" }}>Build your Character Library</Link> on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );

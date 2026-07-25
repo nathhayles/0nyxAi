@@ -28,9 +28,10 @@ export default function LearnWanPrompting() {
 
       <h2 style={h2Style}>Same core structure as any strong video prompt</h2>
       <p style={pStyle}>
-        Subject and action first, then camera, then lighting and style. Keep it
-        concrete — specific nouns and verbs outperform vague mood words every
-        time.
+        Subject and action first, then camera, then lighting and style — see our{" "}
+        <Link to="/learn/camera-glossary" style={{ color: "var(--onyx-cyan)" }}>Camera Glossary</Link>{" "}
+        for camera movement and shot composition terms. Keep it concrete —
+        specific nouns and verbs outperform vague mood words every time.
       </p>
 
       <h2 style={h2Style}>Seed-locking: draft cheap, then upgrade</h2>
@@ -50,10 +51,14 @@ export default function LearnWanPrompting() {
       </p>
 
       <h2 style={h2Style}>When to reach for Wan</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         Choose it for early drafts, testing an idea's composition and pacing,
         or high-volume content where the cheapest generation cost matters more
         than maximum visual fidelity.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try it? <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Start creating</Link> with Wan on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );

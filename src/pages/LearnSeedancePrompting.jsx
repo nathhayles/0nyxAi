@@ -31,8 +31,10 @@ export default function LearnSeedancePrompting() {
       <p style={pStyle}>
         Subject and action first — Seedance weights the opening of your prompt most
         heavily, same as our other models. Follow with environment, camera, and
-        lighting. Aim for real detail, not just length — 60-100 words of specifics
-        beats a much longer, vaguer prompt.
+        lighting — see our{" "}
+        <Link to="/learn/camera-glossary" style={{ color: "var(--onyx-cyan)" }}>Camera Glossary</Link>{" "}
+        for the full vocabulary. Aim for real detail, not just length — 60-100 words
+        of specifics beats a much longer, vaguer prompt.
       </p>
 
       <h2 style={h2Style}>One action per scene</h2>
@@ -50,10 +52,14 @@ export default function LearnSeedancePrompting() {
       </p>
 
       <h2 style={h2Style}>When to reach for Seedance 2.0</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         Choose it for scenes with complex movement — action, dancing, sports,
         physical interactions — where motion realism matters most, or when you want
         audio baked directly into the clip rather than added afterward.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try it? <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Start creating</Link> with Seedance 2.0 on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );

@@ -37,7 +37,9 @@ export default function LearnKlingPrompting() {
         </li>
         <li style={liStyle}>
           <strong style={{ color: "var(--onyx-text)" }}>Camera movement</strong> — how the camera itself moves (dolly in, slow pan,
-          tracking shot, crash zoom).
+          tracking shot, crash zoom). See our{" "}
+          <Link to="/learn/camera-glossary" style={{ color: "var(--onyx-cyan)" }}>Camera Glossary</Link>{" "}
+          for the full list.
         </li>
         <li style={liStyle}>
           <strong style={{ color: "var(--onyx-text)" }}>Shot composition</strong> — where the camera is relative to the subject
@@ -66,11 +68,15 @@ export default function LearnKlingPrompting() {
       </p>
 
       <h2 style={h2Style}>Character consistency</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         For a character to look the same across multiple scenes, use Character Lock
         and reference photos in the Character Library rather than repeating a
         written description — Kling reads real reference images far more reliably
         than adjectives.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try it? <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Start creating</Link> with Kling on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );

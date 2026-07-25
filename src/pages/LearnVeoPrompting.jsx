@@ -27,8 +27,9 @@ export default function LearnVeoPrompting() {
 
       <h2 style={h2Style}>Structure your prompt with intention</h2>
       <p style={pStyle}>
-        Subject and action first, then camera movement, shot composition,
-        lighting, and style — the same proven order that works across every
+        Subject and action first, then{" "}
+        <Link to="/learn/camera-glossary" style={{ color: "var(--onyx-cyan)" }}>camera movement, shot composition</Link>
+        , lighting, and style — the same proven order that works across every
         model on Onyx Reelz. Veo rewards real specificity: name the actual
         lighting condition, the actual lens behavior, not just "cinematic."
       </p>
@@ -47,10 +48,14 @@ export default function LearnVeoPrompting() {
       </p>
 
       <h2 style={h2Style}>When to reach for Veo 3.1</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         Choose it when visual quality is the priority — hero shots, key scenes
         in a narrative, anything meant to be the best-looking clip in your
         reel.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try it? <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Start creating</Link> with Veo 3.1 on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );

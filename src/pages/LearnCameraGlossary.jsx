@@ -71,11 +71,15 @@ export default function LearnCameraGlossary() {
       </p>
 
       <h2 style={h2Style}>Using these in your own prompts</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         You can specify either directly in your scene description — Onyx Reelz
         will use exactly what you write. If you don't specify one, the system
         automatically applies a fitting camera movement and composition for
         you.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try it? <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Start creating</Link> on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );

@@ -30,7 +30,9 @@ export default function LearnChildrensContent() {
       <p style={pStyle}>
         Use the Character Library to create a recurring character — upload
         reference images, and Onyx Reelz keeps their appearance consistent
-        across every scene and every episode.
+        across every scene and every episode. See our{" "}
+        <Link to="/learn/character-consistency" style={{ color: "var(--onyx-cyan)" }}>Character Consistency Guide</Link>{" "}
+        for the full walkthrough.
       </p>
 
       <h2 style={h2Style}>Prompt for a lighter visual style</h2>
@@ -48,10 +50,14 @@ export default function LearnChildrensContent() {
       </p>
 
       <h2 style={h2Style}>Dedicated Kids Mode (coming soon)</h2>
-      <p style={{ ...pStyle, marginBottom: 0 }}>
+      <p style={pStyle}>
         We're building a dedicated Animated Content Mode that automatically
         tunes pacing, tone, and visual style for young audiences in one click.
         Check back soon.
+      </p>
+
+      <p style={{ ...pStyle, marginBottom: 0 }}>
+        Ready to try it? <Link to="/characters" style={{ color: "var(--onyx-cyan)" }}>Build your Character Library</Link> on Onyx Reelz.
       </p>
     </LearnPageLayout>
   );
