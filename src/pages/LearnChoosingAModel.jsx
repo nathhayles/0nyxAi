@@ -21,55 +21,85 @@ export default function LearnChoosingAModel() {
 
       <h2 style={h2Style}>Four models, four different jobs</h2>
       <p style={pStyle}>
-        Onyx Reelz gives you a choice of AI video models, each with different
-        strengths. Picking the right one for the job saves credits and gets
-        better results than defaulting to the same model every time.
+        Onyx Reelz gives you a choice of AI video models rather than locking
+        you into one. Each has real, distinct tradeoffs in cost, speed, and
+        output quality — picking the right one for a given scene saves credits
+        and usually produces better results than defaulting to the same model
+        every time out of habit.
       </p>
 
       <h2 style={h2Style}>Wan — fastest and most affordable</h2>
       <p style={pStyle}>
-        Best for drafts, testing ideas, and high-volume content. Supports
-        seed-locking, so you can iterate cheaply before committing to a final
-        render. Read the full{" "}
-        <Link to="/learn/wan-prompting" style={{ color: "var(--onyx-cyan)" }}>Wan Prompting Guide</Link>.
+        Wan is the model to reach for when you're testing an idea, iterating on
+        composition, or generating a high volume of content where the cheapest
+        possible generation cost matters more than maximum polish. Its real
+        advantage is seed-locking — Wan lets you fix the specific random
+        variation behind a generation, so you can draft cheap, find a
+        composition you like, then reuse that exact seed on a longer or
+        higher-quality re-run without losing the shot. Read our full{" "}
+        <Link to="/learn/wan-prompting" style={{ color: "var(--onyx-cyan)" }}>Wan Prompting Guide</Link>{" "}
+        for the seed-lock workflow in detail.
       </p>
 
       <h2 style={h2Style}>Kling — our balanced default</h2>
       <p style={pStyle}>
-        Kling is the model most reels are built on — strong general quality,
-        character consistency via reference photos, and support for motion
-        reference clips. It doesn't support seed-locking, so treat each
-        generation as a fresh attempt rather than something to fine-tune
-        iteratively. Read the full{" "}
-        <Link to="/learn/kling-prompting" style={{ color: "var(--onyx-cyan)" }}>Kling Prompting Guide</Link>.
+        Kling is the model most Onyx Reelz reels are actually built on. It
+        offers strong general-purpose quality, full support for character
+        consistency through reference photos, and motion-reference clips for
+        carrying a specific movement style into a new scene. It doesn't support
+        seed-locking, so each generation is its own independent attempt rather
+        than something to fine-tune iteratively — but its Character Library
+        integration makes it the natural choice for any content built around a
+        recurring, recognizable character. See our full{" "}
+        <Link to="/learn/kling-prompting" style={{ color: "var(--onyx-cyan)" }}>Kling Prompting Guide</Link>{" "}
+        for the details on reference tagging and Character Lock.
       </p>
 
       <h2 style={h2Style}>Veo 3.1 — highest visual fidelity</h2>
       <p style={pStyle}>
-        Google's top-tier model. Sharper detail, native vertical framing, and
-        seed-locking support. Costs more, and earns it for hero shots and key
-        scenes. Read the full{" "}
-        <Link to="/learn/veo-prompting" style={{ color: "var(--onyx-cyan)" }}>Veo 3.1 Prompting Guide</Link>.
+        Google's Veo 3.1 is our top-tier model for raw image quality — sharper
+        detail, genuinely native vertical framing, and support for longer
+        continuous scenes. It costs more than Kling, and like Wan, it supports
+        seed-locking — making it a natural "finishing" step: draft on Wan, lock
+        the seed, then upgrade to Veo once you know the shot is right.{" "}
+        <Link to="/learn/veo-prompting" style={{ color: "var(--onyx-cyan)" }}>Full guide here</Link>.
       </p>
 
       <h2 style={h2Style}>Seedance 2.0 — premium quality with native audio</h2>
       <p style={pStyle}>
-        Our most expensive model, and the only one that generates audio and
-        video together in a single pass — no separate lip-sync step. Best for
-        scenes with complex physical motion (action, dance, sports) or when you
-        want sound baked directly into the clip. Read the full{" "}
-        <Link to="/learn/seedance-prompting" style={{ color: "var(--onyx-cyan)" }}>Seedance 2.0 Prompting Guide</Link>.
+        Seedance 2.0 is our most expensive model, and the only one that
+        generates audio and video together in a single pass — no separate
+        lip-sync step required. It's the strongest choice for scenes with
+        complex physical motion — action, dance, sports — where realistic
+        movement is what the shot depends on, or any time you want sound baked
+        directly into the clip. It doesn't currently support Kling's
+        character-reference tagging system, so it's better suited to
+        standalone, motion-driven shots than character-consistent
+        storytelling.{" "}
+        <Link to="/learn/seedance-prompting" style={{ color: "var(--onyx-cyan)" }}>Full guide here</Link>.
       </p>
 
       <h2 style={h2Style}>A simple rule of thumb</h2>
       <p style={pStyle}>
-        Draft and iterate on Wan. Build your reel on Kling. Upgrade your best
-        shot to Veo. Reach for Seedance when a scene's motion or audio
-        genuinely needs it.
+        Draft and iterate on Wan. Build the bulk of your reel on Kling,
+        especially anything involving a consistent character. Upgrade your
+        single most important shot to Veo when visual quality needs to carry
+        the moment. Reach for Seedance specifically when a scene's motion or
+        audio genuinely calls for it — not as a default, but as a deliberate
+        choice for the shots that need it most.
+      </p>
+
+      <h2 style={h2Style}>Mixing models within one reel</h2>
+      <p style={pStyle}>
+        There's no requirement to use a single model for an entire reel. A
+        common, effective pattern: draft every scene on Wan first to lock
+        pacing and composition, finalize the character-driven dialogue scenes
+        on Kling, and reserve Veo or Seedance for the one or two shots that
+        need to look or sound exceptional.
       </p>
 
       <p style={{ ...pStyle, marginBottom: 0 }}>
-        Ready to try one? <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Start creating</Link> on Onyx Reelz.
+        Ready to start? Head to <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Create</Link> and pick a model per scene as you build.
       </p>
     </LearnPageLayout>
   );
