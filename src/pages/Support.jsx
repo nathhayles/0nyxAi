@@ -139,11 +139,21 @@ const SECTIONS = [
     items: [
       { q: "What is Content Plan?", a: "Content Plan (/content-plan) is a scheduling and ideation workspace that helps you plan, generate, and track reels across an entire month. You can see your content calendar at a glance and manage each piece from idea through to published." },
       { q: "How does 'Plan a Month' work?", a: "Click '+ Plan a Month' and choose your brand, content pillars (Authority, Trend, Community), platforms, and posting frequency. Onyx generates a month-long schedule of content ideas with hook text, pillars, and target platforms pre-assigned. You can edit or delete individual items before saving." },
-      { q: "What are the Calendar and Kanban views?", a: "Calendar view shows your content mapped to specific dates — you can drag items between days to reschedule. Kanban view shows all items grouped by status (Idea → Hook Generated → Reel Generated → Scheduled → Published) so you can track production progress." },
+      { q: "What are the Calendar and Kanban views?", a: "Calendar view shows your content mapped to specific dates — you can drag items between days to reschedule. Kanban view shows all items grouped by status (Idea → Hook Generated → Reel Generated → Marked as Scheduled → Published) so you can track production progress." },
       { q: "How do I turn a plan item into a reel?", a: "Open any plan item and click 'Generate Reel'. This creates a draft reel in the editor pre-loaded with the item's hook text and platform. AI video generation inside the editor is a separate step." },
       { q: "Does Content Plan cost extra credits?", a: "No. Planning a month and generating hooks uses the same credits as the standalone Hook Generator and Campaign Generator tools. Generating a reel from a plan item creates a stock-footage draft — no credits are charged at that step. AI video scenes inside the editor are charged separately per model." },
       { q: "Can I add extra context to a Content Plan item before generating a reel?", a: "Yes — open any Content Plan item and look for the 'Additional Context (optional)' field below the Hook Text. Add talking points, specific stats, or details you want included. This context flows into the reel generation step and produces more specific, substantive scenes." },
       { q: "Can I change the hook on a Content Plan item?", a: "Yes — click any of the 'Hook Variations' shown in the item detail. The selected variation becomes the active Hook Text, gets an 'ACTIVE' badge, and persists to the database." },
+    ]
+  },
+  {
+    title: "Planner",
+    items: [
+      { q: "What is the Weekly Publishing Planner?", a: "Planner (/planner) is a 7-day calendar view of posts you've already scheduled through Publish, grouped by platform. You can see everything queued to go out this week at a glance, reschedule the date/time, or cancel a post — all in one place." },
+      { q: "How is Planner different from Content Plan?", a: "Content Plan is where you come up with ideas, generate hooks, and turn them into reels — it's a production workspace for content that doesn't exist as a finished video yet. Planner only shows posts that already have a real scheduled send time set via Publish. It doesn't generate anything; it's a view-and-rearrange layer over posts that are already done and queued." },
+      { q: "How do I reschedule a post from Planner?", a: "Find the post on its current day and use the date/time field shown on the post card to pick a new time. It updates immediately — no need to cancel and re-schedule." },
+      { q: "Can I cancel a scheduled post from Planner?", a: "Yes — click Cancel on the post card and confirm. This is the same cancel action available from the Publish page; it stops the post from going out." },
+      { q: "Why don't I see a post I scheduled in Content Plan showing up in Planner?", a: "Content Plan's 'Marked as Scheduled' status is a note you set yourself on a content idea — it doesn't create a real scheduled post. Planner only shows posts that have actually been scheduled through Publish, with a real send date and platform attached. Today these are two separate systems: marking something 'Marked as Scheduled' in Content Plan is just a status label, and won't make it appear in Planner until you actually schedule that reel through Publish." },
     ]
   },
   {

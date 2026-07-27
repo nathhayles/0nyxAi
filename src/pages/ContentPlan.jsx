@@ -26,7 +26,7 @@ const STATUS_LABEL = {
   idea:           "Idea",
   hook_generated: "Hook Generated",
   reel_generated: "Reel Generated",
-  scheduled:      "Scheduled",
+  scheduled:      "Marked as Scheduled",
   published:      "Published",
 };
 const STATUS_COLOR = {
@@ -392,6 +392,7 @@ function GenerateReelModal({ item, onClose, onReelCreated }) {
             reelCount: 3,
             theme: item.pillar,
             additionalContext: item.additional_context || undefined,
+            shotSequence: item.shot_sequence || undefined,
           }),
         });
         if (!cancelled) {
@@ -540,6 +541,8 @@ function DetailModal({ item, onClose, onStatusChange, onReelCreated }) {
   const [showGenerate, setShowGenerate] = useState(false);
   const [additionalContext, setAdditionalContext] = useState(item.additional_context || "");
   const [contextSaving, setContextSaving] = useState(false);
+  const [shotSequence, setShotSequence] = useState(item.shot_sequence || "");
+  const [shotSequenceSaving, setShotSequenceSaving] = useState(false);
 
   const hasReel = !!localItem.reel_id;
   // Statuses blocked once a reel exists (pre-reel states)
@@ -593,6 +596,22 @@ function DetailModal({ item, onClose, onStatusChange, onReelCreated }) {
       console.error("Context save failed:", err);
     }
     setContextSaving(false);
+  }
+
+  async function handleShotSequenceBlur() {
+    const trimmed = shotSequence.trim();
+    if (trimmed === (localItem.shot_sequence || "")) return;
+    setShotSequenceSaving(true);
+    try {
+      await apiFetch(`/api/content-plans/items/${localItem.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ shot_sequence: trimmed || null }),
+      });
+      setLocalItem(prev => ({ ...prev, shot_sequence: trimmed || null }));
+    } catch (err) {
+      console.error("Shot sequence save failed:", err);
+    }
+    setShotSequenceSaving(false);
   }
 
   function handleReelCreated(updatedItem, reelId) {
@@ -674,6 +693,28 @@ function DetailModal({ item, onClose, onStatusChange, onReelCreated }) {
             onChange={e => setAdditionalContext(e.target.value)}
             onBlur={handleContextBlur}
             placeholder="Add talking points, stats, key details or specific angles you want in the reel scenes…"
+            rows={3}
+            style={{
+              width: "100%", boxSizing: "border-box",
+              padding: "8px 10px", borderRadius: 8, resize: "vertical",
+              background: "var(--onyx-surface)", border: "0.5px solid var(--onyx-hairline-strong)",
+              color: "var(--onyx-text)", fontSize: 13, lineHeight: 1.5,
+              fontFamily: "inherit", outline: "none", marginTop: 4,
+            }}
+          />
+        </div>
+
+        {/* Shot sequence */}
+        <div>
+          <label style={labelStyle}>
+            Shot Sequence <span style={{ color: "var(--onyx-text-mute)", fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span>
+            {shotSequenceSaving && <span style={{ marginLeft: 8, color: "var(--onyx-text-mute)", fontSize: 10, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>saving…</span>}
+          </label>
+          <textarea
+            value={shotSequence}
+            onChange={e => setShotSequence(e.target.value)}
+            onBlur={handleShotSequenceBlur}
+            placeholder="Describe the shot order or framing you want, e.g. wide establishing shot, then close-up, then product shot…"
             rows={3}
             style={{
               width: "100%", boxSizing: "border-box",
