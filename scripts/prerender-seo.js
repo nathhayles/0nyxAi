@@ -20,6 +20,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { learnHub, learnPages } from "../src/data/learnPagesSeo.js";
+import { staticPages } from "../src/data/staticPagesSeo.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST = join(__dirname, "..", "dist");
@@ -53,23 +54,16 @@ function buildHead(page) {
     <link rel="canonical" href="${escapeHtml(url)}" />`;
 
   const publisher = { "@type": "Organization", name: "Onyx Reelz", logo: { "@type": "ImageObject", url: DEFAULT_OG_IMAGE } };
-  const jsonLd = page.schemaType === "CollectionPage" ? {
-    "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    name: page.title,
-    description,
-    url,
-    publisher,
-  } : {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: page.title,
-    description,
-    url,
-    image: ogImage,
-    mainEntityOfPage: { "@type": "WebPage", "@id": url },
-    publisher,
+  const jsonLdBuilders = {
+    CollectionPage: () => ({ "@context": "https://schema.org", "@type": "CollectionPage", name: page.title, description, url, publisher }),
+    WebSite: () => ({ "@context": "https://schema.org", "@type": "WebSite", name: page.title, description, url, publisher }),
+    WebPage: () => ({ "@context": "https://schema.org", "@type": "WebPage", name: page.title, description, url }),
+    Article: () => ({
+      "@context": "https://schema.org", "@type": "Article", headline: page.title, description, url, image: ogImage,
+      mainEntityOfPage: { "@type": "WebPage", "@id": url }, publisher,
+    }),
   };
+  const jsonLd = (jsonLdBuilders[page.schemaType] || jsonLdBuilders.Article)();
   const jsonLdTag = `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>`;
 
   html = html.replace("</head>", `    ${twitterTags}\n    ${jsonLdTag}\n  </head>`);
@@ -95,5 +89,7 @@ function writeRoute(page) {
 
 writeRoute(learnHub);
 for (const page of learnPages) writeRoute(page);
+for (const page of staticPages) writeRoute(page);
 
-console.log(`Done: ${1 + learnPages.length} static Learn routes prerendered.`);
+const total = 1 + learnPages.length + staticPages.length;
+console.log(`Done: ${total} static routes prerendered.`);

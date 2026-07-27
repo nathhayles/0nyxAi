@@ -2,6 +2,7 @@ import "../styles/pricing.css";
 import React, { useState } from "react";
 import { supabase } from "../supabaseClient.js";
 import SEO from "../components/SEO";
+import { staticPages } from "../data/staticPagesSeo";
 
 const PRICE_IDS = {
   student_monthly: "price_1TfBBoAjJ51auCbILJR43Jwo",
@@ -137,11 +138,7 @@ export default function PricingPage() {
   return (
     <div style={{ minHeight:"100vh", background:"var(--bg-page)", color:"var(--onyx-text)",
       fontFamily:"-apple-system, BlinkMacSystemFont, system-ui, sans-serif", padding:"72px 40px 80px" }}>
-      <SEO
-        title="Pricing — AI Video Editing Software"
-        description="Plans for Onyx Reelz, the AI video editing software with AI generation, voiceover, captions, and auto-posting. Plans from $7/month, billed via Stripe."
-        path="/pricing"
-      />
+      <SEO {...staticPages.find(p => p.path === "/pricing")} />
       <div style={{ maxWidth:1120, margin:"0 auto" }}>
 
         {/* Hero */}

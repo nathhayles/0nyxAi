@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import SEO from "./SEO";
+import { staticPages } from "../data/staticPagesSeo";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -78,7 +79,7 @@ export default function ResetPassword() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", padding: 24 }}>
-      <SEO title="Reset Password" description="Reset the password for your Onyx Reelz account." path="/reset-password" />
+      <SEO {...staticPages.find(p => p.path === "/reset-password")} />
       <div style={{ width: "100%", maxWidth: 400, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 16, padding: 32 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>🔐</div>

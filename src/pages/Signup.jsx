@@ -2,6 +2,7 @@ import { useState } from "react"
 import { supabase } from "../supabaseClient"
 import { useNavigate } from "react-router-dom"
 import SEO from "../components/SEO"
+import { staticPages } from "../data/staticPagesSeo"
 
 export default function Signup() {
   const [username, setUsername] = useState("")
@@ -48,7 +49,7 @@ export default function Signup() {
       minHeight: "100vh", background: "var(--onyx-bg)", display: "flex",
       alignItems: "center", justifyContent: "center", fontFamily: "sans-serif"
     }}>
-      <SEO title="Sign Up" description="Create a free Onyx Reelz account to start making AI-generated videos." path="/signup" />
+      <SEO {...staticPages.find(p => p.path === "/signup")} />
       <div style={{
         width: 380, background: "var(--onyx-bg-2)", padding: 40,
         borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)"

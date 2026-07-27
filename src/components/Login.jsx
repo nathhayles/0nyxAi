@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import SEO from "./SEO";
+import { staticPages } from "../data/staticPagesSeo";
 
 export default function Login({ goHome }) {
 
@@ -53,7 +54,7 @@ export default function Login({ goHome }) {
 
   return (
     <div className="auth">
-      <SEO title="Log In" description="Log in to your Onyx Reelz account to access your video projects and dashboard." path="/login" />
+      <SEO {...staticPages.find(p => p.path === "/login")} />
       <div className="auth-card">
 
         <h1>Login</h1>

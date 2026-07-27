@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import SEO from "../components/SEO";
+import { staticPages } from "../data/staticPagesSeo";
 import "../style.css";
 
 const features = [
@@ -61,11 +62,7 @@ export default function LandingPage({ session }) {
 
   return (
     <div className="landing">
-      <SEO
-        title="AI Video Editor & Maker"
-        description="Onyx Reelz is an AI video editor and AI video maker with multi-track editing, AI voiceover, captions, and auto-posting to Instagram, YouTube & LinkedIn."
-        path="/"
-      />
+      <SEO {...staticPages.find(p => p.path === "/")} />
 
       {/* NAV */}
       <nav className="landing-nav">

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import SEO from "../components/SEO";
+import { staticPages } from "../data/staticPagesSeo";
 
 const SECTIONS = [
   {
@@ -252,11 +253,7 @@ export default function Support() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)" }}>
-      <SEO
-        title="Support & FAQ"
-        description="Find answers about getting started, brand kits, captions, and audio features in Onyx Reelz."
-        path="/support"
-      />
+      <SEO {...staticPages.find(p => p.path === "/support")} />
       {/* Header */}
       <div style={{ background: "var(--onyx-bg)", padding: "48px 24px 40px", textAlign: "center", borderBottom: "0.5px solid var(--onyx-hairline)" }}>
         <h1 className="page-title" style={{ marginBottom: 8 }}>Help Centre</h1>
