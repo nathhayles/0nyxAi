@@ -39,7 +39,7 @@ function setJsonLd(data) {
   el.textContent = JSON.stringify(data);
 }
 
-export default function SEO({ title, description, path = "/", ogImage = DEFAULT_OG_IMAGE, ogType = "website", schemaType }) {
+export default function SEO({ title, description, path = "/", ogImage = DEFAULT_OG_IMAGE, imageAlt, ogType = "website", schemaType }) {
   useEffect(() => {
     const fullTitle = title ? `${title} | Onyx Reelz` : "Onyx Reelz";
     const url = `${SITE_URL}${path}`;
@@ -49,12 +49,14 @@ export default function SEO({ title, description, path = "/", ogImage = DEFAULT_
     setMetaTag("property", "og:title", fullTitle);
     setMetaTag("property", "og:description", description);
     setMetaTag("property", "og:image", ogImage);
+    setMetaTag("property", "og:image:alt", imageAlt);
     setMetaTag("property", "og:url", url);
     setMetaTag("property", "og:type", ogType);
     setMetaTag("name", "twitter:card", "summary_large_image");
     setMetaTag("name", "twitter:title", fullTitle);
     setMetaTag("name", "twitter:description", description);
     setMetaTag("name", "twitter:image", ogImage);
+    setMetaTag("name", "twitter:image:alt", imageAlt);
     setCanonicalTag(url);
 
     const publisher = { "@type": "Organization", name: "Onyx Reelz", logo: { "@type": "ImageObject", url: DEFAULT_OG_IMAGE } };
@@ -76,7 +78,7 @@ export default function SEO({ title, description, path = "/", ogImage = DEFAULT_
       publisher,
     } : null;
     setJsonLd(jsonLd);
-  }, [title, description, path, ogImage, ogType, schemaType]);
+  }, [title, description, path, ogImage, imageAlt, ogType, schemaType]);
 
   return null;
 }

@@ -12,6 +12,7 @@ export default function LearnSeedancePrompting() {
         description: "How to get the best results from Seedance 2.0, our premium AI video model with native audio generation, on Onyx Reelz.",
         path: "/learn/seedance-prompting",
         ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/seedance-2-ai-video-prompting-guide-illustration.png",
+        imageAlt: "Seedance 2.0 prompting guide illustration — violet film camera with a cyan light beam and amber audio waveform bars, Onyx Reelz",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>

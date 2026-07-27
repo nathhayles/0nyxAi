@@ -12,6 +12,7 @@ export default function LearnMarketingBranding() {
         description: "How to create branded, on-message video content for your business with Onyx Reelz.",
         path: "/learn/marketing-branding",
         ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/ai-video-marketing-branding-illustration.png",
+        imageAlt: "AI video for marketing and brand content illustration — cyan megaphone with amber sound waves, a price tag, and a shopping bag, Onyx Reelz",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>

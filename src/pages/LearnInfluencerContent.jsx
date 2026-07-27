@@ -12,6 +12,7 @@ export default function LearnInfluencerContent() {
         description: "How creators use Onyx Reelz to build a consistent on-screen presence and publish faster.",
         path: "/learn/influencer-content",
         ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/ai-video-influencers-content-creators-illustration.png",
+        imageAlt: "AI video for influencers and content creators illustration — cyan smartphone on a violet tripod with an amber ring light and like icon, Onyx Reelz",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>

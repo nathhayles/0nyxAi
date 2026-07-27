@@ -12,6 +12,7 @@ export default function LearnVeoPrompting() {
         description: "How to get the best results from Google's Veo 3.1, our highest-fidelity AI video model on Onyx Reelz.",
         path: "/learn/veo-prompting",
         ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/veo-3-1-ai-video-prompting-guide-illustration.png",
+        imageAlt: "Veo 3.1 prompting guide illustration — cyan camera lens ring with a faceted amber diamond and sparkle accents at its center, Onyx Reelz",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>

@@ -12,6 +12,7 @@ export default function LearnMusicPromotion() {
         description: "How musicians use Onyx Reelz to create music videos, lyric videos, and promotional content.",
         path: "/learn/music-promotion",
         ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/ai-video-musicians-music-promotion-illustration.png",
+        imageAlt: "AI video for musicians and music promotion illustration — cyan camera merged with an amber musical note beside a dark violet vinyl record, Onyx Reelz",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>

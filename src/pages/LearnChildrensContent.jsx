@@ -12,6 +12,7 @@ export default function LearnChildrensContent() {
         description: "How to create bright, family-friendly animated video content with Onyx Reelz.",
         path: "/learn/childrens-content",
         ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/kids-animated-content-ai-video-illustration.png",
+        imageAlt: "Kids and animated content guide illustration — smiling cyan star character next to amber and violet building blocks with a cyan play button, Onyx Reelz",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>

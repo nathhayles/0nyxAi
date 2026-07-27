@@ -12,6 +12,7 @@ export default function LearnChoosingAModel() {
         description: "A guide to Onyx Reelz's AI video models — Wan, Kling, Veo, and Seedance — and when to use each one.",
         path: "/learn/choosing-a-model",
         ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/choosing-ai-video-model-guide-illustration.png",
+        imageAlt: "Choosing an AI video model guide illustration — cyan signpost splitting into an amber path and a violet path, Onyx Reelz",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
