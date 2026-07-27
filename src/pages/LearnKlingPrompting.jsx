@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
@@ -9,13 +10,7 @@ const liStyle = { marginBottom: 10 };
 export default function LearnKlingPrompting() {
   return (
     <LearnPageLayout
-      seo={{
-        title: "Kling Prompting Guide",
-        description: "How to write prompts that get the most out of Kling video generation on Onyx Reelz.",
-        path: "/learn/kling-prompting",
-        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/kling-ai-video-prompting-guide-illustration.png",
-        imageAlt: "Kling AI video prompting guide illustration — cyan film camera with a glowing cyan light beam and amber sparkle accents, Onyx Reelz",
-      }}
+      seo={learnPages.find(p => p.path === "/learn/kling-prompting")}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Kling Prompting Guide</h1>

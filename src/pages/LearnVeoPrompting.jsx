@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
@@ -7,13 +8,7 @@ const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 }
 export default function LearnVeoPrompting() {
   return (
     <LearnPageLayout
-      seo={{
-        title: "Veo 3.1 Prompting Guide",
-        description: "How to get the best results from Google's Veo 3.1, our highest-fidelity AI video model on Onyx Reelz.",
-        path: "/learn/veo-prompting",
-        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/veo-3-1-ai-video-prompting-guide-illustration.png",
-        imageAlt: "Veo 3.1 prompting guide illustration — cyan camera lens ring with a faceted amber diamond and sparkle accents at its center, Onyx Reelz",
-      }}
+      seo={learnPages.find(p => p.path === "/learn/veo-prompting")}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Veo 3.1 Prompting Guide</h1>

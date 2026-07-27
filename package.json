@@ -7,6 +7,7 @@
     "dev": "vite",
     "prebuild": "bash scripts/check-branch-is-main.sh",
     "build": "vite build",
+    "postbuild": "node scripts/prerender-seo.js",
     "preview": "vite preview"
   },
   "dependencies": {

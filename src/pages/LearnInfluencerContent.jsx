@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
@@ -7,13 +8,7 @@ const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 }
 export default function LearnInfluencerContent() {
   return (
     <LearnPageLayout
-      seo={{
-        title: "AI Video for Influencers & Content Creators",
-        description: "How creators use Onyx Reelz to build a consistent on-screen presence and publish faster.",
-        path: "/learn/influencer-content",
-        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/ai-video-influencers-content-creators-illustration.png",
-        imageAlt: "AI video for influencers and content creators illustration — cyan smartphone on a violet tripod with an amber ring light and like icon, Onyx Reelz",
-      }}
+      seo={learnPages.find(p => p.path === "/learn/influencer-content")}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>AI Video for Influencers &amp; Content Creators</h1>

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
@@ -7,13 +8,7 @@ const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 }
 export default function LearnMusicPromotion() {
   return (
     <LearnPageLayout
-      seo={{
-        title: "AI Video for Musicians & Music Promotion",
-        description: "How musicians use Onyx Reelz to create music videos, lyric videos, and promotional content.",
-        path: "/learn/music-promotion",
-        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/ai-video-musicians-music-promotion-illustration.png",
-        imageAlt: "AI video for musicians and music promotion illustration — cyan camera merged with an amber musical note beside a dark violet vinyl record, Onyx Reelz",
-      }}
+      seo={learnPages.find(p => p.path === "/learn/music-promotion")}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>AI Video for Musicians &amp; Music Promotion</h1>

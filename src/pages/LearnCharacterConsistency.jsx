@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
@@ -7,13 +8,7 @@ const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 }
 export default function LearnCharacterConsistency() {
   return (
     <LearnPageLayout
-      seo={{
-        title: "Character Consistency Guide",
-        description: "How to keep an AI-generated character looking the same across every scene, using Onyx Reelz's Character Library.",
-        path: "/learn/character-consistency",
-        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/character-consistency-ai-video-guide-illustration.png",
-        imageAlt: "Character consistency guide illustration — three identical cyan character faces in violet film frames linked by an amber chain and checkmark, Onyx Reelz",
-      }}
+      seo={learnPages.find(p => p.path === "/learn/character-consistency")}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Character Consistency Guide</h1>

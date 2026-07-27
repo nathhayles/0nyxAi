@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import { learnHub } from "../data/learnPagesSeo";
 
 // Placeholder list -- expand as more guides get added. Each entry just needs
 // a title/description/to; the actual guide page components are added
@@ -70,13 +71,7 @@ const GUIDES = [
 export default function Learn() {
   return (
     <LearnPageLayout
-      seo={{
-        title: "Learn",
-        description: "Guides and tips for getting the most out of Onyx Reelz — prompting techniques, video generation models, and more.",
-        path: "/learn",
-        ogType: "website",
-        schemaType: "CollectionPage",
-      }}
+      seo={learnHub}
     >
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Learn</h1>
       <p style={{ color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 32 }}>

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
@@ -7,13 +8,7 @@ const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 }
 export default function LearnChoosingAModel() {
   return (
     <LearnPageLayout
-      seo={{
-        title: "Choosing the Right AI Video Model",
-        description: "A guide to Onyx Reelz's AI video models — Wan, Kling, Veo, and Seedance — and when to use each one.",
-        path: "/learn/choosing-a-model",
-        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/choosing-ai-video-model-guide-illustration.png",
-        imageAlt: "Choosing an AI video model guide illustration — cyan signpost splitting into an amber path and a violet path, Onyx Reelz",
-      }}
+      seo={learnPages.find(p => p.path === "/learn/choosing-a-model")}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Choosing the Right AI Video Model</h1>

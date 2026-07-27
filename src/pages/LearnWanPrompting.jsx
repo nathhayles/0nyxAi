@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
@@ -7,13 +8,7 @@ const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 }
 export default function LearnWanPrompting() {
   return (
     <LearnPageLayout
-      seo={{
-        title: "Wan Prompting Guide",
-        description: "How to write prompts for Wan, our fast and affordable AI video model on Onyx Reelz.",
-        path: "/learn/wan-prompting",
-        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/wan-ai-video-prompting-guide-illustration.png",
-        imageAlt: "Wan prompting guide illustration — cyan camera with an amber lightning bolt and speed-lines symbolizing fast generation, Onyx Reelz",
-      }}
+      seo={learnPages.find(p => p.path === "/learn/wan-prompting")}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Wan Prompting Guide</h1>

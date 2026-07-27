@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
@@ -7,13 +8,7 @@ const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 }
 export default function LearnHistoricalCinematic() {
   return (
     <LearnPageLayout
-      seo={{
-        title: "Historical & Cinematic Storytelling",
-        description: "How to create dramatic, film-quality historical and narrative content with Onyx Reelz.",
-        path: "/learn/historical-cinematic",
-        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/historical-cinematic-storytelling-illustration.png",
-        imageAlt: "Historical and cinematic storytelling illustration — large cyan film camera center stage with violet curtains and a narrow amber spotlight beam, Onyx Reelz",
-      }}
+      seo={learnPages.find(p => p.path === "/learn/historical-cinematic")}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Historical &amp; Cinematic Storytelling</h1>
