@@ -20,7 +20,7 @@ export default function LearnPageLayout({ seo, children }) {
         lineHeight: 1.7,
       }}
     >
-      <SEO {...seo} />
+      <SEO ogType="article" schemaType="Article" {...seo} />
       {children}
     </div>
   );

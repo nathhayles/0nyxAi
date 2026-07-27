@@ -74,6 +74,7 @@ export default function Learn() {
         title: "Learn",
         description: "Guides and tips for getting the most out of Onyx Reelz — prompting techniques, video generation models, and more.",
         path: "/learn",
+        schemaType: "CollectionPage",
       }}
     >
       <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Learn</h1>
