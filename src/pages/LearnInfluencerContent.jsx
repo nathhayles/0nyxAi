@@ -11,6 +11,7 @@ export default function LearnInfluencerContent() {
         title: "AI Video for Influencers & Content Creators",
         description: "How creators use Onyx Reelz to build a consistent on-screen presence and publish faster.",
         path: "/learn/influencer-content",
+        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/ai-video-influencers-content-creators-illustration.png",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>

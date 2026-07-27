@@ -11,6 +11,7 @@ export default function LearnWanPrompting() {
         title: "Wan Prompting Guide",
         description: "How to write prompts for Wan, our fast and affordable AI video model on Onyx Reelz.",
         path: "/learn/wan-prompting",
+        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/wan-ai-video-prompting-guide-illustration.png",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>

@@ -11,6 +11,7 @@ export default function LearnCharacterConsistency() {
         title: "Character Consistency Guide",
         description: "How to keep an AI-generated character looking the same across every scene, using Onyx Reelz's Character Library.",
         path: "/learn/character-consistency",
+        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/character-consistency-ai-video-guide-illustration.png",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>

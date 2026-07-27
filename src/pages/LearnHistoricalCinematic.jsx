@@ -11,6 +11,7 @@ export default function LearnHistoricalCinematic() {
         title: "Historical & Cinematic Storytelling",
         description: "How to create dramatic, film-quality historical and narrative content with Onyx Reelz.",
         path: "/learn/historical-cinematic",
+        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/historical-cinematic-storytelling-illustration.png",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>

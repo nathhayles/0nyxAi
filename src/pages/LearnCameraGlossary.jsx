@@ -13,6 +13,7 @@ export default function LearnCameraGlossary() {
         title: "Camera Movement & Shot Composition Glossary",
         description: "A plain-English glossary of camera movements and shot compositions you can use in your Onyx Reelz video prompts.",
         path: "/learn/camera-glossary",
+        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/camera-movement-shot-composition-glossary-illustration.png",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>

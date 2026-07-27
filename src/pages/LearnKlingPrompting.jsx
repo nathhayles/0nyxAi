@@ -13,6 +13,7 @@ export default function LearnKlingPrompting() {
         title: "Kling Prompting Guide",
         description: "How to write prompts that get the most out of Kling video generation on Onyx Reelz.",
         path: "/learn/kling-prompting",
+        ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/kling-ai-video-prompting-guide-illustration.png",
       }}
     >
       <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
