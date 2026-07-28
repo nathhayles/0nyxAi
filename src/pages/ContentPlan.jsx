@@ -181,15 +181,27 @@ function CalendarDropCell({ date, children }) {
   );
 }
 
-function CalendarView({ plan, items, onItemClick, onItemMove }) {
-  const start = new Date(plan.start_date + "T00:00:00");
-  const end = new Date(plan.end_date + "T00:00:00");
+// Shared by CalendarView's render and the parent's month-item fetch, so the
+// two ranges can never diverge (fetching only the calendar month's 1st-last
+// day would silently drop items on the padding days from adjacent months
+// that the grid still visually renders).
+function getCalendarGridRange(monthDate) {
+  const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+  const gridStart = new Date(monthStart);
+  gridStart.setDate(gridStart.getDate() - gridStart.getDay()); // Sunday
+  const gridEnd = new Date(monthEnd);
+  gridEnd.setDate(gridEnd.getDate() + (6 - gridEnd.getDay())); // Saturday
+  return { gridStart, gridEnd };
+}
 
-  // Build a date range: find first Sunday on or before start, last Saturday on or after end
-  const calStart = new Date(start);
-  calStart.setDate(calStart.getDate() - calStart.getDay()); // Sunday
-  const calEnd = new Date(end);
-  calEnd.setDate(calEnd.getDate() + (6 - calEnd.getDay())); // Saturday
+function CalendarView({ viewedMonth, plan, items, onItemClick }) {
+  // plan is optional here — used only for the inRange visual shading of
+  // which days belong to an official plan window, not for the rendered range.
+  const planStart = plan ? new Date(plan.start_date + "T00:00:00") : null;
+  const planEnd = plan ? new Date(plan.end_date + "T00:00:00") : null;
+
+  const { gridStart: calStart, gridEnd: calEnd } = getCalendarGridRange(viewedMonth);
 
   // Build weeks array
   const weeks = [];
@@ -260,7 +272,7 @@ function CalendarView({ plan, items, onItemClick, onItemMove }) {
         <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
           {week.map(day => {
             const iso = day.toISOString().slice(0, 10);
-            const inRange = day >= start && day <= end;
+            const inRange = planStart && planEnd && day >= planStart && day <= planEnd;
             const isToday = iso === today;
             const dayItems = itemsByDate[iso] || [];
             return (
@@ -864,6 +876,61 @@ function DetailModal({ item, onClose, onStatusChange, onReelCreated }) {
 const labelStyle = { display: "block", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--onyx-text-mute)", marginBottom: 2 };
 const valueStyle = { margin: 0, fontSize: 13, color: "var(--onyx-text-dim)", lineHeight: 1.4 };
 
+// ─── Delete Plan Modal ────────────────────────────────────────────────────────
+
+function DeletePlanModal({ plan, itemCount, onClose, onDeleted }) {
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleDelete() {
+    setDeleting(true);
+    setError("");
+    try {
+      await apiFetch(`/api/content-plans/${plan.id}`, { method: "DELETE" });
+      onDeleted(plan.id);
+    } catch (err) {
+      setError(err.message);
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "var(--onyx-bg-2)", border: "0.5px solid var(--onyx-hairline-strong)",
+        borderRadius: 14, width: "100%", maxWidth: 440, padding: "28px 30px",
+        display: "flex", flexDirection: "column", gap: 16, position: "relative",
+      }}>
+        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, background: "var(--chip-bg)", border: "none", color: "var(--onyx-text-faint)", width: 28, height: 28, borderRadius: 7, cursor: "pointer", fontSize: 16 }}>×</button>
+        <h2 style={{ margin: 0, fontSize: 18, color: "var(--onyx-text)", fontWeight: 700 }}>Delete "{plan.name}"?</h2>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--onyx-text-dim)", lineHeight: 1.5 }}>
+          This permanently removes the plan and its {itemCount} item{itemCount === 1 ? "" : "s"}. This cannot be undone.
+        </p>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--onyx-text-dim)", lineHeight: 1.5 }}>
+          Any reels already generated from this plan will <strong style={{ color: "var(--onyx-text)" }}>not</strong> be deleted — they stay in your Projects, independent of this plan.
+        </p>
+        {error && <p style={{ color: "var(--onyx-rose)", margin: 0, fontSize: 13 }}>{error}</p>}
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
+          <button
+            onClick={onClose}
+            disabled={deleting}
+            style={{ padding: "9px 18px", borderRadius: 9, fontWeight: 600, fontSize: 13, background: "var(--chip-bg)", color: "var(--onyx-text-dim)", border: "none", cursor: deleting ? "default" : "pointer" }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            style={{ padding: "9px 18px", borderRadius: 9, fontWeight: 700, fontSize: 13, background: "var(--onyx-rose)", color: "#fff", border: "none", cursor: deleting ? "default" : "pointer", opacity: deleting ? 0.7 : 1 }}
+          >
+            {deleting ? "Deleting…" : "Delete Plan"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Create Plan Modal ────────────────────────────────────────────────────────
 
 function CreatePlanModal({ onClose, onCreated }) {
@@ -1086,7 +1153,16 @@ export default function ContentPlan() {
   const [activeItem, setActiveItem] = useState(null); // drag overlay
   const [detailItem, setDetailItem] = useState(null); // modal
   const [showCreate, setShowCreate] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
   const [error, setError] = useState("");
+
+  // Calendar month-navigation state — independent of any single plan's fixed
+  // start/end range (Content Plan backlog: month prev/next navigation).
+  const [viewedMonth, setViewedMonth] = useState(() => new Date());
+  const [monthItems, setMonthItems] = useState([]);
+  const [monthLoading, setMonthLoading] = useState(false);
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const didInitViewedMonth = useRef(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -1109,7 +1185,7 @@ export default function ContentPlan() {
 
   // Load selected plan + items
   useEffect(() => {
-    if (!selectedPlanId) return;
+    if (!selectedPlanId) { setPlan(null); setItems([]); return; }
     setPlanLoading(true);
     setPlan(null);
     setItems([]);
@@ -1117,13 +1193,69 @@ export default function ContentPlan() {
       .then(({ plan: p }) => {
         setPlan(p);
         setItems(p.items || []);
+        // Align the calendar's initial viewed month with the first-loaded
+        // plan's start date, but only once — later plan switches (via the
+        // dropdown, or via month-nav sync below) must not yank viewedMonth.
+        if (!didInitViewedMonth.current) {
+          setViewedMonth(new Date(p.start_date + "T00:00:00"));
+          didInitViewedMonth.current = true;
+        }
       })
       .catch(err => setError(err.message))
       .finally(() => setPlanLoading(false));
   }, [selectedPlanId]);
 
+  // Fetch items for the viewed month (across all plans), independent of
+  // selectedPlanId — the range matches CalendarView's rendered grid exactly
+  // (including padding days from adjacent months) via the shared helper.
+  useEffect(() => {
+    const { gridStart, gridEnd } = getCalendarGridRange(viewedMonth);
+    const start = gridStart.toISOString().slice(0, 10);
+    const end = gridEnd.toISOString().slice(0, 10);
+    setNudgeDismissed(false);
+    setMonthLoading(true);
+    apiFetch(`/api/content-plans/items?start=${start}&end=${end}`)
+      .then(({ items }) => setMonthItems(items || []))
+      .catch(err => setError(err.message))
+      .finally(() => setMonthLoading(false));
+  }, [viewedMonth]);
+
+  // Which plan "owns" a given month, for syncing the dropdown on prev/next
+  // navigation. Deliberately uses the calendar MONTH's own bounds (1st-last
+  // day), NOT the rendered grid's padding days from adjacent months — using
+  // the padded grid range here would make e.g. a plan ending Sept 30 appear
+  // to "cover" October just because October's grid shows a few trailing
+  // September cells. Tie-break rule: if multiple plans overlap the month,
+  // the one with the earliest start_date wins (treated as the "primary"
+  // plan for that period). Returns null if no plan covers the month at all.
+  function findCoveringPlanId(monthDate) {
+    const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+    const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0);
+    const covering = plans.filter(p => {
+      const s = new Date(p.start_date + "T00:00:00");
+      const e = new Date(p.end_date + "T00:00:00");
+      return s <= monthEnd && e >= monthStart;
+    });
+    if (!covering.length) return null;
+    covering.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
+    return covering[0].id;
+  }
+
+  function goToPrevMonth() {
+    const next = new Date(viewedMonth.getFullYear(), viewedMonth.getMonth() - 1, 1);
+    setViewedMonth(next);
+    setSelectedPlanId(findCoveringPlanId(next));
+  }
+
+  function goToNextMonth() {
+    const next = new Date(viewedMonth.getFullYear(), viewedMonth.getMonth() + 1, 1);
+    setViewedMonth(next);
+    setSelectedPlanId(findCoveringPlanId(next));
+  }
+
   function handleDragStart(event) {
-    const item = items.find(i => i.id === event.active.id);
+    const source = view === "calendar" ? monthItems : items;
+    const item = source.find(i => i.id === event.active.id);
     setActiveItem(item || null);
   }
 
@@ -1136,11 +1268,12 @@ export default function ContentPlan() {
     const dest = over.id;
 
     if (dest.startsWith("cal-")) {
-      // Calendar drop — update target_date
+      // Calendar drop — update target_date. Sourced from monthItems (the
+      // decoupled month-wide fetch), not the plan-scoped items array.
       const newDate = dest.replace("cal-", "");
-      const item = items.find(i => i.id === itemId);
+      const item = monthItems.find(i => i.id === itemId);
       if (!item || item.target_date === newDate) return;
-      setItems(prev => prev.map(i => i.id === itemId ? { ...i, target_date: newDate } : i));
+      setMonthItems(prev => prev.map(i => i.id === itemId ? { ...i, target_date: newDate } : i));
       try {
         await apiFetch(`/api/content-plans/items/${itemId}`, {
           method: "PATCH",
@@ -1148,7 +1281,7 @@ export default function ContentPlan() {
         });
       } catch (err) {
         // Roll back
-        setItems(prev => prev.map(i => i.id === itemId ? { ...i, target_date: item.target_date } : i));
+        setMonthItems(prev => prev.map(i => i.id === itemId ? { ...i, target_date: item.target_date } : i));
       }
     } else if (dest.startsWith("kanban-")) {
       // Kanban drop — update status
@@ -1185,6 +1318,18 @@ export default function ContentPlan() {
     setPlans(prev => [newPlan, ...prev]);
     setSelectedPlanId(newPlan.id);
     setShowCreate(false);
+  }
+
+  function handlePlanDeleted(deletedId) {
+    setPlans(prev => {
+      const remaining = prev.filter(p => p.id !== deletedId);
+      if (selectedPlanId === deletedId) {
+        setSelectedPlanId(remaining[0]?.id || null);
+        if (!remaining.length) { setPlan(null); setItems([]); }
+      }
+      return remaining;
+    });
+    setShowDelete(false);
   }
 
   if (loading) return (
@@ -1230,6 +1375,17 @@ export default function ContentPlan() {
         <>
           {/* Controls bar */}
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 16 }}>
+            {/* Month prev/next navigation — independent of plan selection */}
+            {view === "calendar" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <button onClick={goToPrevMonth} aria-label="Previous month" style={navBtnStyle}>‹</button>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--onyx-text)", minWidth: 124, textAlign: "center" }}>
+                  {viewedMonth.toLocaleString("default", { month: "long", year: "numeric" })}
+                </span>
+                <button onClick={goToNextMonth} aria-label="Next month" style={navBtnStyle}>›</button>
+              </div>
+            )}
+
             {/* Plan selector */}
             <select
               value={selectedPlanId || ""}
@@ -1240,8 +1396,23 @@ export default function ContentPlan() {
                 color: "var(--onyx-text)", fontSize: 13, cursor: "pointer",
               }}
             >
+              {!selectedPlanId && <option value="">— No plan for this month —</option>}
               {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
+
+            {plan && (
+              <button
+                onClick={() => setShowDelete(true)}
+                title="Delete plan"
+                style={{
+                  padding: "7px 10px", borderRadius: 8, fontSize: 13,
+                  background: "var(--chip-bg)", border: "0.5px solid var(--onyx-hairline-strong)",
+                  color: "var(--onyx-text-faint)", cursor: "pointer",
+                }}
+              >
+                🗑️
+              </button>
+            )}
 
             {plan && (
               <span style={{ fontSize: 12, color: "var(--onyx-text-mute)" }}>
@@ -1286,9 +1457,37 @@ export default function ContentPlan() {
             </span>
           </div>
 
-          {planLoading ? (
+          {/* Soft nudge — genuinely no plan covers the viewed month. Dismissible,
+              never blocking; the calendar grid below still renders normally. */}
+          {view === "calendar" && !monthLoading && !selectedPlanId && !nudgeDismissed && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10, marginBottom: 14,
+              padding: "10px 14px", borderRadius: 9,
+              background: "rgba(77,208,255,0.07)", border: "1px solid rgba(77,208,255,0.2)",
+              fontSize: 13, color: "var(--onyx-text-dim)",
+            }}>
+              <span style={{ flex: 1 }}>
+                No plan yet for {viewedMonth.toLocaleString("default", { month: "long", year: "numeric" })}.
+              </span>
+              <button
+                onClick={() => setShowCreate(true)}
+                style={{ padding: "5px 12px", borderRadius: 7, fontSize: 12, fontWeight: 700, background: "var(--btn-primary-grad)", color: "var(--btn-primary-text)", border: "none", cursor: "pointer" }}
+              >
+                Plan a Month
+              </button>
+              <button
+                onClick={() => setNudgeDismissed(true)}
+                aria-label="Dismiss"
+                style={{ background: "none", border: "none", color: "var(--onyx-text-faint)", cursor: "pointer", fontSize: 15, padding: "0 4px" }}
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {view === "kanban" && planLoading ? (
             <p style={{ color: "var(--onyx-text-faint)", padding: 40 }}>Loading items…</p>
-          ) : plan ? (
+          ) : view === "kanban" && !plan ? null : (
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
               <div style={{
                 background: "var(--onyx-surface)",
@@ -1298,10 +1497,10 @@ export default function ContentPlan() {
               }}>
                 {view === "calendar" ? (
                   <CalendarView
+                    viewedMonth={viewedMonth}
                     plan={plan}
-                    items={items}
+                    items={monthItems}
                     onItemClick={handleItemClick}
-                    onItemMove={() => {}}
                   />
                 ) : (
                   <div style={{ padding: "14px" }}>
@@ -1315,7 +1514,7 @@ export default function ContentPlan() {
                 {activeItem ? <ItemCard item={activeItem} compact isDragging /> : null}
               </DragOverlay>
             </DndContext>
-          ) : null}
+          )}
         </>
       )}
 
@@ -1334,6 +1533,14 @@ export default function ContentPlan() {
           onCreated={handlePlanCreated}
         />
       )}
+      {showDelete && plan && (
+        <DeletePlanModal
+          plan={plan}
+          itemCount={items.length}
+          onClose={() => setShowDelete(false)}
+          onDeleted={handlePlanDeleted}
+        />
+      )}
     </div>
   );
 }
@@ -1344,4 +1551,10 @@ const pageWrap = {
   margin: "0 auto",
   minHeight: "60vh",
   fontFamily: "-apple-system, BlinkMacSystemFont, system-ui, sans-serif",
+};
+
+const navBtnStyle = {
+  width: 26, height: 26, borderRadius: 7, fontSize: 15, lineHeight: 1, cursor: "pointer",
+  background: "var(--chip-bg)", border: "0.5px solid var(--onyx-hairline-strong)",
+  color: "var(--onyx-text-dim)", display: "flex", alignItems: "center", justifyContent: "center",
 };
