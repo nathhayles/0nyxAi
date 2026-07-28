@@ -33,6 +33,7 @@ export default function Publish() {
   const [submitting, setSubmitting]               = useState(false);
   const [msg, setMsg]                             = useState({ text: "", type: "" });
   const [aiPrompt, setAiPrompt]                   = useState('');
+  const [hashtagRules, setHashtagRules]           = useState({});
   const [generatingCaption, setGeneratingCaption] = useState(false);
   const [trialStatus, setTrialStatus]             = useState({ is_trial: false, trial_expired: false, days_remaining: null, has_paid_plan: false });
   const [tiktokInfo, setTiktokInfo]               = useState(null);
@@ -65,6 +66,14 @@ export default function Publish() {
     if (!session) return;
     loadAccounts(session, selectedBrandId);
   }, [session, selectedBrandId]);
+
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/publish/hashtag-rules", { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.rules) setHashtagRules(d.rules); })
+      .catch(() => {});
+  }, [session]);
 
   useEffect(() => {
     if (!session || !selectedPlatforms.includes("tiktok") || !accounts.tiktok) {
@@ -226,7 +235,7 @@ export default function Publish() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Publish failed");
-        results.push(platform);
+        results.push(data.warning ? `${platform} (${data.warning})` : platform);
         if (platform === "tiktok" && data.publishId) {
           pollTiktokPublishStatus(data.publishId); // fire-and-forget -- updates tiktokPublishStatus as it goes, doesn't block this loop
         }
@@ -259,7 +268,7 @@ export default function Publish() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Schedule failed");
-        results.push(platform);
+        results.push(data.warning ? `${platform} (${data.warning})` : platform);
       } catch (err) {
         results.push(`FAIL: ${platform}: ${err.message}`);
       }
@@ -560,6 +569,29 @@ export default function Publish() {
             <div style={{ marginBottom: 14 }}>
               <label style={{ fontSize: 12, color: "#94a3b8" }}>Hashtags</label>
               <input style={inputS} value={hashtags} onChange={e => setHashtags(e.target.value)} placeholder="#reels #viral #ai" />
+              {(() => {
+                const count = hashtags.trim() ? hashtags.trim().split(/\s+/).length : 0;
+                const relevant = selectedPlatforms.filter(p => hashtagRules[p]);
+                if (!count || !relevant.length) return null;
+                return (
+                  <div style={{ marginTop: 4, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    {relevant.map(p => {
+                      const rule = hashtagRules[p];
+                      const overHard = rule.maxCount && count > rule.maxCount;
+                      const [lo, hi] = rule.recommended || [];
+                      const overRecommended = hi && count > hi;
+                      const color = overHard ? "#f87171" : overRecommended ? "#fbbf24" : "#64748b";
+                      const label = PLATFORMS.find(pl => pl.id === p)?.label || p;
+                      return (
+                        <span key={p} style={{ fontSize: 11, color }}>
+                          {label}: {count}{rule.maxCount ? `/${rule.maxCount}` : ""}
+                          {overHard ? " — will be trimmed" : overRecommended ? ` (recommended ${lo}-${hi})` : ""}
+                        </span>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 12, color: "#94a3b8" }}>Schedule time (leave blank to publish now)</label>
