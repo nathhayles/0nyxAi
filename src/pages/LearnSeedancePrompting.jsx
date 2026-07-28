@@ -10,8 +10,6 @@ export default function LearnSeedancePrompting() {
     <LearnPageLayout
       seo={learnPages.find(p => p.path === "/learn/seedance-prompting")}
     >
-      <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Seedance 2.0 Prompting Guide</h1>
       <p style={{ color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 32 }}>
         How to get the best results from Seedance 2.0, our premium AI video model with native audio generation.
       </p>

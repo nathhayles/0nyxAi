@@ -10,8 +10,6 @@ export default function LearnMusicPromotion() {
     <LearnPageLayout
       seo={learnPages.find(p => p.path === "/learn/music-promotion")}
     >
-      <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>AI Video for Musicians &amp; Music Promotion</h1>
       <p style={{ color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 32 }}>
         How musicians use Onyx Reelz to create music videos, lyric videos, and promotional content.
       </p>

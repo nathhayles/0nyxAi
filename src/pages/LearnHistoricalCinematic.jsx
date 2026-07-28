@@ -10,8 +10,6 @@ export default function LearnHistoricalCinematic() {
     <LearnPageLayout
       seo={learnPages.find(p => p.path === "/learn/historical-cinematic")}
     >
-      <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Historical &amp; Cinematic Storytelling</h1>
       <p style={{ color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 32 }}>
         How to create dramatic, film-quality historical and narrative content.
       </p>

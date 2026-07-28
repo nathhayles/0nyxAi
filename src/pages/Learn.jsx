@@ -73,7 +73,6 @@ export default function Learn() {
     <LearnPageLayout
       seo={learnHub}
     >
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Learn</h1>
       <p style={{ color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 32 }}>
         Guides and tips for getting the most out of Onyx Reelz.
       </p>

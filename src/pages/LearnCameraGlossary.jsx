@@ -12,8 +12,6 @@ export default function LearnCameraGlossary() {
     <LearnPageLayout
       seo={learnPages.find(p => p.path === "/learn/camera-glossary")}
     >
-      <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Camera Movement &amp; Shot Composition Glossary</h1>
       <p style={{ color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 32 }}>
         A plain-English glossary of camera movements and shot compositions you can use in your Onyx Reelz video prompts.
       </p>

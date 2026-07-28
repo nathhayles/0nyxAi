@@ -10,8 +10,6 @@ export default function LearnVeoPrompting() {
     <LearnPageLayout
       seo={learnPages.find(p => p.path === "/learn/veo-prompting")}
     >
-      <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Veo 3.1 Prompting Guide</h1>
       <p style={{ color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 32 }}>
         How to get the best results from Google's Veo 3.1, our highest-fidelity AI video model.
       </p>

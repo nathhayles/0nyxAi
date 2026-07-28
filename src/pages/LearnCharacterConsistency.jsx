@@ -10,8 +10,6 @@ export default function LearnCharacterConsistency() {
     <LearnPageLayout
       seo={learnPages.find(p => p.path === "/learn/character-consistency")}
     >
-      <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Character Consistency Guide</h1>
       <p style={{ color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 32 }}>
         How to keep an AI-generated character looking the same across every scene, using Onyx Reelz's Character Library.
       </p>

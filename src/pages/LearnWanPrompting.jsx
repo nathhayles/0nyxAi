@@ -10,8 +10,6 @@ export default function LearnWanPrompting() {
     <LearnPageLayout
       seo={learnPages.find(p => p.path === "/learn/wan-prompting")}
     >
-      <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Wan Prompting Guide</h1>
       <p style={{ color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 32 }}>
         How to write prompts for Wan, our fast and affordable AI video model.
       </p>

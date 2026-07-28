@@ -10,8 +10,6 @@ export default function LearnChildrensContent() {
     <LearnPageLayout
       seo={learnPages.find(p => p.path === "/learn/childrens-content")}
     >
-      <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Creating Kids &amp; Animated Content</h1>
       <p style={{ color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 32 }}>
         How to create bright, family-friendly animated video content.
       </p>

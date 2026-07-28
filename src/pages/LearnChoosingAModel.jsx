@@ -10,8 +10,6 @@ export default function LearnChoosingAModel() {
     <LearnPageLayout
       seo={learnPages.find(p => p.path === "/learn/choosing-a-model")}
     >
-      <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>Choosing the Right AI Video Model</h1>
       <p style={{ color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 32 }}>
         A guide to Onyx Reelz's AI video models — Wan, Kling, Veo, and Seedance — and when to use each one.
       </p>
