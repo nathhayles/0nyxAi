@@ -1501,6 +1501,45 @@ export default function EditorV2() {
   const [title,            setTitle]            = useState("Untitled Reel");
   const [ratio,            setRatio]            = useState("9:16");
   const [reelId,           setReelId]           = useState(() => new URLSearchParams(window.location.search).get("reelId"));
+  // Synchronous mirror of reelId (state updates are async, so two near-
+  // simultaneous "no reelId yet -> create one" call sites could both read
+  // reelId===null before either's setReelId flushes -- this is the exact
+  // race that caused duplicate reel rows, confirmed live 2026-07-28: two
+  // near-identical reels created 168ms apart from the handoff-restore path
+  // and the debounced autosave path both deciding to POST independently).
+  const reelIdRef = useRef(reelId);
+  useEffect(() => { reelIdRef.current = reelId; }, [reelId]);
+  // Holds the in-flight creation request (if any) so a second caller reuses
+  // it instead of firing its own POST. Assigned synchronously before any
+  // await inside createReelOnce, so this is safe even if multiple effects
+  // call it back-to-back in the same tick.
+  const reelCreationPromiseRef = useRef(null);
+  // Single choke point for every "create this reel for the first time" call
+  // site (there were three, each with its own raw fetch -- see 2026-07-28
+  // duplicate-reel investigation). Returns { id, created }: created is false
+  // if another concurrent call won the race, so the caller can still PUT
+  // its own snapshot rather than silently discarding it.
+  const createReelOnce = useCallback((body, headers) => {
+    if (reelIdRef.current) return Promise.resolve({ id: reelIdRef.current, created: false });
+    if (reelCreationPromiseRef.current) {
+      return reelCreationPromiseRef.current.then(r => ({ id: r.id, created: false }));
+    }
+    const promise = fetch("/api/reels", { method: "POST", headers, body })
+      .then(r => r.json())
+      .then(resp => {
+        if (resp.id) {
+          reelIdRef.current = resp.id;
+          setReelId(resp.id);
+          const u = new URL(window.location.href);
+          u.searchParams.set("reelId", resp.id);
+          window.history.replaceState({}, "", u.toString());
+        }
+        return { id: resp.id || null, created: true };
+      })
+      .finally(() => { reelCreationPromiseRef.current = null; });
+    reelCreationPromiseRef.current = promise;
+    return promise;
+  }, []);
 
   // Apply any stems queued from Music Studio → sessionStorage (same tab or cross-tab)
   // Must be after reelId is declared — dependency array references it directly.
@@ -1698,12 +1737,12 @@ export default function EditorV2() {
                   || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
                   || normalizedScenes[0]?.mediaUrl || null;
                 const body = JSON.stringify({ title: handoffTitle, scenes: normalizedScenes, timeline: { tracks: [] }, ratio: handoffRatio, status: "draft", globalMusicUrl: "", globalMusicName: "", thumbnail_url: thumbnailUrl, brand_id: d?.brandId || null, metadata: d?.metadata || {} });
-                const resp = await (await fetch("/api/reels", { method: "POST", headers: h, body })).json();
-                if (resp.id) {
-                  setReelId(resp.id);
-                  const u2 = new URL(window.location.href);
-                  u2.searchParams.set("reelId", resp.id);
-                  window.history.replaceState({}, "", u2.toString());
+                const result = await createReelOnce(body, h);
+                if (result.id && !result.created) {
+                  // Another concurrent call already created the reel -- still
+                  // persist this handoff's own snapshot via a normal PUT
+                  // instead of silently discarding it.
+                  await fetch("/api/reels/" + result.id, { method: "PUT", headers: h, body }).catch(() => {});
                 }
               } catch (err) { console.warn("[EditorV2] handoff initial save failed:", err); }
             })();
@@ -1747,12 +1786,12 @@ export default function EditorV2() {
                 || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
                 || normalizedScenes[0]?.mediaUrl || null;
               const body = JSON.stringify({ title: autosaveTitle, scenes: normalizedScenes, timeline: { tracks: [] }, ratio: autosaveRatio, status: "draft", globalMusicUrl: d?.globalMusicUrl || "", globalMusicName: "", thumbnail_url: thumbnailUrl, template: autosaveTemplate, theme: autosaveTheme });
-              const resp = await (await fetch("/api/reels", { method: "POST", headers: h, body })).json();
-              if (resp.id) {
-                setReelId(resp.id);
-                const u2 = new URL(window.location.href);
-                u2.searchParams.set("reelId", resp.id);
-                window.history.replaceState({}, "", u2.toString());
+              const result = await createReelOnce(body, h);
+              if (result.id && !result.created) {
+                // Another concurrent call already created the reel -- still
+                // persist this autosave's own snapshot via a normal PUT
+                // instead of silently discarding it.
+                await fetch("/api/reels/" + result.id, { method: "PUT", headers: h, body }).catch(() => {});
               }
             } catch (err) { console.warn("[EditorV2] autosave initial save failed:", err); }
           })();
@@ -1906,15 +1945,15 @@ export default function EditorV2() {
         || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
         || normalizedScenes[0]?.mediaUrl || null;
       const body = JSON.stringify({ title, scenes: normalizedScenes, timeline: cleanedTimeline, ratio, status: "draft", globalMusicUrl, globalMusicName, thumbnail_url: thumbnailUrl, brand_id: selectedBrandId });
-      if (reelId) {
-        await fetch("/api/reels/" + reelId, { method: "PUT", headers: h, body });
+      if (reelIdRef.current) {
+        await fetch("/api/reels/" + reelIdRef.current, { method: "PUT", headers: h, body });
       } else {
-        const d = await (await fetch("/api/reels", { method: "POST", headers: h, body })).json();
-        if (d.id) {
-          setReelId(d.id);
-          const u = new URL(window.location.href);
-          u.searchParams.set("reelId", d.id);
-          window.history.replaceState({}, "", u.toString());
+        const result = await createReelOnce(body, h);
+        if (result.id && !result.created) {
+          // Another concurrent call already created the reel -- still
+          // persist this save's own snapshot via a normal PUT instead of
+          // silently discarding it.
+          await fetch("/api/reels/" + result.id, { method: "PUT", headers: h, body }).catch(() => {});
         }
       }
       setSavedMsg("Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
