@@ -9,6 +9,7 @@ import React, {
 import { createPortal } from "react-dom";
 import HelpTooltip from "./HelpTooltip.jsx";
 import { getAuthHeaders } from "../utils/auth.js";
+import { PLATFORM_SAFE_ZONES, SAFE_ZONE_PLATFORMS } from "../data/platformSafeZones.js";
 import {
   TRACK_TYPES, makeClip, totalDuration, snapTargets, nearestSnap, evalVolumeEnvelope,
   clipOverlapsTrack,
@@ -1081,6 +1082,7 @@ export default function SequencerPanel({
   onUndo, onRedo,
   onUpdateActiveScene,
   captionsVisible, onCaptionsToggle,
+  safeZoneEnabled, onSafeZoneToggle, safeZonePlatform, onSafeZonePlatformChange,
   onDeleteScene,
   onSfxOutOfRange,
   theme,
@@ -1508,6 +1510,29 @@ export default function SequencerPanel({
               title="Toggle captions preview"
               style={{ background: captionsVisible ? "rgba(77,208,255,0.12)" : "var(--chip-bg)", border: `0.5px solid ${captionsVisible ? "rgba(77,208,255,0.4)" : "var(--onyx-hairline-strong)"}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", color: captionsVisible ? "#4dd0ff" : "var(--onyx-text-faint)", fontSize: 11, fontWeight: 700, fontFamily: "inherit" }}
             >CC</button>
+          </>
+        )}
+
+        {/* Safe zone overlay toggle — passive reference guide, no auto-enforcement */}
+        {onSafeZoneToggle !== undefined && (
+          <>
+            <Div/>
+            <button
+              onClick={() => onSafeZoneToggle?.()}
+              title="Toggle platform safe-zone overlay (approximate UI reference, not pixel-perfect)"
+              style={{ background: safeZoneEnabled ? "rgba(255,80,80,0.12)" : "var(--chip-bg)", border: `0.5px solid ${safeZoneEnabled ? "rgba(255,80,80,0.4)" : "var(--onyx-hairline-strong)"}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", color: safeZoneEnabled ? "#ff6b6b" : "var(--onyx-text-faint)", fontSize: 11, fontWeight: 700, fontFamily: "inherit" }}
+            >Safe Zone</button>
+            {safeZoneEnabled && (
+              <select
+                value={safeZonePlatform}
+                onChange={e => onSafeZonePlatformChange?.(e.target.value)}
+                style={{ background: "var(--chip-bg)", border: "0.5px solid var(--onyx-hairline-strong)", borderRadius: 6, padding: "3px 6px", color: "var(--onyx-text-dim)", fontSize: 11, fontFamily: "inherit", cursor: "pointer" }}
+              >
+                {SAFE_ZONE_PLATFORMS.map(p => (
+                  <option key={p} value={p}>{PLATFORM_SAFE_ZONES[p].label}</option>
+                ))}
+              </select>
+            )}
           </>
         )}
 

@@ -30,6 +30,7 @@ import ChatBot from "../components/ChatBot.jsx";
 import Toast from "../components/Toast.jsx";
 import { useToast } from "../state/useToast.jsx";
 import { bucketFilesByAssetType } from "../utils/mediaType.js";
+import SafeZoneOverlay from "../components/SafeZoneOverlay.jsx";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -372,7 +373,7 @@ function applyTransition(type, cur, nxt, onDone) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform }) {
   const activeIdx = scenes.findIndex(s => s.id === activeScene);
   const scene = scenes[activeIdx >= 0 ? activeIdx : 0] || null;
 
@@ -655,6 +656,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhea
                   {scenes.length ? "Scene " + ((activeIdx >= 0 ? activeIdx : 0) + 1) + " of " + scenes.length : "No scenes yet"}
                 </span>
               </div>
+          {safeZonePlatform && <SafeZoneOverlay platform={safeZonePlatform} />}
           {/* Dual-buffer with color grading — filter wrapper keeps captions/FX unaffected */}
           {(() => {
             const br  = captionScene?.brightness ?? 50;
@@ -1547,6 +1549,8 @@ export default function EditorV2() {
   const [voiceoverVolume,  setVoiceoverVolume]  = useState(100);
   const [sfxVolume,        setSfxVolume]        = useState(80);
   const [captionsVisible,  setCaptionsVisible]  = useState(true);
+  const [safeZoneEnabled,  setSafeZoneEnabled]  = useState(false);
+  const [safeZonePlatform, setSafeZonePlatform] = useState("tiktok");
   const audioElementsRef   = useRef(new Map());   // clipId → HTMLAudioElement
   const musicVolumeRef     = useRef(60);
   const voiceoverVolumeRef = useRef(100);
@@ -3635,6 +3639,7 @@ export default function EditorV2() {
               brollVideoRef={brollVideoRef}
               brollWrapperRef={brollWrapperRef}
               theme={theme}
+              safeZonePlatform={safeZoneEnabled ? safeZonePlatform : null}
             />
           </div>
 
@@ -3659,6 +3664,10 @@ export default function EditorV2() {
               onUpdateActiveScene={(changes) => updateScene(activeScene, changes)}
               captionsVisible={captionsVisible}
               onCaptionsToggle={() => setCaptionsVisible(p => !p)}
+              safeZoneEnabled={safeZoneEnabled}
+              onSafeZoneToggle={() => setSafeZoneEnabled(p => !p)}
+              safeZonePlatform={safeZonePlatform}
+              onSafeZonePlatformChange={setSafeZonePlatform}
               onDeleteScene={deleteScene}
               onSfxOutOfRange={() => toast.show("SFX clip placed beyond the end of your video — it won't be included in the export.", "error")}
               theme={theme}
