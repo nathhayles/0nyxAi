@@ -107,8 +107,9 @@ const REGEN_MODEL_OPTIONS = [
   { id: "wan-2.5",        label: "Wan 2.5", credits: 18  },
   { id: "kling-2.6-pro",  label: "Kling 3 Pro", credits: 149, creditsLabel: "~75-150 cr/scene" },
   { id: "veo-3",          label: "Veo 3.1",        credits: 140 },
-  { id: "seedance-1-pro", label: "Seedance 1 Pro", credits: 36  },
-  { id: "vidu-q3-pro",    label: "Vidu Q3 Pro",    credits: 20  },
+  { id: "seedance-1-pro", label: "Seedance 1 Pro", credits: 40, creditsLabel: "20-40 cr/scene" },
+  { id: "seedance-2-standard", label: "Seedance 2.0", credits: 404, creditsLabel: "~202-404 cr/scene" },
+  { id: "vidu-q3-pro",    label: "Vidu Q3 Pro",    credits: 167, creditsLabel: "84-167 cr/scene" },
 ];
 
 export default function StoryboardPanel({

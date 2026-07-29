@@ -22,8 +22,9 @@ const VIDEO_MODEL_OPTIONS = [
   { id: "wan-2.5",       label: "Wan 2.5",        description: "Fast & affordable",          credits: 18  },
   { id: "kling-2.6-pro", label: "Kling 3 Pro",    description: "Balanced quality (default)", credits: 149, creditsLabel: "~75-150 credits/scene, final cost based on actual scene length" },
   { id: "veo-3",         label: "Veo 3.1",         description: "Highest quality (Google)",   credits: 140 },
-  { id: "seedance-1-pro",label: "Seedance 1 Pro",  description: "Cinematic motion (ByteDance)", credits: 36 },
-  { id: "vidu-q3-pro",   label: "Vidu Q3 Pro",    description: "Budget quality (Vidu)",      credits: 20  },
+  { id: "seedance-1-pro",label: "Seedance 1 Pro",  description: "Cinematic motion (ByteDance)", credits: 40, creditsLabel: "20-40 credits/scene, based on scene length" },
+  { id: "seedance-2-standard", label: "Seedance 2.0", description: "Premium quality, native audio (ByteDance)", credits: 404, creditsLabel: "~202-404 credits/scene, based on scene length" },
+  { id: "vidu-q3-pro",   label: "Vidu Q3 Pro",    description: "Budget quality (Vidu)",      credits: 167, creditsLabel: "84-167 credits/scene, based on scene length" },
 ];
 
 const THEMES = [
