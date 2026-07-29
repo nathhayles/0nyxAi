@@ -133,6 +133,7 @@ const SECTIONS = [
       { q: "How do I add transitions?", a: "Click the Transitions icon in the left sidebar. Choose Cut, Fade, Slide, or Zoom. Apply per-scene or to all scenes." },
       { q: "What speed options are available?", a: "0.25x, 0.5x, 1x, 1.5x, 2x playback speed in the sequencer toolbar. Slow motion regions can be set per clip." },
       { q: "How do I mute or change the volume of a clip?", a: "Use the mute button and volume slider on a track or clip in the sequencer — both now work correctly and the result is reflected in preview and export." },
+      { q: "What is the Safe Zone overlay?", a: "A visual guide showing where each platform (TikTok, Instagram Reels, YouTube Shorts) typically places its own UI — captions, buttons, profile info — so you can avoid putting important text or action there. Toggle it on next to the captions button in the sequencer and pick a platform. It's a passive reference only — nothing is automatically enforced or blocked." },
     ]
   },
   {
@@ -145,6 +146,9 @@ const SECTIONS = [
       { q: "Does Content Plan cost extra credits?", a: "No. Planning a month and generating hooks uses the same credits as the standalone Hook Generator and Campaign Generator tools. Generating a reel from a plan item creates a stock-footage draft — no credits are charged at that step. AI video scenes inside the editor are charged separately per model." },
       { q: "Can I add extra context to a Content Plan item before generating a reel?", a: "Yes — open any Content Plan item and look for the 'Additional Context (optional)' field below the Hook Text. Add talking points, specific stats, or details you want included. This context flows into the reel generation step and produces more specific, substantive scenes." },
       { q: "Can I change the hook on a Content Plan item?", a: "Yes — click any of the 'Hook Variations' shown in the item detail. The selected variation becomes the active Hook Text, gets an 'ACTIVE' badge, and persists to the database." },
+      { q: "What's the difference between Additional Context and Shot Sequence on a Content Plan item?", a: "Additional Context feeds narration content and talking points into script generation — what the scene should say. Shot Sequence is a separate field that governs framing and shot structure instead — how the scene should be shot (e.g. wide establishing shot, then a close-up push-in). Both are optional and flow into the same reel generation step." },
+      { q: "Can I navigate the Content Plan calendar to a different month?", a: "Yes — use the ‹ › arrows next to the calendar to move to the previous or next month. The plan dropdown automatically syncs to whichever plan covers the month you're viewing, or shows no selection if none does. Months with no plan yet still render as a normal empty calendar with a 'Plan a Month' prompt." },
+      { q: "Can I delete a Content Plan?", a: "Yes — select the plan from the dropdown, then click the trash icon next to it and confirm. This permanently deletes the plan and its items. Any reels you've already generated from that plan are not deleted — they stay in your Projects independently." },
     ]
   },
   {
@@ -181,12 +185,13 @@ const SECTIONS = [
       { q: "How do I disconnect TikTok?", a: "Go to your Account page, find TikTok under Social Media Connections for the relevant brand, and click Disconnect. This immediately revokes Onyx Reelz's access to your TikTok account." },
       { q: "Can I schedule posts?", a: "Yes. When publishing, select a future date and time. The scheduler will automatically post at your chosen time." },
       { q: "What video specs does each platform need?", a: "Onyx Reelz automatically exports in the correct format for each platform. 9:16 for Stories/Reels/Shorts, 16:9 for YouTube, 1:1 for feed posts." },
+      { q: "Does Onyx Reelz limit or check my hashtags?", a: "Yes. Each platform has its own real hashtag limit, and Onyx Reelz shows a live count as you type and automatically trims hashtags down to that platform's limit when you schedule or publish, so a post never gets rejected for having too many." },
     ]
   },
   {
     title: "Account & Billing",
     items: [
-      { q: "How does the credit system work?", a: "Credits are used for AI features. 100 credits = $1. Credits never expire. AI video generation cost varies by model (18–150 credits per scene). Voiceover uses minutes from your plan allowance." },
+      { q: "How does the credit system work?", a: "Credits are used for AI features. 100 credits = $1. Credits never expire. AI video generation cost varies by model and scene length (20–404 credits per scene). Voiceover uses minutes from your plan allowance." },
       { q: "How do I earn free credits?", a: "Go to /earn. Share your reels with your referral link embedded. When someone signs up and subscribes, you earn 50–400 credits depending on their plan." },
       { q: "What's included in each plan?", a: "Starter: 1 brand, 600 stock video mins, 400 VO mins. Creator: 3 brands, more minutes, stem separation. Pro: 5 brands, priority rendering. Agency: unlimited brands, white-label options." },
       { q: "How do I reset my password?", a: "Click 'Forgot password' on the login page. A reset link will be sent to your email from noreply@onyx-reelz.com." },
