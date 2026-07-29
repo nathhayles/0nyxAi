@@ -104,9 +104,9 @@ function CharacterTagTextarea({ value, onChange, placeholder, onClick, character
 // Kling's cost is duration-based (backend/routes/kling.js getSceneCost),
 // not flat — see the matching comment in Create.jsx's VIDEO_MODEL_OPTIONS.
 const REGEN_MODEL_OPTIONS = [
-  { id: "wan-2.5",        label: "Wan 2.5", credits: 18  },
+  { id: "wan-2.5",        label: "Wan 2.5", credits: 67, creditsLabel: "34-67 cr/scene" },
   { id: "kling-2.6-pro",  label: "Kling 3 Pro", credits: 149, creditsLabel: "~75-150 cr/scene" },
-  { id: "veo-3",          label: "Veo 3.1",        credits: 140 },
+  { id: "veo-3",          label: "Veo 3.1",        credits: 213, creditsLabel: "107-213 cr/scene" },
   { id: "seedance-1-pro", label: "Seedance 1 Pro", credits: 40, creditsLabel: "20-40 cr/scene" },
   { id: "seedance-2-standard", label: "Seedance 2.0", credits: 404, creditsLabel: "~202-404 cr/scene" },
   { id: "vidu-q3-pro",    label: "Vidu Q3 Pro",    credits: 167, creditsLabel: "84-167 cr/scene" },
