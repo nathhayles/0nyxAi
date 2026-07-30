@@ -4,11 +4,12 @@
 //          trim handles, clip selection, split at playhead, mute/solo.
 
 import React, {
-  useRef, useState, useCallback, useEffect, useMemo, useLayoutEffect,
+  useRef, useState, useCallback, useEffect, useMemo, useLayoutEffect, memo,
 } from "react";
 import { createPortal } from "react-dom";
 import HelpTooltip from "./HelpTooltip.jsx";
 import { getAuthHeaders } from "../utils/auth.js";
+import { usePlayheadTicker } from "../hooks/usePlayheadTicker.js";
 import { PLATFORM_SAFE_ZONES, SAFE_ZONE_PLATFORMS } from "../data/platformSafeZones.js";
 import {
   TRACK_TYPES, makeClip, totalDuration, snapTargets, nearestSnap, evalVolumeEnvelope,
@@ -115,6 +116,37 @@ function fmtTime(s) {
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
+// Timecode readout — isolated leaf so it can tick at 60fps during playback
+// (via usePlayheadTicker) without forcing all of SequencerPanel to re-render.
+function SequencerTimecodeBase({ livePlayheadRef, isPlaying, checkpointPlayhead, totalSec, isOpal }) {
+  const playhead = usePlayheadTicker(livePlayheadRef, isPlaying, checkpointPlayhead);
+  return (
+    <span style={{ fontSize: 10.5, fontFamily: "monospace", color: isOpal ? "#06121b" : "#4dd0ff", letterSpacing: "0.04em" }}>
+      {fmtTime(playhead)} / {fmtTime(totalSec)}
+    </span>
+  );
+}
+const SequencerTimecode = memo(SequencerTimecodeBase);
+
+// Playhead line spanning all tracks — isolated leaf, same reasoning as
+// RulerPlayheadNeedle and SequencerTimecode above.
+function TrackAreaPlayheadLineBase({ livePlayheadRef, isPlaying, checkpointPlayhead, zoom }) {
+  const playhead = usePlayheadTicker(livePlayheadRef, isPlaying, checkpointPlayhead);
+  return (
+    <div style={{
+      position: "absolute",
+      left: playhead * zoom,
+      top: RULER_H, bottom: 0,
+      width: 1,
+      background: "#4dd0ff",
+      opacity: 0.85,
+      pointerEvents: "none",
+      zIndex: 10,
+    }}/>
+  );
+}
+const TrackAreaPlayheadLine = memo(TrackAreaPlayheadLineBase);
+
 function useRAF(callback, active) {
   const cbRef = useRef(callback);
   cbRef.current = callback;
@@ -132,8 +164,33 @@ function useRAF(callback, active) {
   }, [active]);
 }
 
+// Live playhead needle for the Ruler — isolated into its own tiny memoized
+// leaf so it can tick at 60fps during playback (via usePlayheadTicker)
+// without forcing Ruler (and everything above it) to re-render every frame.
+// Same pattern as SafeZoneOverlay's isolation from PreviewCanvas.
+function RulerPlayheadNeedleBase({ zoom, livePlayheadRef, isPlaying, checkpointPlayhead }) {
+  const playhead = usePlayheadTicker(livePlayheadRef, isPlaying, checkpointPlayhead);
+  const playheadPx = playhead * zoom;
+  if (playheadPx < 0) return null;
+  return (
+    <div style={{
+      position: "absolute", top: 0, left: playheadPx, bottom: 0,
+      width: 1, background: "#4dd0ff", pointerEvents: "none",
+    }}>
+      <div style={{
+        position: "absolute", top: 0, left: -4, width: 9, height: 9,
+        background: "#4dd0ff", clipPath: "polygon(50% 0%,100% 100%,0% 100%)",
+      }}/>
+    </div>
+  );
+}
+const RulerPlayheadNeedle = memo(RulerPlayheadNeedleBase);
+
 // ─── Ruler ────────────────────────────────────────────────────────────────────
-function Ruler({ zoom, scrollLeft, totalSec, onScrub, playhead,
+// Memoized: Ruler's own props (zoom/scrollLeft/totalSec/loop state) only
+// change on real user actions, not on every playback tick, now that the
+// live playhead position is isolated into RulerPlayheadNeedle above.
+function RulerBase({ zoom, scrollLeft, totalSec, onScrub, livePlayheadRef, isPlaying, checkpointPlayhead,
                  loopEnabled, loopIn, loopOut, onLoopChange }) {
   const ref = useRef(null);
 
@@ -232,7 +289,6 @@ function Ruler({ zoom, scrollLeft, totalSec, onScrub, playhead,
     window.addEventListener("mouseup", onUp);
   }
 
-  const playheadPx = playhead * zoom;
   const hasLoop    = loopEnabled && loopOut !== null && loopOut > loopIn;
   const loopInPx   = loopIn  * zoom;
   const loopOutPx  = (loopOut ?? 0) * zoom;
@@ -270,21 +326,17 @@ function Ruler({ zoom, scrollLeft, totalSec, onScrub, playhead,
           </>
         )}
       </svg>
-      {/* Playhead needle on ruler */}
-      {playheadPx >= 0 && (
-        <div style={{
-          position: "absolute", top: 0, left: playheadPx, bottom: 0,
-          width: 1, background: "#4dd0ff", pointerEvents: "none",
-        }}>
-          <div style={{
-            position: "absolute", top: 0, left: -4, width: 9, height: 9,
-            background: "#4dd0ff", clipPath: "polygon(50% 0%,100% 100%,0% 100%)",
-          }}/>
-        </div>
-      )}
+      {/* Playhead needle on ruler — isolated leaf, ticks at 60fps independently */}
+      <RulerPlayheadNeedle
+        zoom={zoom}
+        livePlayheadRef={livePlayheadRef}
+        isPlaying={isPlaying}
+        checkpointPlayhead={checkpointPlayhead}
+      />
     </div>
   );
 }
+const Ruler = memo(RulerBase);
 
 // ─── Transition duration handle ───────────────────────────────────────────────
 function TransitionHandle({ x, color, transitionType, duration, onDurationChange }) {
@@ -668,7 +720,12 @@ function ClipBlock({ clip, zoom, selected, onSelect, onTrimStart, onTrimEnd, onD
 }
 
 // ─── Track row ────────────────────────────────────────────────────────────────
-function TrackRow({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
+// Memoized (see const TrackRow = memo(...) below): TrackRow never reads
+// playhead at all, so it only needs to re-render when its own props
+// (track/zoom/selection/etc.) genuinely change -- previously it re-rendered
+// 60x/sec purely as collateral damage from its unmemoized parent
+// (SequencerPanel) re-rendering on every playback tick.
+function TrackRowBase({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
                     onScrub, onDrop, dispatch, snapEnabled, snapTgts, onDeleteScene,
                     scenes, setCtxMenu, updateScene, setActiveScene }) {
   const meta = trackMeta(track);
@@ -884,6 +941,7 @@ function TrackRow({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
     </div>
   );
 }
+const TrackRow = memo(TrackRowBase);
 
 // ─── Clip context menu ────────────────────────────────────────────────────────
 function ClipContextMenu({ ctxMenu, onClose, dispatch, updateScene, onDeleteScene }) {
@@ -1067,9 +1125,9 @@ const RATIOS = {
   "4:5":  { label: "4:5",  icon: "▮" },
 };
 
-export default function SequencerPanel({
+function SequencerPanelBase({
   timelineState, dispatch,
-  isPlaying, onPlayPause,
+  isPlaying, livePlayheadRef, onPlayPause,
   scenes, activeScene, setActiveScene,
   updateScene,
   globalMusicUrl, globalMusicName,
@@ -1105,7 +1163,15 @@ export default function SequencerPanel({
     try { return totalDuration(timelineState) || 30; } catch { return 30; }
   }, [timelineState]);
 
-  const playhead  = timelineState.playhead ?? 0;
+  // Checkpoint value only -- timelineState.playhead is now updated at
+  // discrete checkpoints (seek/play-start/pause/loop-wrap), not every
+  // playback frame (see EditorV2's playback-engine effect). Anything here
+  // that needs the true live position during playback must read
+  // livePlayheadRef directly (see splitAtPlayhead) or use the
+  // usePlayheadTicker hook in a small isolated leaf (see SequencerTimecode,
+  // TrackAreaPlayheadLine below) rather than this variable, or the whole
+  // ~1800-line component would re-render every frame again.
+  const checkpointPlayhead = timelineState.playhead ?? 0;
   const selected  = timelineState.selected;
   const snapEnabled = timelineState.snap;
 
@@ -1135,18 +1201,47 @@ export default function SequencerPanel({
   }, [timelineState, selected, beatBpm, snapEnabled, totalSec]);
 
   // ── auto-scroll playhead into view ────────────────────────────────────────
+  // Split into two effects rather than one keyed on a live-updating
+  // `playhead` value, which would re-render this whole component every
+  // playback frame. While paused/scrubbing, checkpointPlayhead already
+  // updates immediately on every seek (those dispatches aren't throttled,
+  // only continuous playback ticking is) so this effect is enough on its own.
   useEffect(() => {
     if (!scrollRef.current) return;
     if (Date.now() - manualScrolledAtRef.current < 1500) return;
     const el   = scrollRef.current;
-    const phPx = playhead * zoom;
+    const phPx = checkpointPlayhead * zoom;
     const { scrollLeft: sl, clientWidth: cw } = el;
     if (phPx < sl + 20 || phPx > sl + cw - 20) {
       const next = Math.max(0, phPx - cw / 2);
       el.scrollLeft = next;
       setScrollLeft(next);
     }
-  }, [playhead, zoom]);
+  }, [checkpointPlayhead, zoom]);
+
+  // While actively playing, auto-scroll continuously from the live ref via
+  // its own rAF loop -- purely imperative (direct DOM scrollLeft write),
+  // only calling setScrollLeft on the rare frame that actually crosses the
+  // scroll threshold, so this does not re-render SequencerPanel every frame.
+  useEffect(() => {
+    if (!isPlaying) return;
+    let rafId;
+    function tick() {
+      if (Date.now() - manualScrolledAtRef.current > 1500 && scrollRef.current) {
+        const el = scrollRef.current;
+        const phPx = livePlayheadRef.current * zoom;
+        const { scrollLeft: sl, clientWidth: cw } = el;
+        if (phPx < sl + 20 || phPx > sl + cw - 20) {
+          const next = Math.max(0, phPx - cw / 2);
+          el.scrollLeft = next;
+          setScrollLeft(next);
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [isPlaying, zoom, livePlayheadRef]);
 
   const totalWidth = Math.max((totalSec + 10) * zoom, 800);
 
@@ -1264,11 +1359,13 @@ export default function SequencerPanel({
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [seqSize]);
 
-  const playheadPx = playhead * zoom - scrollLeft;
-
   function splitAtPlayhead() {
     if (!selected) return;
-    dispatch({ type: "SPLIT_CLIP", clipId: selected, atTime: playhead });
+    // Read the live ref when playing -- checkpointPlayhead would be stale
+    // (only synced at discrete checkpoints during active playback), and
+    // splitting is a committed mutation, not just a visual display.
+    const atTime = isPlaying ? livePlayheadRef.current : checkpointPlayhead;
+    dispatch({ type: "SPLIT_CLIP", clipId: selected, atTime });
   }
 
   function deleteSelected() {
@@ -1393,9 +1490,13 @@ export default function SequencerPanel({
 
         <div style={{ flex: 1 }}/>
 
-        <span style={{ fontSize: 10.5, fontFamily: "monospace", color: isOpal ? "#06121b" : "#4dd0ff", letterSpacing: "0.04em" }}>
-          {fmtTime(playhead)} / {fmtTime(totalSec)}
-        </span>
+        <SequencerTimecode
+          livePlayheadRef={livePlayheadRef}
+          isPlaying={isPlaying}
+          checkpointPlayhead={checkpointPlayhead}
+          totalSec={totalSec}
+          isOpal={isOpal}
+        />
 
         <Div/>
 
@@ -1674,7 +1775,9 @@ export default function SequencerPanel({
               scrollLeft={scrollLeft}
               totalSec={totalSec}
               onScrub={handleScrub}
-              playhead={playhead}
+              livePlayheadRef={livePlayheadRef}
+              isPlaying={isPlaying}
+              checkpointPlayhead={checkpointPlayhead}
               loopEnabled={!!loopEnabled}
               loopIn={loopIn ?? 0}
               loopOut={loopOut ?? null}
@@ -1718,17 +1821,13 @@ export default function SequencerPanel({
               }}/>
             )}
 
-            {/* Playhead line across all tracks */}
-            <div style={{
-              position: "absolute",
-              left: playhead * zoom,
-              top: RULER_H, bottom: 0,
-              width: 1,
-              background: "#4dd0ff",
-              opacity: 0.85,
-              pointerEvents: "none",
-              zIndex: 10,
-            }}/>
+            {/* Playhead line across all tracks — isolated leaf, ticks at 60fps independently */}
+            <TrackAreaPlayheadLine
+              livePlayheadRef={livePlayheadRef}
+              isPlaying={isPlaying}
+              checkpointPlayhead={checkpointPlayhead}
+              zoom={zoom}
+            />
 
             {/* Drop hint overlay when empty */}
             {timelineState.tracks.every(t => t.clips.length === 0) && (
@@ -1759,6 +1858,12 @@ export default function SequencerPanel({
     </>
   );
 }
+// Memoized: timelineState (and every other prop) now only gets a new
+// reference at discrete checkpoints (seek/play-start/pause/loop-wrap), not
+// every playback frame -- see EditorV2's playback-engine effect. Combined
+// with TrackRow/Ruler also being memoized, this is what actually stops the
+// ~1800-line render tree from re-running 60x/sec during playback.
+export default memo(SequencerPanelBase);
 
 // ─── micro icon components ────────────────────────────────────────────────────
 function TlBtn({ onClick, title, disabled, active, children }) {

@@ -8,6 +8,7 @@ import { timelineReducer, makeInitialState, makeClip, importFromScenes, rangesOv
 import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import { generateReelTitle } from "../utils/autoTitle.js";
+import { usePlayheadTicker } from "../hooks/usePlayheadTicker.js";
 import "../styles/editor.css";
 
 import SequencerPanel   from "../components/SequencerPanel.jsx";
@@ -373,7 +374,14 @@ function applyTransition(type, cur, nxt, onDone) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, playhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePlayheadRef, checkpointPlayhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform }) {
+  // Live 60fps value during playback (see usePlayheadTicker) -- reads
+  // livePlayheadRef, which EditorV2's master rAF clock updates every frame.
+  // timelineState.playhead itself is now only updated at checkpoints
+  // (seek/play-start/pause/loop-wrap), not every frame, so this hook is what
+  // lets the progress bar and caption sync keep updating smoothly during
+  // playback without EditorV2 or SequencerPanel re-rendering on every tick.
+  const playhead = usePlayheadTicker(livePlayheadRef, isPlaying, checkpointPlayhead);
   const activeIdx = scenes.findIndex(s => s.id === activeScene);
   const scene = scenes[activeIdx >= 0 ? activeIdx : 0] || null;
 
@@ -1615,6 +1623,14 @@ export default function EditorV2() {
   const [reelLoaded,      setReelLoaded]      = useState(false);
   const totalSec = useMemo(() => { try { return calcTotalDuration(timelineState) || 0; } catch { return 0; } }, [timelineState]);
   const playhead = timelineState.playhead ?? 0;
+  // Live 60fps playhead position during playback, updated every frame by
+  // the rAF master clock further below -- declared here (rather than
+  // alongside playStartRef, deeper in the component) so it's available to
+  // every effect regardless of where it's defined in the function body,
+  // including the keydown handler above the playback-engine section.
+  // See usePlayheadTicker and the "Playback engine" effect for how this
+  // gets written to and consumed.
+  const livePlayheadRef = useRef(timelineState.playhead ?? 0);
   // Unified clip selection — a single source of truth (timelineState.selected,
   // the existing generic reducer field the timeline's own clip clicks already
   // wrote to via SELECT) shared by canvas clicks, timeline clicks, fx, and
@@ -2014,8 +2030,17 @@ export default function EditorV2() {
       if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); redoTimeline(); return; }
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
       if (e.key === " ") { e.preventDefault(); setIsPlaying(p => !p); }
-      if (e.key === "ArrowRight") dispatchWithHistory({ type: "SEEK", time: Math.max(0, playhead + 1/30) });
-      if (e.key === "ArrowLeft")  dispatchWithHistory({ type: "SEEK", time: Math.max(0, playhead - 1/30) });
+      // During playback, timelineState.playhead is only a checkpoint value
+      // (see the playback-engine effect) -- nudging from it here would jump
+      // from a stale position. Read the live ref instead whenever playing.
+      if (e.key === "ArrowRight") {
+        const base = isPlaying ? livePlayheadRef.current : playhead;
+        dispatchWithHistory({ type: "SEEK", time: Math.max(0, base + 1/30) });
+      }
+      if (e.key === "ArrowLeft") {
+        const base = isPlaying ? livePlayheadRef.current : playhead;
+        dispatchWithHistory({ type: "SEEK", time: Math.max(0, base - 1/30) });
+      }
       if (e.key === "s" && !e.metaKey) dispatchWithHistory({ type: "TOGGLE_SNAP" });
       if ((e.key === "Delete" || e.key === "Backspace") && timelineState.selected) dispatchWithHistory({ type: "DELETE_CLIP", clipId: timelineState.selected });
       if ((e.metaKey || e.ctrlKey) && e.key === "d") {
@@ -2026,7 +2051,7 @@ export default function EditorV2() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [playhead, timelineState.selected, saveNow, undoTimeline, redoTimeline, dispatchWithHistory]);
+  }, [playhead, isPlaying, timelineState.selected, saveNow, undoTimeline, redoTimeline, dispatchWithHistory]);
 
   // Prevent horizontal wheel/swipe from triggering browser back navigation.
   // Must attach to window — browser captures the gesture at OS/window level before
@@ -2066,8 +2091,20 @@ export default function EditorV2() {
   }, [reelLoaded]);
 
   // ── Playback engine (rAF master clock) ────────────────────────────────────
-  // Drives timelineState.playhead forward in real time when isPlaying=true.
-  // Also syncs the single PreviewCanvas <video> to the active scene's clip.
+  // Drives the live playhead position forward in real time when
+  // isPlaying=true. Also syncs the single PreviewCanvas <video> to the
+  // active scene's clip.
+  //
+  // timelineState.playhead (the reducer/React-state value) is intentionally
+  // NOT updated every frame here anymore -- it used to be, via a SEEK
+  // dispatch inside tick() below, which forced a full re-render of EditorV2
+  // and every unmemoized child (SequencerPanel's ~1800 lines, every
+  // TrackRow/clip, Ruler) 60 times/sec. livePlayheadRef now holds the true
+  // per-frame position instead; timelineState.playhead is only synced to it
+  // at discrete checkpoints (play-start, pause/stop, loop-wrap, end-of-
+  // timeline). Components that need live 60fps visual sync (progress bar,
+  // playhead cursor line, timecode) read livePlayheadRef via the
+  // usePlayheadTicker hook, which re-renders only that one leaf component.
   const playStartRef = useRef(null); // { wallTime, playheadAtStart }
   const previewSrcRef     = useRef(null); // last src assigned to the preview <video>
   const activeVideoSlotRef = useRef("a");  // "a" | "b" — which buffer is currently showing
@@ -2322,6 +2359,13 @@ export default function EditorV2() {
 
   useEffect(() => {
     if (!isPlaying) {
+      // Checkpoint: sync timelineState.playhead to the exact stop position.
+      // Only fires when actually stopping FROM an active play session
+      // (playStartRef was set) -- avoids a bogus SEEK on initial mount or
+      // any other re-run while already paused.
+      if (playStartRef.current) {
+        dispatchWithHistory({ type: "SEEK", time: livePlayheadRef.current });
+      }
       playStartRef.current = null;
       previewSrcRef.current = null; // force src re-sync on next play
       prevBrollClipRef.current = null;
@@ -2338,6 +2382,7 @@ export default function EditorV2() {
       wallTime:         performance.now() / 1000,
       playheadAtStart:  timelineState.playhead ?? 0,
     };
+    livePlayheadRef.current = timelineState.playhead ?? 0;
 
     // Debug: log first stem clip src so we can verify URLs are populated
     const firstStemClip = tracksRef.current
@@ -2368,16 +2413,27 @@ export default function EditorV2() {
         if (loopEnabledRef.current && loopOutRef.current !== null) {
           const wrapped = loopInRef.current + (newPH - effectiveEnd);
           playStartRef.current = { wallTime: performance.now() / 1000, playheadAtStart: wrapped };
+          livePlayheadRef.current = wrapped;
+          // Checkpoint: loop-wrap is one of the discrete points
+          // timelineState.playhead gets resynced, not every frame.
+          dispatchWithHistory({ type: "SEEK", time: wrapped });
           rafId = requestAnimationFrame(tick);
           return;
         }
+        livePlayheadRef.current = 0;
         dispatchWithHistory({ type: "SEEK", time: 0 });
         setIsPlaying(false);
         uploadVideoRef.current?.pause();
         return;
       }
 
-      dispatchWithHistory({ type: "SEEK", time: newPH });
+      // Live position updates every frame via the ref only -- NOT dispatched
+      // to the reducer here. This is the core of the fix: previously this
+      // dispatched SEEK every single frame (~60/sec), spreading the entire
+      // timelineState object and forcing a full re-render of EditorV2 and
+      // every unmemoized child. See usePlayheadTicker for how components
+      // that need live 60fps sync read this ref directly instead.
+      livePlayheadRef.current = newPH;
 
       // Sync preview video — broll takes priority over video when both overlap
       const getSlotsTick = () => {
@@ -3659,7 +3715,7 @@ export default function EditorV2() {
           <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
             <PreviewCanvas
               scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene}
-              isPlaying={isPlaying} playhead={playhead} totalSec={totalSec||1}
+              isPlaying={isPlaying} livePlayheadRef={livePlayheadRef} checkpointPlayhead={playhead} totalSec={totalSec||1}
               onSeek={t => dispatchWithHistory({type:"SEEK",time:Math.max(0,t)})}
               onPlayPause={() => setIsPlaying(p=>!p)}
               ratio={ratio}
@@ -3689,7 +3745,7 @@ export default function EditorV2() {
           <Safe name="SequencerPanel">
             <SequencerPanel
               timelineState={timelineState} dispatch={dispatchWithHistory}
-              isPlaying={isPlaying} onPlayPause={() => setIsPlaying(p => !p)}
+              isPlaying={isPlaying} livePlayheadRef={livePlayheadRef} onPlayPause={() => setIsPlaying(p => !p)}
               scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene}
               updateScene={updateScene}
               globalMusicUrl={globalMusicUrl} globalMusicName={globalMusicName}
@@ -3713,6 +3769,7 @@ export default function EditorV2() {
               onSeek={p => {
                 const t = p * totalSec;
                 dispatchWithHistory({ type: "SEEK", time: t });
+                livePlayheadRef.current = t;
                 // If playing, restart the play clock from the new position so the tick stays in sync
                 if (playStartRef.current) {
                   playStartRef.current = { wallTime: performance.now() / 1000, playheadAtStart: t };
