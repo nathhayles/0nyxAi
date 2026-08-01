@@ -1235,7 +1235,12 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       url,
       duration:          clip.trimEnd - clip.trimStart,
       trimStart:         clip.trimStart || null,
-      trimEnd:           clip.trimEnd || null,
+      // Real source range, not the shrunk value SPEED_CLIP leaves in trimEnd
+      // when speed !== 1 -- sourceDuration is the fixed anchor (never mutated
+      // by speed changes, see timelineReducer.js SPEED_CLIP). Falls back to
+      // the plain trimEnd for clips that predate sourceDuration.
+      trimEnd:           clip.trimStart + (clip.sourceDuration ?? (clip.trimEnd - clip.trimStart)) || null,
+      speed:             clip.speed || 1,
       voiceoverUrl:      voClip?.src || scene.voiceoverUrl || null,
       lipSynced:         !!scene.lipSynced,
       // Set by regenerateScene/Create.jsx from the kling job status response
@@ -2997,6 +3002,7 @@ export default function EditorV2() {
                 duration:  sfxDuration,
                 trimStart: 0,
                 trimEnd:   sfxDuration,
+                sourceDuration: sfxDuration,
                 src:       scene.sfxUrl,
                 type:      "audio",
                 volume:    sfxVolume ?? 80,
@@ -3031,6 +3037,7 @@ export default function EditorV2() {
             duration,
             trimStart: 0,
             trimEnd:   duration,
+            sourceDuration: duration,
             src:       scene.voiceoverUrl,
             type:      "audio",
             volume:    voiceoverVolume ?? 100,
@@ -3126,6 +3133,7 @@ export default function EditorV2() {
         duration:  totalDur,
         trimStart: 0,
         trimEnd:   totalDur,
+        sourceDuration: totalDur,
         src:       globalMusicUrl,
         type:      "audio",
         volume:    musicVolume ?? 60,

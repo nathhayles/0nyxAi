@@ -35,7 +35,13 @@ export function makeClip(overrides = {}) {
     volume:     100,            // 0–100
     fadeIn:     0,              // px (matches existing FadeHandle contract)
     fadeOut:    0,
-    speed:      1,              // 0.5 | 1 | 1.5 | 2
+    speed:      1,              // 0.25 | 0.5 | 1 | 1.5 | 2
+    // Fixed anchor set once when the clip is created from real media with a
+    // known native duration (importFromScenes, handleDrop, etc) -- SPEED_CLIP
+    // must always derive from this, never from the current (possibly already
+    // sped-up) trimEnd, or repeated speed changes on the same clip compound
+    // errors (see the SPEED_CLIP case below).
+    sourceDuration: null,
     muted:      false,
     // Volume automation: null = flat `volume` applies as-is (unchanged legacy
     // behavior). When length >= 2, each point's `v` (0-100) is a percentage of
@@ -131,6 +137,7 @@ export function importFromScenes(scenes = [], globalMusicUrl = "", globalMusicNa
       duration:        dur,
       trimStart:       Number(sc.trimStart) || 0,
       trimEnd:         Number(sc.trimEnd)   || dur,
+      sourceDuration:  (Number(sc.trimEnd) || dur) - (Number(sc.trimStart) || 0),
       src:             sc.mediaUrl || sc.url || "",
       type:            "video",
       volume:          Number(sc.volume   ?? 100),
@@ -158,6 +165,7 @@ export function importFromScenes(scenes = [], globalMusicUrl = "", globalMusicNa
         duration:  dur,
         trimStart: 0,
         trimEnd:   dur,
+        sourceDuration: dur,
         src:       sc.avatar_video_url,
         type:      "video",
         volume:    0,
@@ -174,6 +182,7 @@ export function importFromScenes(scenes = [], globalMusicUrl = "", globalMusicNa
         duration:  voDur > 0 ? voDur : dur,
         trimStart: 0,
         trimEnd:   voDur > 0 ? voDur : dur,
+        sourceDuration: voDur > 0 ? voDur : dur,
         src:       sc.voiceoverUrl,
         type:      "audio",
         volume:    100,
@@ -189,6 +198,7 @@ export function importFromScenes(scenes = [], globalMusicUrl = "", globalMusicNa
         duration:  dur,
         trimStart: 0,
         trimEnd:   dur,
+        sourceDuration: dur,
         src:       sc.sfxUrl,
         type:      "audio",
         volume:    80,
@@ -207,6 +217,7 @@ export function importFromScenes(scenes = [], globalMusicUrl = "", globalMusicNa
       duration:  cursor || 1,
       trimStart: 0,
       trimEnd:   cursor || 1,
+      sourceDuration: cursor || 1,
       src:       globalMusicUrl,
       type:      "audio",
       volume:    60,
@@ -539,9 +550,17 @@ export function timelineReducer(state, action) {
         ...t,
         clips: t.clips.map(c => {
           if (c.id !== action.clipId) return c;
-          const rawDur = (c.trimEnd - c.trimStart) / (c.speed || 1); // original raw
+          // Must derive from the fixed sourceDuration anchor, not the current
+          // trimEnd -- trimEnd already reflects whatever speed was last
+          // applied, so re-deriving "raw" duration from it here would divide
+          // out the wrong thing on every speed change after the first one,
+          // compounding further each time. The fallback below only exists for
+          // clips created before sourceDuration existed; it reproduces the
+          // old (buggy, compounding) behavior and should be considered a
+          // known gap, not a real fix, for any such legacy clip.
+          const rawDur = c.sourceDuration ?? ((c.trimEnd - c.trimStart) / (c.speed || 1));
           const newDur = rawDur / speed;
-          return { ...c, speed, duration: newDur, trimEnd: c.trimStart + newDur };
+          return { ...c, speed, duration: newDur, trimEnd: c.trimStart + newDur, sourceDuration: rawDur };
         }),
       }));
       return { ...state, tracks };

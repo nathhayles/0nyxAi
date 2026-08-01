@@ -1256,6 +1256,7 @@ function SequencerPanelBase({
       duration:  dur,
       trimStart: 0,
       trimEnd:   dur,
+      sourceDuration: dur,
       src:       fullUrl,
       url:       fullUrl,
       type:      media.type || (["voiceover","music","sfx"].includes(trackKey) ? "audio" : "video"),
