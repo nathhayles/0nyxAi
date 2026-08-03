@@ -22,13 +22,13 @@ function parseTaggedNames(text) {
 // Selecting a character inserts "@Name" as literal text — no separate
 // "attach" control, per spec (tag resolution happens server-side at fal.ai
 // submit time; see backend/lib/resolveCharacterTags.js).
-function CharacterTagTextarea({ value, onChange, placeholder, onClick, characters }) {
+function CharacterTagTextarea({ value, onChange, placeholder, onClick, characters, autocompleteDisabled }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [triggerPos, setTriggerPos] = useState(null);
   const taRef = useRef(null);
 
-  const matches = open
+  const matches = open && !autocompleteDisabled
     ? characters.filter((c) => c.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
     : [];
 
@@ -36,6 +36,14 @@ function CharacterTagTextarea({ value, onChange, placeholder, onClick, character
     const text = e.target.value;
     const caret = e.target.selectionStart;
     onChange(text);
+
+    // Textarea itself always stays editable (the model may still ignore any
+    // @tags typed here, but nothing stops the user typing them by hand) --
+    // autocompleteDisabled only suppresses the assisted popover below.
+    if (autocompleteDisabled) {
+      setOpen(false);
+      return;
+    }
 
     const upToCaret = text.slice(0, caret);
     const m = upToCaret.match(/@([A-Za-z0-9_]*)$/);
@@ -124,6 +132,7 @@ export default function StoryboardPanel({
   onAddScene,
   regenModel = "kling-2.6-pro",
   onRegenModelChange,
+  supportsRefs = false,
 }) {
   const [stockQuery, setStockQuery] = useState({});
   const [stockResults, setStockResults] = useState({});
@@ -353,7 +362,11 @@ export default function StoryboardPanel({
             {!isStock && (
               <>
                 {parseTaggedNames(sc.action).length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }} onClick={(e) => e.stopPropagation()}>
+                  <div
+                    style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4, opacity: supportsRefs ? 1 : 0.4 }}
+                    onClick={(e) => e.stopPropagation()}
+                    title={supportsRefs ? undefined : `${REGEN_MODEL_OPTIONS.find(o => o.id === regenModel)?.label || regenModel} doesn't support character reference images -- tags are ignored`}
+                  >
                     {parseTaggedNames(sc.action).map((name) => {
                       const known = characters.some((c) => normalizeTagName(c.name) === normalizeTagName(name));
                       return (
@@ -387,11 +400,15 @@ export default function StoryboardPanel({
                     <select
                       value={sc.referenceMode || ""}
                       onChange={(e) => updateField(sc.id, "referenceMode", e.target.value || null)}
-                      title="Whether this scene's tagged character(s) generate from the prompt (Scene Accuracy) or anchor the video to their reference photo (Character Consistency). Defaults to each character's own setting."
+                      disabled={!supportsRefs}
+                      title={supportsRefs
+                        ? "Whether this scene's tagged character(s) generate from the prompt (Scene Accuracy) or anchor the video to their reference photo (Character Consistency). Defaults to each character's own setting."
+                        : `${REGEN_MODEL_OPTIONS.find(o => o.id === regenModel)?.label || regenModel} doesn't support character reference images`}
                       style={{
                         fontSize: 11, padding: "3px 6px", borderRadius: 6,
                         border: "1px solid rgba(255,255,255,0.12)",
                         background: "var(--onyx-bg)", color: "var(--onyx-text-faint)",
+                        opacity: supportsRefs ? 1 : 0.4,
                       }}
                     >
                       <option value="">Reference: use character default</option>
@@ -406,6 +423,7 @@ export default function StoryboardPanel({
                   onChange={(text) => updateField(sc.id, "action", text)}
                   onClick={(e) => e.stopPropagation()}
                   characters={characters}
+                  autocompleteDisabled={!supportsRefs}
                 />
 
                 <div
@@ -415,8 +433,10 @@ export default function StoryboardPanel({
                     borderRadius: 8,
                     background: "var(--onyx-inset)",
                     border: `1px solid ${(sc.endImageUrl || "").trim() ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                    opacity: supportsRefs ? 1 : 0.4,
                   }}
                   onClick={(e) => e.stopPropagation()}
+                  title={supportsRefs ? undefined : `${REGEN_MODEL_OPTIONS.find(o => o.id === regenModel)?.label || regenModel} doesn't support reference images`}
                 >
                   <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>End Frame URL</div>
                   <input
@@ -424,6 +444,7 @@ export default function StoryboardPanel({
                     value={sc.endImageUrl || ""}
                     onChange={(e) => updateField(sc.id, "endImageUrl", e.target.value)}
                     placeholder="https://example.com/end-frame.jpg"
+                    disabled={!supportsRefs}
                     style={{
                       width: "100%",
                       padding: "6px 8px",

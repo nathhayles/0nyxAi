@@ -1589,6 +1589,23 @@ export default function EditorV2() {
   const [ytModalOpen,      setYtModalOpen]      = useState(false);
   const [generatingScenes, setGeneratingScenes] = useState({});
   const [regenModel, setRegenModel] = useState("kling-2.6-pro");
+  // Fetched once from the backend's capability matrix (GET /api/models/capabilities,
+  // sourced from VIDEO_MODELS in kling.js) rather than duplicating a hardcoded
+  // list here -- keeps StoryboardPanel's ref-gated controls in sync with the
+  // same source of truth the backend uses to decide whether to honor refs.
+  const [modelCapabilities, setModelCapabilities] = useState({});
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/models/capabilities", { headers: await getAuthHeaders() });
+        const data = await res.json();
+        setModelCapabilities(Object.fromEntries((data || []).map((m) => [m.id, m])));
+      } catch (e) {
+        console.error("[EditorV2] failed to load model capabilities:", e);
+      }
+    })();
+  }, []);
+  const supportsRefs = modelCapabilities[regenModel]?.supportsRefs ?? false;
   // Lives at the EditorV2 level (not inside AudioPanel) so it survives AudioPanel
   // unmount/remount when the user switches sidebar tabs mid-generation.
   const [generatingVoiceoverScenes, setGeneratingVoiceoverScenes] = useState(() => new Set());
@@ -3281,7 +3298,11 @@ export default function EditorV2() {
           model: regenModel,
           brand_id: selectedBrandId,
           voiceoverUrl: scene.voiceoverUrl || null,
-          reference_mode: scene.referenceMode || null,
+          // Gated on the currently selected model's own capability, not just
+          // whatever reference_mode a prior model selection left on the scene --
+          // otherwise switching from a ref-supporting model to one that doesn't
+          // (e.g. kling-2.6-pro -> wan-2.5) would still send stale reference_mode.
+          reference_mode: supportsRefs ? (scene.referenceMode || null) : null,
           image_url: sceneImageUrl,
         }),
       });
@@ -3328,7 +3349,7 @@ export default function EditorV2() {
       updateSceneRef.current(id, { generationPending: false });
     }
     finally { setGeneratingScenes(p => ({ ...p, [id]: false })); }
-  }, [scenes, ratio, regenModel, toast]);
+  }, [scenes, ratio, regenModel, toast, supportsRefs]);
 
   if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent)) {
     return (
@@ -3515,7 +3536,7 @@ export default function EditorV2() {
         <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
           {/* Sidebar */}
           <Sidebar open={sidebarOpen} activeTab={activeMenu} setActiveTab={setActiveMenu}>
-            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel}/></Safe>}
+            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs}/></Safe>}
             {activeMenu==="visuals"    && <Safe name="VisualsPanel"><VisualsPanel
               tab={visualsTab} setTab={setVisualsTab}
               scenes={scenes} activeScene={activeScene}
