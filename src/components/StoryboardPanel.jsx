@@ -118,6 +118,10 @@ const REGEN_MODEL_OPTIONS = [
   { id: "seedance-1-pro", label: "Seedance 1 Pro", credits: 40, creditsLabel: "20-40 cr/scene" },
   { id: "seedance-2-standard", label: "Seedance 2.0", credits: 404, creditsLabel: "~202-404 cr/scene" },
   { id: "vidu-q3-pro",    label: "Vidu Q3 Pro",    credits: 167, creditsLabel: "84-167 cr/scene" },
+  // Start-end-to-video only (see VIDEO_MODELS in kling.js) -- was missing
+  // from this dropdown entirely, so this model was never actually
+  // reachable through the UI despite being fully wired server-side.
+  { id: "vidu-q3-turbo",  label: "Vidu Q3 Turbo",  credits: 80, creditsLabel: "40-80 cr/scene" },
 ];
 
 export default function StoryboardPanel({
@@ -134,11 +138,13 @@ export default function StoryboardPanel({
   onRegenModelChange,
   supportsRefs = false,
   supportsEndFrame = false,
+  supportsStartImage = false,
 }) {
   const [stockQuery, setStockQuery] = useState({});
   const [stockResults, setStockResults] = useState({});
   const [stockSearching, setStockSearching] = useState({});
   const [uploadingScene, setUploadingScene] = useState({});
+  const [uploadingSourceImage, setUploadingSourceImage] = useState({});
   const [characters, setCharacters] = useState([]);
 
   useEffect(() => {
@@ -231,6 +237,30 @@ export default function StoryboardPanel({
       console.error("Upload failed:", e);
     } finally {
       setUploadingScene((prev) => ({ ...prev, [sceneId]: false }));
+    }
+  };
+
+  // Distinct from handleUpload -- writes sourceImageUrl only, never
+  // mediaUrl/mediaType/mode, so it can't be clobbered by a generation
+  // completion the way the old mediaType==="image" workaround was.
+  const handleUploadSourceImage = async (sceneId, file) => {
+    if (!file) return;
+    setUploadingSourceImage((prev) => ({ ...prev, [sceneId]: true }));
+    try {
+      const headers = await getAuthHeaders();
+      const form = new FormData();
+      form.append("files", file);
+      form.append("assetType", "image");
+      const res = await fetch("/api/media/upload", { method: "POST", headers, body: form });
+      const data = await res.json();
+      const uploaded = data?.files?.[0];
+      if (uploaded) {
+        updateField(sceneId, "sourceImageUrl", uploaded.url);
+      }
+    } catch (e) {
+      console.error("Start Image upload failed:", e);
+    } finally {
+      setUploadingSourceImage((prev) => ({ ...prev, [sceneId]: false }));
     }
   };
 
@@ -434,6 +464,75 @@ export default function StoryboardPanel({
                   characters={characters}
                   autocompleteDisabled={!supportsRefs}
                 />
+
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    background: "var(--onyx-inset)",
+                    border: `1px solid ${(sc.sourceImageUrl || "").trim() ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                    opacity: supportsStartImage ? 1 : 0.4,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  title={supportsStartImage ? undefined : `${REGEN_MODEL_OPTIONS.find(o => o.id === regenModel)?.label || regenModel} doesn't support a start image`}
+                >
+                  <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>Start Image</div>
+                  {(sc.sourceImageUrl || "").trim() && (
+                    <div style={{ position: "relative", marginBottom: 8 }}>
+                      <img
+                        src={sc.sourceImageUrl}
+                        alt="Start image"
+                        style={{ width: "100%", borderRadius: 6, maxHeight: 100, objectFit: "cover", display: "block" }}
+                      />
+                      <button
+                        onClick={() => updateField(sc.id, "sourceImageUrl", "")}
+                        disabled={!supportsStartImage}
+                        style={{
+                          position: "absolute", top: 4, right: 4, background: "var(--onyx-inset)",
+                          border: "none", borderRadius: "50%", color: "#fff", cursor: "pointer",
+                          width: 20, height: 20, fontSize: 12, lineHeight: "20px", padding: 0, textAlign: "center",
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                    <label style={{ display: "inline-block" }}>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        disabled={!supportsStartImage}
+                        onChange={(e) => handleUploadSourceImage(sc.id, e.target.files?.[0])}
+                      />
+                      <span
+                        className="sceneSmallBtn"
+                        style={{ cursor: supportsStartImage ? "pointer" : "not-allowed", display: "inline-block" }}
+                      >
+                        {uploadingSourceImage[sc.id] ? "Uploading…" : "Upload image"}
+                      </span>
+                    </label>
+                  </div>
+                  <input
+                    type="url"
+                    value={sc.sourceImageUrl || ""}
+                    onChange={(e) => updateField(sc.id, "sourceImageUrl", e.target.value)}
+                    placeholder="Or paste a direct image URL"
+                    disabled={!supportsStartImage}
+                    style={{
+                      width: "100%",
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      background: "var(--onyx-bg)",
+                      color: "var(--onyx-text)",
+                      fontSize: 12,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
 
                 <div
                   style={{

@@ -1612,6 +1612,11 @@ export default function EditorV2() {
   // wrong (indistinguishable) for every model except kling-2.6-pro, the
   // only one where both flags happen to be true.
   const supportsEndFrame = modelCapabilities[regenModel]?.supportsEndFrame ?? false;
+  // Gates the persistent Start Image field, distinct from supportsEndFrame
+  // and derived server-side from (i2vId || seId), not i2vId alone -- see
+  // the matching comment in routes/models.js for why vidu-q3-turbo (no
+  // i2vId, seId-only) still needs this to read true.
+  const supportsStartImage = modelCapabilities[regenModel]?.supportsStartImage ?? false;
   // Lives at the EditorV2 level (not inside AudioPanel) so it survives AudioPanel
   // unmount/remount when the user switches sidebar tabs mid-generation.
   const [generatingVoiceoverScenes, setGeneratingVoiceoverScenes] = useState(() => new Set());
@@ -3287,15 +3292,15 @@ export default function EditorV2() {
     try {
       const scene = scenes.find(s => s.id === id); if (!scene) return;
       const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
-      // A scene's own uploaded/pasted image (StoryboardPanel's "Upload file" /
-      // "Or paste a direct video/image URL" fields, mediaType: "image") was
-      // never actually sent here -- the backend's /api/kling/generate route
-      // has always supported image_url for image-to-video, but this call
-      // silently dropped it, so a user-supplied reference image had no
-      // effect on generation at all. Only meaningful when the scene's own
-      // media is an image, not a video (a video there means "use this
-      // footage as-is", handled elsewhere, not an i2v seed).
-      const sceneImageUrl = scene.mediaType === "image" ? (scene.mediaUrl || scene.url || null) : null;
+      // Sourced from the dedicated, persistent sourceImageUrl field (set via
+      // StoryboardPanel's Start Image block), NOT scene.mediaUrl -- mediaUrl
+      // gets overwritten with the generation's own video output on every
+      // completion (see the mediaType:"video" stamp below), which silently
+      // destroyed the start image on any second regenerate. sourceImageUrl
+      // is never touched by a completion handler, so it survives repeat
+      // generates on the same scene. Gated on the model's own capability,
+      // same stale-value guard as reference_mode/end_image_url below.
+      const sceneImageUrl = supportsStartImage ? (scene.sourceImageUrl || null) : null;
       const submitRes = await fetch("/api/kling/generate", {
         method: "POST",
         headers: h,
@@ -3373,7 +3378,7 @@ export default function EditorV2() {
       updateSceneRef.current(id, { generationPending: false });
     }
     finally { setGeneratingScenes(p => ({ ...p, [id]: false })); }
-  }, [scenes, ratio, regenModel, toast, supportsRefs, supportsEndFrame]);
+  }, [scenes, ratio, regenModel, toast, supportsRefs, supportsEndFrame, supportsStartImage]);
 
   if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent)) {
     return (
@@ -3560,7 +3565,7 @@ export default function EditorV2() {
         <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
           {/* Sidebar */}
           <Sidebar open={sidebarOpen} activeTab={activeMenu} setActiveTab={setActiveMenu}>
-            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame}/></Safe>}
+            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage}/></Safe>}
             {activeMenu==="visuals"    && <Safe name="VisualsPanel"><VisualsPanel
               tab={visualsTab} setTab={setVisualsTab}
               scenes={scenes} activeScene={activeScene}
