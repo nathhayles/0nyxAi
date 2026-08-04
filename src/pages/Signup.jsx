@@ -56,10 +56,10 @@ export default function Signup() {
       }}>
         <h1 style={{ color: "var(--onyx-text)", marginBottom: 8, fontSize: 24, fontWeight: 700 }}>Create Account</h1>
         <p style={{ color: "var(--onyx-text-faint)", fontSize: 13, marginBottom: 16 }}>
-          Start your free 14-day trial. No credit card required.
+          Free to use. No credit card required.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24, padding: "12px 16px", background: "rgba(77,208,255,0.08)", borderRadius: 8, border: "1px solid rgba(77,208,255,0.2)" }}>
-          {["Full access to all features", "AI video, music & voiceover included", "Cancel any time — no charge"].map(item => (
+          {["Full editor, unlimited stock & sharing", "Pay only for AI generation & downloads", "No trial, no expiry — just free"].map(item => (
             <div key={item} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--onyx-cyan)" }}>
               <span style={{ color: "#22c55e", fontWeight: 700 }}>✓</span> {item}
             </div>
