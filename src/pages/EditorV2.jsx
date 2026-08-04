@@ -1606,6 +1606,12 @@ export default function EditorV2() {
     })();
   }, []);
   const supportsRefs = modelCapabilities[regenModel]?.supportsRefs ?? false;
+  // Distinct from supportsRefs -- gates the End Frame URL field, not the
+  // @-tag character reference UI. Previously StoryboardPanel's End Frame
+  // field was wired to supportsRefs instead of this, which meant it was
+  // wrong (indistinguishable) for every model except kling-2.6-pro, the
+  // only one where both flags happen to be true.
+  const supportsEndFrame = modelCapabilities[regenModel]?.supportsEndFrame ?? false;
   // Lives at the EditorV2 level (not inside AudioPanel) so it survives AudioPanel
   // unmount/remount when the user switches sidebar tabs mid-generation.
   const [generatingVoiceoverScenes, setGeneratingVoiceoverScenes] = useState(() => new Set());
@@ -2854,8 +2860,11 @@ export default function EditorV2() {
         const ph = await getAuthHeaders();
         const poll = await (await fetch(`/api/kling/status/${sc.jobId}`, { headers: ph })).json();
         if (poll.status === "completed" && poll.videoUrl) {
+          // Same mediaType stamp as the normal completion handler above --
+          // this reconciler hits the exact same staleness bug for jobs that
+          // finished while the tab was closed/reloaded.
           updateSceneRef.current(sc.id, {
-            mediaUrl: poll.videoUrl, url: poll.videoUrl,
+            mediaUrl: poll.videoUrl, url: poll.videoUrl, mediaType: "video",
             thumbnail: poll.thumbnailUrl || poll.videoUrl,
             lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade,
             generationPending: false, jobId: null,
@@ -3304,6 +3313,13 @@ export default function EditorV2() {
           // (e.g. kling-2.6-pro -> wan-2.5) would still send stale reference_mode.
           reference_mode: supportsRefs ? (scene.referenceMode || null) : null,
           image_url: sceneImageUrl,
+          // Previously never sent at all, regardless of what supportsEndFrame
+          // said -- the End Frame URL field existed in StoryboardPanel and
+          // could be filled in, but nothing ever forwarded it to the backend.
+          // Same stale-value guard as reference_mode above: gated on the
+          // currently selected model's own capability, not whatever value a
+          // prior model selection left on the scene.
+          end_image_url: supportsEndFrame ? (scene.endImageUrl || null) : null,
         }),
       });
       const { jobId, error: submitErr } = await submitRes.json();
@@ -3337,7 +3353,15 @@ export default function EditorV2() {
         }
         if (poll.status === "completed") {
           if (!poll.videoUrl) throw new Error("Job completed but no video URL returned");
-          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade, generationPending: false, jobId: null });
+          // mediaType: "video" stamped alongside mediaUrl -- previously left
+          // whatever it was before (often "image" from the scene's original
+          // upload), so a second regenerate's `scene.mediaType === "image"`
+          // check at the top of this function would treat THIS generation's
+          // own video output as if it were still the original source image,
+          // sending it as image_url. Now a second regenerate on a scene
+          // that's already been generated once correctly falls back to
+          // text-to-video instead of feeding a video into an image field.
+          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, mediaType: "video", thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade, generationPending: false, jobId: null });
           return;
         }
         if (poll.status === "failed") throw new Error(poll.error || "Generation failed");
@@ -3349,7 +3373,7 @@ export default function EditorV2() {
       updateSceneRef.current(id, { generationPending: false });
     }
     finally { setGeneratingScenes(p => ({ ...p, [id]: false })); }
-  }, [scenes, ratio, regenModel, toast, supportsRefs]);
+  }, [scenes, ratio, regenModel, toast, supportsRefs, supportsEndFrame]);
 
   if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent)) {
     return (
@@ -3536,7 +3560,7 @@ export default function EditorV2() {
         <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
           {/* Sidebar */}
           <Sidebar open={sidebarOpen} activeTab={activeMenu} setActiveTab={setActiveMenu}>
-            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs}/></Safe>}
+            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame}/></Safe>}
             {activeMenu==="visuals"    && <Safe name="VisualsPanel"><VisualsPanel
               tab={visualsTab} setTab={setVisualsTab}
               scenes={scenes} activeScene={activeScene}

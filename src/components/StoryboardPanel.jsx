@@ -133,6 +133,7 @@ export default function StoryboardPanel({
   regenModel = "kling-2.6-pro",
   onRegenModelChange,
   supportsRefs = false,
+  supportsEndFrame = false,
 }) {
   const [stockQuery, setStockQuery] = useState({});
   const [stockResults, setStockResults] = useState({});
@@ -433,10 +434,10 @@ export default function StoryboardPanel({
                     borderRadius: 8,
                     background: "var(--onyx-inset)",
                     border: `1px solid ${(sc.endImageUrl || "").trim() ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
-                    opacity: supportsRefs ? 1 : 0.4,
+                    opacity: supportsEndFrame ? 1 : 0.4,
                   }}
                   onClick={(e) => e.stopPropagation()}
-                  title={supportsRefs ? undefined : `${REGEN_MODEL_OPTIONS.find(o => o.id === regenModel)?.label || regenModel} doesn't support reference images`}
+                  title={supportsEndFrame ? undefined : `${REGEN_MODEL_OPTIONS.find(o => o.id === regenModel)?.label || regenModel} doesn't support an end frame`}
                 >
                   <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>End Frame URL</div>
                   <input
@@ -444,7 +445,7 @@ export default function StoryboardPanel({
                     value={sc.endImageUrl || ""}
                     onChange={(e) => updateField(sc.id, "endImageUrl", e.target.value)}
                     placeholder="https://example.com/end-frame.jpg"
-                    disabled={!supportsRefs}
+                    disabled={!supportsEndFrame}
                     style={{
                       width: "100%",
                       padding: "6px 8px",
