@@ -241,9 +241,16 @@ export default function StoryboardPanel({
   };
 
   return (
-    <div style={{ maxWidth: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
+    <div style={{ maxWidth: "100%", boxSizing: "border-box" }}>
       {onRegenModelChange && (
-        <div style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 4 }}>
+        <div style={{
+          padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 4,
+          // Same sticky-header pattern as SequencerPanel's ruler (position:
+          // sticky, top: 0, zIndex, explicit background) -- keeps the model
+          // picker in view while scrolling through scene cards below, instead
+          // of scrolling out of reach with the rest of the panel content.
+          position: "sticky", top: 0, zIndex: 5, background: "var(--panel-bg, rgba(6,9,15,0.5))",
+        }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.4)", marginBottom: 5, textTransform: "uppercase", letterSpacing: 1 }}>Generate model</div>
           <select
             value={regenModel}
@@ -260,6 +267,7 @@ export default function StoryboardPanel({
           </select>
         </div>
       )}
+      <div style={{ maxWidth: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       {scenes.map((sc, index) => {
         const mode = sc.mode || "ai";
         const isStock = mode === "stock";
@@ -684,6 +692,7 @@ export default function StoryboardPanel({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
