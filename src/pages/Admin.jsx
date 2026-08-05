@@ -120,6 +120,7 @@ export default function AdminPanel() {
 
 const MODEL_LABELS = {
   'wan-2.5': 'Wan 2.5',
+  'wan-2.7': 'Wan 2.7',
   'kling-2.6-pro': 'Kling 3 Pro',
   'veo-3': 'Veo 3.1',
   'seedance-1-pro': 'Seedance 1 Pro',

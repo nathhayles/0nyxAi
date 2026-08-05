@@ -113,6 +113,10 @@ function CharacterTagTextarea({ value, onChange, placeholder, onClick, character
 // not flat — see the matching comment in Create.jsx's VIDEO_MODEL_OPTIONS.
 const REGEN_MODEL_OPTIONS = [
   { id: "wan-2.5",        label: "Wan 2.5", credits: 67, creditsLabel: "34-67 cr/scene" },
+  // Range spans both duration (2-15s) AND the optional 1080p upgrade
+  // (720p: 27-200cr, 1080p: 40-300cr) -- shows the full honest range rather
+  // than understating cost for users who pick the upgrade.
+  { id: "wan-2.7",        label: "Wan 2.7", credits: 300, creditsLabel: "27-300 cr/scene" },
   { id: "kling-2.6-pro",  label: "Kling 3 Pro", credits: 149, creditsLabel: "~75-150 cr/scene" },
   { id: "veo-3",          label: "Veo 3.1",        credits: 213, creditsLabel: "107-213 cr/scene" },
   { id: "seedance-1-pro", label: "Seedance 1 Pro", credits: 40, creditsLabel: "20-40 cr/scene" },
@@ -139,6 +143,8 @@ export default function StoryboardPanel({
   supportsRefs = false,
   supportsEndFrame = false,
   supportsStartImage = false,
+  durationSpec = null,
+  supports1080pUpgrade = false,
 }) {
   const [stockQuery, setStockQuery] = useState({});
   const [stockResults, setStockResults] = useState({});
@@ -372,22 +378,85 @@ export default function StoryboardPanel({
             </div>
 
             {/* ── Duration ── */}
-            <div
-              style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <span style={{ fontSize: 12, opacity: 0.7, marginRight: 2 }}>Duration:</span>
-              {[3, 5, 8, 10].map((s) => (
-                <button
-                  key={s}
-                  className={"sceneSmallBtn" + ((sc.duration || 5) === s ? " primary" : "")}
-                  onClick={(e) => { e.stopPropagation(); updateField(sc.id, "duration", s); }}
-                  style={{ minWidth: 34 }}
+            {/* Renders from the selected model's real duration spec (see
+                GET /api/models/capabilities, backed by VIDEO_MODELS' own
+                duration field in kling.js) instead of one hardcoded
+                [3,5,8,10] set applied identically to every model -- each
+                model's real provider-side range differs (Kling/Wan: {5,10},
+                Veo: {4,6,8}, Seedance 1 Pro: 2-12, Seedance 2.0: 4-15, both
+                Vidu models: 1-16). Falls back to Kling's own spec (the
+                app's default model) during the brief window before
+                capabilities have loaded, rather than rendering nothing. */}
+            {(() => {
+              const spec = durationSpec || { type: "discrete", values: [5, 10], default: 5 };
+              return (
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {s}s
-                </button>
-              ))}
-            </div>
+                  <span style={{ fontSize: 12, opacity: 0.7, marginRight: 2 }}>Duration:</span>
+                  {spec.type === "discrete" ? (
+                    spec.values.map((s) => (
+                      <button
+                        key={s}
+                        className={"sceneSmallBtn" + ((sc.duration || spec.default) === s ? " primary" : "")}
+                        onClick={(e) => { e.stopPropagation(); updateField(sc.id, "duration", s); }}
+                        style={{ minWidth: 34 }}
+                      >
+                        {s}s
+                      </button>
+                    ))
+                  ) : (
+                    <>
+                      <input
+                        type="number"
+                        min={spec.min}
+                        max={spec.max}
+                        step={1}
+                        value={Math.min(spec.max, Math.max(spec.min, sc.duration || spec.default))}
+                        onChange={(e) => {
+                          const v = Math.min(spec.max, Math.max(spec.min, Number(e.target.value) || spec.default));
+                          updateField(sc.id, "duration", v);
+                        }}
+                        style={{
+                          width: 52, padding: "4px 6px", borderRadius: 6, fontSize: 12,
+                          border: "1px solid rgba(255,255,255,0.15)", background: "var(--onyx-bg)", color: "var(--onyx-text)",
+                        }}
+                      />
+                      <input
+                        type="range"
+                        min={spec.min}
+                        max={spec.max}
+                        step={1}
+                        value={Math.min(spec.max, Math.max(spec.min, sc.duration || spec.default))}
+                        onChange={(e) => updateField(sc.id, "duration", Number(e.target.value))}
+                        style={{ flex: 1, maxWidth: 100 }}
+                      />
+                      <span style={{ fontSize: 11, opacity: 0.6 }}>{spec.min}-{spec.max}s</span>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ── 1080p upgrade (wan-2.7 only) ── */}
+            {/* Real user choice, not a per-model force like wan-2.5's 480p --
+                default stays 720p ($0.10/s); checking this sends
+                resolution: "1080p" through to getSceneCost (real charge:
+                $0.15/s) and the provider payload's resolution field. */}
+            {supports1080pUpgrade && (
+              <label
+                style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontSize: 12, cursor: "pointer" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  checked={sc.resolution === "1080p"}
+                  onChange={(e) => updateField(sc.id, "resolution", e.target.checked ? "1080p" : "720p")}
+                />
+                Upgrade to 1080p (+50% cost, $0.15/s)
+              </label>
+            )}
 
             {/* ── Narration (both modes) ── */}
             <textarea

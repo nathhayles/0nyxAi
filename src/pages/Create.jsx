@@ -20,6 +20,7 @@ const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 // flat number would misrepresent the real per-scene cost either direction.
 const VIDEO_MODEL_OPTIONS = [
   { id: "wan-2.5",       label: "Wan 2.5",        description: "Fast & affordable",          credits: 67, creditsLabel: "34-67 credits/scene, based on scene length" },
+  { id: "wan-2.7",       label: "Wan 2.7",        description: "Native audio, 1080p-capable (Alibaba)", credits: 300, creditsLabel: "27-300 credits/scene, based on scene length and 1080p upgrade" },
   { id: "kling-2.6-pro", label: "Kling 3 Pro",    description: "Balanced quality (default)", credits: 149, creditsLabel: "~75-150 credits/scene, final cost based on actual scene length" },
   { id: "veo-3",         label: "Veo 3.1",         description: "Highest quality (Google)",   credits: 213, creditsLabel: "107-213 credits/scene, based on scene length" },
   { id: "seedance-1-pro",label: "Seedance 1 Pro",  description: "Cinematic motion (ByteDance)", credits: 40, creditsLabel: "20-40 credits/scene, based on scene length" },

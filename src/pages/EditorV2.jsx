@@ -1622,6 +1622,14 @@ export default function EditorV2() {
   // one of Start Image/End Frame is set, since there's nothing to fall back
   // to. Checked client-side in regenerateScene before the request fires.
   const requiresStartAndEnd = modelCapabilities[regenModel]?.requiresStartAndEnd ?? false;
+  // The selected model's real duration constraint (discrete values or a
+  // min/max range) -- see StoryboardPanel's Duration UI, which renders
+  // directly from this instead of one hardcoded [3,5,8,10] set.
+  const durationSpec = modelCapabilities[regenModel]?.duration ?? null;
+  // Currently true only for wan-2.7 -- gates StoryboardPanel's "Upgrade to
+  // 1080p" toggle, which writes scene.resolution, read by regenerateScene
+  // below and passed through to /api/kling/generate.
+  const supports1080pUpgrade = modelCapabilities[regenModel]?.supports1080pUpgrade ?? false;
   // Lives at the EditorV2 level (not inside AudioPanel) so it survives AudioPanel
   // unmount/remount when the user switches sidebar tabs mid-generation.
   const [generatingVoiceoverScenes, setGeneratingVoiceoverScenes] = useState(() => new Set());
@@ -3340,6 +3348,11 @@ export default function EditorV2() {
           // currently selected model's own capability, not whatever value a
           // prior model selection left on the scene.
           end_image_url: supportsEndFrame ? (scene.endImageUrl || null) : null,
+          // Same stale-value guard pattern as reference_mode/end_image_url
+          // above: gated on the currently selected model's own capability,
+          // so switching away from wan-2.7 doesn't send a stale 1080p
+          // choice to a model that doesn't have this concept at all.
+          resolution: supports1080pUpgrade ? (scene.resolution || "720p") : null,
         }),
       });
       const { jobId, error: submitErr } = await submitRes.json();
@@ -3393,7 +3406,7 @@ export default function EditorV2() {
       updateSceneRef.current(id, { generationPending: false });
     }
     finally { setGeneratingScenes(p => ({ ...p, [id]: false })); }
-  }, [scenes, ratio, regenModel, toast, supportsRefs, supportsEndFrame, supportsStartImage, requiresStartAndEnd, modelCapabilities]);
+  }, [scenes, ratio, regenModel, toast, supportsRefs, supportsEndFrame, supportsStartImage, requiresStartAndEnd, modelCapabilities, supports1080pUpgrade]);
 
   if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent)) {
     return (
@@ -3580,7 +3593,7 @@ export default function EditorV2() {
         <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
           {/* Sidebar */}
           <Sidebar open={sidebarOpen} activeTab={activeMenu} setActiveTab={setActiveMenu}>
-            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage}/></Safe>}
+            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage} durationSpec={durationSpec} supports1080pUpgrade={supports1080pUpgrade}/></Safe>}
             {activeMenu==="visuals"    && <Safe name="VisualsPanel"><VisualsPanel
               tab={visualsTab} setTab={setVisualsTab}
               scenes={scenes} activeScene={activeScene}
