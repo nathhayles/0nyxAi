@@ -69,18 +69,26 @@ function fmtTime(s) {
   return m + ":" + ss + "." + ds;
 }
 
+// Real union of every model's supported aspect ratios (see backend
+// VIDEO_MODELS' aspectRatio specs) -- "4:5" dropped since no model actually
+// supports it; "21:9"/"4:3"/"3:4" added since Seedance 1 Pro/2.0 and
+// wan-2.7 genuinely support them.
 const RATIOS = {
   "9:16": { label: "9:16", css: "9/16",  icon: "▯" },
   "16:9": { label: "16:9", css: "16/9",  icon: "▭" },
   "1:1":  { label: "1:1",  css: "1/1",   icon: "□" },
-  "4:5":  { label: "4:5",  css: "4/5",   icon: "▮" },
+  "4:3":  { label: "4:3",  css: "4/3",   icon: "▭" },
+  "3:4":  { label: "3:4",  css: "3/4",   icon: "▮" },
+  "21:9": { label: "21:9", css: "21/9",  icon: "▬" },
 };
 
 const ratioStyles = {
   "9:16": { width: "auto", height: "100%", aspectRatio: "9/16" },
-  "4:5":  { width: "auto", height: "100%", aspectRatio: "4/5"  },
+  "3:4":  { width: "auto", height: "100%", aspectRatio: "3/4"  },
   "1:1":  { width: "min(100%,100vh)", height: "min(100%,100vw)", aspectRatio: "1/1" },
   "16:9": { width: "100%", height: "auto", aspectRatio: "16/9" },
+  "4:3":  { width: "100%", height: "auto", aspectRatio: "4/3"  },
+  "21:9": { width: "100%", height: "auto", aspectRatio: "21/9" },
 };
 
 const SIDEBAR_TABS = [
@@ -1193,8 +1201,23 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
     const ext = url.split("?")[0].split(".").pop().toLowerCase();
     return ["mp4","webm","mov","m4v"].includes(ext);
   }
-  const videoW = ratio === "9:16" ? 720 : ratio === "1:1" ? 720 : 1280;
-  const videoH = ratio === "9:16" ? 1280 : ratio === "4:5" ? 1350 : 720;
+  // Explicit per-ratio export dimensions, not a ternary chain -- the old
+  // 3-branch version silently fell back to 1280x720 (16:9) for any ratio it
+  // didn't name, which would have made 4:3/3:4/21:9 exports come out
+  // landscape 16:9 regardless of what was actually selected.
+  const VIDEO_DIMENSIONS = {
+    "9:16": { w: 720, h: 1280 },
+    "1:1":  { w: 720, h: 720 },
+    "16:9": { w: 1280, h: 720 },
+    "4:3":  { w: 960, h: 720 },
+    "3:4":  { w: 720, h: 960 },
+    "21:9": { w: 1680, h: 720 },
+    // No longer picker-reachable, kept only so a pre-existing reel with a
+    // stored ratio of "4:5" still renders the way it always did.
+    "4:5":  { w: 1080, h: 1350 },
+  };
+  const videoW = VIDEO_DIMENSIONS[ratio]?.w ?? 1280;
+  const videoH = VIDEO_DIMENSIONS[ratio]?.h ?? 720;
   const renderable = (videoTrack?.clips || []).slice().sort((a, b) => a.startTime - b.startTime).map((clip, i) => {
     const scene = scenes.find(s => s.id === clip.sceneId) || {};
     const voClip = (voiceTrack?.clips || []).find(c =>
@@ -1630,6 +1653,15 @@ export default function EditorV2() {
   // 1080p" toggle, which writes scene.resolution, read by regenerateScene
   // below and passed through to /api/kling/generate.
   const supports1080pUpgrade = modelCapabilities[regenModel]?.supports1080pUpgrade ?? false;
+  // The selected model's real aspect-ratio constraint (see kling.js's
+  // VIDEO_MODELS aspectRatio spec) -- null means the provider has no real
+  // aspect_ratio field to validate against (both Vidu models), so every
+  // ratio is treated as compatible. Checked client-side in regenerateScene
+  // before the request fires, same pattern as requiresStartAndEnd above --
+  // this is what would have caught the Veo 1:1 case before it ever reached
+  // fal.ai's own 422.
+  const aspectRatioSpec = modelCapabilities[regenModel]?.aspectRatio ?? null;
+  const aspectRatioSupported = !aspectRatioSpec || aspectRatioSpec.values.includes(ratio);
   // Lives at the EditorV2 level (not inside AudioPanel) so it survives AudioPanel
   // unmount/remount when the user switches sidebar tabs mid-generation.
   const [generatingVoiceoverScenes, setGeneratingVoiceoverScenes] = useState(() => new Set());
@@ -3324,6 +3356,15 @@ export default function EditorV2() {
         toast.show(`${modelCapabilities[regenModel]?.label || regenModel} requires both a Start Image and an End Frame`, "error");
         return;
       }
+      // Same before-the-request pattern as requiresStartAndEnd above --
+      // Veo, for example, only accepts 16:9/9:16 (confirmed via a real 422
+      // against fal.ai), so selecting 1:1 with Veo used to reach the
+      // backend, burn the round trip, and fail with fal's own validation
+      // error instead of a clear client-side message.
+      if (!aspectRatioSupported) {
+        toast.show(`${modelCapabilities[regenModel]?.label || regenModel} doesn't support ${ratio} — supported: ${aspectRatioSpec.values.join(", ")}`, "error");
+        return;
+      }
       const submitRes = await fetch("/api/kling/generate", {
         method: "POST",
         headers: h,
@@ -3406,7 +3447,7 @@ export default function EditorV2() {
       updateSceneRef.current(id, { generationPending: false });
     }
     finally { setGeneratingScenes(p => ({ ...p, [id]: false })); }
-  }, [scenes, ratio, regenModel, toast, supportsRefs, supportsEndFrame, supportsStartImage, requiresStartAndEnd, modelCapabilities, supports1080pUpgrade]);
+  }, [scenes, ratio, regenModel, toast, supportsRefs, supportsEndFrame, supportsStartImage, requiresStartAndEnd, modelCapabilities, supports1080pUpgrade, aspectRatioSupported, aspectRatioSpec]);
 
   if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent)) {
     return (

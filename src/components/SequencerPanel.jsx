@@ -1118,11 +1118,17 @@ const SEQUENCER_HEIGHTS = {
   full:   680,  // all tracks + breathing room
 };
 
+// Real union of every model's supported aspect ratios (see backend
+// VIDEO_MODELS' aspectRatio specs) -- "4:5" dropped since no model actually
+// supports it; "21:9"/"4:3"/"3:4" added since Seedance 1 Pro/2.0 and
+// wan-2.7 genuinely support them.
 const RATIOS = {
   "9:16": { label: "9:16", icon: "▯" },
   "16:9": { label: "16:9", icon: "▭" },
   "1:1":  { label: "1:1",  icon: "▪" },
-  "4:5":  { label: "4:5",  icon: "▮" },
+  "4:3":  { label: "4:3",  icon: "▭" },
+  "3:4":  { label: "3:4",  icon: "▮" },
+  "21:9": { label: "21:9", icon: "▬" },
 };
 
 function SequencerPanelBase({
