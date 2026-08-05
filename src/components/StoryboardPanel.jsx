@@ -117,15 +117,19 @@ const REGEN_MODEL_OPTIONS = [
   // (720p: 27-200cr, 1080p: 40-300cr) -- shows the full honest range rather
   // than understating cost for users who pick the upgrade.
   { id: "wan-2.7",        label: "Wan 2.7", credits: 300, creditsLabel: "27-300 cr/scene" },
-  { id: "kling-2.6-pro",  label: "Kling 3 Pro", credits: 149, creditsLabel: "~75-150 cr/scene" },
+  { id: "kling-2.6-pro",  label: "Kling 3 Pro", credits: 149, creditsLabel: "75-149 cr/scene" },
   { id: "veo-3",          label: "Veo 3.1",        credits: 213, creditsLabel: "107-213 cr/scene" },
-  { id: "seedance-1-pro", label: "Seedance 1 Pro", credits: 40, creditsLabel: "20-40 cr/scene" },
-  { id: "seedance-2-standard", label: "Seedance 2.0", credits: 404, creditsLabel: "~202-404 cr/scene" },
-  { id: "vidu-q3-pro",    label: "Vidu Q3 Pro",    credits: 167, creditsLabel: "84-167 cr/scene" },
+  // Real ranges (2-12s/4-15s/1-16s) confirmed against each model's real
+  // duration spec in kling.js's VIDEO_MODELS -- previously understated
+  // here, left over from before the duration picker allowed anything past
+  // the old 5s/10s-only bucket.
+  { id: "seedance-1-pro", label: "Seedance 1 Pro", credits: 48, creditsLabel: "8-48 cr/scene" },
+  { id: "seedance-2-standard", label: "Seedance 2.0", credits: 606, creditsLabel: "162-606 cr/scene" },
+  { id: "vidu-q3-pro",    label: "Vidu Q3 Pro",    credits: 266, creditsLabel: "17-266 cr/scene" },
   // Start-end-to-video only (see VIDEO_MODELS in kling.js) -- was missing
   // from this dropdown entirely, so this model was never actually
   // reachable through the UI despite being fully wired server-side.
-  { id: "vidu-q3-turbo",  label: "Vidu Q3 Turbo",  credits: 80, creditsLabel: "40-80 cr/scene" },
+  { id: "vidu-q3-turbo",  label: "Vidu Q3 Turbo",  credits: 128, creditsLabel: "8-128 cr/scene" },
 ];
 
 export default function StoryboardPanel({

@@ -147,7 +147,7 @@ export default function PricingPage() {
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))", gap:20 }}>
             {[
               { feature:"Clean Download",      cost:"1 credit/min",      note:"Watermark-free export" },
-              { feature:"AI Video Scene",      cost:"50 credits",        note:"Kling 2.6 Pro via fal.ai" },
+              { feature:"AI Video Scene",      cost:"75-149 credits",    note:"Kling 3 Pro via fal.ai, based on scene length" },
               { feature:"Premium Voiceover",   cost:"3 credits/scene",   note:"ElevenLabs voices" },
               { feature:"AI Music",            cost:"10 credits",        note:"Google Lyria 3 Pro" },
               { feature:"Avatar Standard",     cost:"200 credits/min",   note:"HeyGen presenter" },

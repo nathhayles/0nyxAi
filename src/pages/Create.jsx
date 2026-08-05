@@ -21,11 +21,21 @@ const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 const VIDEO_MODEL_OPTIONS = [
   { id: "wan-2.5",       label: "Wan 2.5",        description: "Fast & affordable",          credits: 67, creditsLabel: "34-67 credits/scene, based on scene length" },
   { id: "wan-2.7",       label: "Wan 2.7",        description: "Native audio, 1080p-capable (Alibaba)", credits: 300, creditsLabel: "27-300 credits/scene, based on scene length and 1080p upgrade" },
-  { id: "kling-2.6-pro", label: "Kling 3 Pro",    description: "Balanced quality (default)", credits: 149, creditsLabel: "~75-150 credits/scene, final cost based on actual scene length" },
+  { id: "kling-2.6-pro", label: "Kling 3 Pro",    description: "Balanced quality (default)", credits: 149, creditsLabel: "75-149 credits/scene, final cost based on actual scene length" },
   { id: "veo-3",         label: "Veo 3.1",         description: "Highest quality (Google)",   credits: 213, creditsLabel: "107-213 credits/scene, based on scene length" },
-  { id: "seedance-1-pro",label: "Seedance 1 Pro",  description: "Cinematic motion (ByteDance)", credits: 40, creditsLabel: "20-40 credits/scene, based on scene length" },
-  { id: "seedance-2-standard", label: "Seedance 2.0", description: "Premium quality, native audio (ByteDance)", credits: 404, creditsLabel: "~202-404 credits/scene, based on scene length" },
-  { id: "vidu-q3-pro",   label: "Vidu Q3 Pro",    description: "Budget quality (Vidu)",      credits: 167, creditsLabel: "84-167 credits/scene, based on scene length" },
+  // Real ranges (2-12s/4-15s/1-16s) confirmed against each model's real
+  // duration spec in kling.js's VIDEO_MODELS -- previously understated
+  // here, left over from before the duration picker allowed anything past
+  // the old 5s/10s-only bucket.
+  { id: "seedance-1-pro",label: "Seedance 1 Pro",  description: "Cinematic motion (ByteDance)", credits: 48, creditsLabel: "8-48 credits/scene, based on scene length" },
+  { id: "seedance-2-standard", label: "Seedance 2.0", description: "Premium quality, native audio (ByteDance)", credits: 606, creditsLabel: "162-606 credits/scene, based on scene length" },
+  { id: "vidu-q3-pro",   label: "Vidu Q3 Pro",    description: "Budget quality (Vidu)",      credits: 266, creditsLabel: "17-266 credits/scene, based on scene length" },
+  // vidu-q3-turbo deliberately NOT added here -- it requires both a start
+  // AND end image to generate at all (requiresStartAndEnd in
+  // /api/models/capabilities), and this page has no start/end-image UI of
+  // any kind. Adding it would make it selectable but permanently unable to
+  // generate from this flow. It's reachable via StoryboardPanel.jsx, which
+  // has the required Start Image/End Frame fields.
 ];
 
 const THEMES = [
