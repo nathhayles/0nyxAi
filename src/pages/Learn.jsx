@@ -66,6 +66,21 @@ const GUIDES = [
     description: "How musicians use Onyx Reelz to create music videos, lyric videos, and promotional content.",
     to: "/learn/music-promotion",
   },
+  {
+    title: "How Much Does AI Video Generation Really Cost? (2026 Breakdown)",
+    description: "A real breakdown of what AI video generation actually costs — what drives the price up or down, and what to watch out for.",
+    to: "/learn/ai-video-pricing",
+  },
+  {
+    title: "AI Video Model Comparison: Duration, Resolution & Aspect Ratio (2026 Guide)",
+    description: "A real breakdown of what today's leading AI video models actually support — duration limits, resolution, and aspect ratio.",
+    to: "/learn/model-comparison",
+  },
+  {
+    title: "Do You Need an AI Disclosure Label on Your Videos? The EU AI Act, Explained",
+    description: "What the EU AI Act's Article 50 actually requires for AI-generated video, who it applies to, and how Onyx Reelz helps you stay compliant.",
+    to: "/learn/eu-ai-act-disclosure",
+  },
 ];
 
 export default function Learn() {

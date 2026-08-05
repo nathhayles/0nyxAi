@@ -99,4 +99,25 @@ export const learnPages = [
     ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/wan-ai-video-prompting-guide-illustration.png",
     imageAlt: "Wan prompting guide illustration — cyan camera with an amber lightning bolt and speed-lines symbolizing fast generation, Onyx Reelz",
   },
+  // ogImage/imageAlt deliberately omitted on these 3 -- no hero illustration
+  // exists yet (no in-repo generation tool for these; the other 12 were
+  // created externally and uploaded to R2 directly). LearnPageLayout skips
+  // the hero block cleanly when ogImage is absent, and prerender-seo.js
+  // falls back to DEFAULT_OG_IMAGE for social cards -- safe to ship without,
+  // add the two fields here once real illustrations exist.
+  {
+    title: "How Much Does AI Video Generation Really Cost? (2026 Breakdown)",
+    description: "A real breakdown of what AI video generation actually costs — what drives the price up or down, and what to watch out for.",
+    path: "/learn/ai-video-pricing",
+  },
+  {
+    title: "AI Video Model Comparison: Duration, Resolution & Aspect Ratio (2026 Guide)",
+    description: "A real breakdown of what today's leading AI video models actually support — duration limits, resolution, and aspect ratio.",
+    path: "/learn/model-comparison",
+  },
+  {
+    title: "Do You Need an AI Disclosure Label on Your Videos? The EU AI Act, Explained",
+    description: "What the EU AI Act's Article 50 actually requires for AI-generated video, who it applies to, and how Onyx Reelz helps you stay compliant.",
+    path: "/learn/eu-ai-act-disclosure",
+  },
 ];
