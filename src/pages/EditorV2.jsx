@@ -1617,6 +1617,11 @@ export default function EditorV2() {
   // the matching comment in routes/models.js for why vidu-q3-turbo (no
   // i2vId, seId-only) still needs this to read true.
   const supportsStartImage = modelCapabilities[regenModel]?.supportsStartImage ?? false;
+  // True only for models with no t2v/i2v fallback (currently vidu-q3-turbo)
+  // -- these 500 server-side with a generic "Internal server error" if only
+  // one of Start Image/End Frame is set, since there's nothing to fall back
+  // to. Checked client-side in regenerateScene before the request fires.
+  const requiresStartAndEnd = modelCapabilities[regenModel]?.requiresStartAndEnd ?? false;
   // Lives at the EditorV2 level (not inside AudioPanel) so it survives AudioPanel
   // unmount/remount when the user switches sidebar tabs mid-generation.
   const [generatingVoiceoverScenes, setGeneratingVoiceoverScenes] = useState(() => new Set());
@@ -3301,6 +3306,16 @@ export default function EditorV2() {
       // generates on the same scene. Gated on the model's own capability,
       // same stale-value guard as reference_mode/end_image_url below.
       const sceneImageUrl = supportsStartImage ? (scene.sourceImageUrl || null) : null;
+      // Caught here, before the request fires, rather than letting it reach
+      // the backend -- a model with requiresStartAndEnd 500s with a generic
+      // "Internal server error" if only one of the two is set (no t2v/i2v
+      // fallback to fall back to), which told the user nothing about what
+      // to fix. Checking client-side skips that round trip (and the
+      // deduct/refund cycle) entirely.
+      if (requiresStartAndEnd && !(sceneImageUrl && scene.endImageUrl)) {
+        toast.show(`${modelCapabilities[regenModel]?.label || regenModel} requires both a Start Image and an End Frame`, "error");
+        return;
+      }
       const submitRes = await fetch("/api/kling/generate", {
         method: "POST",
         headers: h,
@@ -3378,7 +3393,7 @@ export default function EditorV2() {
       updateSceneRef.current(id, { generationPending: false });
     }
     finally { setGeneratingScenes(p => ({ ...p, [id]: false })); }
-  }, [scenes, ratio, regenModel, toast, supportsRefs, supportsEndFrame, supportsStartImage]);
+  }, [scenes, ratio, regenModel, toast, supportsRefs, supportsEndFrame, supportsStartImage, requiresStartAndEnd, modelCapabilities]);
 
   if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent)) {
     return (
