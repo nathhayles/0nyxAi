@@ -1290,6 +1290,14 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       // narration/captions — real-person disclosure detection server-side
       // needs this regardless of whether narration/captions are enabled.
       sourcePrompt:      scene.action || null,
+      // Real-person disclosure Pass 3 (image-based detection, see the EU AI
+      // Act audit follow-up) needs the actual reference images a real
+      // person's likeness could have come from, not just the text prompt —
+      // sourcePrompt alone misses a real photo uploaded as Start Image/End
+      // Frame with an innocuous text prompt. Same fields StoryboardPanel's
+      // Start Image/End Frame blocks already read/write on scene state.
+      sourceImageUrl:    scene.sourceImageUrl || null,
+      endImageUrl:       scene.endImageUrl || null,
       captionsEnabled:   captionsVisible && clip.captionsEnabled === true,
       caption_color:     scene.caption_color || brand?.caption_color || "#ffffff",
       caption_bg_color:  scene.caption_bg_color || brand?.caption_bg_color || "rgba(0,0,0,0.82)",
