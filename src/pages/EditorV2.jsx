@@ -1531,6 +1531,21 @@ export default function EditorV2() {
   // and the debounced autosave path both deciding to POST independently).
   const reelIdRef = useRef(reelId);
   useEffect(() => { reelIdRef.current = reelId; }, [reelId]);
+  // Optimistic-concurrency tracking for saveNow's PUT -- the updated_at this
+  // tab last saw from the server, sent back as expected_updated_at so the
+  // backend can reject (409) a save if the server's row has since moved on
+  // without this tab knowing. Set at every point this tab receives a fresh
+  // row from the server: initial load, reel creation, and every successful
+  // save response. See the 2026-08-06 autosave-race investigation -- every
+  // save path used to PUT unconditionally, so a tab left open (even idle)
+  // would silently overwrite changes made elsewhere (another tab, another
+  // device, or a direct DB fix) every 30s forever.
+  const lastKnownUpdatedAtRef = useRef(null);
+  // Set (non-null) when the last save attempt was rejected as stale -- gates
+  // saveNow from retrying with the same doomed expected_updated_at every 30s
+  // (which would just 409 again), and drives the conflict banner. Cleared on
+  // the next successful save or on reload.
+  const [saveConflict, setSaveConflict] = useState(null);
   // Holds the in-flight creation request (if any) so a second caller reuses
   // it instead of firing its own POST. Assigned synchronously before any
   // await inside createReelOnce, so this is safe even if multiple effects
@@ -1551,6 +1566,7 @@ export default function EditorV2() {
       .then(resp => {
         if (resp.id) {
           reelIdRef.current = resp.id;
+          lastKnownUpdatedAtRef.current = resp.updated_at || null;
           setReelId(resp.id);
           const u = new URL(window.location.href);
           u.searchParams.set("reelId", resp.id);
@@ -1885,6 +1901,7 @@ export default function EditorV2() {
         const h = await getAuthHeaders();
         const d = await (await fetch("/api/reels/" + reelId + "?t=" + Date.now(), { headers: h })).json();
         if (d?.error) { console.error("[EditorV2] reel fetch error:", d.error); setSavedMsg("Load error"); return; }
+        lastKnownUpdatedAtRef.current = d?.updated_at || null;
         setReelBrandId(d?.brand_id ?? null);
         if (d?.title) setTitle(d.title);
         if (d?.ratio) setRatio(d.ratio);
@@ -1979,6 +1996,11 @@ export default function EditorV2() {
   const saveNow = useCallback(async () => {
     if (!reelLoaded) return;
     if (saveInFlightRef.current) return;
+    // A prior save was rejected as stale (409) -- retrying with the same
+    // expected_updated_at would just 409 again every 30s. Blocked until the
+    // conflict banner's reload clears saveConflict, rather than silently
+    // discarding edits in a loop the user never sees.
+    if (saveConflict) return;
     saveInFlightRef.current = true;
 
     try {
@@ -2015,22 +2037,49 @@ export default function EditorV2() {
       const thumbnailUrl = normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.stockThumb
         || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
         || normalizedScenes[0]?.mediaUrl || null;
-      const body = JSON.stringify({ title, scenes: normalizedScenes, timeline: cleanedTimeline, ratio, status: "draft", globalMusicUrl, globalMusicName, thumbnail_url: thumbnailUrl, brand_id: selectedBrandId });
+      const bodyObj = { title, scenes: normalizedScenes, timeline: cleanedTimeline, ratio, status: "draft", globalMusicUrl, globalMusicName, thumbnail_url: thumbnailUrl, brand_id: selectedBrandId };
+      // createReelOnce's POST doesn't need expected_updated_at -- there's
+      // nothing on the server yet for a brand-new reel to conflict with.
+      const body = JSON.stringify(bodyObj);
+
+      // Shared PUT path for both the normal case and the "another concurrent
+      // call already created the reel" fallback below -- carries
+      // expected_updated_at and handles the 409/200 response the same way
+      // either time, rather than duplicating the check in two places.
+      const putReel = async (id) => {
+        const res = await fetch("/api/reels/" + id, {
+          method: "PUT", headers: h,
+          body: JSON.stringify({ ...bodyObj, expected_updated_at: lastKnownUpdatedAtRef.current }),
+        });
+        if (res.status === 409) {
+          const data = await res.json().catch(() => null);
+          setSaveConflict(data?.current || {});
+          return false;
+        }
+        if (!res.ok) return false;
+        const data = await res.json().catch(() => null);
+        if (data?.updated_at) lastKnownUpdatedAtRef.current = data.updated_at;
+        return true;
+      };
+
+      let ok;
       if (reelIdRef.current) {
-        await fetch("/api/reels/" + reelIdRef.current, { method: "PUT", headers: h, body });
+        ok = await putReel(reelIdRef.current);
       } else {
         const result = await createReelOnce(body, h);
         if (result.id && !result.created) {
           // Another concurrent call already created the reel -- still
           // persist this save's own snapshot via a normal PUT instead of
           // silently discarding it.
-          await fetch("/api/reels/" + result.id, { method: "PUT", headers: h, body }).catch(() => {});
+          ok = await putReel(result.id).catch(() => false);
+        } else {
+          ok = !!result.id;
         }
       }
-      setSavedMsg("Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+      setSavedMsg(ok ? "Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Save failed");
     } catch { setSavedMsg("Save failed"); }
     finally { saveInFlightRef.current = false; }
-  }, [reelLoaded, title, timelineState, ratio, reelId, globalMusicUrl, globalMusicName, selectedBrandId]);
+  }, [reelLoaded, title, timelineState, ratio, reelId, globalMusicUrl, globalMusicName, selectedBrandId, saveConflict]);
 
   useEffect(() => { const id = setInterval(() => saveNowRef.current?.(), 30000); return () => clearInterval(id); }, []);
 
@@ -3465,6 +3514,22 @@ export default function EditorV2() {
     <div id="editor-v2" data-theme={theme} style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", background: "var(--onyx-bg-2,#0b0f17)", color: "var(--onyx-text,#f1f5fb)", fontFamily: "var(--onyx-font,-apple-system,system-ui,sans-serif)", overflow: "hidden", overscrollBehaviorX: "none" }}>
       {/* BG streaks */}
       <div className="onyx-bg-streaks" style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0 }}/>
+
+      {saveConflict && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000,
+          background: "#b45309", color: "#fff", fontSize: 13, fontWeight: 600,
+          padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 16,
+        }}>
+          This reel was updated elsewhere — your changes since then aren't saved.
+          <button
+            onClick={() => window.location.reload()}
+            style={{ padding: "4px 14px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.5)", background: "rgba(255,255,255,0.15)", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}
+          >
+            Reload latest version
+          </button>
+        </div>
+      )}
 
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", height: "100%" }}>
         <Toolbar
