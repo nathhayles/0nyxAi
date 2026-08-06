@@ -1546,6 +1546,17 @@ export default function EditorV2() {
   // (which would just 409 again), and drives the conflict banner. Cleared on
   // the next successful save or on reload.
   const [saveConflict, setSaveConflict] = useState(null);
+  // Soft, non-alarming advisory shown after a completed export whose render
+  // auto-inserted the real-person disclaimer scene (EU AI Act Article 50).
+  // Purely informational -- additive to the disclaimer-scene mechanism
+  // itself, which already happened server-side regardless of this notice.
+  // Generic across all trigger sources (character tag, prompt text,
+  // reference image, or a detected self-attestation mismatch) by design --
+  // see render.js's disclosure block, which never exposes which one fired.
+  // Just a boolean -- the UI copy lives here, not server-side (the backend's
+  // disclosureReason is a separate, generic string used for its own
+  // logging/future flexibility, not necessarily this exact notice's copy).
+  const [disclosureNotice, setDisclosureNotice] = useState(false);
   // Holds the in-flight creation request (if any) so a second caller reuses
   // it instead of firing its own POST. Assigned synchronously before any
   // await inside createReelOnce, so this is safe even if multiple effects
@@ -3531,6 +3542,27 @@ export default function EditorV2() {
         </div>
       )}
 
+      {disclosureNotice && (
+        <div style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 999, maxWidth: 340,
+          background: "var(--onyx-surface,#141a24)", border: "1px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))",
+          borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "flex-start", gap: 10,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+        }}>
+          <span style={{ fontSize: 15, lineHeight: 1, marginTop: 1 }}>ℹ️</span>
+          <div style={{ flex: 1, fontSize: 12.5, color: "var(--onyx-text-dim,rgba(241,245,251,0.75))", lineHeight: 1.4 }}>
+            This reel includes the required AI-disclosure scene, added automatically.
+          </div>
+          <button
+            onClick={() => setDisclosureNotice(false)}
+            aria-label="Dismiss"
+            style={{ background: "none", border: "none", color: "var(--onyx-text-faint,rgba(241,245,251,0.4))", cursor: "pointer", fontSize: 14, padding: 0, lineHeight: 1 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", height: "100%" }}>
         <Toolbar
           title={title} onTitleChange={setTitle} saved={savedMsg}
@@ -3590,7 +3622,11 @@ export default function EditorV2() {
                   await new Promise(r => setTimeout(r, 5000));
                   const ph = await getAuthHeaders();
                   const poll = await (await fetch(`/api/render/status/${startData.jobId}`, { headers: ph })).json();
-                  if (poll.status === "completed") { rawUrl = poll.url; break; }
+                  if (poll.status === "completed") {
+                    rawUrl = poll.url;
+                    if (poll.disclosureTriggered) setDisclosureNotice(true);
+                    break;
+                  }
                   if (poll.status === "failed") { jobFailedError = poll.error || "Render failed"; break; }
                 }
 
