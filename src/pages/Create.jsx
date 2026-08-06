@@ -608,28 +608,39 @@ export default function CreatePage() {
                   </div>
                 </label>
 
-                {/* Motion Reference URL */}
-                <div style={{
-                  padding: "10px 14px", borderRadius: 10,
-                  background: "var(--onyx-bg-2)", border: `1px solid ${motionRefUrl.trim() ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
-                }}>
-                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Motion Reference</div>
-                  <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 8 }}>
-                    Paste a URL to a video — used to transfer motion style across all scenes
+                {/* Motion Reference URL -- Kling-only: submitSceneJob only ever
+                    attaches this for models with supportsRefs (currently just
+                    kling-2.6-pro); for every other model it was already a
+                    silent no-op, just never communicated in the UI. Gating it
+                    here instead of just adding a caption, since showing a
+                    working-looking field for 4 of 5 models that quietly does
+                    nothing is worse than hiding it -- see the 2026-08-07
+                    motionRefUrl/styleRefUrl investigation. */}
+                {videoModel === "kling-2.6-pro" && (
+                  <div style={{
+                    padding: "10px 14px", borderRadius: 10,
+                    background: "var(--onyx-bg-2)", border: `1px solid ${motionRefUrl.trim() ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                  }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Motion Reference</div>
+                    <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 8 }}>
+                      Paste a URL to a video — used to transfer motion style across all scenes.
+                      {" "}Only takes effect from Scene 2 onward, and only with Character Lock enabled above
+                      {characterLock ? "." : " (currently off)."}
+                    </div>
+                    <input
+                      type="url"
+                      value={motionRefUrl}
+                      onChange={(e) => setMotionRefUrl(e.target.value)}
+                      placeholder="https://example.com/motion-ref.mp4"
+                      style={{
+                        width: "100%", padding: "8px 10px", borderRadius: 8,
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        background: "var(--onyx-bg)", color: "var(--onyx-text)", fontSize: 13,
+                        boxSizing: "border-box",
+                      }}
+                    />
                   </div>
-                  <input
-                    type="url"
-                    value={motionRefUrl}
-                    onChange={(e) => setMotionRefUrl(e.target.value)}
-                    placeholder="https://example.com/motion-ref.mp4"
-                    style={{
-                      width: "100%", padding: "8px 10px", borderRadius: 8,
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      background: "var(--onyx-bg)", color: "var(--onyx-text)", fontSize: 13,
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
+                )}
               </div>
             )}
 
