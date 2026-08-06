@@ -1413,28 +1413,6 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-function probeVideoDuration(url) {
-  return new Promise(resolve => {
-    if (!url) return resolve(null);
-    const v = document.createElement("video");
-    const timer = setTimeout(() => { v.src = ""; resolve(null); }, 8000);
-    v.preload = "metadata";
-    v.onloadedmetadata = () => { clearTimeout(timer); const d = isFinite(v.duration) ? v.duration : null; v.src = ""; resolve(d); };
-    v.onerror = () => { clearTimeout(timer); resolve(null); };
-    v.src = url;
-  });
-}
-
-async function probeAllDurations(urls, concurrency = 5) {
-  const results = new Array(urls.length).fill(null);
-  let i = 0;
-  async function worker() {
-    while (i < urls.length) { const idx = i++; results[idx] = await probeVideoDuration(urls[idx]); }
-  }
-  await Promise.all(Array.from({ length: Math.min(concurrency, urls.length) }, worker));
-  return results;
-}
-
 function normalizeScene(scene, fallbackId) {
   const mediaUrl = scene?.mediaUrl || scene?.url || null;
   const mediaType =
@@ -1984,15 +1962,6 @@ export default function EditorV2() {
         setSavedMsg(norm.length ? "Loaded" : "Loaded (no scenes)");
         setReelLoaded(true);
 
-        // Probe video durations in background and patch scenes as they resolve
-        if (norm.some(sc => sc.mediaUrl || sc.url)) {
-          probeAllDurations(norm.map(sc => sc.mediaUrl || sc.url || ""))
-            .then(probed => {
-              setScenes(prev => prev.map((sc, i) => probed[i] != null ? { ...sc, videoDuration: probed[i] } : sc));
-            })
-            .catch(() => {});
-        }
-
         // Reconcile any scene whose generation was still pending when this
         // reel was last saved -- the poll loop that would normally deliver
         // the result may have died (tab backgrounded, network drop, laptop
@@ -2175,6 +2144,30 @@ export default function EditorV2() {
       preloadCacheRef.current = [];
     };
   }, [reelLoaded]);
+
+  // Targeted counterpart to the effect above -- that one only ever runs once,
+  // keyed on [reelLoaded], so it warms whatever scene URLs exist at initial
+  // reel load and nothing assigned afterward. Any "Use on Scene"/AI Studio
+  // library pick necessarily happens after the reel has already loaded, so
+  // without this, a newly-assigned scene's video never gets preloaded at all
+  // -- a real, confirmed contributor to the black-frame report on reel
+  // bfc59931-dc7f-4d2f-89b0-362f086cc7a2. Adds exactly one hidden video to
+  // the existing cache; does NOT clear or rebuild it, so it can't reproduce
+  // the redundant-.load() churn that motivated removing probeAllDurations
+  // (see that removal's own comment history) -- this is the only preload
+  // call left in the file besides the one-shot effect above.
+  const preloadSceneUrl = useCallback((src) => {
+    if (!src) return;
+    if (preloadCacheRef.current.some(v => v.src === src)) return;
+    const v = document.createElement("video");
+    v.src = src;
+    v.preload = "auto";
+    v.muted = true;
+    v.style.display = "none";
+    v.load();
+    document.body.appendChild(v);
+    preloadCacheRef.current.push(v);
+  }, []);
 
   // ── Playback engine (rAF master clock) ────────────────────────────────────
   // Drives the live playhead position forward in real time when
@@ -3667,10 +3660,12 @@ export default function EditorV2() {
                   stockThumb: newThumb,
                   mediaType: item.mediaType || 'video'
                 });
+                if (item.mediaType !== 'image') preloadSceneUrl(fullUrl);
               }}
               onUseAiStudioItem={item => {
                 const newThumb = item.thumbnail || item.thumb || item.url;
                 updateScene(activeScene, { mediaUrl: item.url, thumbnail: newThumb, stockThumb: newThumb });
+                preloadSceneUrl(item.url);
               }}
               aiStudioItems={aiStudioItems}
               apiBase=""
