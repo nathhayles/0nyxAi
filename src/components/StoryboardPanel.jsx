@@ -18,6 +18,20 @@ function parseTaggedNames(text) {
   return [...new Set(matches.map((m) => m[1]))];
 }
 
+// Narration-specific: mirrors backend/lib/resolveTaggedEntities.js's
+// LEADING_SPEAKER_TAG_RE exactly (leading "@Tag: " only, not any @Tag
+// anywhere in the text). Deliberately NOT parseTaggedNames above -- that
+// one matches an @Tag anywhere in the string, which is correct for action
+// (every match there really does resolve into elements[]), but narration's
+// voice lookup only ever honors a leading tag. Using parseTaggedNames for
+// narration's chip row would show a chip for a mid-sentence @Tag that the
+// backend silently ignores for voice purposes -- a real UI/backend mismatch,
+// not just a style choice.
+function parseLeadingSpeakerTag(text) {
+  const match = String(text || "").match(/^@([A-Za-z0-9_]+):/);
+  return match ? [match[1]] : [];
+}
+
 // Textarea with "@"-triggered autocomplete over the user's saved characters.
 // Selecting a character inserts "@Name" as literal text — no separate
 // "attach" control, per spec (tag resolution happens server-side at fal.ai
@@ -610,11 +624,50 @@ export default function StoryboardPanel({
             )}
 
             {/* ── Narration (both modes) ── */}
-            <textarea
+            {/* @Tag support added here alongside action's (character-voice
+                auto-assignment build, 2026-08-07): a leading @Tag in
+                narration now drives TTS voice lookup at generation time
+                (see lib/sceneDefaults.js's applyDefaultVoiceToScenes) --
+                analyse.js's system prompt was extended to emit this same
+                "@Tag: spoken words" shape when a script attributes a line
+                to a specific tagged character. Deliberately NOT gated on
+                supportsRefs the way action's CharacterTagTextarea below is
+                -- that gate exists because action's tags feed Kling's
+                elements[] (a video-model capability), but narration's tags
+                only ever drive voice selection, which has nothing to do
+                with which video model is selected. Gating this on
+                supportsRefs would wrongly disable narration tagging
+                whenever a non-refs model (e.g. Wan 2.5) is picked. */}
+            {parseLeadingSpeakerTag(sc.narration).length > 0 && (
+              <div
+                style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {parseLeadingSpeakerTag(sc.narration).map((name) => {
+                  const known = characters.some((c) => normalizeTagName(c.name) === normalizeTagName(name));
+                  return (
+                    <span
+                      key={name}
+                      title={known ? `${name} -- voice applied to this scene's narration if set` : `"${name}" doesn't match a saved character`}
+                      style={{
+                        fontSize: 11, padding: "2px 7px", borderRadius: 999,
+                        background: known ? "rgba(0,210,255,0.15)" : "rgba(248,113,113,0.15)",
+                        color: known ? "#00d2ff" : "#f87171",
+                        border: `1px solid ${known ? "rgba(0,210,255,0.35)" : "rgba(248,113,113,0.35)"}`,
+                      }}
+                    >
+                      @{name}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <CharacterTagTextarea
               placeholder="Narration"
               value={sc.narration || ""}
-              onChange={(e) => updateField(sc.id, "narration", e.target.value)}
+              onChange={(text) => updateField(sc.id, "narration", text)}
               onClick={(e) => e.stopPropagation()}
+              characters={characters}
             />
 
             {/* ── AI mode fields ── */}
