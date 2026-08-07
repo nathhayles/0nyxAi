@@ -149,6 +149,9 @@ export default function StoryboardPanel({
   supportsStartImage = false,
   durationSpec = null,
   supports1080pUpgrade = false,
+  onUpscaleScene,
+  upscalingScenes = {},
+  upscaleCapabilities = {},
 }) {
   const [stockQuery, setStockQuery] = useState({});
   const [stockResults, setStockResults] = useState({});
@@ -156,6 +159,14 @@ export default function StoryboardPanel({
   const [uploadingScene, setUploadingScene] = useState({});
   const [uploadingSourceImage, setUploadingSourceImage] = useState({});
   const [characters, setCharacters] = useState([]);
+  // Upscale controls are ephemeral per-scene UI state (which of the 5
+  // models is selected, and that model's current control value) -- not
+  // persisted scene data, so this lives in local component state rather
+  // than on the scene object itself. Keyed by scene id so switching the
+  // active scene doesn't lose another scene's in-progress picker state.
+  const [upscaleOpen, setUpscaleOpen] = useState({});
+  const [upscaleModel, setUpscaleModel] = useState({});
+  const [upscaleParam, setUpscaleParam] = useState({});
 
   useEffect(() => {
     (async () => {
@@ -379,7 +390,143 @@ export default function StoryboardPanel({
                     : "Generate"}
                 </button>
               )}
+
+              {/* Upscale button (build brief 2026-08-07) -- only meaningful
+                  once the scene has real media, since it operates video-in/
+                  video-out on the current mediaUrl. Toggles the inline
+                  per-model control panel below rather than submitting
+                  immediately, since every model's control shape differs
+                  (see upscaleCapabilities) and there's no single "just go"
+                  action that makes sense across all 5. */}
+              {onUpscaleScene && (sc.mediaUrl || sc.url) && (
+                <button
+                  className="sceneSmallBtn"
+                  disabled={!!upscalingScenes[sc.id]}
+                  onClick={(e) => { e.stopPropagation(); setUpscaleOpen(p => ({ ...p, [sc.id]: !p[sc.id] })); }}
+                >
+                  {upscalingScenes[sc.id]?.status === "submitting"
+                    ? "Starting…"
+                    : upscalingScenes[sc.id]?.status === "polling"
+                    ? "Upscaling…"
+                    : "Upscale"}
+                </button>
+              )}
             </div>
+
+            {/* ── Upscale panel ── */}
+            {onUpscaleScene && upscaleOpen[sc.id] && (() => {
+              const modelId = upscaleModel[sc.id] || "topaz";
+              const cap = upscaleCapabilities[modelId];
+              const control = cap?.uiControl;
+              const param = upscaleParam[sc.id]?.[modelId] || {};
+              const setParam = (next) => setUpscaleParam(p => ({ ...p, [sc.id]: { ...(p[sc.id] || {}), [modelId]: { ...param, ...next } } }));
+
+              return (
+                <div
+                  style={{ marginBottom: 8, padding: 8, borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <select
+                    value={modelId}
+                    onChange={(e) => setUpscaleModel(p => ({ ...p, [sc.id]: e.target.value }))}
+                    style={{ width: "100%", marginBottom: 6, padding: "4px 8px", borderRadius: 6, fontSize: 12, border: "1px solid rgba(255,255,255,0.12)", background: "var(--onyx-bg)", color: "var(--onyx-text)" }}
+                  >
+                    {Object.entries(upscaleCapabilities).map(([id, m]) => (
+                      <option key={id} value={id}>{m.label}</option>
+                    ))}
+                  </select>
+
+                  {/* Per-model control shape -- deliberately not a uniform
+                      dropdown across models (see 2026-08-07 resolution-param
+                      audit): Topaz is a continuous factor, SeedVR2/FlashVSR
+                      are a resolution enum (both always route to WaveSpeed
+                      today -- see routeProvider in routes/upscale.js -- so
+                      this shows WaveSpeed's own 720p/1080p/2k/4k labels
+                      directly, no translation needed for what's actually
+                      wired), Bria is a discrete 2x/4x choice, and Sima Lite
+                      has no resolution control at all -- only quality, shown
+                      with an explicit label so it doesn't read as a broken
+                      selector. */}
+                  {control?.type === "factor" && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, opacity: 0.7 }}>Upscale factor:</span>
+                      <input
+                        type="range"
+                        min={control.min} max={control.max} step={control.step}
+                        value={param.upscaleFactor ?? control.default}
+                        onChange={(e) => setParam({ upscaleFactor: Number(e.target.value) })}
+                        style={{ flex: 1 }}
+                      />
+                      <span style={{ fontSize: 11, width: 28, textAlign: "right" }}>{param.upscaleFactor ?? control.default}×</span>
+                    </div>
+                  )}
+
+                  {control?.type === "resolution" && (
+                    <select
+                      value={param.resolution || control.default}
+                      onChange={(e) => setParam({ resolution: e.target.value })}
+                      style={{ width: "100%", marginBottom: 6, padding: "4px 8px", borderRadius: 6, fontSize: 12, border: "1px solid rgba(255,255,255,0.12)", background: "var(--onyx-bg)", color: "var(--onyx-text)" }}
+                    >
+                      {control.values.map((v) => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  )}
+
+                  {control?.type === "discreteFactor" && (
+                    <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                      {control.values.map((v) => (
+                        <button
+                          key={v}
+                          className="sceneSmallBtn"
+                          style={{ flex: 1, background: (param.desiredIncrease || control.default) === v ? "rgba(124,58,237,0.3)" : undefined }}
+                          onClick={() => setParam({ desiredIncrease: v })}
+                        >
+                          {v}×
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {control?.type === "quality" && (
+                    <div style={{ marginBottom: 6 }}>
+                      <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>
+                        No resolution control for this model — quality only
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 11, opacity: 0.7 }}>Quality:</span>
+                        <input
+                          type="range"
+                          min={control.min} max={control.max}
+                          value={param.crf ?? control.default}
+                          onChange={(e) => setParam({ crf: Number(e.target.value) })}
+                          style={{ flex: 1 }}
+                        />
+                        <span style={{ fontSize: 11, width: 20, textAlign: "right" }}>{param.crf ?? control.default}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    className="sceneSmallBtn primary"
+                    disabled={!!upscalingScenes[sc.id]}
+                    onClick={() => { onUpscaleScene(sc.id, modelId, param); setUpscaleOpen(p => ({ ...p, [sc.id]: false })); }}
+                    style={{ width: "100%" }}
+                  >
+                    Run upscale
+                  </button>
+
+                  {/* Keep-both semantics: draftMediaUrl/upscaledMediaUrl are
+                      both preserved once an upscale has run -- mediaUrl
+                      itself is never touched, so this is purely an informational
+                      link to compare, not a "which one is active" switch. */}
+                  {sc.upscaledMediaUrl && (
+                    <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>
+                      Upscaled version ready — <a href={sc.upscaledMediaUrl} target="_blank" rel="noreferrer" style={{ color: "var(--onyx-cyan)" }}>view</a>
+                      {sc.draftMediaUrl && <> · <a href={sc.draftMediaUrl} target="_blank" rel="noreferrer" style={{ color: "var(--onyx-cyan)" }}>view original</a></>}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ── Duration ── */}
             {/* Renders from the selected model's real duration spec (see

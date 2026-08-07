@@ -45,6 +45,7 @@ export default function SceneStrip({
         const isActive = sc.id === activeScene;
         const hasVO  = !!(sc.voiceoverUrl || sc.voiceover);
         const hasMusic = !!sc.musicUrl;
+        const hasUpscale = !!sc.upscaledMediaUrl;
 
         return (
           <React.Fragment key={sc.id}>
@@ -108,6 +109,7 @@ export default function SceneStrip({
                 <div style={{ position:"absolute", top:4, right:4, display:"flex", flexDirection:"column", gap:2 }}>
                   {hasVO    && <div style={{ width:6, height:6, borderRadius:"50%", background:"#22c55e" }} title="Has voiceover" />}
                   {hasMusic && <div style={{ width:6, height:6, borderRadius:"50%", background:"var(--onyx-cyan)" }} title="Has music" />}
+                  {hasUpscale && <div style={{ width:6, height:6, borderRadius:"50%", background:"#a78bfa" }} title="Has upscaled version" />}
                   {sc.generationPending && <div style={{ width:6, height:6, borderRadius:"50%", background:"#f59e0b" }} title="Still generating — check back soon" />}
                   {sc.isAiGenerated && !sc.generationPending && <div style={{ width:6, height:6, borderRadius:"50%", background:"#f59e0b" }} title="AI generated" />}
                 </div>

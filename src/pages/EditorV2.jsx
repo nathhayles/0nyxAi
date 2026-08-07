@@ -1641,6 +1641,26 @@ export default function EditorV2() {
       }
     })();
   }, []);
+  // Same pattern as modelCapabilities above, separate endpoint -- Upscale
+  // button build brief (2026-08-07): each of the 5 upscale models has a
+  // genuinely different UI control shape (continuous factor, resolution
+  // enum, discrete 2x/4x enum, or quality-only), sourced from
+  // GET /api/upscale/capabilities (UPSCALE_MODELS in routes/upscale.js)
+  // rather than hardcoded here, so StoryboardPanel never fakes a uniform
+  // dropdown across models that don't actually share one.
+  const [upscaleCapabilities, setUpscaleCapabilities] = useState({});
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/upscale/capabilities", { headers: await getAuthHeaders() });
+        const data = await res.json();
+        setUpscaleCapabilities(Object.fromEntries((data || []).map((m) => [m.id, m])));
+      } catch (e) {
+        console.error("[EditorV2] failed to load upscale capabilities:", e);
+      }
+    })();
+  }, []);
+  const [upscalingScenes, setUpscalingScenes] = useState({});
   const supportsRefs = modelCapabilities[regenModel]?.supportsRefs ?? false;
   // Distinct from supportsRefs -- gates the End Frame URL field, not the
   // @-tag character reference UI. Previously StoryboardPanel's End Frame
@@ -3510,6 +3530,70 @@ export default function EditorV2() {
     finally { setGeneratingScenes(p => ({ ...p, [id]: false })); }
   }, [scenes, ratio, regenModel, toast, supportsRefs, supportsEndFrame, supportsStartImage, requiresStartAndEnd, modelCapabilities, supports1080pUpgrade, aspectRatioSupported, aspectRatioSpec]);
 
+  // Upscale button (build brief 2026-08-07). Mirrors regenerateScene's
+  // submit-then-poll shape against the same fal.ai/WaveSpeed queue
+  // mechanics, but calls /api/upscale/* instead of /api/kling/* and never
+  // touches scene.mediaUrl -- keep-both semantics: the pre-upscale source is
+  // preserved as draftMediaUrl (only ever set once, from whatever mediaUrl
+  // was current the FIRST time a scene is upscaled -- a second upscale run
+  // must not overwrite it with the previous upscale's own output) and the
+  // result lands in upscaledMediaUrl. Nothing here ever overwrites mediaUrl
+  // itself, unlike regenerateScene's completion handler above.
+  const upscaleScene = useCallback(async (id, model, param) => {
+    setUpscalingScenes(p => ({ ...p, [id]: { status: "submitting" } }));
+    try {
+      const scene = scenes.find(s => s.id === id); if (!scene) return;
+      const sourceUrl = scene.mediaUrl || scene.url;
+      if (!sourceUrl) { toast.show("This scene has no media to upscale yet", "error"); return; }
+
+      const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
+      const submitRes = await fetch("/api/upscale/generate", {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({ sourceUrl, model, param, brandId: selectedBrandId }),
+      });
+      const { jobId, credits, error: submitErr } = await submitRes.json();
+      if (!jobId) throw new Error(submitErr || "No jobId returned");
+
+      // draftMediaUrl set here, before the poll loop, from whatever
+      // mediaUrl already is -- NOT inside the completion handler below,
+      // where scene.mediaUrl could theoretically have changed underneath a
+      // long-running poll (e.g. a regenerate fired in another tab/scene
+      // interaction). Only set if not already present, same
+      // never-overwrite-the-draft rule the build brief specifies -- a
+      // second upscale of an already-upscaled scene must keep pointing at
+      // the ORIGINAL draft, not the first upscale's output.
+      if (!scene.draftMediaUrl) updateSceneRef.current(id, { draftMediaUrl: sourceUrl });
+      setUpscalingScenes(p => ({ ...p, [id]: { status: "polling" } }));
+
+      const deadline = Date.now() + 1200000;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 5000));
+        let poll;
+        try {
+          const ph = await getAuthHeaders();
+          poll = await (await fetch(`/api/upscale/status/${jobId}`, { headers: ph })).json();
+        } catch (pollErr) {
+          console.warn("[EditorV2] upscale poll transient failure, retrying:", pollErr);
+          continue;
+        }
+        if (poll.status === "completed") {
+          if (!poll.videoUrl) throw new Error("Upscale completed but no video URL returned");
+          updateSceneRef.current(id, { upscaledMediaUrl: poll.videoUrl });
+          toast.show(`Upscale complete (${credits} credits)`, "success");
+          return;
+        }
+        if (poll.status === "failed") throw new Error(poll.error || "Upscale failed");
+      }
+      throw new Error("Timed out waiting for upscale");
+    } catch (e) {
+      console.error("[EditorV2] upscale", e);
+      toast.show(e.message || "Upscale failed", "error");
+    } finally {
+      setUpscalingScenes(p => ({ ...p, [id]: false }));
+    }
+  }, [scenes, toast, selectedBrandId]);
+
   if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent)) {
     return (
       <div style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, background: "#0b0f17", color: "#f1f5fb", fontFamily: "-apple-system,system-ui,sans-serif", textAlign: "center", padding: 32 }}>
@@ -3736,7 +3820,7 @@ export default function EditorV2() {
         <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
           {/* Sidebar */}
           <Sidebar open={sidebarOpen} activeTab={activeMenu} setActiveTab={setActiveMenu}>
-            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage} durationSpec={durationSpec} supports1080pUpgrade={supports1080pUpgrade}/></Safe>}
+            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage} durationSpec={durationSpec} supports1080pUpgrade={supports1080pUpgrade} onUpscaleScene={upscaleScene} upscalingScenes={upscalingScenes} upscaleCapabilities={upscaleCapabilities}/></Safe>}
             {activeMenu==="visuals"    && <Safe name="VisualsPanel"><VisualsPanel
               tab={visualsTab} setTab={setVisualsTab}
               scenes={scenes} activeScene={activeScene}
