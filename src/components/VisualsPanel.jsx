@@ -355,7 +355,6 @@ function MediaTile({
 export default function VisualsPanel({
   tab,
   setTab,
-  onUseAiStudioItem,
   libraryKey,
   onSelect,
   apiBase = "",

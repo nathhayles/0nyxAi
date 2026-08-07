@@ -3847,11 +3847,6 @@ export default function EditorV2() {
                 });
                 if (item.mediaType !== 'image') preloadSceneUrl(fullUrl);
               }}
-              onUseAiStudioItem={item => {
-                const newThumb = item.thumbnail || item.thumb || item.url;
-                updateScene(activeScene, { mediaUrl: item.url, thumbnail: newThumb, stockThumb: newThumb });
-                preloadSceneUrl(item.url);
-              }}
               aiStudioItems={aiStudioItems}
               apiBase=""
               libraryKey="onyx_ai_studio_library_v1"
@@ -4031,7 +4026,23 @@ export default function EditorV2() {
             <PreviewCanvas
               scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene}
               isPlaying={isPlaying} livePlayheadRef={livePlayheadRef} checkpointPlayhead={playhead} totalSec={totalSec||1}
-              onSeek={t => dispatchWithHistory({type:"SEEK",time:Math.max(0,t)})}
+              onSeek={t => {
+                const clamped = Math.max(0, t);
+                dispatchWithHistory({type:"SEEK",time:clamped});
+                livePlayheadRef.current = clamped;
+                // Same fix as SequencerPanel's own onSeek below (see that
+                // one's comment) -- without this, scrubbing via a click
+                // directly on the preview while playing left playStartRef
+                // pointing at the OLD wallTime/playheadAtStart pair, so the
+                // next tick() computed elapsed time from before the scrub
+                // and the playhead visibly jumped back toward the
+                // pre-scrub position instead of continuing from where the
+                // user just clicked. SequencerPanel's scrubber already had
+                // this reset; PreviewCanvas's own click-to-seek never did.
+                if (playStartRef.current) {
+                  playStartRef.current = { wallTime: performance.now() / 1000, playheadAtStart: clamped };
+                }
+              }}
               onPlayPause={() => setIsPlaying(p=>!p)}
               ratio={ratio}
               captionsVisible={captionsVisible}
