@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import PromptResultShowcase from "../components/PromptResultShowcase";
 import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
@@ -29,6 +30,12 @@ export default function LearnModelComparison() {
         existed. Here's a real breakdown of what today's leading AI video
         models actually support.
       </p>
+
+      <PromptResultShowcase
+        label="Real Onyx Reelz generation"
+        videoUrl="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_d0e769e8-63e0-41c6-bf39-787930bda3b4.mp4"
+        prompt="Sleek smartphone on a dark studio table, screen glowing with vibrant short-form video content, camera slowly pushes in, cinematic lighting, shallow depth of field, subtle particle dust in the light beams, premium tech aesthetic, dramatic side lighting, shot on Sony A7, shallow depth of field, film grain, vertical portrait format, mobile-first framing, tight compositional focus."
+      />
 
       <h2 style={h2Style}>Duration: how long can a single generation actually be?</h2>
       <p style={pStyle}>

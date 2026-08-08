@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import PromptResultShowcase from "../components/PromptResultShowcase";
 import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
@@ -19,6 +20,12 @@ export default function LearnVideoPricing() {
         clip. Here's a straight answer: what AI video generation actually
         costs, what drives the price up or down, and what to watch out for.
       </p>
+
+      <PromptResultShowcase
+        label="Real Onyx Reelz generation"
+        videoUrl="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-showcase/phone-tap-interface-demo.mp4"
+        prompt="Close-up of a finger tapping a glowing button on a smartphone screen, soft abstract blue interface glow with no readable text or icons, screen slightly out of focus, warm satisfying light flare on tap, rack focus, warm golden hour rim lighting, shot on Sony A7, shallow depth of field, film grain, vertical portrait format, mobile-first framing, tight compositional focus."
+      />
 
       <h2 style={h2Style}>What actually determines the cost of one clip</h2>
       <p style={pStyle}>Three factors do almost all the work:</p>
