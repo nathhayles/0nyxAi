@@ -144,6 +144,13 @@ const REGEN_MODEL_OPTIONS = [
   // from this dropdown entirely, so this model was never actually
   // reachable through the UI despite being fully wired server-side.
   { id: "vidu-q3-turbo",  label: "Vidu Q3 Turbo",  credits: 128, creditsLabel: "8-128 cr/scene" },
+  // Real min/max computed across the full real range (4-30s duration,
+  // 480p/720p, all 6 real aspect ratios -- see getSeedance25Cost in
+  // kling.js) via a live calc 2026-08-08, not estimated: cheapest is
+  // 4s/480p/1:1 (62cr), most expensive is 30s/720p/21:9 (2421cr). Genuinely
+  // the widest range of any model here -- this is a premium, token-priced
+  // model, the range is honest, not a display bug.
+  { id: "seedance-2.5",   label: "✨ Seedance 2.5", credits: 2421, creditsLabel: "62-2421 cr/scene", premium: true },
 ];
 
 export default function StoryboardPanel({
@@ -163,6 +170,8 @@ export default function StoryboardPanel({
   supportsStartImage = false,
   durationSpec = null,
   supports1080pUpgrade = false,
+  resolutionOptions = null,
+  aspectRatio = "9:16",
   onUpscaleScene,
   upscalingScenes = {},
   upscaleCapabilities = {},
@@ -181,6 +190,43 @@ export default function StoryboardPanel({
   const [upscaleOpen, setUpscaleOpen] = useState({});
   const [upscaleModel, setUpscaleModel] = useState({});
   const [upscaleParam, setUpscaleParam] = useState({});
+
+  // Live credit estimate (2026-08-08) -- calls GET /api/models/estimate-cost,
+  // which runs the REAL getSceneCost() server-side (see that route's own
+  // comment) rather than duplicating any pricing formula in JS. Built for
+  // seedance-2.5's non-trivial token-based cost, but the fetch itself is
+  // generic to whatever model/duration/resolution/aspectRatio are current
+  // for the active scene. Debounced (400ms) so dragging the duration
+  // slider doesn't fire a request per pixel of drag.
+  const [estimatedCredits, setEstimatedCredits] = useState(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
+
+  const activeSceneObj = scenes.find((s) => s.id === activeScene);
+  const activeDuration = activeSceneObj?.duration || durationSpec?.default || 5;
+  const activeResolution = activeSceneObj?.resolution || null;
+  useEffect(() => {
+    let cancelled = false;
+    setEstimateLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const params = new URLSearchParams({
+          model: regenModel,
+          duration: String(activeDuration),
+          aspect_ratio: aspectRatio,
+        });
+        if (activeResolution) params.set("resolution", activeResolution);
+        const res = await fetch(`/api/models/estimate-cost?${params}`, { headers });
+        const data = await res.json();
+        if (!cancelled) setEstimatedCredits(typeof data.credits === "number" ? data.credits : null);
+      } catch {
+        if (!cancelled) setEstimatedCredits(null);
+      } finally {
+        if (!cancelled) setEstimateLoading(false);
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [regenModel, activeDuration, activeResolution, aspectRatio]);
 
   useEffect(() => {
     (async () => {
@@ -317,19 +363,47 @@ export default function StoryboardPanel({
           position: "sticky", top: 0, zIndex: 5, background: "var(--panel-bg, rgba(6,9,15,0.5))",
         }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.4)", marginBottom: 5, textTransform: "uppercase", letterSpacing: 1 }}>Generate model</div>
-          <select
-            value={regenModel}
-            onChange={e => onRegenModelChange(e.target.value)}
-            style={{
-              width: "100%", padding: "6px 10px", borderRadius: 8, fontSize: 12,
-              border: "1px solid rgba(255,255,255,0.12)",
-              background: "var(--onyx-bg)", color: "var(--onyx-text)",
-            }}
-          >
-            {REGEN_MODEL_OPTIONS.map(opt => (
-              <option key={opt.id} value={opt.id} disabled={opt.disabled}>{opt.label}{opt.disabled ? "" : ` — ${opt.creditsLabel || `${opt.credits} cr/scene`}`}</option>
-            ))}
-          </select>
+          {/* Native <select>/<option> can't be styled beyond browser
+              defaults in any browser -- no gradient/badge/icon is possible
+              on an individual <option>. The premium "visual treatment" for
+              seedance-2.5 is instead: a distinguishing marker baked into
+              the option's own label text (✨, see REGEN_MODEL_OPTIONS), a
+              gold-tinted border/glow on the SELECT ITSELF when it's the
+              current selection (a real, CSS-styleable element), and the
+              banner block below it. */}
+          {(() => {
+            const selectedOpt = REGEN_MODEL_OPTIONS.find(o => o.id === regenModel);
+            const isPremium = !!selectedOpt?.premium;
+            return (
+              <>
+                <select
+                  value={regenModel}
+                  onChange={e => onRegenModelChange(e.target.value)}
+                  style={{
+                    width: "100%", padding: "6px 10px", borderRadius: 8, fontSize: 12,
+                    border: isPremium ? "1px solid rgba(251,191,36,0.6)" : "1px solid rgba(255,255,255,0.12)",
+                    boxShadow: isPremium ? "0 0 0 1px rgba(251,191,36,0.15)" : "none",
+                    background: "var(--onyx-bg)", color: "var(--onyx-text)",
+                  }}
+                >
+                  {REGEN_MODEL_OPTIONS.map(opt => (
+                    <option key={opt.id} value={opt.id} disabled={opt.disabled}>{opt.label}{opt.disabled ? "" : ` — ${opt.creditsLabel || `${opt.credits} cr/scene`}`}</option>
+                  ))}
+                </select>
+                {isPremium && (
+                  <div style={{
+                    marginTop: 6, padding: "5px 8px", borderRadius: 6, fontSize: 10.5,
+                    background: "linear-gradient(90deg, rgba(251,191,36,0.15), rgba(251,146,60,0.08))",
+                    border: "1px solid rgba(251,191,36,0.3)", color: "#fbbf24",
+                    display: "flex", alignItems: "center", gap: 6,
+                  }}>
+                    <span>⭐</span>
+                    <span>Premium model — token-based pricing, cost scales with duration/resolution/aspect ratio</span>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
       <div style={{ maxWidth: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
@@ -621,6 +695,49 @@ export default function StoryboardPanel({
                 />
                 Upgrade to 1080p (+50% cost, $0.15/s)
               </label>
+            )}
+
+            {/* ── Resolution choice (seedance-2.5 today: real 480p/720p
+                enum, distinct from wan-2.7's binary upgrade-toggle above --
+                see resolutionOptions' own comment in EditorV2.jsx) ── */}
+            {resolutionOptions && (
+              <div
+                style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span style={{ fontSize: 12, opacity: 0.7, marginRight: 2 }}>Resolution:</span>
+                {resolutionOptions.values.map((v) => (
+                  <button
+                    key={v}
+                    className={"sceneSmallBtn" + ((sc.resolution || resolutionOptions.default) === v ? " primary" : "")}
+                    onClick={(e) => { e.stopPropagation(); updateField(sc.id, "resolution", v); }}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* ── Live credit estimate (2026-08-08) -- only shown for the
+                active scene, since the estimate fetch is keyed on the
+                ACTIVE scene's duration/resolution (see the useEffect above)
+                -- showing it on every scene card would either be wrong for
+                inactive scenes or require one fetch per scene. Always a
+                concrete number (never "auto"): seedance-2.5's duration/
+                aspect-ratio pickers never offer "auto" as a value at all
+                (2026-08-08 decision), so whatever's currently selected is
+                already the exact value that would be billed. ── */}
+            {sc.id === activeScene && REGEN_MODEL_OPTIONS.find(o => o.id === regenModel)?.premium && (
+              <div style={{ fontSize: 12, marginBottom: 8, opacity: 0.85, display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ opacity: 0.6 }}>Estimated cost:</span>
+                {estimateLoading ? (
+                  <span style={{ opacity: 0.5 }}>calculating…</span>
+                ) : estimatedCredits != null ? (
+                  <span style={{ fontWeight: 600, color: "#fbbf24" }}>{estimatedCredits} credits</span>
+                ) : (
+                  <span style={{ opacity: 0.5 }}>unavailable</span>
+                )}
+              </div>
             )}
 
             {/* ── Narration (both modes) ── */}

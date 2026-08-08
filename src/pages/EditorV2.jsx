@@ -1686,6 +1686,11 @@ export default function EditorV2() {
   // 1080p" toggle, which writes scene.resolution, read by regenerateScene
   // below and passed through to /api/kling/generate.
   const supports1080pUpgrade = modelCapabilities[regenModel]?.supports1080pUpgrade ?? false;
+  // Distinct from supports1080pUpgrade above -- see that flag's own name
+  // vs. resolutionOptions' own comment in routes/models.js. Currently just
+  // seedance-2.5's real 480p/720p choice (no 1080p tier to upgrade to at
+  // all for that model).
+  const resolutionOptions = modelCapabilities[regenModel]?.resolutionOptions ?? null;
   // The selected model's real aspect-ratio constraint (see kling.js's
   // VIDEO_MODELS aspectRatio spec) -- null means the provider has no real
   // aspect_ratio field to validate against (both Vidu models), so every
@@ -3820,7 +3825,7 @@ export default function EditorV2() {
         <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
           {/* Sidebar */}
           <Sidebar open={sidebarOpen} activeTab={activeMenu} setActiveTab={setActiveMenu}>
-            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage} durationSpec={durationSpec} supports1080pUpgrade={supports1080pUpgrade} onUpscaleScene={upscaleScene} upscalingScenes={upscalingScenes} upscaleCapabilities={upscaleCapabilities}/></Safe>}
+            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage} durationSpec={durationSpec} supports1080pUpgrade={supports1080pUpgrade} resolutionOptions={resolutionOptions} aspectRatio={ratio} onUpscaleScene={upscaleScene} upscalingScenes={upscalingScenes} upscaleCapabilities={upscaleCapabilities}/></Safe>}
             {activeMenu==="visuals"    && <Safe name="VisualsPanel"><VisualsPanel
               tab={visualsTab} setTab={setVisualsTab}
               scenes={scenes} activeScene={activeScene}
