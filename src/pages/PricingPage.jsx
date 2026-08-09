@@ -164,7 +164,7 @@ export default function PricingPage() {
         </div>
 
         {/* Credit packs */}
-        <div style={{ marginBottom:24 }}>
+        <div id="buy-credits" style={{ marginBottom:24 }}>
           <h2 style={{ fontSize:24, fontWeight:600, margin:"0 0 8px", color:"var(--onyx-text)" }}>Buy credits</h2>
           <p style={{ fontSize:14, color:"var(--onyx-text-dim)", margin:"0 0 20px" }}>One-time purchase, never expires.</p>
           <div style={{ display:"flex", flexDirection:"column", gap:12 }}>

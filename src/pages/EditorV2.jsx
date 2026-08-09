@@ -20,6 +20,7 @@ import BrollPanel       from "../components/BrollPanel.jsx";
 import ElementsPanel    from "../components/ElementsPanel.jsx";
 import TransitionsPanel from "../components/TransitionsPanel.jsx";
 import YouTubePublishModal from "../components/YouTubePublishModal.jsx";
+import ExportUpgradeModal from "../components/ExportUpgradeModal.jsx";
 import AudioPanel from "../components/AudioPanelBoundary.jsx";
 import VoiceOverPanel from "../components/VoiceOverPanel.jsx";
 import SfxPanel from "../components/SfxPanel.jsx";
@@ -1623,6 +1624,7 @@ export default function EditorV2() {
   useEffect(() => { localStorage.setItem("onyx_sidebar",   sidebarOpen);   }, [sidebarOpen]);
   const [savedMsg,         setSavedMsg]         = useState("–");
   const [ytModalOpen,      setYtModalOpen]      = useState(false);
+  const [exportUpgrade,    setExportUpgrade]    = useState(null); // { requiredCredits } | null
   const [generatingScenes, setGeneratingScenes] = useState({});
   const [regenModel, setRegenModel] = useState("kling-2.6-pro");
   // Fetched once from the backend's capability matrix (GET /api/models/capabilities,
@@ -3663,14 +3665,6 @@ export default function EditorV2() {
               if (exportInFlightRef.current) return;
               exportInFlightRef.current = true;
               try {
-                // Check trial/plan gate same as V1
-                const meRes = await fetch("/api/user/me", { headers: await getAuthHeaders() });
-                const me = await meRes.json();
-                if (me.trial_expired || (!me.has_paid_plan && !me.is_trial)) {
-                  setSavedMsg("Upgrade to export");
-                  alert("Please upgrade your plan to export reels.");
-                  return;
-                }
                 const h = await getAuthHeaders();
                 h["Content-Type"] = "application/json";
                 const _previewFrame = document.getElementById('onyx-preview-frame');
@@ -3693,6 +3687,12 @@ export default function EditorV2() {
 
                 const startRes = await fetch("/api/render", { method: "POST", headers: h, body: JSON.stringify(payload) });
                 const startData = await startRes.json();
+                if (startRes.status === 402 && startData.code === "INSUFFICIENT_CREDITS") {
+                  setSavedMsg("Not enough credits");
+                  document.getElementById("v2-render-indicator")?.remove();
+                  setExportUpgrade({ requiredCredits: startData.required || null });
+                  return;
+                }
                 if (!startData.jobId) {
                   setSavedMsg("✗ Render failed");
                   document.getElementById("v2-render-indicator")?.remove();
@@ -4115,6 +4115,7 @@ export default function EditorV2() {
       </div>
 
       {ytModalOpen && <YouTubePublishModal onClose={() => setYtModalOpen(false)} scenes={scenes} title={title}/>}
+      {exportUpgrade && <ExportUpgradeModal requiredCredits={exportUpgrade.requiredCredits} onClose={() => setExportUpgrade(null)} />}
       <ChatBot />
       <Toast toast={toast.toast} />
     </div>
