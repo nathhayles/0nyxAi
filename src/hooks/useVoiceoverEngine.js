@@ -69,6 +69,26 @@ export function normalizePremiumVoice(voice, index = 0) {
   };
 }
 
+// Retries once on 401 with a forced session refresh before giving up --
+// getAuthHeaders() proactively refreshes when the token is within its 60s
+// expiry buffer (see utils/auth.js), but switching to the Premium voice tier
+// fires this same fetch pattern from two call sites at once (fetchPremiumVoices
+// + fetchGooglePremiumVoices), so a token sitting right at that buffer edge
+// can genuinely 401 on one or both -- a real, live-confirmed timing race, not
+// a broken route/key/permission (requireAuth returns identical {error:
+// "Unauthorized"} for any invalid/expired token on every /api/tts/voices
+// variant). Same retry-on-transient-failure discipline as every other
+// external call in this app, not a cosmetic error-message fix.
+async function fetchVoicesWithRetry(url) {
+  let res = await fetch(url, { cache: "no-store", headers: await getAuthHeaders() });
+  if (res.status === 401) {
+    const { supabase } = await import("../supabaseClient.js");
+    await supabase.auth.refreshSession();
+    res = await fetch(url, { cache: "no-store", headers: await getAuthHeaders() });
+  }
+  return res;
+}
+
 export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolume = 100, onSave, generatingVoiceoverScenes, setGeneratingVoiceoverScenes }) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
@@ -127,7 +147,7 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
     setPremiumVoicesLoading(true);
     setPremiumVoicesError("");
     try {
-      const res = await fetch("/api/tts/voices?provider=elevenlabs", { cache: "no-store", headers: await getAuthHeaders() });
+      const res = await fetchVoicesWithRetry("/api/tts/voices?provider=elevenlabs");
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Premium voices request failed (${res.status})`);
       const list = Array.isArray(data?.voices) ? data.voices : [];
@@ -146,7 +166,7 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
     setGoogleVoicesLoading(true);
     setGoogleVoicesError("");
     try {
-      const res = await fetch(`/api/tts/voices?provider=google&language=${encodeURIComponent(languageCode)}&tier=standard`, { cache: "no-store", headers: await getAuthHeaders() });
+      const res = await fetchVoicesWithRetry(`/api/tts/voices?provider=google&language=${encodeURIComponent(languageCode)}&tier=standard`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || `Google voices request failed (${res.status})`);
       const list = Array.isArray(data?.voices) ? data.voices : [];
@@ -172,7 +192,7 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
   const fetchGooglePremiumVoices = async (languageCode = "en-US") => {
     setGooglePremiumVoicesLoading(true);
     try {
-      const res = await fetch(`/api/tts/voices?provider=google&language=${encodeURIComponent(languageCode)}&tier=premium`, { cache: "no-store", headers: await getAuthHeaders() });
+      const res = await fetchVoicesWithRetry(`/api/tts/voices?provider=google&language=${encodeURIComponent(languageCode)}&tier=premium`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return;
       const list = Array.isArray(data?.voices) ? data.voices : [];
