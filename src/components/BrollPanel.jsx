@@ -150,7 +150,7 @@ export default function BrollPanel({ dispatch, selectedClip }) {
 
         </div>
       ) : (
-        <div style={{ padding: "24px 16px", textAlign: "center", color: "var(--onyx-text-mute)", fontSize: 12 }}>
+        <div style={{ padding: "24px 16px", textAlign: "center", color: "var(--onyx-text-faint)", fontSize: 12 }}>
           Click a B-roll clip in the preview canvas (during its active time
           window) to edit its position, size, and animation here.
         </div>

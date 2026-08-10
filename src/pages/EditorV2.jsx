@@ -236,7 +236,7 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, onExport, 
         ref={uploadInputRef}
         type="file"
         multiple
-        accept=".jpg,.jpeg,.png,.apng,.mp4,.mp3,.wav,image/jpeg,image/png,image/apng,video/mp4,audio/mpeg,audio/wav"
+        accept=".jpg,.jpeg,.png,.apng,.mp4,.mov,.webm,.m4v,.mp3,.wav,image/jpeg,image/png,image/apng,video/*,audio/mpeg,audio/wav"
         style={{ display: "none" }}
         onChange={(e) => handleUploadPicked(e.target.files)}
       />
