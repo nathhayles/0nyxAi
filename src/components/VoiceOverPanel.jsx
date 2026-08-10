@@ -73,6 +73,13 @@ export default function VoiceOverPanel({
   const [headerExpanded, setHeaderExpanded] = useState(true);
   const scrollContentRef = useRef(null);
 
+  // Remembers the volume level to restore on unmute -- voiceoverVolume itself
+  // becomes 0 while muted, so this is the only place the pre-mute level lives.
+  const lastVoiceoverVolumeRef = useRef(voiceoverVolume > 0 ? voiceoverVolume : 100);
+  useEffect(() => {
+    if (voiceoverVolume > 0) lastVoiceoverVolumeRef.current = voiceoverVolume;
+  }, [voiceoverVolume]);
+
   // Favorites
   const [favorites, setFavorites] = useState(new Set()); // Set of "provider:voice_id"
   const [showFavOnly, setShowFavOnly] = useState(false);
@@ -276,6 +283,35 @@ export default function VoiceOverPanel({
               {activeFilters > 0 ? `⚙${activeFilters}` : "⚙"}
             </button>
           )}
+        </div>
+
+        {/* Narration volume + mute — always visible (not gated behind the
+            collapsible filter panel below) since it's a control you want to
+            reach for at any scroll position, not a one-time filter setting. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: headerExpanded ? 10 : 8 }}>
+          <button
+            type="button"
+            onClick={() => setVoiceoverVolume(voiceoverVolume > 0 ? 0 : lastVoiceoverVolumeRef.current)}
+            title={voiceoverVolume > 0 ? "Mute narration" : "Unmute narration"}
+            style={{
+              width: 26, height: 26, flexShrink: 0, borderRadius: 6, cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13,
+              background: voiceoverVolume > 0 ? "var(--onyx-surface)" : "var(--onyx-amber-soft)",
+              border: `1px solid ${voiceoverVolume > 0 ? "var(--onyx-hairline-strong)" : "var(--onyx-amber)"}`,
+              color: voiceoverVolume > 0 ? "var(--onyx-text-dim)" : "var(--onyx-amber)",
+            }}
+          >
+            {voiceoverVolume > 0 ? "🔊" : "🔇"}
+          </button>
+          <input
+            type="range" min="0" max="100" step="1"
+            value={voiceoverVolume ?? 100}
+            onChange={e => setVoiceoverVolume(Number(e.target.value))}
+            style={{ flex: 1 }}
+          />
+          <span style={{ fontSize: 11, color: "var(--onyx-text-dim)", fontVariantNumeric: "tabular-nums", width: 34, textAlign: "right", flexShrink: 0 }}>
+            {voiceoverVolume ?? 100}%
+          </span>
         </div>
 
         {/* Expanded filter panel */}
