@@ -50,7 +50,7 @@ export default function AdminPanel() {
 
   const Col = ({ k, label }) => (
     <th onClick={() => setSort(s => ({ key: k, dir: s.key === k && s.dir === 'desc' ? 'asc' : 'desc' }))}
-      style={{ ...s.th, color: sort.key === k ? '#4dd0ff' : '#64748b', cursor: 'pointer' }}>
+      style={{ ...s.th, color: sort.key === k ? '#4dd0ff' : 'var(--onyx-text-faint)', cursor: 'pointer' }}>
       {label} {sort.key === k ? (sort.dir === 'desc' ? '↓' : '↑') : ''}
     </th>
   );
@@ -189,7 +189,7 @@ function ModelUsagePanel() {
                 ...s.grantBtn,
                 background: windowKey === w.key ? '#4dd0ff44' : 'transparent',
                 borderColor: windowKey === w.key ? '#4dd0ff' : 'var(--onyx-hairline-strong)',
-                color: windowKey === w.key ? '#7de0ff' : '#64748b',
+                color: windowKey === w.key ? '#7de0ff' : 'var(--onyx-text-faint)',
                 fontSize: 11,
                 padding: '4px 10px',
               }}
@@ -206,7 +206,7 @@ function ModelUsagePanel() {
         ) : error ? (
           <p style={{ color: '#f87171', fontSize: 13, margin: 0 }}>Failed to load: {error}</p>
         ) : models.length === 0 ? (
-          <p style={{ color: '#64748b', fontSize: 13, margin: 0 }}>No model selections recorded for this window.</p>
+          <p style={{ color: 'var(--onyx-text-faint)', fontSize: 13, margin: 0 }}>No model selections recorded for this window.</p>
         ) : (
           <>
             {models.map(model => {
@@ -216,7 +216,7 @@ function ModelUsagePanel() {
                 <div key={model} style={{ marginBottom: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
                     <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{MODEL_LABELS[model] || model}</span>
-                    <span style={{ color: '#64748b' }}>{total}</span>
+                    <span style={{ color: 'var(--onyx-text-faint)' }}>{total}</span>
                   </div>
                   <div style={{ display: 'flex', height: 18, width: '100%', borderRadius: 4, overflow: 'hidden', background: '#0d1825' }}>
                     {plans.map(plan => {
@@ -236,7 +236,7 @@ function ModelUsagePanel() {
               );
             })}
 
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11, color: '#64748b', margin: '12px 0 20px' }}>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11, color: 'var(--onyx-text-faint)', margin: '12px 0 20px' }}>
               {plans.map(plan => (
                 <div key={plan} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <span style={{ width: 9, height: 9, borderRadius: 2, background: PLAN_COLORS[plan] || '#64748b', display: 'inline-block' }} />
@@ -285,7 +285,7 @@ const STATUS_COLORS = {
   failed: '#f87171',
   pending: '#4dd0ff',
   submitting: '#fbbf24',
-  waiting: '#64748b',
+  waiting: '#94a3b8',
 };
 
 // Per-generation list with user attribution -- lets support/admin trace a
@@ -330,7 +330,7 @@ function GenerationsPanel() {
         <h3 style={{ color: '#4dd0ff', fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
           Generations
         </h3>
-        <span style={{ color: '#64748b', fontSize: 12 }}>{total} total</span>
+        <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12 }}>{total} total</span>
       </div>
 
       <input
@@ -358,7 +358,7 @@ function GenerationsPanel() {
             ) : error ? (
               <tr><td colSpan={6} style={{ ...s.td, color: '#f87171' }}>Failed to load: {error}</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={6} style={{ ...s.td, color: '#64748b' }}>No generations found.</td></tr>
+              <tr><td colSpan={6} style={{ ...s.td, color: 'var(--onyx-text-faint)' }}>No generations found.</td></tr>
             ) : rows.map(g => (
               <tr key={g.task_id} style={s.row}>
                 <td style={s.td}>
@@ -378,17 +378,17 @@ function GenerationsPanel() {
                 </td>
                 <td style={s.td}>{MODEL_LABELS[g.model] || g.model || '—'}</td>
                 <td style={s.td}>
-                  <span style={{ ...s.badge, background: (STATUS_COLORS[g.status] || '#64748b') + '22', color: STATUS_COLORS[g.status] || '#64748b' }}>
+                  <span style={{ ...s.badge, background: (STATUS_COLORS[g.status] || '#94a3b8') + '22', color: STATUS_COLORS[g.status] || '#94a3b8' }}>
                     {g.status}
                   </span>
                 </td>
                 <td style={s.td}>
                   <span style={{ color: '#e2e8f0', fontSize: 12 }}>{g.user_email || '—'}</span>
                 </td>
-                <td style={{ ...s.td, color: '#334155', fontSize: 10, fontFamily: 'monospace' }} title={g.fal_request_id || g.task_id || ''}>
+                <td style={{ ...s.td, color: 'var(--onyx-text-faint)', fontSize: 10, fontFamily: 'monospace' }} title={g.fal_request_id || g.task_id || ''}>
                   {(g.fal_request_id || g.task_id || '').slice(0, 18)}...
                 </td>
-                <td style={{ ...s.td, color: '#64748b', fontSize: 12 }}>
+                <td style={{ ...s.td, color: 'var(--onyx-text-faint)', fontSize: 12 }}>
                   {new Date(g.created_at).toLocaleString()}
                 </td>
               </tr>
@@ -405,7 +405,7 @@ function GenerationsPanel() {
         >
           ← Prev
         </button>
-        <span style={{ color: '#64748b', fontSize: 12 }}>Page {page} of {totalPages}</span>
+        <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12 }}>Page {page} of {totalPages}</span>
         <button
           onClick={() => setPage(p => Math.min(totalPages, p + 1))}
           disabled={page >= totalPages || loading}
@@ -459,7 +459,7 @@ function FlaggedUploadsPanel() {
         <h3 style={{ color: '#4dd0ff', fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
           Flagged Uploads
         </h3>
-        <span style={{ color: '#64748b', fontSize: 12 }}>{total} total</span>
+        <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12 }}>{total} total</span>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
@@ -480,7 +480,7 @@ function FlaggedUploadsPanel() {
             ) : error ? (
               <tr><td colSpan={6} style={{ ...s.td, color: '#f87171' }}>Failed to load: {error}</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={6} style={{ ...s.td, color: '#64748b' }}>No flagged uploads.</td></tr>
+              <tr><td colSpan={6} style={{ ...s.td, color: 'var(--onyx-text-faint)' }}>No flagged uploads.</td></tr>
             ) : rows.map(f => (
               <tr key={f.id} style={s.row}>
                 <td style={s.td}>
@@ -508,7 +508,7 @@ function FlaggedUploadsPanel() {
                     <span style={{ ...s.badge, background: '#fbbf2422', color: '#fbbf24' }}>Pending</span>
                   )}
                 </td>
-                <td style={{ ...s.td, color: '#64748b', fontSize: 12 }}>
+                <td style={{ ...s.td, color: 'var(--onyx-text-faint)', fontSize: 12 }}>
                   {new Date(f.created_at).toLocaleString()}
                 </td>
               </tr>
@@ -525,7 +525,7 @@ function FlaggedUploadsPanel() {
         >
           ← Prev
         </button>
-        <span style={{ color: '#64748b', fontSize: 12 }}>Page {page} of {totalPages}</span>
+        <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12 }}>Page {page} of {totalPages}</span>
         <button
           onClick={() => setPage(p => Math.min(totalPages, p + 1))}
           disabled={page >= totalPages || loading}
@@ -570,7 +570,7 @@ function UserRow({ user: u, onGrant, granting }) {
     setMsgSending(false);
   };
 
-  const planColor = { pro: '#4ade80', creator: '#4dd0ff', free: '#64748b' }[u.plan] || '#64748b';
+  const planColor = { pro: '#4ade80', creator: '#4dd0ff', free: '#94a3b8' }[u.plan] || '#94a3b8';
   const subColor = u.subscription_status === 'active' ? '#4ade80' : '#f87171';
 
   const loadDetail = async () => {
@@ -589,7 +589,7 @@ function UserRow({ user: u, onGrant, granting }) {
       <tr onClick={loadDetail} style={{ ...s.row, cursor: 'pointer' }}>
         <td style={s.td}>
           <div style={{ color: '#e2e8f0', fontSize: 13 }}>{u.email || '—'}</div>
-          <div style={{ color: '#334155', fontSize: 10, fontFamily: 'monospace' }}>{u.id?.slice(0,8)}...</div>
+          <div style={{ color: 'var(--onyx-text-faint)', fontSize: 10, fontFamily: 'monospace' }}>{u.id?.slice(0,8)}...</div>
         </td>
         <td style={s.td}>
           <span style={{ ...s.badge, background: planColor + '22', color: planColor }}>
@@ -617,11 +617,11 @@ function UserRow({ user: u, onGrant, granting }) {
           {u.referral_code ? (
             <div>
               <div style={{ color: '#7de0ff', fontSize: 12 }}>{u.referral_code}</div>
-              <div style={{ color: '#64748b', fontSize: 11 }}>{u.referral_signups} signups</div>
+              <div style={{ color: 'var(--onyx-text-faint)', fontSize: 11 }}>{u.referral_signups} signups</div>
             </div>
           ) : '—'}
         </td>
-        <td style={{ ...s.td, color: '#64748b', fontSize: 12 }}>
+        <td style={{ ...s.td, color: 'var(--onyx-text-faint)', fontSize: 12 }}>
           {new Date(u.joined).toLocaleDateString()}
         </td>
         <td style={s.td} onClick={e => e.stopPropagation()}>
@@ -678,7 +678,7 @@ function UserRow({ user: u, onGrant, granting }) {
                 >
                   {msgSending ? 'Sending...' : 'Send Email'}
                 </button>
-                <button onClick={() => setMsgOpen(false)} style={{ ...s.grantBtn, background: 'transparent', borderColor: '#334155', color: '#64748b', padding: '6px 12px', fontSize: 12 }}>
+                <button onClick={() => setMsgOpen(false)} style={{ ...s.grantBtn, background: 'transparent', borderColor: 'var(--onyx-text-faint)', color: 'var(--onyx-text-faint)', padding: '6px 12px', fontSize: 12 }}>
                   Cancel
                 </button>
                 {msgResult?.ok && <span style={{ color: '#4ade80', fontSize: 12 }}>Sent to {msgResult.to}</span>}
@@ -763,22 +763,22 @@ function UserDetail({ user: u, detail: d }) {
               <span style={{ color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
                 {r.title || 'Untitled'}
               </span>
-              <span style={{ color: '#334155', fontSize: 11, flexShrink: 0, marginLeft: 8 }}>
+              <span style={{ color: 'var(--onyx-text-faint)', fontSize: 11, flexShrink: 0, marginLeft: 8 }}>
                 {r.ratio || '16:9'} · {new Date(r.created_at).toLocaleDateString()}
               </span>
             </div>
           ))}
-          {!d.recent_reels?.length && <span style={{ color: '#334155', fontSize: 12 }}>No reels yet</span>}
+          {!d.recent_reels?.length && <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12 }}>No reels yet</span>}
         </Section>
 
         <Section title="Recent Publishes">
           {d.recent_publishes?.slice(0, 6).map(p => (
             <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5, fontSize: 12 }}>
               <span style={{ color: '#e2e8f0' }}>{p.platform || 'Unknown'}</span>
-              <span style={{ color: '#334155', fontSize: 11 }}>{new Date(p.created_at).toLocaleDateString()}</span>
+              <span style={{ color: 'var(--onyx-text-faint)', fontSize: 11 }}>{new Date(p.created_at).toLocaleDateString()}</span>
             </div>
           ))}
-          {!d.recent_publishes?.length && <span style={{ color: '#334155', fontSize: 12 }}>No publishes yet</span>}
+          {!d.recent_publishes?.length && <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12 }}>No publishes yet</span>}
         </Section>
       </div>
 
@@ -790,12 +790,12 @@ function UserDetail({ user: u, detail: d }) {
               <span style={{ color: t.amount > 0 ? '#4ade80' : '#f87171' }}>
                 {t.amount > 0 ? '+' : ''}{t.amount} — {t.reason}
               </span>
-              <span style={{ color: '#334155', fontSize: 11 }}>
+              <span style={{ color: 'var(--onyx-text-faint)', fontSize: 11 }}>
                 {t.balance_after != null ? `bal: ${t.balance_after} · ` : ''}{new Date(t.created_at).toLocaleDateString()}
               </span>
             </div>
           ))}
-          {!d.credit_transactions?.length && <span style={{ color: '#334155', fontSize: 12 }}>No transactions yet</span>}
+          {!d.credit_transactions?.length && <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12 }}>No transactions yet</span>}
         </Section>
       </div>
     </div>
@@ -816,7 +816,7 @@ function Section({ title, children }) {
 function Row({ label, value, mono, highlight }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12 }}>
-      <span style={{ color: '#64748b', flexShrink: 0 }}>{label}</span>
+      <span style={{ color: 'var(--onyx-text-faint)', flexShrink: 0 }}>{label}</span>
       <span style={{
         color: highlight ? '#fbbf24' : '#e2e8f0',
         fontFamily: mono ? 'monospace' : 'inherit',
@@ -832,11 +832,11 @@ const s = {
   page: { background: 'var(--onyx-bg)', minHeight: '100vh', padding: '32px 24px', fontFamily: 'Inter, sans-serif', color: '#e2e8f0' },
   header: { marginBottom: 28 },
   title: { fontSize: 24, fontWeight: 800, color: '#4dd0ff', margin: 0 },
-  sub: { color: '#334155', fontSize: 13, marginTop: 4 },
+  sub: { color: 'var(--onyx-text-faint)', fontSize: 13, marginTop: 4 },
   statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 24 },
   statCard: { background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)', borderRadius: 10, padding: '16px 20px' },
   statVal: { fontSize: 28, fontWeight: 800, color: '#4dd0ff' },
-  statLabel: { fontSize: 12, color: '#64748b', marginTop: 4 },
+  statLabel: { fontSize: 12, color: 'var(--onyx-text-faint)', marginTop: 4 },
   search: { width: '100%', padding: '10px 14px', background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)', borderRadius: 8, color: '#e2e8f0', fontSize: 13, marginBottom: 16, boxSizing: 'border-box' },
   table: { width: '100%', borderCollapse: 'collapse', fontSize: 13 },
   th: { padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', borderBottom: '1px solid var(--onyx-hairline-strong)', whiteSpace: 'nowrap' },
