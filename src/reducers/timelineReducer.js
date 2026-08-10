@@ -155,6 +155,10 @@ export function importFromScenes(scenes = [], globalMusicUrl = "", globalMusicNa
       // caption, same as normalizeScene's own narration field (no action
       // fallback there either).
       narration:       sc.narration || "",
+      // Stored on the clip in its own right (not as a narration fallback,
+      // see above) so it's present from creation rather than only appearing
+      // after handleSetScenes's first narration/action sync in EditorV2.jsx.
+      action:          sc.action || "",
     });
     videoTrack.clips.push(clip);
 

@@ -3149,6 +3149,23 @@ export default function EditorV2() {
           }
         }
 
+        // Sync narration/action into the video track clip -- same failure
+        // class as captionsEnabled above, just never given the same fix.
+        // SequencerPanel's clip label falls back to clip.narration (never
+        // scene.narration), so once a clip exists, its narration/action stay
+        // frozen at whatever IMPORT_SCENES set them to at creation -- editing
+        // either in StoryboardPanel after that point correctly updates scene
+        // state (and export self-heals via buildV2RenderRequest's
+        // clip.narration||scene.narration fallback, so captions/export were
+        // never actually broken) but the sequencer keeps showing the stale
+        // value forever, reading as "narration not carrying into the reel."
+        if (old.narration !== scene.narration || old.action !== scene.action) {
+          const vidClip = vidTrack?.clips.find(c => c.sceneId === scene.id);
+          if (vidClip) {
+            dispatchWithHistory({ type: "UPDATE_CLIP", clipId: vidClip.id, changes: { narration: scene.narration || "", action: scene.action || "" } });
+          }
+        }
+
         // Sync per-scene SFX into the SFX track, same scene-keyed clip pattern as voiceover
         if (old.sfxUrl !== scene.sfxUrl) {
           const existingSfx = sfxTrack?.clips.find(c => c.sceneId === scene.id);
