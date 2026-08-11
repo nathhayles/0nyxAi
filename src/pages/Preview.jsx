@@ -102,7 +102,7 @@ export default function Preview() {
         <div style={{ width: '160px', flexShrink: 0, boxSizing: 'border-box' }} />
 
         {/* Video */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {authError ? (
             <div style={{ color: '#aaa', textAlign: 'center' }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🔒</div>
@@ -112,13 +112,24 @@ export default function Preview() {
               </a>
             </div>
           ) : videoSrc ? (
+            // position:absolute + inset:0 against this wrapper's own definite
+            // box (see the added position:relative above), sized via
+            // objectFit instead of width:100%/maxHeight:100%. The old
+            // percentage-height approach depended on this wrapper's height
+            // resolving through flexbox stretch, which iOS WebKit doesn't
+            // reliably propagate for percentage-height children before (and,
+            // confirmed live, even after) the video's own intrinsic
+            // dimensions load -- the video rendered at only a few px on real
+            // iPhones. This is the same pattern EditorV2's own preview video
+            // elements already use (see ratioStyles/onyx-preview-frame) for
+            // the same reason.
             <video
               ref={videoRef}
               src={videoSrc}
               controls
               controlsList="nodownload"
               onContextMenu={e => e.preventDefault()}
-              style={{ width: '100%', maxHeight: '100%', borderRadius: '10px', display: 'block' }}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', borderRadius: '10px' }}
             />
           ) : (
             <div style={{ color: '#555', fontSize: 14 }}>Loading…</div>
