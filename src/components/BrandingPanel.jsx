@@ -68,7 +68,7 @@ const DEFAULT_BRAND = {
   default_voice_id: "", default_voice_name: "", default_voice_provider: "",
   default_music_url: "", default_music_name: "",
   default_avatar_id: "", avatar_position: "bottom-right", avatar_quality: "standard",
-  caption_font: "sans-serif", caption_size: "medium", caption_color: "#ffffff",
+  caption_font: "sans-serif", caption_size: 20, caption_color: "#ffffff",
   caption_bg_color: "rgba(0,0,0,0.6)", caption_highlight_color: "#ffe566", caption_position: "bottom",
   logo_palette: [],
 };
@@ -96,7 +96,7 @@ function rowToState(b) {
     avatar_position:        b.avatar_position || "bottom-right",
     avatar_quality:         b.avatar_quality || "standard",
     caption_font:           b.caption_font || b.font || "sans-serif",
-    caption_size:           b.caption_size || "medium",
+    caption_size:           b.caption_size || 20,
     caption_color:          b.caption_color || "#ffffff",
     caption_bg_color:       b.caption_bg_color || "rgba(0,0,0,0.6)",
     caption_highlight_color: b.caption_highlight_color || "#ffe566",
@@ -710,12 +710,20 @@ export default function BrandingPanel({ onApply }) {
                   <div style={{ marginBottom: 12 }}>
                     <label style={lbl}>Caption Size</label>
                     <div style={{ display: "flex", gap: 8 }}>
-                      {[{ label: "Small", value: "small", px: 16 }, { label: "Medium", value: "medium", px: 20 }, { label: "Large", value: "large", px: 26 }].map(s => (
-                        <button key={s.value} onClick={() => setBrand(b => ({ ...b, caption_size: s.value }))}
+                      {/* caption_size is stored as a Postgres integer (px), not a
+                          string enum -- these buttons used to write "small"/
+                          "medium"/"large" directly, which Postgres rejected on
+                          save ("invalid input syntax for type integer"),
+                          blocking the whole Style tab. Write/compare the
+                          numeric px value instead -- render.js's caption
+                          sizing already accepts a raw numeric caption_size
+                          the same way per-scene editor captions do. */}
+                      {CAPTION_SIZES.map(s => (
+                        <button key={s.value} onClick={() => setBrand(b => ({ ...b, caption_size: s.px }))}
                           style={{ flex: 1, padding: "8px", borderRadius: 6, cursor: "pointer", fontSize: s.px * 0.65, fontWeight: 600,
-                            border: brand.caption_size === s.value ? "1px solid var(--onyx-cyan)" : "0.5px solid var(--onyx-hairline-strong)",
-                            background: brand.caption_size === s.value ? "var(--btn-primary-grad)" : "var(--chip-bg)",
-                            color: brand.caption_size === s.value ? "var(--btn-primary-text)" : "var(--onyx-text-dim)" }}>{s.label}</button>
+                            border: brand.caption_size === s.px ? "1px solid var(--onyx-cyan)" : "0.5px solid var(--onyx-hairline-strong)",
+                            background: brand.caption_size === s.px ? "var(--btn-primary-grad)" : "var(--chip-bg)",
+                            color: brand.caption_size === s.px ? "var(--btn-primary-text)" : "var(--onyx-text-dim)" }}>{s.label}</button>
                       ))}
                     </div>
                   </div>
@@ -737,7 +745,7 @@ export default function BrandingPanel({ onApply }) {
                     justifyContent: "center", padding: 8, border: "0.5px solid var(--onyx-hairline)" }}>
                     <div style={{ position: "absolute", inset: 0, background: brand.overlay_color }} />
                     <span style={{ position: "relative", fontFamily: brand.caption_font,
-                      fontSize: brand.caption_size === "large" ? 22 : brand.caption_size === "small" ? 14 : 18,
+                      fontSize: Math.round((Number(brand.caption_size) || 20) * 0.85),
                       color: brand.caption_color, background: brand.caption_bg_color, padding: "2px 10px", borderRadius: 4 }}>
                       Caption preview
                     </span>
