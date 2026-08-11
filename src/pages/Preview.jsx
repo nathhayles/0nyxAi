@@ -95,11 +95,26 @@ export default function Preview() {
         </a>
       </div>
 
+      {/* These are currently empty, non-functional placeholder columns (no ad
+          script/content wired in) that reserve a fixed 160px each
+          regardless of viewport width. On a real phone viewport (e.g. 390px
+          on iPhone 12/13) that's 320px of a 390px-wide screen gone before
+          the video even gets a turn -- the actual, dominant cause of the
+          video rendering as an unusable sliver on iOS, not (or not only) a
+          WebKit sizing quirk. Inline styles can't express a media query, so
+          this uses a scoped class + <style> block to collapse them below a
+          breakpoint that covers real phone widths. */}
+      <style>{`
+        @media (max-width: 700px) {
+          .onyx-preview-ad-col { display: none; }
+        }
+      `}</style>
+
       {/* Middle row: left ad | video | right ad */}
       <div style={{ display: 'flex', alignItems: 'stretch', gap: '12px', width: '100%', flex: 1, minHeight: 0 }}>
 
         {/* Left ad */}
-        <div style={{ width: '160px', flexShrink: 0, boxSizing: 'border-box' }} />
+        <div className="onyx-preview-ad-col" style={{ width: '160px', flexShrink: 0, boxSizing: 'border-box' }} />
 
         {/* Video */}
         <div style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -137,7 +152,7 @@ export default function Preview() {
         </div>
 
         {/* Right ad */}
-        <div style={{ width: '160px', flexShrink: 0, boxSizing: 'border-box' }} />
+        <div className="onyx-preview-ad-col" style={{ width: '160px', flexShrink: 0, boxSizing: 'border-box' }} />
 
       </div>
 
