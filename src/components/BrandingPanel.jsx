@@ -45,16 +45,33 @@ function rgbaToHex(c) {
   return "#" + [m[1],m[2],m[3]].map(n => parseInt(n).toString(16).padStart(2,"0")).join("");
 }
 
-function ColorRow({ labelText, colorKey, brand, setBrand }) {
+// allowTransparent is opt-in (only Caption Background uses it) -- "transparent"
+// is a literal sentinel value already understood everywhere caption_bg_color
+// is consumed: EditorV2.jsx's live preview compares against it explicitly,
+// and render.js's burnCaptions/buildBoxColor/karaoke paths all special-case
+// it before any color/opacity parsing runs, so it can't be silently
+// overridden by a stale caption_bg_opacity the way rgba(0,0,0,0) could be.
+function ColorRow({ labelText, colorKey, brand, setBrand, allowTransparent, transparentDefault }) {
+  const isTransparent = allowTransparent && brand[colorKey] === "transparent";
   return (
     <div style={{ flex: 1 }}>
       <label style={lbl}>{labelText}</label>
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <input type="color" value={rgbaToHex(brand[colorKey] || "#000000")}
+          disabled={isTransparent}
           onChange={e => setBrand(b => ({ ...b, [colorKey]: e.target.value }))}
-          style={{ width: 36, height: 34, border: "none", borderRadius: 4, cursor: "pointer", background: "none" }} />
-        <input style={{ ...inp, flex: 1 }} value={brand[colorKey] || ""}
+          style={{ width: 36, height: 34, border: "none", borderRadius: 4, cursor: isTransparent ? "default" : "pointer", background: "none", opacity: isTransparent ? 0.4 : 1 }} />
+        <input style={{ ...inp, flex: 1, opacity: isTransparent ? 0.4 : 1 }} value={isTransparent ? "transparent" : (brand[colorKey] || "")}
+          disabled={isTransparent}
           onChange={e => setBrand(b => ({ ...b, [colorKey]: e.target.value }))} />
+        {allowTransparent && (
+          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--onyx-text-faint)", whiteSpace: "nowrap", cursor: "pointer", flexShrink: 0 }}>
+            <input type="checkbox" checked={isTransparent}
+              onChange={e => setBrand(b => ({ ...b, [colorKey]: e.target.checked ? "transparent" : (transparentDefault || "rgba(0,0,0,0.6)") }))}
+              style={{ cursor: "pointer" }} />
+            Transparent
+          </label>
+        )}
       </div>
     </div>
   );
@@ -705,7 +722,7 @@ export default function BrandingPanel({ onApply }) {
                       </select>
                     </div>
                     <ColorRow labelText="Caption Text Color" colorKey="caption_color"    brand={brand} setBrand={setBrand} />
-                    <ColorRow labelText="Caption Background" colorKey="caption_bg_color" brand={brand} setBrand={setBrand} />
+                    <ColorRow labelText="Caption Background" colorKey="caption_bg_color" brand={brand} setBrand={setBrand} allowTransparent transparentDefault="rgba(0,0,0,0.6)" />
                   </div>
                   <div style={{ marginBottom: 12 }}>
                     <label style={lbl}>Caption Size</label>
