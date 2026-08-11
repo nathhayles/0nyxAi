@@ -10,10 +10,20 @@ export default function Preview() {
   const intervalRef = useRef(null)
   const videoRef = useRef(null)
 
-  // Decode the base64 id to recover the original URL
+  // Decode the base64url id to recover the original URL. The encoders
+  // (Dashboard.jsx, EditorV2.jsx) strip trailing "=" padding after
+  // converting to base64url charset -- atob() requires the padded form and
+  // throws "Incorrect padding" without it, which happens for roughly 2 out
+  // of every 3 real URL lengths (only byte lengths that are a multiple of 3
+  // encode padding-free). That throw was silently caught here and treated
+  // as "not a public URL", falling through to the auth-required token path
+  // -- forcing sign-in on the majority of real share links instead of the
+  // intended public playback. Restore the padding before decoding.
   function decodeId(raw) {
     try {
-      return atob(raw.replace(/-/g, '+').replace(/_/g, '/'))
+      const charsetFixed = raw.replace(/-/g, '+').replace(/_/g, '/')
+      const padded = charsetFixed + '='.repeat((4 - (charsetFixed.length % 4)) % 4)
+      return atob(padded)
     } catch { return null }
   }
 
