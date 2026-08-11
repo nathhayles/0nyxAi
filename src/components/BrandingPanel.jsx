@@ -301,8 +301,12 @@ export default function BrandingPanel({ onApply }) {
       if (!res.ok) throw new Error(data.error || "Save failed");
       if (data.id) setActiveBrandIdSync(data.id);
       await loadBrands();
+      // Saving edits and applying a brand to a reel are two distinct
+      // actions -- this used to also call onApply(brand) here, which
+      // silently navigated away to /projects on every save (the "Apply to
+      // Reel" button below is the only thing that should do that). The
+      // inline "Brand saved" flash above is the actual save-success signal.
       flash("Brand saved ✓");
-      if (onApply) onApply(brand);
     } catch (err) { flash(err.message, true); }
     setSaving(false);
   }
