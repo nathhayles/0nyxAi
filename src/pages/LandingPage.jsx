@@ -47,14 +47,14 @@ const steps = [
   { n: "4", title: "Export and post", desc: "Download your finished reel in any format, or auto-publish straight to Instagram, YouTube, and LinkedIn." },
 ];
 
-// Prices must match the plans defined in PricingPage.jsx — keep in sync.
-const packages = [
-  { name: "Student", price: "$7" },
-  { name: "Starter", price: "$19" },
-  { name: "Creator", price: "$39", highlight: true },
-  { name: "Pro", price: "$99" },
-  { name: "Agency", price: "$199" },
-];
+// Archived plan tiers (Student/Starter/Creator/Pro/Agency subscriptions)
+// were retired in Stripe when pricing moved to a single free tier +
+// one-time credit packs + add-ons -- see PricingPage.jsx, the real,
+// currently-maintained source of pricing content. This landing-page
+// section had its own separate hardcoded copy of the old tiers that was
+// never updated in that move (the "keep in sync" comment that used to be
+// here was never enough on its own); it's collapsed to a plain summary
+// that just routes to PricingPage.jsx instead of duplicating its content.
 
 export default function LandingPage({ session }) {
   const navigate = useNavigate();
@@ -86,10 +86,10 @@ export default function LandingPage({ session }) {
           <h1>The AI video editor that turns any idea into a scroll-stopping reel in minutes</h1>
           <p className="landing-hero-sub">Onyx Reelz is the AI video editor built for creators, agents, marketers, and small businesses — generate AI scenes, avatars, voiceovers, captions, and music, then export ready-to-post reels without filming a single second.</p>
           <div className="landing-hero-ctas">
-            <button className="landing-btn-primary landing-btn-lg" onClick={() => navigate("/signup")}>Start Your Free Trial</button>
+            <button className="landing-btn-primary landing-btn-lg" onClick={() => navigate("/signup")}>Get Started Free</button>
             <button className="landing-btn-ghost landing-btn-lg" onClick={() => navigate("/pricing")}>See How It Works</button>
           </div>
-          <p className="landing-trust">14-day free trial · No credit card required · Cancel anytime</p>
+          <p className="landing-trust">No card. No trial. No plan to pick.</p>
         </div>
       </section>
 
@@ -168,17 +168,8 @@ export default function LandingPage({ session }) {
       {/* PRICING */}
       <section className="landing-section" id="pricing">
         <div className="landing-container">
-          <h2>Plans for every stage — from solo creators to full agencies</h2>
-          <p className="landing-section-sub">5 plans. Credit-based AI features. Free stock content always included.</p>
-          <div className="landing-grid-3">
-            {packages.map(pkg => (
-              <div key={pkg.name} className={`landing-card landing-pkg${pkg.highlight ? " landing-pkg-highlight" : ""}`}>
-                {pkg.highlight && <div className="landing-popular">Most popular</div>}
-                <h3>{pkg.name}</h3>
-                <div className="landing-price">{pkg.price}<span>/mo</span></div>
-              </div>
-            ))}
-          </div>
+          <h2>Onyx is free</h2>
+          <p className="landing-section-sub">No card. No trial. No plan to pick. Free stock content always included — credits are only spent on AI generation and clean (watermark-free) downloads.</p>
           <button className="landing-btn-primary landing-btn-lg" onClick={() => navigate("/pricing")}>See Full Pricing & Features →</button>
         </div>
       </section>
@@ -222,8 +213,8 @@ export default function LandingPage({ session }) {
         <div className="landing-container landing-container-narrow">
           <h2>Start creating reels that actually get watched</h2>
           <p>Join creators, agencies, and businesses already using Onyx Reelz to turn ideas into finished content in minutes.</p>
-          <button className="landing-btn-primary landing-btn-lg" onClick={() => navigate("/signup")}>Start Your Free Trial</button>
-          <p className="landing-final-sub">14-day free trial · No credit card required · Cancel anytime</p>
+          <button className="landing-btn-primary landing-btn-lg" onClick={() => navigate("/signup")}>Get Started Free</button>
+          <p className="landing-final-sub">No card. No trial. No plan to pick.</p>
         </div>
       </section>
 
