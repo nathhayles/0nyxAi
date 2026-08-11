@@ -3817,8 +3817,30 @@ export default function EditorV2() {
                   if (!payload.scenes.length) { setSavedMsg("No scenes to share."); return; }
                   const rRes = await fetch("/api/render", { method: "POST", headers: rh, body: JSON.stringify(payload) });
                   const rData = await rRes.json();
-                  const rawUrl = rData.url || rData.downloadUrl;
-                  if (!rawUrl) { setSavedMsg("Render failed — try exporting first."); return; }
+                  if (!rData.jobId) { setSavedMsg("✗ Share failed"); console.error("[Share]", rData); return; }
+
+                  // POST /api/render only ever returns { jobId, status:"processing" } --
+                  // never a url on this initial response. The old code read
+                  // rData.url/downloadUrl straight off it without polling, so it was
+                  // always undefined and "Render failed — try exporting first" fired
+                  // on every first-ever Share click, even though nothing had actually
+                  // failed yet -- the job just hadn't finished. Poll the same way
+                  // onExport does instead of reading a field that was never there.
+                  let rawUrl = null;
+                  let jobFailedError = null;
+                  const deadline = Date.now() + 3600000;
+                  while (Date.now() < deadline) {
+                    await new Promise(r => setTimeout(r, 5000));
+                    const ph = await getAuthHeaders();
+                    const poll = await (await fetch(`/api/render/status/${rData.jobId}`, { headers: ph })).json();
+                    if (poll.status === "completed") { rawUrl = poll.url; break; }
+                    if (poll.status === "failed") { jobFailedError = poll.error || "Render failed"; break; }
+                  }
+                  if (!rawUrl) {
+                    setSavedMsg(jobFailedError ? "✗ Share failed" : "Still rendering — try again shortly");
+                    if (jobFailedError) console.error("[Share]", jobFailedError);
+                    return;
+                  }
                   shareSourceUrl = rawUrl.startsWith("http") ? rawUrl : window.location.origin + rawUrl;
                   setSavedMsg("Building share link…");
                 }
