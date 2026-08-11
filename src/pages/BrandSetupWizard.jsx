@@ -1,15 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAuthHeaders } from '../utils/auth.js';
-import { supabase } from '../supabaseClient.js';
-
-// TEMP DEBUG (2026-08-12) — investigating a suspected session-hydration race
-// on the mount-check below: does GET /api/brands ever fire before Supabase's
-// session has restored from storage, causing an already-default-having user
-// to see this onboarding wizard instead of being auto-skipped to `next`?
-// Strip this whole flag + all DEBUG_BRAND_SETUP-gated console.log calls once
-// that's confirmed or ruled out — not meant to ship as permanent logging.
-const DEBUG_BRAND_SETUP = true;
 
 const VOICES = [
   { id: 'alloy',   label: 'Alloy',   desc: 'Neutral, balanced' },
@@ -33,17 +24,6 @@ export default function BrandSetupWizard() {
   const [params] = useSearchParams();
   const next = params.get('next') || '/dashboard';
 
-  // TEMP DEBUG — component entry, synchronous with render, before any
-  // effect has had a chance to run. Compared against the mount-check log
-  // below, this shows whether the session was already resolved at the
-  // moment this component started rendering at all, vs. still hydrating.
-  if (DEBUG_BRAND_SETUP) {
-    console.log('[BrandSetupWizard][DEBUG] component render start', {
-      t: performance.now(),
-      next,
-    });
-  }
-
   const [step, setStep]         = useState(1);
   const [saving, setSaving]     = useState(false);
   const [previewing, setPreviewing] = useState(null);
@@ -57,63 +37,14 @@ export default function BrandSetupWizard() {
 
   // Skip wizard if a default brand already exists
   useEffect(() => {
-    // TEMP DEBUG — raw session snapshot at the instant the mount-check
-    // effect starts, independent of getAuthHeaders()'s own token-refresh
-    // logic, so we can see whether Supabase had already restored a session
-    // from storage by this point or not.
-    if (DEBUG_BRAND_SETUP) {
-      const mountCheckStartT = performance.now();
-      supabase.auth.getSession().then(({ data }) => {
-        console.log('[BrandSetupWizard][DEBUG] mount-check effect start — raw session snapshot', {
-          t: mountCheckStartT,
-          hasSession: !!data?.session,
-          hasAccessToken: !!data?.session?.access_token,
-          expiresAt: data?.session?.expires_at ?? null,
-        });
-      });
-    }
-
     getAuthHeaders().then(headers => {
-      if (DEBUG_BRAND_SETUP) {
-        console.log('[BrandSetupWizard][DEBUG] getAuthHeaders resolved', {
-          t: performance.now(),
-          hasAuthHeader: !!headers?.Authorization,
-        });
-      }
-
       fetch('/api/brands', { headers })
-        .then(r => {
-          if (DEBUG_BRAND_SETUP) {
-            console.log('[BrandSetupWizard][DEBUG] GET /api/brands response', {
-              t: performance.now(),
-              status: r.status,
-              ok: r.ok,
-            });
-          }
-          return r.json();
-        })
+        .then(r => r.json())
         .then(data => {
           const brands = Array.isArray(data) ? data : (data.brands || []);
-          const hasDefault = brands.some(b => b.is_default);
-          if (DEBUG_BRAND_SETUP) {
-            console.log('[BrandSetupWizard][DEBUG] mount-check succeeded', {
-              t: performance.now(),
-              responseBody: data,
-              brandCount: brands.length,
-              hasDefault,
-              willRedirect: hasDefault,
-            });
-          }
-          if (hasDefault) navigate(next, { replace: true });
+          if (brands.some(b => b.is_default)) navigate(next, { replace: true });
         })
-        .catch(err => {
-          if (DEBUG_BRAND_SETUP) {
-            console.log('[BrandSetupWizard][DEBUG] mount-check hit .catch() — request failed or response was not valid JSON', {
-              t: performance.now(),
-              error: String(err),
-            });
-          }
-        })
+        .catch(() => {})
         .finally(() => setChecking(false));
     });
   }, []);
