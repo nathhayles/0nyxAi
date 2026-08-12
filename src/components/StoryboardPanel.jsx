@@ -678,6 +678,24 @@ export default function StoryboardPanel({
               );
             })()}
 
+            {/* Veo 3.1 ref2v note: its reference-to-video endpoint has a hard
+                fixed 8s duration on fal's own schema (confirmed live,
+                routes/kling.js's VEO_3_REF2V_DURATION_SECONDS) -- whatever
+                this picker shows above is Veo's normal t2v/i2v spec, still
+                real/usable for a plain (no-reference) scene, but silently
+                overridden server-side the moment this scene resolves to a
+                tagged character reference. Same condition already used
+                just below to show/enable the "Reference:" mode select --
+                reusing it here rather than a second, possibly-drifting
+                check for "does this scene have a resolvable reference." */}
+            {regenModel === "veo-3" && parseTaggedNames(sc.action).some((name) =>
+              characters.some((c) => normalizeTagName(c.name) === normalizeTagName(name) && (c.character_reference_images || []).length > 0)
+            ) && (
+              <div style={{ fontSize: 11, opacity: 0.6, marginTop: -4, marginBottom: 8 }} onClick={(e) => e.stopPropagation()}>
+                Duration locked to 8s when using a character reference
+              </div>
+            )}
+
             {/* ── 1080p upgrade (wan-2.7 only) ── */}
             {/* Real user choice, not a per-model force like wan-2.5's 480p --
                 default stays 720p ($0.10/s); checking this sends
