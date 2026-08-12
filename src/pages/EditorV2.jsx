@@ -3481,6 +3481,16 @@ export default function EditorV2() {
           model: regenModel,
           brand_id: selectedBrandId,
           voiceoverUrl: scene.voiceoverUrl || null,
+          // True when this scene's voiceoverUrl is a concatenated multi-
+          // speaker track (backend/lib/sceneDefaults.js's
+          // applyDefaultVoiceToScenes, Option B 2026-08-12) -- tells the
+          // backend to skip its Sync.so lip-sync pass, which has no face-
+          // matching of its own and would otherwise sync every OTHER
+          // speaker's lines to whichever one face is in the generated clip.
+          // Backend defaults this to false/no-skip when absent, so this is
+          // the one line that actually closes that blind spot for real
+          // regenerate calls -- see memory: project_multispeaker_narration_backlog.
+          voiceoverMultiSpeaker: (scene.voiceoverSegments?.length || 0) > 1,
           // Gated on the currently selected model's own capability, not just
           // whatever reference_mode a prior model selection left on the scene --
           // otherwise switching from a ref-supporting model to one that doesn't
