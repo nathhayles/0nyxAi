@@ -47,6 +47,57 @@ export function normalizeNarrationText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
+// Mirrors backend/lib/resolveTaggedEntities.js's SPEAKER_TAG_RE exactly --
+// strips every "@Tag: " speaker-attribution prefix (Option A/B convention,
+// leading or mid-string) so char-count-based estimates reflect what will
+// actually be spoken, not the tag syntax around it. Used here for the
+// premium (ElevenLabs) credit precheck below, which was previously counting
+// literal "@Tag: " characters toward the cost estimate -- fixed 2026-08-12
+// alongside the VoiceOverPanel manual-apply rebuild (Option 1), same lines
+// of code. Not a full turn split (no character resolution) -- just enough
+// to give an honest character count for billing purposes.
+export function stripSpeakerTags(value) {
+  return String(value || "").replace(/@([A-Za-z0-9_]+):\s*/g, "").trim();
+}
+
+// Client-side mirror of backend/lib/resolveTaggedEntities.js's
+// normalize() -- same name-matching normalization used everywhere else
+// this app compares an @Tag against a saved character name
+// (StoryboardPanel.jsx's normalizeTagName is the same thing under a
+// different local name).
+function normalizeTagName(value) {
+  return String(value || "").toLowerCase().replace(/\s+/g, "");
+}
+
+// True only when EVERY speaker turn in this narration resolves to a saved
+// character that has its own linked_voice_id -- the exact case where
+// VoiceOverPanel's manually-picked voice would have NO effect on this scene
+// (see routes/tts.mjs's generate-batch, Option 1: a tagged turn with a
+// linked voice always wins over the manual pick). Used to show a proactive
+// "your selection won't apply here" note BEFORE the user clicks Apply,
+// computed client-side from data the panel already needs to fetch anyway
+// (characters), rather than only finding out after the request comes back.
+// A scene with untagged text, or a tag that doesn't match a saved character
+// with a linked voice, is NOT fully tagged -- the manual pick still applies
+// to at least part of it.
+export function isNarrationFullyTagged(narrationText, characters) {
+  const text = String(narrationText || "").trim();
+  if (!text) return false;
+  const matches = [...text.matchAll(/@([A-Za-z0-9_]+):\s*/g)];
+  if (!matches.length) return false;
+
+  // Reuses the same leading-segment logic as the backend's
+  // splitNarrationIntoSpeakerTurns: any real (non-whitespace) text before
+  // the first tag is itself an unattributed turn, which alone makes the
+  // scene NOT fully tagged.
+  if (text.slice(0, matches[0].index).trim()) return false;
+
+  return matches.every((m) => {
+    const known = (characters || []).find((c) => normalizeTagName(c.name) === normalizeTagName(m[1]));
+    return !!known?.linked_voice_id;
+  });
+}
+
 export function normalizePremiumVoice(voice, index = 0) {
   const labels = voice?.labels && typeof voice.labels === "object" ? voice.labels : {};
   const language =
@@ -310,6 +361,19 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
           // into the next scene because the video clip keeps its old duration.
           const clipDuration = voDuration > 0 ? voDuration + 1.5 : (Number(scene.duration) || 3);
 
+          // manualVoiceOverridden (Option 1, 2026-08-12): every turn in this
+          // scene resolved to its own tagged character's linked voice, so
+          // the picked voiceId/matchedVoice never actually got used here --
+          // reflected in the display name so "Applied" doesn't silently
+          // claim a voice this scene didn't end up using. match.segments
+          // (present whenever the scene had 2+ turns) mirrors the
+          // auto-assignment path's scene.voiceoverSegments shape exactly --
+          // same additive metadata field, same consumers (none downstream
+          // require it, same as Option B).
+          const voiceoverVoiceName = match.manualVoiceOverridden
+            ? "Tagged character voices"
+            : matchedVoice?.name || voiceId;
+
           return {
             ...scene,
             voiceoverUrl: match.url,
@@ -318,13 +382,27 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
             voiceoverSourceText: latestNarration,
             voiceoverDuration: voDuration,
             voiceoverVoiceId: voiceId,
-            voiceoverVoiceName: matchedVoice?.name || voiceId,
+            voiceoverVoiceName,
             voiceoverTier: tier,
+            voiceoverSegments: match.segments || null,
             duration: clipDuration,
             trimEnd: clipDuration,
           };
         })
       );
+
+      // How many of the just-applied scenes used tagged character voices
+      // instead of the picked one -- surfaced in the status message below
+      // so "Apply to scene"/"Apply to all" never silently implies the
+      // picked voice was used everywhere when it wasn't.
+      const overriddenCount = uniqueIndexes.filter((i) => {
+        const expectedSceneId = `scene_index_${i}`;
+        return data.results.some((item) => {
+          const itemSceneId = String(item?.sceneId || "");
+          const itemSceneIndex = Number(item?.sceneIndex);
+          return (itemSceneId === expectedSceneId || itemSceneIndex === i) && item.manualVoiceOverridden;
+        });
+      }).length;
 
       // Non-blocking: fetch word-level timings for karaoke captions
       data.results
@@ -352,7 +430,10 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
 
       if (!isAuto) {
         setAppliedVoiceName(matchedVoice?.name || voiceId);
-        setStatus(`${matchedVoice?.name || voiceId} applied to reel.`);
+        const overrideNote = overriddenCount > 0
+          ? ` (${overriddenCount} scene${overriddenCount > 1 ? "s" : ""} used tagged character voices instead)`
+          : "";
+        setStatus(`${matchedVoice?.name || voiceId} applied to reel.${overrideNote}`);
       } else {
         setStatus("Edited voiceover refreshed.");
       }
@@ -386,7 +467,17 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
     }
 
     if (tier === "premium") {
-      const totalChars = targetScenes.reduce((sum, s) => sum + s.text.length, 0);
+      // stripSpeakerTags: an honest estimate must count only what will
+      // actually be spoken, not "@Tag: " syntax around it -- previously
+      // counted s.text.length raw, over-estimating (and over-charging the
+      // precheck against) any scene with speaker tags. Doesn't attempt to
+      // predict which turns will end up using a tagged character's OWN
+      // voice instead of this picked one (see routes/tts.mjs's
+      // generate-batch for the real per-turn resolution) -- that would
+      // require replicating character-voice resolution client-side for a
+      // precheck estimate alone; this fixes the specific named bug (tag
+      // syntax inflating the count) without attempting that larger change.
+      const totalChars = targetScenes.reduce((sum, s) => sum + stripSpeakerTags(s.text).length, 0);
       const creditsNeeded = Math.ceil(totalChars * 1.5 / 100);
       try {
         const headers = await getAuthHeaders();

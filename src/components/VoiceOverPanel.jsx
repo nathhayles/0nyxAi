@@ -2,7 +2,7 @@
 // Per-scene voiceover panel with full browsable voice catalog, filters, and preview.
 // Keeps the scene list + apply-to-scene/apply-to-all actions from the original panel.
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useVoiceoverEngine, STANDARD_VOICES, GOOGLE_LANGUAGES, normalizeNarrationText } from "../hooks/useVoiceoverEngine.js";
+import { useVoiceoverEngine, STANDARD_VOICES, GOOGLE_LANGUAGES, normalizeNarrationText, isNarrationFullyTagged } from "../hooks/useVoiceoverEngine.js";
 import { getAuthHeaders } from "../utils/auth.js";
 
 // Voice names that get a "Popular" badge (Premium tab)
@@ -83,6 +83,24 @@ export default function VoiceOverPanel({
   // Favorites
   const [favorites, setFavorites] = useState(new Set()); // Set of "provider:voice_id"
   const [showFavOnly, setShowFavOnly] = useState(false);
+
+  // Fetched purely to compute isNarrationFullyTagged's proactive "your
+  // selection won't apply here" note below (Option 1, 2026-08-12) --
+  // same fetch StoryboardPanel.jsx already does independently for its own
+  // @tag autocomplete/chip display, not shared state between the two panels.
+  const [characters, setCharacters] = useState([]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch("/api/characters", { headers });
+        const data = await res.json();
+        setCharacters(data.characters || []);
+      } catch (e) {
+        console.error("[VoiceOverPanel] failed to load characters:", e);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     getAuthHeaders().then(headers =>
@@ -225,6 +243,17 @@ export default function VoiceOverPanel({
   const selectedScene = safeScenes[selectedSceneIndex] || null;
   const isGeneratingSelected = !!generatingVoiceoverScenes?.has(selectedSceneIndex);
   const selectedVoice = fullCatalog.find(v => v.id === selectedVoiceId) || null;
+
+  // Proactive "your selection won't apply here" note (Option 1, 2026-08-12)
+  // -- computed BEFORE the user clicks Apply, from the same characters data
+  // routes/tts.mjs's generate-batch will resolve turns against server-side.
+  // See isNarrationFullyTagged's own comment for exactly what "fully
+  // tagged" means.
+  const selectedSceneFullyTagged = !!selectedScene && isNarrationFullyTagged(selectedScene.narration, characters);
+  const fullyTaggedNarratedCount = useMemo(() =>
+    safeScenes.filter((s) => isNarrationFullyTagged(s?.narration, characters)).length,
+    [safeScenes, characters]
+  );
 
   const handleApplyToScene = () => {
     if (!selectedScene || !normalizeNarrationText(selectedScene?.narration || "")) return;
@@ -539,6 +568,24 @@ export default function VoiceOverPanel({
             <div style={{ fontSize: 12, color: "var(--onyx-text-dim)" }}>No scenes in this reel.</div>
           )}
         </div>
+
+        {/* Fully-tagged notes (Option 1, 2026-08-12): shown BEFORE the user
+            clicks Apply, not just after -- a scene whose every speaker turn
+            resolves to its own tagged character's linked voice ignores
+            whatever's selected above entirely (see routes/tts.mjs's
+            generate-batch: tagged-with-linked-voice always wins over the
+            manual pick), so silently letting the button imply "this voice"
+            would read as a bug once the user noticed nothing changed. */}
+        {selectedSceneFullyTagged && (
+          <div style={{ fontSize: 10, color: "var(--onyx-amber)", marginBottom: 6, lineHeight: 1.4 }}>
+            This scene's narration is fully speaker-tagged — Apply to scene will use each character's own voice; your selection has no effect here.
+          </div>
+        )}
+        {!selectedSceneFullyTagged && fullyTaggedNarratedCount > 0 && (
+          <div style={{ fontSize: 10, color: "var(--onyx-text-faint)", marginBottom: 6, lineHeight: 1.4 }}>
+            {fullyTaggedNarratedCount} scene{fullyTaggedNarratedCount > 1 ? "s are" : " is"} fully speaker-tagged and won't use your selection if applied to all.
+          </div>
+        )}
 
         {/* Apply buttons */}
         <div style={{ display: "flex", gap: 8 }}>
