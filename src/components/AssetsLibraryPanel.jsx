@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { getAuthHeaders } from "../utils/auth.js";
 import FolderPicker from "./FolderPicker.jsx";
 import AssetSearchBar from "./AssetSearchBar.jsx";
+import FileManagerModal from "./FileManagerModal.jsx";
 
 const SECTIONS = [
   { type: "music", label: "Music", icon: "🎵" },
@@ -488,6 +489,7 @@ export default function AssetsLibraryPanel({ onApplyMusic, onApplySfx, onApplyMe
   // Lets a caller (e.g. AudioPanel's "Change in Library" button) land here
   // with a section already open instead of the default fully-collapsed list.
   const [expandedType, setExpandedType] = useState(initialExpandedType);
+  const [fileManagerOpen, setFileManagerOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -569,6 +571,15 @@ export default function AssetsLibraryPanel({ onApplyMusic, onApplySfx, onApplyMe
   return (
     <div className="panelStickyShell">
       <div className="panelStickyTop">
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <button
+            onClick={() => setFileManagerOpen(true)}
+            title="Open file manager"
+            style={{ display: "flex", alignItems: "center", gap: 5, background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-faint)", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+          >
+            <span style={{ fontSize: 12 }}>⤢</span> File Manager
+          </button>
+        </div>
         <div style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 12, color: "var(--onyx-text-dim)", marginBottom: 6 }}>Brand</div>
           <select
@@ -613,6 +624,8 @@ export default function AssetsLibraryPanel({ onApplyMusic, onApplySfx, onApplyMe
           />
         ))}
       </div>
+
+      {fileManagerOpen && <FileManagerModal onClose={() => setFileManagerOpen(false)} />}
     </div>
   );
 }
