@@ -453,30 +453,49 @@ function FlaggedUploadsPanel() {
   const [limit, setLimit] = useState(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reviewing, setReviewing] = useState({});
+  const [confirmingReject, setConfirmingReject] = useState(null);
 
   // "full" maps to the server's own cap (500, see routes/admin.js) rather
   // than an unbounded query -- see LimitControl's own comment.
   const effectiveLimit = limit === 'full' ? 500 : limit;
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const headers = await getAuthHeaders();
-        const params = new URLSearchParams({ page: String(page), limit: String(effectiveLimit) });
-        const res = await fetch(`/api/admin/flagged-uploads?${params}`, { headers });
-        const d = await res.json();
-        if (!res.ok) throw new Error(d.error || 'Failed to load');
-        if (!cancelled) { setRows(d.flagged_uploads || []); setTotal(d.total || 0); }
-      } catch (e) {
-        if (!cancelled) setError(e.message);
-      }
-      if (!cancelled) setLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [page, effectiveLimit]);
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const headers = await getAuthHeaders();
+      const params = new URLSearchParams({ page: String(page), limit: String(effectiveLimit) });
+      const res = await fetch(`/api/admin/flagged-uploads?${params}`, { headers });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to load');
+      setRows(d.flagged_uploads || []); setTotal(d.total || 0);
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [page, effectiveLimit]);
+
+  const review = async (id, decision) => {
+    setReviewing(r => ({ ...r, [id]: true }));
+    setConfirmingReject(null);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/api/admin/flagged-uploads/${id}`, {
+        method: 'PATCH',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to review');
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+    setReviewing(r => ({ ...r, [id]: false }));
+  };
 
   const totalPages = Math.max(1, Math.ceil(total / effectiveLimit));
 
@@ -533,9 +552,40 @@ function FlaggedUploadsPanel() {
                 </td>
                 <td style={s.td}>
                   {f.reviewed ? (
-                    <span style={{ ...s.badge, background: '#4ade8022', color: '#4ade80' }}>Reviewed</span>
+                    f.reference_image_id ? (
+                      <span style={{ ...s.badge, background: '#4ade8022', color: '#4ade80' }}>Approved</span>
+                    ) : (
+                      <span style={{ ...s.badge, background: '#f8717122', color: '#f87171' }}>Rejected</span>
+                    )
+                  ) : confirmingReject === f.id ? (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <span style={{ color: '#f87171', fontSize: 11 }}>Confirm reject?</span>
+                      <button
+                        onClick={() => review(f.id, 'reject')}
+                        disabled={reviewing[f.id]}
+                        style={{ ...s.grantBtn, background: '#f8717122', border: '1px solid #f8717144', color: '#f87171' }}
+                      >
+                        Yes, reject
+                      </button>
+                      <button onClick={() => setConfirmingReject(null)} style={s.grantBtn}>Cancel</button>
+                    </div>
                   ) : (
-                    <span style={{ ...s.badge, background: '#fbbf2422', color: '#fbbf24' }}>Pending</span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => review(f.id, 'approve')}
+                        disabled={reviewing[f.id]}
+                        style={{ ...s.grantBtn, opacity: reviewing[f.id] ? 0.5 : 1 }}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => setConfirmingReject(f.id)}
+                        disabled={reviewing[f.id]}
+                        style={{ ...s.grantBtn, background: '#f8717122', border: '1px solid #f8717144', color: '#f87171', opacity: reviewing[f.id] ? 0.5 : 1 }}
+                      >
+                        Reject
+                      </button>
+                    </div>
                   )}
                 </td>
                 <td style={{ ...s.td, color: 'var(--onyx-text-faint)', fontSize: 12 }}>
