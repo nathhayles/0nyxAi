@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import YouTubeConnect from "../components/YouTubeConnect.jsx";
 import { useCredits } from "../state/CreditsContext.jsx";
+import { describeTransaction } from "../utils/creditTransactionLabels.js";
 
 const SOCIAL = [
   { id: "instagram", label: "Instagram",      icon: "IG", color: "#E1306C", status: "connect" },
@@ -50,6 +51,117 @@ function UsageBar({ used, limit, color = "var(--btn-primary-grad)" }) {
       <div style={{ height: 4, background: "var(--onyx-surface-2)", borderRadius: 2 }}>
         <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 2, transition: "width 0.6s ease" }} />
       </div>
+    </div>
+  );
+}
+
+const PAGE_SIZE = 20;
+
+function TransactionRow({ tx }) {
+  const { label, detail, isRefund } = describeTransaction(tx.reason, tx.metadata);
+  const isCredit = tx.amount > 0;
+  const amountColor = isCredit ? "#4ade80" : "var(--onyx-text)";
+  const date = new Date(tx.created_at);
+  const dateLabel = date.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " · " +
+    date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--onyx-hairline-strong)", gap: 12 }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--onyx-text)" }}>{label}</span>
+          {isRefund && (
+            <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 10, background: "rgba(77,208,255,0.12)", color: "#4dd0ff", textTransform: "uppercase", letterSpacing: "0.04em" }}>Refund</span>
+          )}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", marginTop: 2 }}>
+          {dateLabel}{detail ? ` · ${detail}` : ""}
+        </div>
+      </div>
+      <div style={{ textAlign: "right", flexShrink: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: amountColor }}>
+          {isCredit ? "+" : ""}{tx.amount.toLocaleString()}
+        </div>
+        <div style={{ fontSize: 10, color: "var(--onyx-text-faint)" }}>
+          {tx.balance_after != null ? `${tx.balance_after.toLocaleString()} bal.` : "—"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Own fetch/pagination, same self-contained pattern as Admin.jsx's panel
+// components -- keeps Account()'s already-large load effect untouched.
+function CreditActivitySection() {
+  const [transactions, setTransactions] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`/api/credits/transactions?limit=${PAGE_SIZE}&offset=0`, { headers });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || "Failed to load activity");
+        if (!cancelled) { setTransactions(d.transactions || []); setTotal(d.total || 0); }
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/api/credits/transactions?limit=${PAGE_SIZE}&offset=${transactions.length}`, { headers });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Failed to load activity");
+      setTransactions((prev) => [...prev, ...(d.transactions || [])]);
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoadingMore(false);
+  };
+
+  const hasMore = transactions.length < total;
+
+  return (
+    <div style={{ background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, padding: 24, marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Recent Activity</h2>
+        {total > 0 && <span style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>{total} total</span>}
+      </div>
+      {loading ? (
+        <div style={{ fontSize: 12, color: "var(--onyx-text-faint)", padding: "12px 0" }}>Loading...</div>
+      ) : error ? (
+        <div style={{ fontSize: 12, color: "#f87171", padding: "12px 0" }}>Failed to load: {error}</div>
+      ) : transactions.length === 0 ? (
+        <div style={{ fontSize: 12, color: "var(--onyx-text-faint)", padding: "12px 0" }}>No credit activity yet.</div>
+      ) : (
+        <>
+          <div>{transactions.map((tx) => <TransactionRow key={tx.id} tx={tx} />)}</div>
+          {hasMore && (
+            <div style={{ textAlign: "center", marginTop: 14 }}>
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                style={{ padding: "7px 18px", fontSize: 12, fontWeight: 600, background: "var(--onyx-surface-2)", border: "1px solid #4b5563", color: "var(--onyx-text)", borderRadius: 8, cursor: loadingMore ? "not-allowed" : "pointer", opacity: loadingMore ? 0.6 : 1 }}
+              >
+                {loadingMore ? "Loading..." : "Load more"}
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -290,6 +402,8 @@ export default function Account() {
           <button onClick={() => window.location.href = "/pricing"} style={{ padding: "8px 18px", background: "var(--btn-primary-grad)", border: "none", color: "var(--btn-primary-text)", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Top Up Credits</button>
         </div>
       </div>
+
+      <CreditActivitySection />
 
       <div style={{ background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, padding: 24, marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
