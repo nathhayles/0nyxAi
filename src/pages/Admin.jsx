@@ -1,12 +1,75 @@
 import { useState, useEffect } from 'react';
 import { getAuthHeaders } from '../utils/auth';
 
+// Tab restructure (2026-08-13): previously all 4 sections below the stats
+// header rendered stacked on one long page. TABS drives both the nav bar
+// and which single panel is mounted -- only the active tab's panel exists
+// in the tree at a time (not just hidden via CSS), so switching tabs is
+// also a cheap way to avoid every panel firing its own fetch on initial
+// load.
+const TABS = [
+  { key: 'generations', label: 'Generations' },
+  { key: 'users', label: 'Users' },
+  { key: 'model-usage', label: 'Model Usage' },
+  { key: 'flagged-uploads', label: 'Flagged Uploads' },
+];
+
+function TabBar({ active, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, marginBottom: 20, borderBottom: '1px solid var(--onyx-hairline-strong)', paddingBottom: 12 }}>
+      {TABS.map(t => (
+        <button
+          key={t.key}
+          onClick={() => onChange(t.key)}
+          style={{
+            ...s.grantBtn,
+            background: active === t.key ? '#4dd0ff44' : 'transparent',
+            borderColor: active === t.key ? '#4dd0ff' : 'var(--onyx-hairline-strong)',
+            color: active === t.key ? '#7de0ff' : 'var(--onyx-text-faint)',
+            fontSize: 13,
+            padding: '7px 16px',
+          }}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Shared 10/20/Full display-limit control (2026-08-13) -- used by every
+// row-list tab (Generations, Users, Flagged Uploads). Model Usage is an
+// aggregate chart, not a row list, so it doesn't get one. "full" is a
+// string sentinel, not a number, so callers can tell it apart from a
+// numeric page size at a glance without a separate boolean flag.
+function LimitControl({ value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      {[10, 20, 'full'].map(v => (
+        <button
+          key={v}
+          onClick={() => onChange(v)}
+          style={{
+            ...s.grantBtn,
+            background: value === v ? '#4dd0ff44' : 'transparent',
+            borderColor: value === v ? '#4dd0ff' : 'var(--onyx-hairline-strong)',
+            color: value === v ? '#7de0ff' : 'var(--onyx-text-faint)',
+            fontSize: 11,
+            padding: '4px 10px',
+          }}
+        >
+          {v === 'full' ? 'Full' : v}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminPanel() {
   const [data, setData] = useState(null);
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState({ key: 'joined', dir: 'desc' });
   const [loading, setLoading] = useState(true);
   const [grantingCredits, setGrantingCredits] = useState({});
+  const [activeTab, setActiveTab] = useState('generations');
 
   useEffect(() => {
     (async () => {
@@ -37,24 +100,6 @@ export default function AdminPanel() {
 
   const { stats, users } = data;
 
-  const filtered = users
-    .filter(u => !search ||
-      u.email?.toLowerCase().includes(search.toLowerCase()) ||
-      u.id?.includes(search)
-    )
-    .sort((a, b) => {
-      const av = a[sort.key] ?? 0;
-      const bv = b[sort.key] ?? 0;
-      return sort.dir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
-    });
-
-  const Col = ({ k, label }) => (
-    <th onClick={() => setSort(s => ({ key: k, dir: s.key === k && s.dir === 'desc' ? 'asc' : 'desc' }))}
-      style={{ ...s.th, color: sort.key === k ? '#4dd0ff' : 'var(--onyx-text-faint)', cursor: 'pointer' }}>
-      {label} {sort.key === k ? (sort.dir === 'desc' ? '↓' : '↑') : ''}
-    </th>
-  );
-
   return (
     <div style={s.page}>
       <div style={s.header}>
@@ -77,43 +122,12 @@ export default function AdminPanel() {
         ))}
       </div>
 
-      <ModelUsagePanel />
+      <TabBar active={activeTab} onChange={setActiveTab} />
 
-      <GenerationsPanel />
-
-      <FlaggedUploadsPanel />
-
-      <input
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        placeholder="Search by email or user ID..."
-        style={s.search}
-      />
-
-      <div style={{ overflowX: 'auto' }}>
-        <table style={s.table}>
-          <thead>
-            <tr>
-              <Col k="email"               label="Email" />
-              <Col k="plan"                label="Plan" />
-              <Col k="subscription_status" label="Sub Status" />
-              <Col k="credits"             label="Credits" />
-              <Col k="reels"               label="Reels" />
-              <Col k="renders"             label="Exports" />
-              <Col k="publishes"           label="Publishes" />
-              <th style={s.th}>YouTube</th>
-              <Col k="referral_signups"    label="Referrals" />
-              <Col k="joined"              label="Joined" />
-              <th style={s.th}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(u => (
-              <UserRow key={u.id} user={u} onGrant={grantCredits} granting={grantingCredits[u.id]} />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {activeTab === 'generations' && <GenerationsPanel />}
+      {activeTab === 'users' && <UsersPanel users={users} onGrant={grantCredits} grantingCredits={grantingCredits} />}
+      {activeTab === 'model-usage' && <ModelUsagePanel />}
+      {activeTab === 'flagged-uploads' && <FlaggedUploadsPanel />}
     </div>
   );
 }
@@ -278,8 +292,6 @@ function ModelUsagePanel() {
   );
 }
 
-const GENERATIONS_PAGE_SIZE = 50;
-
 const STATUS_COLORS = {
   completed: '#4ade80',
   failed: '#f87171',
@@ -297,9 +309,14 @@ function GenerationsPanel() {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // "full" maps to the server's own cap (500, see routes/admin.js) rather
+  // than an unbounded query -- see LimitControl's own comment.
+  const effectiveLimit = limit === 'full' ? 500 : limit;
 
   useEffect(() => {
     let cancelled = false;
@@ -308,7 +325,7 @@ function GenerationsPanel() {
       setError(null);
       try {
         const headers = await getAuthHeaders();
-        const params = new URLSearchParams({ page: String(page), limit: String(GENERATIONS_PAGE_SIZE) });
+        const params = new URLSearchParams({ page: String(page), limit: String(effectiveLimit) });
         if (q.trim()) params.set('q', q.trim());
         const res = await fetch(`/api/admin/generations?${params}`, { headers });
         const d = await res.json();
@@ -320,17 +337,20 @@ function GenerationsPanel() {
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [page, q]);
+  }, [page, q, effectiveLimit]);
 
-  const totalPages = Math.max(1, Math.ceil(total / GENERATIONS_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / effectiveLimit));
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}>
         <h3 style={{ color: '#4dd0ff', fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
           Generations
         </h3>
-        <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12 }}>{total} total</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12 }}>{total} total</span>
+          <LimitControl value={limit} onChange={v => { setLimit(v); setPage(1); }} />
+        </div>
       </div>
 
       <input
@@ -347,6 +367,7 @@ function GenerationsPanel() {
               <th style={s.th}>Video</th>
               <th style={s.th}>Model</th>
               <th style={s.th}>Status</th>
+              <th style={s.th}>Cost</th>
               <th style={s.th}>User</th>
               <th style={s.th}>Request ID</th>
               <th style={s.th}>Created</th>
@@ -354,11 +375,11 @@ function GenerationsPanel() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={6} style={{ ...s.td, color: '#4dd0ff' }}>Loading...</td></tr>
+              <tr><td colSpan={7} style={{ ...s.td, color: '#4dd0ff' }}>Loading...</td></tr>
             ) : error ? (
-              <tr><td colSpan={6} style={{ ...s.td, color: '#f87171' }}>Failed to load: {error}</td></tr>
+              <tr><td colSpan={7} style={{ ...s.td, color: '#f87171' }}>Failed to load: {error}</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={6} style={{ ...s.td, color: 'var(--onyx-text-faint)' }}>No generations found.</td></tr>
+              <tr><td colSpan={7} style={{ ...s.td, color: 'var(--onyx-text-faint)' }}>No generations found.</td></tr>
             ) : rows.map(g => (
               <tr key={g.task_id} style={s.row}>
                 <td style={s.td}>
@@ -381,6 +402,9 @@ function GenerationsPanel() {
                   <span style={{ ...s.badge, background: (STATUS_COLORS[g.status] || '#94a3b8') + '22', color: STATUS_COLORS[g.status] || '#94a3b8' }}>
                     {g.status}
                   </span>
+                </td>
+                <td style={{ ...s.td, color: '#fbbf24', fontWeight: 600 }}>
+                  {typeof g.cost === 'number' ? `${g.cost} cr` : '—'}
                 </td>
                 <td style={s.td}>
                   <span style={{ color: '#e2e8f0', fontSize: 12 }}>{g.user_email || '—'}</span>
@@ -418,8 +442,6 @@ function GenerationsPanel() {
   );
 }
 
-const FLAGGED_UPLOADS_PAGE_SIZE = 50;
-
 // Content-classification gate log (routes/characters.js POST
 // /:id/reference-images, is_real_person:true characters only) -- lets
 // admin/support review what the upload-time classifier rejected, mirroring
@@ -428,8 +450,13 @@ function FlaggedUploadsPanel() {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // "full" maps to the server's own cap (500, see routes/admin.js) rather
+  // than an unbounded query -- see LimitControl's own comment.
+  const effectiveLimit = limit === 'full' ? 500 : limit;
 
   useEffect(() => {
     let cancelled = false;
@@ -438,7 +465,7 @@ function FlaggedUploadsPanel() {
       setError(null);
       try {
         const headers = await getAuthHeaders();
-        const params = new URLSearchParams({ page: String(page), limit: String(FLAGGED_UPLOADS_PAGE_SIZE) });
+        const params = new URLSearchParams({ page: String(page), limit: String(effectiveLimit) });
         const res = await fetch(`/api/admin/flagged-uploads?${params}`, { headers });
         const d = await res.json();
         if (!res.ok) throw new Error(d.error || 'Failed to load');
@@ -449,17 +476,20 @@ function FlaggedUploadsPanel() {
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [page]);
+  }, [page, effectiveLimit]);
 
-  const totalPages = Math.max(1, Math.ceil(total / FLAGGED_UPLOADS_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / effectiveLimit));
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}>
         <h3 style={{ color: '#4dd0ff', fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
           Flagged Uploads
         </h3>
-        <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12 }}>{total} total</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12 }}>{total} total</span>
+          <LimitControl value={limit} onChange={v => { setLimit(v); setPage(1); }} />
+        </div>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
@@ -533,6 +563,80 @@ function FlaggedUploadsPanel() {
         >
           Next →
         </button>
+      </div>
+    </div>
+  );
+}
+
+// Extracted from AdminPanel's own body (2026-08-13 tab restructure) -- was
+// inline JSX + inline search/sort state there, now self-contained so it can
+// be mounted/unmounted per-tab like every other panel. `users` (the full
+// list, already fetched once by AdminPanel alongside the stats cards) is
+// passed down rather than re-fetched here -- no reason to pay for a second
+// GET /api/admin/users just because this moved into its own component.
+function UsersPanel({ users, onGrant, grantingCredits }) {
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState({ key: 'joined', dir: 'desc' });
+  const [limit, setLimit] = useState(10);
+
+  const filtered = users
+    .filter(u => !search ||
+      u.email?.toLowerCase().includes(search.toLowerCase()) ||
+      u.id?.includes(search)
+    )
+    .sort((a, b) => {
+      const av = a[sort.key] ?? 0;
+      const bv = b[sort.key] ?? 0;
+      return sort.dir === 'asc' ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+    });
+
+  const visible = limit === 'full' ? filtered : filtered.slice(0, limit);
+
+  const Col = ({ k, label }) => (
+    <th onClick={() => setSort(s => ({ key: k, dir: s.key === k && s.dir === 'desc' ? 'asc' : 'desc' }))}
+      style={{ ...s.th, color: sort.key === k ? '#4dd0ff' : 'var(--onyx-text-faint)', cursor: 'pointer' }}>
+      {label} {sort.key === k ? (sort.dir === 'desc' ? '↓' : '↑') : ''}
+    </th>
+  );
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 12 }}>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search by email or user ID..."
+          style={{ ...s.search, marginBottom: 0, flex: 1 }}
+        />
+        <span style={{ color: 'var(--onyx-text-faint)', fontSize: 12, whiteSpace: 'nowrap' }}>
+          {visible.length} of {filtered.length}
+        </span>
+        <LimitControl value={limit} onChange={setLimit} />
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={s.table}>
+          <thead>
+            <tr>
+              <Col k="email"               label="Email" />
+              <Col k="plan"                label="Plan" />
+              <Col k="subscription_status" label="Sub Status" />
+              <Col k="credits"             label="Credits" />
+              <Col k="reels"               label="Reels" />
+              <Col k="renders"             label="Exports" />
+              <Col k="publishes"           label="Publishes" />
+              <th style={s.th}>YouTube</th>
+              <Col k="referral_signups"    label="Referrals" />
+              <Col k="joined"              label="Joined" />
+              <th style={s.th}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map(u => (
+              <UserRow key={u.id} user={u} onGrant={onGrant} granting={grantingCredits[u.id]} />
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
