@@ -12,6 +12,7 @@ const TABS = [
   { key: 'users', label: 'Users' },
   { key: 'model-usage', label: 'Model Usage' },
   { key: 'flagged-uploads', label: 'Flagged Uploads' },
+  { key: 'api-keys', label: 'API Keys' },
 ];
 
 function TabBar({ active, onChange }) {
@@ -128,6 +129,7 @@ export default function AdminPanel() {
       {activeTab === 'users' && <UsersPanel users={users} onGrant={grantCredits} grantingCredits={grantingCredits} />}
       {activeTab === 'model-usage' && <ModelUsagePanel />}
       {activeTab === 'flagged-uploads' && <FlaggedUploadsPanel />}
+      {activeTab === 'api-keys' && <ApiKeysPanel users={users} />}
     </div>
   );
 }
@@ -624,6 +626,159 @@ function FlaggedUploadsPanel() {
 // list, already fetched once by AdminPanel alongside the stats cards) is
 // passed down rather than re-fetched here -- no reason to pay for a second
 // GET /api/admin/users just because this moved into its own component.
+// MCP agent-access API keys (see docs/mcp-agent-access-implementation-plan.md).
+// Manual issuance only for v1 (Nathan's decision, 2026-08-14) -- this panel
+// IS the entire "Connect to Claude/ChatGPT/Grok" flow for v1, not a
+// self-serve user-facing button. Nathan picks a user here, issues a key,
+// hands it to them directly outside the app.
+function ApiKeysPanel({ users }) {
+  const [keys, setKeys] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [issuing, setIssuing] = useState(false);
+  const [justIssued, setJustIssued] = useState(null); // { key, ...meta } -- shown once, then cleared
+  const [form, setForm] = useState({ user_id: '', label: '', scope: 'generate', daily_credit_cap: 500 });
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/admin/api-keys', { headers });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to load');
+      setKeys(d.keys || []);
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const issueKey = async () => {
+    if (!form.user_id) { setError('Pick a user first.'); return; }
+    setIssuing(true);
+    setError(null);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch('/api/admin/api-keys', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Failed to issue key');
+      setJustIssued(d);
+      setForm({ user_id: '', label: '', scope: 'generate', daily_credit_cap: 500 });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+    setIssuing(false);
+  };
+
+  const revokeKey = async (id) => {
+    const headers = await getAuthHeaders();
+    await fetch(`/api/admin/api-keys/${id}/revoke`, { method: 'POST', headers });
+    await load();
+  };
+
+  const emailFor = (userId) => users?.find(u => u.id === userId)?.email || userId;
+
+  return (
+    <div>
+      <div style={{ ...s.statCard, marginBottom: 20, textAlign: 'left', padding: 16 }}>
+        <div style={{ fontWeight: 600, marginBottom: 12, color: 'var(--onyx-text)' }}>Issue a new key</div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <select
+            value={form.user_id}
+            onChange={e => setForm(f => ({ ...f, user_id: e.target.value }))}
+            style={{ ...s.search, marginBottom: 0, width: 260 }}
+          >
+            <option value="">Select a user...</option>
+            {(users || []).map(u => <option key={u.id} value={u.id}>{u.email}</option>)}
+          </select>
+          <input
+            value={form.label}
+            onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+            placeholder="Label (e.g. Nathan's ChatGPT test)"
+            style={{ ...s.search, marginBottom: 0, width: 220 }}
+          />
+          <select
+            value={form.scope}
+            onChange={e => setForm(f => ({ ...f, scope: e.target.value }))}
+            style={{ ...s.search, marginBottom: 0, width: 140 }}
+          >
+            <option value="generate">generate</option>
+            <option value="read">read-only</option>
+          </select>
+          <input
+            type="number"
+            value={form.daily_credit_cap}
+            onChange={e => setForm(f => ({ ...f, daily_credit_cap: e.target.value }))}
+            placeholder="Daily credit cap"
+            style={{ ...s.search, marginBottom: 0, width: 140 }}
+          />
+          <button onClick={issueKey} disabled={issuing} style={{ ...s.grantBtn, background: '#4dd0ff44', borderColor: '#4dd0ff', color: '#7de0ff' }}>
+            {issuing ? 'Issuing...' : 'Issue Key'}
+          </button>
+        </div>
+        {error && <div style={{ color: '#f87171', fontSize: 12, marginTop: 8 }}>{error}</div>}
+      </div>
+
+      {justIssued && (
+        <div style={{ ...s.statCard, marginBottom: 20, textAlign: 'left', padding: 16, border: '1px solid #4dd0ff' }}>
+          <div style={{ fontWeight: 600, color: '#7de0ff', marginBottom: 6 }}>
+            Key issued for {emailFor(justIssued.user_id)} — copy it now, it won't be shown again
+          </div>
+          <code style={{ display: 'block', background: 'var(--input-bg)', padding: 10, borderRadius: 6, fontSize: 13, wordBreak: 'break-all', color: 'var(--onyx-text)' }}>
+            {justIssued.key}
+          </code>
+          <button onClick={() => setJustIssued(null)} style={{ ...s.grantBtn, marginTop: 8, fontSize: 11 }}>Dismiss</button>
+        </div>
+      )}
+
+      {loading ? <p style={{ color: '#4dd0ff' }}>Loading...</p> : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={s.table}>
+            <thead>
+              <tr>
+                <th style={s.th}>User</th>
+                <th style={s.th}>Label</th>
+                <th style={s.th}>Key</th>
+                <th style={s.th}>Scope</th>
+                <th style={s.th}>Daily Cap</th>
+                <th style={s.th}>Last Used</th>
+                <th style={s.th}>Status</th>
+                <th style={s.th}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {keys.map(k => (
+                <tr key={k.id}>
+                  <td style={s.td}>{emailFor(k.user_id)}</td>
+                  <td style={s.td}>{k.label || '—'}</td>
+                  <td style={s.td}><code style={{ fontSize: 12 }}>{k.key_prefix}...</code></td>
+                  <td style={s.td}>{k.scope}</td>
+                  <td style={s.td}>{k.daily_credit_cap}</td>
+                  <td style={s.td}>{k.last_used_at ? new Date(k.last_used_at).toLocaleString() : 'never'}</td>
+                  <td style={s.td}>{k.revoked_at ? <span style={{ color: '#f87171' }}>Revoked</span> : <span style={{ color: '#4ade80' }}>Active</span>}</td>
+                  <td style={s.td}>
+                    {!k.revoked_at && (
+                      <button onClick={() => revokeKey(k.id)} style={{ ...s.grantBtn, fontSize: 11, color: '#f87171', borderColor: '#f87171' }}>Revoke</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UsersPanel({ users, onGrant, grantingCredits }) {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState({ key: 'joined', dir: 'desc' });
