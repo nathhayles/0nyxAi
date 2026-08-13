@@ -50,7 +50,7 @@ function Section({ title, children }) {
   );
 }
 
-export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoUrl, timelineTracks }) {
+export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoUrl, timelineTracks, reelId }) {
   const [tab, setTab] = useState("stock");
   const [avatars, setAvatars] = useState([]);
   const [loadingAvatars, setLoadingAvatars] = useState(false);
@@ -118,9 +118,15 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
         : scenes.filter(s => s.id === activeScene);
 
       for (const scene of targetScenes) {
+        // reel_id/scene_id let the backend's HeyGen webhook (routes/heygen.js)
+        // patch this exact scene when the video completes, instead of relying
+        // solely on the polling loop in EditorV2.jsx to notice. Both optional
+        // server-side -- reelId is null until the reel's first save, in which
+        // case generation still works exactly as before, just without the
+        // webhook shortcut for that one scene.
         const body = tab === "stock"
-          ? { avatar_id: selectedAvatar.avatar_id, script: scene.narration, avatar_iv: avatarIV }
-          : { image_url: photoPreview, script: scene.narration };
+          ? { avatar_id: selectedAvatar.avatar_id, script: scene.narration, avatar_iv: avatarIV, reel_id: reelId || null, scene_id: scene.id }
+          : { image_url: photoPreview, script: scene.narration, reel_id: reelId || null, scene_id: scene.id };
 
         const endpoint = tab === "stock" ? "/api/heygen/generate" : "/api/heygen/photo-avatar";
 

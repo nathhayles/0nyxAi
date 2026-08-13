@@ -4061,6 +4061,7 @@ export default function EditorV2() {
               activeScene={activeScene}
               reelVideoUrl={reelVideoUrl}
               timelineTracks={timelineState.tracks}
+              reelId={reelId}
             /></Safe>}
           </Sidebar>
 
