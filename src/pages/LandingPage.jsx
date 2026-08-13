@@ -1,7 +1,31 @@
 import { useNavigate } from "react-router-dom";
 import SEO from "../components/SEO";
 import { staticPages } from "../data/staticPagesSeo";
+import PromptResultShowcase from "../components/PromptResultShowcase";
 import "../style.css";
+
+const showcaseClips = [
+  {
+    label: "1. Describe your idea",
+    videoUrl: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_b95ee040-92a9-4298-bf50-f42538e7fb09.mp4",
+    prompt: "Close-up of the laptop screen showing Onyx's interface, with ideas being typed and instantly transformed into visual elements.",
+  },
+  {
+    label: "2. Generate the storyboard",
+    videoUrl: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_5c6a89a7-f60c-4272-98f1-2c57643b4e4a_1.mp4",
+    prompt: "Split screen showing a script being written on one side and the corresponding video visuals forming on the other.",
+  },
+  {
+    label: "3. Add voice and music",
+    videoUrl: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_5c6a89a7-f60c-4272-98f1-2c57643b4e4a_2.mp4",
+    prompt: "A visual of a soundwave forming as a voiceover is generated, followed by a logo animation appearing on screen.",
+  },
+  {
+    label: "4. Export and post",
+    videoUrl: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_5c6a89a7-f60c-4272-98f1-2c57643b4e4a_3.mp4",
+    prompt: "A smartphone screen showing the final video being uploaded to a social media platform with a single tap.",
+  },
+];
 
 const features = [
   "AI-generated video scenes",
@@ -44,7 +68,7 @@ const steps = [
   { n: "1", title: "Describe your idea", desc: "Type a short brief, script, or story idea — Onyx Reelz turns it into a full scene-by-scene storyboard." },
   { n: "2", title: "Generate your scenes", desc: "Pick AI-generated video, stock footage, your own uploads, or an AI avatar presenter for each scene." },
   { n: "3", title: "Add voice, music, and captions", desc: "Layer in AI voiceover, music, and on-brand animated captions — all inside the same editor." },
-  { n: "4", title: "Export and post", desc: "Download your finished reel in any format, or auto-publish straight to Instagram, YouTube, and LinkedIn." },
+  { n: "4", title: "Export and post", desc: "Download your finished reel in any format, or auto-publish straight to YouTube and LinkedIn (more platforms coming soon)." },
 ];
 
 // Archived plan tiers (Student/Starter/Creator/Pro/Agency subscriptions)
@@ -90,6 +114,19 @@ export default function LandingPage({ session }) {
             <button className="landing-btn-ghost landing-btn-lg" onClick={() => navigate("/pricing")}>See How It Works</button>
           </div>
           <p className="landing-trust">No card. No trial. No plan to pick.</p>
+        </div>
+      </section>
+
+      {/* SEE IT IN ACTION */}
+      <section className="landing-section">
+        <div className="landing-container">
+          <h2>See it in action</h2>
+          <p className="landing-section-sub">Real reels generated inside Onyx Reelz — no stock footage, no staged demo. Here's the exact prompt behind each clip.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20 }}>
+            {showcaseClips.map(c => (
+              <PromptResultShowcase key={c.label} label={c.label} videoUrl={c.videoUrl} prompt={c.prompt} />
+            ))}
+          </div>
         </div>
       </section>
 

@@ -12,7 +12,7 @@
 export const staticPages = [
   {
     title: "AI Video Editor & Maker",
-    description: "Onyx Reelz is an AI video editor and AI video maker with multi-track editing, AI voiceover, captions, and auto-posting to Instagram, YouTube & LinkedIn.",
+    description: "Onyx Reelz is an AI video editor and AI video maker with multi-track editing, AI voiceover, captions, and auto-posting to YouTube & LinkedIn.",
     path: "/",
     ogType: "website",
     schemaType: "WebSite",

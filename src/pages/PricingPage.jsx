@@ -189,7 +189,7 @@ export default function PricingPage() {
             <AddonCard
               priceKey="autopost"
               title="Auto-posting"
-              desc="Auto-publish to Instagram, YouTube Shorts & LinkedIn. Includes scheduler, retry logic & analytics."
+              desc="Auto-publish to YouTube & LinkedIn today, with Instagram & TikTok Shorts coming once Meta app review clears. Includes scheduler, retry logic & analytics."
               price="$15/mo"
               busy={busy} setBusy={setBusy}
             />
