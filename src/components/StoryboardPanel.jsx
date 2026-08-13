@@ -131,7 +131,11 @@ const REGEN_MODEL_OPTIONS = [
   // (720p: 27-200cr, 1080p: 40-300cr) -- shows the full honest range rather
   // than understating cost for users who pick the upgrade.
   { id: "wan-2.7",        label: "Wan 2.7", credits: 300, creditsLabel: "27-300 cr/scene" },
-  { id: "kling-2.6-pro",  label: "Kling 3 Pro", credits: 149, creditsLabel: "75-149 cr/scene" },
+  // Range widened 2026-08-16: fal's real duration schema is 3-15s, not the
+  // old 5s/10s-only bucket this range was computed against (was "75-149",
+  // understating the true max cost by ~45%) -- see kling-2.6-pro's own
+  // duration spec comment in kling.js's VIDEO_MODELS.
+  { id: "kling-2.6-pro",  label: "Kling 3 Pro", credits: 224, creditsLabel: "45-224 cr/scene" },
   { id: "veo-3",          label: "Veo 3.1",        credits: 213, creditsLabel: "107-213 cr/scene" },
   // Real ranges (2-12s/4-15s/1-16s) confirmed against each model's real
   // duration spec in kling.js's VIDEO_MODELS -- previously understated

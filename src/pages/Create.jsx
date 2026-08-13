@@ -21,7 +21,11 @@ const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 const VIDEO_MODEL_OPTIONS = [
   { id: "wan-2.5",       label: "Wan 2.5",        description: "Fast & affordable",          credits: 67, creditsLabel: "34-67 credits/scene, based on scene length" },
   { id: "wan-2.7",       label: "Wan 2.7",        description: "Native audio, 1080p-capable (Alibaba)", credits: 300, creditsLabel: "27-300 credits/scene, based on scene length and 1080p upgrade" },
-  { id: "kling-2.6-pro", label: "Kling 3 Pro",    description: "Balanced quality (default)", credits: 149, creditsLabel: "75-149 credits/scene, final cost based on actual scene length" },
+  // Range widened 2026-08-16: fal's real duration schema is 3-15s, not the
+  // old 5s/10s-only bucket this was computed against (was "75-149",
+  // understating both the credits pre-flight number and the displayed max
+  // by ~45%) -- see kling-2.6-pro's own duration spec comment in kling.js.
+  { id: "kling-2.6-pro", label: "Kling 3 Pro",    description: "Balanced quality (default)", credits: 224, creditsLabel: "45-224 credits/scene, final cost based on actual scene length" },
   { id: "veo-3",         label: "Veo 3.1",         description: "Highest quality (Google)",   credits: 213, creditsLabel: "107-213 credits/scene, based on scene length" },
   // Real ranges (2-12s/4-15s/1-16s) confirmed against each model's real
   // duration spec in kling.js's VIDEO_MODELS -- previously understated
