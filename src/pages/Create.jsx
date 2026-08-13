@@ -512,12 +512,12 @@ export default function CreatePage() {
               }}
             >
               <option value="cinematic">Cinematic — dramatic, story-driven visuals</option>
-              {/* Marketing mode temporarily hidden 2026-07-10: shipped without a live
-                  output-quality test. Re-enable only after that test passes.
-                  <option value="marketing">Marketing — polished, commercial ad-style visuals</option> */}
-              {/* Animated/kids mode hidden, same reason: shipped without a live
-                  output-quality test. Re-enable only after that test passes.
-                  <option value="animated">Kids / Animated — bright, colorful, family-friendly visuals</option> */}
+              {/* Re-enabled 2026-08-13: live QA pass (real pipeline, Nathan's real
+                  account/brand, zero errors) reviewed and approved. */}
+              <option value="marketing">Marketing — polished, commercial ad-style visuals</option>
+              {/* Animated/kids mode still hidden, same reason Marketing was: shipped
+                  without a live output-quality test. Re-enable only after that test passes. */}
+              {/* <option value="animated">Kids / Animated — bright, colorful, family-friendly visuals</option> */}
             </select>
             <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", marginBottom: 20 }}>
               Slower, story-paced scene count and dramatic camera direction, tuned for narrative content.
