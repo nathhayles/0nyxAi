@@ -99,47 +99,6 @@ function getLocalSessionSync() {
   } catch { return null; }
 }
 
-function TrialBanner() {
-  const [trialInfo, setTrialInfo] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      const { supabase } = await import("./supabaseClient");
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      try {
-        const headers = await getAuthHeaders();
-        const res = await fetch("/api/user/me", { headers });
-        if (!res.ok) return;
-        const d = await res.json();
-        if (d.is_trial) {
-          setTrialInfo({ daysLeft: d.days_remaining || 0, expired: false });
-        } else if (d.trial_expired) {
-          setTrialInfo({ daysLeft: 0, expired: true });
-        }
-      } catch {}
-    })();
-  }, []);
-
-  if (!trialInfo) return null;
-
-  return (
-    <div style={{ background: "linear-gradient(135deg, #0f1e38, #1a1040)", borderBottom: "1px solid rgba(99,102,241,0.35)", padding: "9px 24px", display: "flex", alignItems: "center", justifyContent: "center", gap: 14, fontSize: 13, color: "#e2e8f0", flexWrap: "wrap" }}>
-      <span style={{ fontSize: 15 }}>{trialInfo.expired ? "🔒" : "⏳"}</span>
-      {trialInfo.expired
-        ? <span>Your free trial has <strong style={{ color: "#f87171" }}>expired</strong> — upgrade to continue creating.</span>
-        : <span>Your free trial ends in <strong style={{ color: "#a78bfa" }}>{trialInfo.daysLeft} day{trialInfo.daysLeft !== 1 ? "s" : ""}</strong> — upgrade to keep full access.</span>
-      }
-      <button
-        onClick={() => window.location.href = "/pricing"}
-        style={{ padding: "5px 14px", borderRadius: 6, border: "1px solid #6366f1", background: "rgba(99,102,241,0.2)", color: "#a78bfa", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
-      >
-        Upgrade Now →
-      </button>
-    </div>
-  );
-}
-
 function MobileBanner() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [dismissed, setDismissed] = useState(() => sessionStorage.getItem("mobile_banner_dismissed") === "1");
@@ -322,7 +281,6 @@ export default function App() {
   return (
     <div>
       {!isEditor && location.pathname !== "/" && <Navbar session={session} />}
-      {!isEditor && location.pathname !== "/" && <TrialBanner />}
       {!isEditor && location.pathname !== "/" && <MobileBanner />}
 
       <Suspense fallback={null}>
