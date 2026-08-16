@@ -383,7 +383,7 @@ function applyTransition(type, cur, nxt, onDone) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePlayheadRef, checkpointPlayhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePlayheadRef, checkpointPlayhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform, onSplit, onOpenVoiceOver, onOpenMusic, onOpenAI }) {
   // Live 60fps value during playback (see usePlayheadTicker) -- reads
   // livePlayheadRef, which EditorV2's master rAF clock updates every frame.
   // timelineState.playhead itself is now only updated at checkpoints
@@ -1156,11 +1156,18 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
           const timeColor = isOpal ? "rgba(0,0,0,0.6)" : "rgba(241,245,251,0.6)";
           const dividerColor = isOpal ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.1)";
           const hoverBg = isOpal ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.06)";
+          // These 4 buttons were pure decoration until 2026-08-17 (found
+          // during the tool tutorial campaign: no onClick at all, silent
+          // no-op) -- now wired to real actions. Split mirrors the
+          // sequencer toolbar's real "Split at playhead" button exactly
+          // (same disabled-when-nothing-selected condition), so there's
+          // no longer a second control that looks the same but does
+          // nothing.
           const toolBtns = [
-            { icon: "scissors", label: "Split", color: isOpal ? "rgba(0,0,0,0.55)" : "rgba(241,245,251,0.55)" },
-            { icon: "mic",      label: "VO",    color: isOpal ? "rgba(0,0,0,0.55)" : "rgba(241,245,251,0.55)" },
-            { icon: "music",    label: "Music", color: "#b48dff" },
-            { icon: "sparkle",  label: "AI",    color: "#ffb547" },
+            { icon: "scissors", label: "Split", color: isOpal ? "rgba(0,0,0,0.55)" : "rgba(241,245,251,0.55)", onClick: onSplit, disabled: !selectedClipId },
+            { icon: "mic",      label: "VO",    color: isOpal ? "rgba(0,0,0,0.55)" : "rgba(241,245,251,0.55)", onClick: onOpenVoiceOver },
+            { icon: "music",    label: "Music", color: "#b48dff", onClick: onOpenMusic },
+            { icon: "sparkle",  label: "AI",    color: "#ffb547", onClick: onOpenAI },
           ];
           return (
             <div style={{ background: dockBg, backdropFilter: "blur(28px) saturate(140%)", WebkitBackdropFilter: "blur(28px) saturate(140%)", border: dockBorder, boxShadow: isOpal ? "0 4px 20px rgba(0,0,0,0.15)" : "0 8px 32px rgba(0,0,0,0.5)", borderRadius: 14, padding: "4px 6px", display: "flex", alignItems: "center", gap: 2 }}>
@@ -1172,8 +1179,9 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
               </span>
               <div style={{ width: 0.5, height: 20, background: dividerColor }}/>
               {toolBtns.map(t => (
-                <button key={t.label} style={{ height: 34, padding: "0 9px", borderRadius: 9, border: "none", cursor: "pointer", background: "transparent", color: t.color, display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontFamily: "inherit" }}
-                  onMouseEnter={e => e.currentTarget.style.background = hoverBg}
+                <button key={t.label} onClick={() => { document.activeElement?.blur(); t.onClick?.(); }} disabled={t.disabled}
+                  style={{ height: 34, padding: "0 9px", borderRadius: 9, border: "none", cursor: t.disabled ? "not-allowed" : "pointer", background: "transparent", color: t.color, opacity: t.disabled ? 0.4 : 1, display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, fontFamily: "inherit" }}
+                  onMouseEnter={e => { if (!t.disabled) e.currentTarget.style.background = hoverBg; }}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                   <Glyph name={t.icon} size={13} color={t.color}/>{t.label}
                 </button>
@@ -1976,14 +1984,33 @@ export default function EditorV2() {
             const base = importFromScenes(norm, "", "");
             const savedSfxTrack = savedTracks.find(st => st.key === "sfx");
             const sfxNeedsRebuild = !savedSfxTrack || !savedSfxTrack.clips?.length;
+            // Video was unconditionally rebuilt from scenes here too, same as
+            // voiceover -- but unlike voiceover (which can genuinely go stale
+            // after a narration regen), the video track has no such staleness
+            // problem, and rebuilding it silently discarded any saved
+            // timeline-native edit (Split, Trim, Slow Mo region, speed) on
+            // every single reload. Found 2026-08-13 via a real DB-verified
+            // repro: split a clip, save, reload -- split gone, brand-new clip
+            // IDs. Fixed: only rebuild video from scratch when the saved
+            // track can't actually represent the current scenes anymore (a
+            // scene was added/removed since last save, so sceneIds diverge);
+            // otherwise trust the saved track exactly as edited.
+            const savedVideoTrack = savedTracks.find(st => st.key === "video");
+            const savedVideoSceneIds = new Set((savedVideoTrack?.clips || []).map(c => c.sceneId).filter(Boolean));
+            const currentSceneIds = new Set(norm.map(s => s.id));
+            const videoNeedsRebuild = !savedVideoTrack || !savedVideoTrack.clips?.length
+              || savedVideoSceneIds.size !== currentSceneIds.size
+              || [...currentSceneIds].some(id => !savedVideoSceneIds.has(id));
             const mergedTracks = savedTracks.map(st => {
+              if (st.key === "video" && videoNeedsRebuild)
+                return base.tracks.find(bt => bt.key === "video") ?? st;
               // Unconditionally rebuilding voiceover from `base` (rather than merging
               // with the saved track) is what keeps a saved reel from ever resurfacing
               // a stale/duplicate VO clip on reload — base.tracks always comes from the
               // current importFromScenes, which stamps sceneId on every VO clip. If this
               // ever changes to preserve/merge the saved voiceover track instead, legacy
               // sceneId-less orphans can reappear; re-add an explicit dedup pass then.
-              if (st.key === "video" || st.key === "voiceover")
+              if (st.key === "voiceover")
                 return base.tracks.find(bt => bt.key === st.key) ?? st;
               if (st.key === "sfx" && sfxNeedsRebuild)
                 return base.tracks.find(bt => bt.key === "sfx") ?? st;
@@ -3057,6 +3084,17 @@ export default function EditorV2() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Apply failed");
 
+      // Must happen before the updateSceneRef.current calls below, not after
+      // this whole function -- each of those schedules its own
+      // triggerSaveAfterSceneChange 100ms-later saveNow call, and the VO
+      // audio-duration Promise.all below can easily take longer than that,
+      // so those inner saves were firing (and 409-ing against this POST's
+      // own DB write) using a still-stale ref if this update happened any
+      // later. Found 2026-08-17 chasing why the conflict still reproduced
+      // after an earlier attempt at this same fix placed it at the end of
+      // the function instead.
+      if (data.reel?.updated_at) lastKnownUpdatedAtRef.current = data.reel.updated_at;
+
       const updatedScenes = data.reel?.scenes || [];
       // Pre-fetch VO audio durations so scene/clip length stays in sync with
       // the new voiceover, mirroring useVoiceoverEngine's regenerateVoiceovers.
@@ -3343,7 +3381,18 @@ export default function EditorV2() {
     setActiveMenu("library");
   }, []);
 
-  const moveScene      = useCallback((from, to) => { setScenes(prev => { const n=[...prev]; const [m]=n.splice(from,1); n.splice(to,0,m); return n; }); }, []);
+  // moveScene existed but was never wired to anything (found 2026-08-13
+  // during the tool tutorial campaign; fixed 2026-08-17). Also now
+  // repositions the video/voiceover track clips to match the new order --
+  // reordering just the scenes array without this would desync the
+  // storyboard from what actually plays back. scenesRef.current is already
+  // the reordered array by the time this line runs: setScenes's own
+  // wrapper (see its definition) updates the ref synchronously inside the
+  // updater, before returning.
+  const moveScene      = useCallback((from, to) => {
+    setScenes(prev => { const n=[...prev]; const [m]=n.splice(from,1); n.splice(to,0,m); return n; });
+    dispatchWithHistory({ type: "REORDER_SCENE_CLIPS", sceneOrder: scenesRef.current.map(s => s.id) });
+  }, [dispatchWithHistory]);
   const duplicateScene = useCallback((id) => { setScenes(prev => { const idx=prev.findIndex(s=>s.id===id); if(idx<0) return prev; const mx=prev.reduce((m,s)=>Math.max(m,Number(s.id)||0),0)+1; const n=[...prev]; n.splice(idx+1,0,{...prev[idx],id:mx}); return n; }); }, []);
   const deleteScene    = useCallback((id) => {
     setScenes(prev => {
@@ -3874,7 +3923,7 @@ export default function EditorV2() {
         <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
           {/* Sidebar */}
           <Sidebar open={sidebarOpen} activeTab={activeMenu} setActiveTab={setActiveMenu}>
-            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage} durationSpec={durationSpec} supports1080pUpgrade={supports1080pUpgrade} resolutionOptions={resolutionOptions} aspectRatio={ratio} onUpscaleScene={upscaleScene} upscalingScenes={upscalingScenes} upscaleCapabilities={upscaleCapabilities}/></Safe>}
+            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage} durationSpec={durationSpec} supports1080pUpgrade={supports1080pUpgrade} resolutionOptions={resolutionOptions} aspectRatio={ratio} onUpscaleScene={upscaleScene} upscalingScenes={upscalingScenes} upscaleCapabilities={upscaleCapabilities} onReorder={moveScene}/></Safe>}
             {activeMenu==="visuals"    && <Safe name="VisualsPanel"><VisualsPanel
               tab={visualsTab} setTab={setVisualsTab}
               scenes={scenes} activeScene={activeScene}
@@ -4116,6 +4165,14 @@ export default function EditorV2() {
               brollWrapperRef={brollWrapperRef}
               theme={theme}
               safeZonePlatform={safeZoneEnabled ? safeZonePlatform : null}
+              onSplit={() => {
+                if (!timelineState.selected) return;
+                const atTime = isPlaying ? livePlayheadRef.current : playhead;
+                dispatchWithHistory({ type: "SPLIT_CLIP", clipId: timelineState.selected, atTime });
+              }}
+              onOpenVoiceOver={() => setActiveMenu("voiceover")}
+              onOpenMusic={() => setActiveMenu("audio")}
+              onOpenAI={() => setActiveMenu("storyboard")}
             />
           </div>
 

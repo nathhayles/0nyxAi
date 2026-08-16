@@ -343,9 +343,18 @@ export default function VoiceOverPanel({
           </span>
         </div>
 
-        {/* Expanded filter panel */}
-        {headerExpanded && (
-          <>
+        {/* Expanded filter panel — animated via CSS grid-template-rows rather
+            than an unmount/mount toggle, so crossing the scroll threshold
+            smoothly collapses this ~230px block instead of instantly
+            vanishing it (the abrupt version was the source of the "glitchy"
+            snap when scrolling past the header). Content stays mounted
+            (controls keep their state/focus), just visually collapsed. */}
+        <div style={{
+          display: "grid",
+          gridTemplateRows: headerExpanded ? "1fr" : "0fr",
+          transition: "grid-template-rows 0.22s ease",
+        }}>
+          <div style={{ overflow: "hidden", minHeight: 0 }}>
             {/* Language selector — applies to Google voices in both tiers */}
             <div style={{ marginBottom: 10 }}>
               <label style={LABEL_STYLE}>
@@ -421,15 +430,18 @@ export default function VoiceOverPanel({
 
             {voMinutes && voiceTier !== "premium" && (
               <div style={{ fontSize: 10, color: "var(--onyx-text-faint)", marginBottom: 6 }}>
-                VO minutes: {voMinutes.minutes_used ?? "?"} / {voMinutes.minutes_limit ?? "?"}
+                {/* minutes_limit is Infinity server-side (unlimited on free tier),
+                    which JSON serializes to null over the wire -- show "Unlimited"
+                    rather than the confusing "?" a bare ?? fallback used to show. */}
+                VO minutes: {voMinutes.minutes_used ?? 0} / {Number.isFinite(voMinutes.minutes_limit) ? voMinutes.minutes_limit : "Unlimited"}
               </div>
             )}
 
             {isLoadingVoices && <div style={{ fontSize: 11, color: "var(--onyx-text-dim)", marginBottom: 6 }}>Loading voices…</div>}
             {premiumVoicesError && <div style={{ fontSize: 11, color: "#f87171", marginBottom: 6 }}>{premiumVoicesError}</div>}
             {googleVoicesError && <div style={{ fontSize: 11, color: "#f87171", marginBottom: 6 }}>{googleVoicesError}</div>}
-          </>
-        )}
+          </div>
+        </div>
       </div>
 
       <div className="panelStickyContent" ref={scrollContentRef}>

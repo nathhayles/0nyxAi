@@ -1,7 +1,7 @@
 // Real "prompt -> result" proof-of-concept block for Learn pages: an actual
 // generation from Onyx Reelz (video pulled to R2, not a provider URL) shown
 // side-by-side with the exact prompt that produced it.
-export default function PromptResultShowcase({ videoUrl, prompt, label }) {
+export default function PromptResultShowcase({ videoUrl, posterUrl, prompt, label }) {
   return (
     <div
       style={{
@@ -19,15 +19,19 @@ export default function PromptResultShowcase({ videoUrl, prompt, label }) {
       <div style={{ flex: "0 0 220px" }}>
         <video
           src={videoUrl}
+          poster={posterUrl}
           controls
           loop
           muted
           playsInline
+          preload="metadata"
           style={{
             width: "100%",
+            aspectRatio: "9 / 16",
+            objectFit: "cover",
             borderRadius: 8,
             display: "block",
-            background: "#000",
+            background: "linear-gradient(160deg, var(--onyx-surface-3), #000)",
           }}
         />
       </div>

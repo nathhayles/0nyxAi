@@ -142,7 +142,9 @@ const REGEN_MODEL_OPTIONS = [
   // here, left over from before the duration picker allowed anything past
   // the old 5s/10s-only bucket.
   { id: "seedance-1-pro", label: "Seedance 1 Pro", credits: 48, creditsLabel: "8-48 cr/scene" },
-  { id: "seedance-2-standard", label: "Seedance 2.0", credits: 606, creditsLabel: "162-606 cr/scene" },
+  // 107-399 (was 162-606) after the fal->piapi provider switch 2026-08-15 --
+  // see the matching comment in Create.jsx's VIDEO_MODEL_OPTIONS.
+  { id: "seedance-2-standard", label: "Seedance 2.0", credits: 399, creditsLabel: "107-399 cr/scene" },
   { id: "vidu-q3-pro",    label: "Vidu Q3 Pro",    credits: 266, creditsLabel: "17-266 cr/scene" },
   // Start-end-to-video only (see VIDEO_MODELS in kling.js) -- was missing
   // from this dropdown entirely, so this model was never actually
@@ -179,7 +181,16 @@ export default function StoryboardPanel({
   onUpscaleScene,
   upscalingScenes = {},
   upscaleCapabilities = {},
+  onReorder,
 }) {
+  // Scene drag-to-reorder — was completely unwired until 2026-08-17 (found
+  // during the tool tutorial campaign: a real moveScene(from,to) function
+  // existed in EditorV2.jsx but nothing ever called it, no drag handlers
+  // existed here at all). Uses a small dedicated drag handle rather than
+  // making the whole card draggable, so it doesn't fight with the card's
+  // own click-to-select and its many nested buttons/inputs.
+  const [dragIndex, setDragIndex] = useState(null);
+  const [dragOverIndex, setDragOverIndex] = useState(null);
   const [stockQuery, setStockQuery] = useState({});
   const [stockResults, setStockResults] = useState({});
   const [stockSearching, setStockSearching] = useState({});
@@ -420,9 +431,38 @@ export default function StoryboardPanel({
             key={sc.id}
             className={"sceneCard" + (sc.id === activeScene ? " active" : "")}
             onClick={() => setActiveScene(sc.id)}
+            onDragOver={(e) => {
+              if (dragIndex === null || dragIndex === index) return;
+              e.preventDefault();
+              if (dragOverIndex !== index) setDragOverIndex(index);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (dragIndex === null || dragIndex === index) return;
+              onReorder?.(dragIndex, index);
+              setDragIndex(null);
+              setDragOverIndex(null);
+            }}
+            style={dragOverIndex === index && dragIndex !== null && dragIndex !== index
+              ? { outline: "2px solid var(--onyx-cyan, #4dd0ff)", outlineOffset: -2 }
+              : undefined}
           >
             {/* ── Header row ── */}
             <div className="sceneHeaderRow">
+              <span
+                draggable
+                title="Drag to reorder"
+                onClick={(e) => e.stopPropagation()}
+                onDragStart={(e) => {
+                  setDragIndex(index);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(index));
+                }}
+                onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+                style={{ cursor: "grab", flexShrink: 0, color: "var(--onyx-text-faint)", fontSize: 14, padding: "0 2px", userSelect: "none" }}
+              >
+                ⠿
+              </span>
               <div className="sceneTitle" style={{ whiteSpace: "nowrap", flexShrink: 0, fontSize: 13, fontWeight: 600 }}>
                 {sc.name ?? `Scene ${index + 1}`}
               </div>

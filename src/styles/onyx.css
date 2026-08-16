@@ -344,3 +344,9 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+.onyx-learn-guide-card:hover {
+  border-color: rgba(77,208,255,0.4) !important;
+  background: var(--onyx-surface-2) !important;
+  transform: translateY(-2px);
+}

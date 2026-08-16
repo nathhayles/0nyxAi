@@ -23,6 +23,7 @@ const LearnSeedancePrompting = lazy(() => import("./pages/LearnSeedancePrompting
 const LearnWanPrompting = lazy(() => import("./pages/LearnWanPrompting"));
 const LearnVeoPrompting = lazy(() => import("./pages/LearnVeoPrompting"));
 const LearnChoosingAModel = lazy(() => import("./pages/LearnChoosingAModel"));
+const LearnEditorTools = lazy(() => import("./pages/LearnEditorTools"));
 const LearnCharacterConsistency = lazy(() => import("./pages/LearnCharacterConsistency"));
 const LearnCameraGlossary = lazy(() => import("./pages/LearnCameraGlossary"));
 const LearnChildrensContent = lazy(() => import("./pages/LearnChildrensContent"));
@@ -311,7 +312,16 @@ export default function App() {
           path="/editor"
           element={
             <ProtectedRoute session={session} sessionLoading={sessionLoading}>
-              <EditorV2 />
+              {/* key={location.key} forces a full remount on every navigation into
+                  this route, even when the pathname is unchanged (e.g. Create.jsx
+                  navigating to /editor-v2 while an editor instance from an earlier
+                  navigation is still mounted). Without this, EditorV2's `reelId`
+                  state -- initialized once via a lazy useState(() => new
+                  URLSearchParams(...).get("reelId")) -- never re-reads the new
+                  URL, so it keeps showing whatever reel was previously open
+                  instead of the one the caller just generated/selected. Found
+                  2026-08-16, fixed 2026-08-15. */}
+              <EditorV2 key={location.key} />
             </ProtectedRoute>
           }
         />
@@ -320,7 +330,7 @@ export default function App() {
           path="/editor-v2"
           element={
             <ProtectedRoute session={session} sessionLoading={sessionLoading}>
-              <EditorV2 />
+              <EditorV2 key={location.key} />
             </ProtectedRoute>
           }
         />
@@ -334,6 +344,7 @@ export default function App() {
         <Route path="/learn/wan-prompting" element={<LearnWanPrompting />} />
         <Route path="/learn/veo-prompting" element={<LearnVeoPrompting />} />
         <Route path="/learn/choosing-a-model" element={<LearnChoosingAModel />} />
+        <Route path="/learn/editor-tools" element={<LearnEditorTools />} />
         <Route path="/learn/character-consistency" element={<LearnCharacterConsistency />} />
         <Route path="/learn/camera-glossary" element={<LearnCameraGlossary />} />
         <Route path="/learn/childrens-content" element={<LearnChildrensContent />} />

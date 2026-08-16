@@ -32,8 +32,18 @@ const VIDEO_MODEL_OPTIONS = [
   // here, left over from before the duration picker allowed anything past
   // the old 5s/10s-only bucket.
   { id: "seedance-1-pro",label: "Seedance 1 Pro",  description: "Cinematic motion (ByteDance)", credits: 48, creditsLabel: "8-48 credits/scene, based on scene length" },
-  { id: "seedance-2-standard", label: "Seedance 2.0", description: "Premium quality, native audio (ByteDance)", credits: 606, creditsLabel: "162-606 credits/scene, based on scene length" },
+  // 107-399 (was 162-606) after the fal->piapi provider switch 2026-08-15
+  // dropped the real per-second rate from $0.3034 to $0.20 -- see
+  // SEEDANCE_2_STANDARD_RATE_PER_SECOND's own comment in kling.js.
+  { id: "seedance-2-standard", label: "Seedance 2.0", description: "Premium quality, native audio (ByteDance)", credits: 399, creditsLabel: "107-399 credits/scene, based on scene length" },
   { id: "vidu-q3-pro",   label: "Vidu Q3 Pro",    description: "Budget quality (Vidu)",      credits: 266, creditsLabel: "17-266 credits/scene, based on scene length" },
+  // Added 2026-08-15 -- was reachable only from StoryboardPanel.jsx's
+  // per-scene regenerate picker (see REGEN_MODEL_OPTIONS there for the
+  // matching real values), invisible from this primary /create flow where
+  // a new project actually starts. Token-priced, genuinely the widest
+  // credits range of any model here -- not a display bug, see that file's
+  // own comment.
+  { id: "seedance-2.5",  label: "✨ Seedance 2.5", description: "Flagship quality, native audio (ByteDance)", credits: 2421, creditsLabel: "62-2421 credits/scene, based on scene length" },
   // vidu-q3-turbo deliberately NOT added here -- it requires both a start
   // AND end image to generate at all (requiresStartAndEnd in
   // /api/models/capabilities), and this page has no start/end-image UI of

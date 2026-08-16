@@ -15,10 +15,17 @@ import SEO from "./SEO";
 export default function LearnPageLayout({ seo, children }) {
   return (
     <div
-      className="page"
       style={{
         minHeight: "100vh",
-        background: "var(--onyx-bg)",
+        background:
+          "radial-gradient(ellipse 60% 40% at 12% 0%, rgba(77,208,255,0.10), transparent 55%)," +
+          "radial-gradient(ellipse 55% 35% at 90% 8%, rgba(180,141,255,0.09), transparent 55%)," +
+          "var(--onyx-bg)",
+      }}
+    >
+    <div
+      className="page"
+      style={{
         maxWidth: 800,
         margin: "0 auto",
         padding: "40px 24px",
@@ -45,6 +52,7 @@ export default function LearnPageLayout({ seo, children }) {
         </div>
       )}
       {children}
+    </div>
     </div>
   );
 }

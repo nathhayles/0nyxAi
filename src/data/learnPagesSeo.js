@@ -44,6 +44,11 @@ export const learnPages = [
     imageAlt: "Kids and animated content guide illustration — smiling cyan star character next to amber and violet building blocks with a cyan play button, Onyx Reelz",
   },
   {
+    title: "Onyx Editor Tools: A Complete Tour",
+    description: "A tool-by-tool guide to the Onyx Reelz editor — Split, Trim, Text, B-Roll, Transitions, Voiceover, and more, with real screen recordings of each one.",
+    path: "/learn/editor-tools",
+  },
+  {
     title: "Choosing the Right AI Video Model",
     description: "A guide to Onyx Reelz's AI video models — Wan, Kling, Veo, and Seedance — and when to use each one.",
     path: "/learn/choosing-a-model",

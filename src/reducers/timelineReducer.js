@@ -570,6 +570,91 @@ export function timelineReducer(state, action) {
       return { ...state, tracks };
     }
 
+    case "REORDER_SCENE_CLIPS": {
+      // action: { sceneOrder } — array of scene ids in the new display
+      // order (from moveScene, EditorV2.jsx). Repositions video/voiceover
+      // track clips to match, grouping by sceneId so a split scene's
+      // multiple clips move together and keep their internal spacing
+      // (trim/speed edits untouched, only startTime shifts).
+      const { sceneOrder } = action;
+      const tracks = state.tracks.map(t => {
+        if (t.key !== "video" && t.key !== "voiceover") return t;
+        const groups = new Map();
+        for (const c of t.clips) {
+          const key = c.sceneId ?? `__no_scene_${c.id}`;
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(c);
+        }
+        const orderedKeys = [
+          ...sceneOrder,
+          ...[...groups.keys()].filter(k => !sceneOrder.includes(k)),
+        ];
+        let cursor = 0;
+        const newClips = [];
+        for (const key of orderedKeys) {
+          const group = groups.get(key);
+          if (!group || !group.length) continue;
+          group.sort((a, b) => a.startTime - b.startTime);
+          const groupStart = group[0].startTime;
+          let groupDur = 0;
+          for (const c of group) {
+            const offset = c.startTime - groupStart;
+            newClips.push({ ...c, startTime: cursor + offset });
+            groupDur = Math.max(groupDur, offset + (c.trimEnd - c.trimStart));
+          }
+          cursor += groupDur;
+        }
+        return { ...t, clips: newClips };
+      });
+      return { ...state, tracks };
+    }
+
+    case "SLOW_MO_REGION": {
+      // action: { loopIn, loopOut } — the sequencer toolbar's "0.5×" button
+      // dispatches this once a loop region is set + enabled, but this case
+      // never existed: the button was reachable and genuinely enabled under
+      // the right condition, yet clicking it silently did nothing (found
+      // 2026-08-17 while re-auditing the "dead 0.5× button" finding from the
+      // tool tutorial campaign — it isn't dead, it's just unimplemented).
+      // Splits the video-track clip(s) at the region boundaries (same math
+      // as SPLIT_CLIP), then applies 0.5x speed to whichever resulting
+      // segment(s) land fully inside the region (same math as SPEED_CLIP).
+      // Does not reflow clips after the region, matching SPEED_CLIP's
+      // existing single-clip precedent.
+      const { loopIn, loopOut } = action;
+      const tracks = state.tracks.map(t => {
+        if (t.key !== "video") return t;
+        function splitAt(clips, atTime) {
+          const idx = clips.findIndex(c =>
+            atTime > c.startTime + 0.05 &&
+            atTime < c.startTime + (c.trimEnd - c.trimStart) - 0.05
+          );
+          if (idx < 0) return clips;
+          const c = clips[idx];
+          const localTime = atTime - c.startTime;
+          const leftDur  = localTime;
+          const rightDur = (c.trimEnd - c.trimStart) - localTime;
+          const left  = { ...c, duration: leftDur, trimEnd: c.trimStart + leftDur };
+          const right = { ...c, id: newId("clip"), startTime: atTime, duration: rightDur, trimStart: c.trimStart + leftDur, trimEnd: c.trimEnd };
+          const next = [...clips];
+          next.splice(idx, 1, left, right);
+          return next;
+        }
+        let clips = splitAt(t.clips, loopIn);
+        clips = splitAt(clips, loopOut);
+        clips = clips.map(c => {
+          const cEnd = c.startTime + (c.trimEnd - c.trimStart);
+          const inside = c.startTime >= loopIn - 0.05 && cEnd <= loopOut + 0.05;
+          if (!inside) return c;
+          const rawDur = c.sourceDuration ?? ((c.trimEnd - c.trimStart) / (c.speed || 1));
+          const newDur = rawDur / 0.5;
+          return { ...c, speed: 0.5, duration: newDur, trimEnd: c.trimStart + newDur, sourceDuration: rawDur };
+        });
+        return { ...t, clips };
+      });
+      return { ...state, tracks };
+    }
+
     // ── joins (transitions) ────────────────────────────────────────────────
 
     case "SET_JOIN": {

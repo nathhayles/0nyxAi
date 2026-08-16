@@ -4,25 +4,31 @@ import { staticPages } from "../data/staticPagesSeo";
 import PromptResultShowcase from "../components/PromptResultShowcase";
 import "../style.css";
 
+const R2_POSTER_BASE = "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/content-pipeline/landing-showcase";
+
 const showcaseClips = [
   {
     label: "1. Describe your idea",
     videoUrl: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_b95ee040-92a9-4298-bf50-f42538e7fb09.mp4",
+    posterUrl: `${R2_POSTER_BASE}/clip1-poster.jpg`,
     prompt: "Close-up of the laptop screen showing Onyx's interface, with ideas being typed and instantly transformed into visual elements.",
   },
   {
     label: "2. Generate the storyboard",
     videoUrl: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_5c6a89a7-f60c-4272-98f1-2c57643b4e4a_1.mp4",
+    posterUrl: `${R2_POSTER_BASE}/clip2-poster.jpg`,
     prompt: "Split screen showing a script being written on one side and the corresponding video visuals forming on the other.",
   },
   {
     label: "3. Add voice and music",
     videoUrl: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_5c6a89a7-f60c-4272-98f1-2c57643b4e4a_2.mp4",
+    posterUrl: `${R2_POSTER_BASE}/clip3-poster.jpg`,
     prompt: "A visual of a soundwave forming as a voiceover is generated, followed by a logo animation appearing on screen.",
   },
   {
     label: "4. Export and post",
     videoUrl: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_5c6a89a7-f60c-4272-98f1-2c57643b4e4a_3.mp4",
+    posterUrl: `${R2_POSTER_BASE}/clip4-poster.jpg`,
     prompt: "A smartphone screen showing the final video being uploaded to a social media platform with a single tap.",
   },
 ];
@@ -90,7 +96,21 @@ export default function LandingPage({ session }) {
 
       {/* NAV */}
       <nav className="landing-nav">
-        <span className="landing-logo">ONYX</span>
+        <span className="landing-logo">
+          <svg width={18} height={18} viewBox="0 0 24 24" className="landing-logo-mark">
+            <defs>
+              <linearGradient id="landingNavMark" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#9eecff" />
+                <stop offset="55%" stopColor="#4dd0ff" />
+                <stop offset="100%" stopColor="#1d7da8" />
+              </linearGradient>
+            </defs>
+            <path d="M12 2L22 12L12 22L2 12Z" fill="url(#landingNavMark)" />
+            <path d="M12 2L22 12L12 22L2 12Z" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.5" />
+            <path d="M12 7L17 12L12 17L7 12Z" fill="rgba(8,12,20,0.5)" />
+          </svg>
+          ONYX
+        </span>
         <div className="landing-nav-links">
           <a href="/pricing">Pricing</a>
           {authed ? (
@@ -257,17 +277,49 @@ export default function LandingPage({ session }) {
 
       {/* FOOTER */}
       <footer className="landing-footer">
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span>© {new Date().getFullYear()} Onyx Reelz. All rights reserved.</span>
-          <span style={{ fontSize: 12, opacity: 0.6 }}>ONYX REELZ LTD is a company registered in England & Wales. Company number: 17288776. Registered office: 128 City Road, London, EC1V 2NX, United Kingdom.</span>
+        <div className="landing-footer-top">
+          <div className="landing-footer-brand">
+            <span className="landing-logo">
+              <svg width={20} height={20} viewBox="0 0 24 24" className="landing-logo-mark">
+                <defs>
+                  <linearGradient id="landingFooterMark" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#9eecff" />
+                    <stop offset="55%" stopColor="#4dd0ff" />
+                    <stop offset="100%" stopColor="#1d7da8" />
+                  </linearGradient>
+                </defs>
+                <path d="M12 2L22 12L12 22L2 12Z" fill="url(#landingFooterMark)" />
+                <path d="M12 2L22 12L12 22L2 12Z" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="0.5" />
+                <path d="M12 7L17 12L12 17L7 12Z" fill="rgba(8,12,20,0.5)" />
+              </svg>
+              ONYX
+            </span>
+            <p className="landing-footer-tagline">The AI content studio for creators, filmmakers, and brands.</p>
+          </div>
+
+          <div className="landing-footer-social">
+            <a href="https://www.tiktok.com/@onyxreelz" target="_blank" rel="noopener noreferrer" aria-label="Onyx Reelz on TikTok" className="landing-social-icon">
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="currentColor"><path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
+            </a>
+            <a href="https://www.youtube.com/@OnyxReelz" target="_blank" rel="noopener noreferrer" aria-label="Onyx Reelz on YouTube" className="landing-social-icon">
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.51 3.5 12 3.5 12 3.5s-7.51 0-9.38.55A3.02 3.02 0 0 0 .5 6.19 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.81 3.02 3.02 0 0 0 2.12 2.14C4.49 20.5 12 20.5 12 20.5s7.51 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.81ZM9.6 15.6V8.4l6.27 3.6-6.27 3.6Z"/></svg>
+            </a>
+            <a href="https://www.instagram.com/onyxreelz/" target="_blank" rel="noopener noreferrer" aria-label="Onyx Reelz on Instagram" className="landing-social-icon">
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 3.25.15 4.77 1.69 4.92 4.92.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.15 3.23-1.66 4.77-4.92 4.92-1.27.06-1.64.07-4.85.07s-3.58-.01-4.85-.07c-3.26-.15-4.77-1.7-4.92-4.92-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85C2.38 3.92 3.9 2.38 7.15 2.23 8.42 2.17 8.8 2.16 12 2.16Zm0 2c-3.15 0-3.5.01-4.73.07-2.16.1-3.35 1.28-3.45 3.45C3.76 8.7 3.76 9.05 3.76 12s0 3.3.06 4.32c.1 2.17 1.29 3.35 3.45 3.45 1.23.06 1.58.07 4.73.07s3.5-.01 4.73-.07c2.16-.1 3.35-1.28 3.45-3.45.06-1.02.06-1.37.06-4.32s0-3.3-.06-4.32c-.1-2.17-1.29-3.35-3.45-3.45C15.5 4.17 15.15 4.16 12 4.16Zm0 3.4a4.44 4.44 0 1 1 0 8.88 4.44 4.44 0 0 1 0-8.88Zm0 2a2.44 2.44 0 1 0 0 4.88 2.44 2.44 0 0 0 0-4.88Zm4.65-2.65a1.04 1.04 0 1 1 0 2.08 1.04 1.04 0 0 1 0-2.08Z"/></svg>
+            </a>
+            <a href="https://www.facebook.com/profile.php?id=61590002537395" target="_blank" rel="noopener noreferrer" aria-label="Onyx Reelz on Facebook" className="landing-social-icon">
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 21.5v-8.05h2.7l.4-3.14h-3.1V8.3c0-.91.25-1.53 1.56-1.53h1.66V3.96C15.94 3.9 15.02 3.83 13.94 3.83c-2.24 0-3.78 1.37-3.78 3.87v2.6H7.45v3.15h2.71v8.05h3.34Z"/></svg>
+            </a>
+          </div>
         </div>
-        <div className="landing-footer-links">
-          <a href="/features">Features</a>
-          <a href="/learn">Learn</a>
-          <a href="/privacy">Privacy Policy</a>
-          <a href="/terms">Terms of Service</a>
-          <a href="/pricing">Pricing</a>
-          {authed ? <a href="/dashboard">Dashboard</a> : <a href="/login">Login</a>}
+
+        <div className="landing-footer-bottom">
+          <div className="landing-footer-legal-links">
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/terms">Terms of Service</a>
+          </div>
+          <span>© {new Date().getFullYear()} Onyx Reelz. All rights reserved.</span>
+          <span className="landing-footer-legal-text">ONYX REELZ LTD is a company registered in England & Wales. Company number: 17288776. Registered office: 128 City Road, London, EC1V 2NX, United Kingdom.</span>
         </div>
       </footer>
 

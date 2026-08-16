@@ -7,6 +7,11 @@ import { learnHub } from "../data/learnPagesSeo";
 // separately (see LearnKlingPrompting.jsx for the first real one).
 const GUIDES = [
   {
+    title: "Onyx Editor Tools: A Complete Tour",
+    description: "A tool-by-tool guide to the Onyx Reelz editor — Split, Trim, Text, B-Roll, Transitions, Voiceover, and more, with real screen recordings of each one.",
+    to: "/learn/editor-tools",
+  },
+  {
     title: "Kling Prompting Guide",
     description: "How to write prompts that get the most out of Kling video generation.",
     to: "/learn/kling-prompting",
@@ -97,6 +102,7 @@ export default function Learn() {
           <Link
             key={guide.to}
             to={guide.to}
+            className="onyx-learn-guide-card"
             style={{
               display: "block",
               padding: "16px 20px",
@@ -105,6 +111,7 @@ export default function Learn() {
               background: "var(--onyx-surface)",
               textDecoration: "none",
               color: "inherit",
+              transition: "border-color 0.2s, transform 0.2s, background 0.2s",
             }}
           >
             <div style={{ fontSize: 16, fontWeight: 600, color: "var(--onyx-text)", marginBottom: 4 }}>{guide.title}</div>

@@ -273,6 +273,7 @@ export default function Music() {
   const [soundsLike, setSoundsLike] = useState("");
   const [generating, setGenerating] = useState(false);
   const [hasSunoKey, setHasSunoKey] = useState(false);
+  const [lyriaCost, setLyriaCost] = useState(15); // matches getMusicCredits' non-premium default until the real cost loads
   const [genStatus, setGenStatus] = useState("");
   const [genError, setGenError] = useState("");
   const [generatedTracks, setGeneratedTracks] = useState([]);
@@ -392,6 +393,14 @@ export default function Music() {
     fetch("/api/suno/key", { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.has_key) setHasSunoKey(true); })
+      .catch(() => {});
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/music/cost", { headers: { Authorization: `Bearer ${session.access_token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (typeof d?.cost === "number") setLyriaCost(d.cost); })
       .catch(() => {});
   }, [session]);
 
@@ -945,7 +954,7 @@ export default function Music() {
               <button onClick={handleGenerate} disabled={generating}
                 className="btn-teal"
                 style={{ marginTop: 20, width: "100%" }}>
-                {generating ? "Generating..." : "Generate with Lyria 3 Pro — 10 credits"}
+                {generating ? "Generating..." : `Generate with Lyria 3 Pro — ${lyriaCost} credits`}
               </button>
 
               <div style={{ marginTop: 8, fontSize: 11, color: "var(--onyx-text-faint)", textAlign: "center" }}>
