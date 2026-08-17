@@ -1,6 +1,11 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
-import { learnHub } from "../data/learnPagesSeo";
+import { learnHub, learnPages } from "../data/learnPagesSeo";
+
+// Reuses each guide's own hero image (already generated per-page in
+// learnPagesSeo.js) as its index-card thumbnail, rather than generating or
+// storing a second copy of the same artwork.
+const imageByPath = Object.fromEntries(learnPages.map((p) => [p.path, p.ogImage]));
 
 // Placeholder list -- expand as more guides get added. Each entry just needs
 // a title/description/to; the actual guide page components are added
@@ -97,7 +102,7 @@ export default function Learn() {
         Guides and tips for getting the most out of Onyx Reelz.
       </p>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
         {GUIDES.map((guide) => (
           <Link
             key={guide.to}
@@ -105,17 +110,29 @@ export default function Learn() {
             className="onyx-learn-guide-card"
             style={{
               display: "block",
-              padding: "16px 20px",
               borderRadius: 10,
               border: "1px solid var(--onyx-hairline-strong)",
               background: "var(--onyx-surface)",
               textDecoration: "none",
               color: "inherit",
+              overflow: "hidden",
               transition: "border-color 0.2s, transform 0.2s, background 0.2s",
             }}
           >
-            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--onyx-text)", marginBottom: 4 }}>{guide.title}</div>
-            <div style={{ fontSize: 13, color: "var(--onyx-text-faint)" }}>{guide.description}</div>
+            {imageByPath[guide.to] && (
+              <div style={{ width: "100%", aspectRatio: "16/9", overflow: "hidden" }}>
+                <img
+                  src={imageByPath[guide.to]}
+                  alt=""
+                  loading="eager"
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+              </div>
+            )}
+            <div style={{ padding: "16px 20px" }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "var(--onyx-text)", marginBottom: 4 }}>{guide.title}</div>
+              <div style={{ fontSize: 13, color: "var(--onyx-text-faint)" }}>{guide.description}</div>
+            </div>
           </Link>
         ))}
       </div>

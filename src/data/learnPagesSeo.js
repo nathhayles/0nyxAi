@@ -47,6 +47,8 @@ export const learnPages = [
     title: "Onyx Editor Tools: A Complete Tour",
     description: "A tool-by-tool guide to the Onyx Reelz editor — Split, Trim, Text, B-Roll, Transitions, Voiceover, and more, with real screen recordings of each one.",
     path: "/learn/editor-tools",
+    ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/onyx-editor-tools-complete-tour-illustration.png",
+    imageAlt: "Onyx Editor Tools guide illustration — circular toolbar with Split, Trim, Text, and Voiceover icons around a colorful video timeline",
   },
   {
     title: "Choosing the Right AI Video Model",
