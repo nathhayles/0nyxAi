@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import SEO from "./SEO";
 import { staticPages } from "../data/staticPagesSeo";
+import AuthShell from "./AuthShell";
+import "../auth.css";
 
 export default function Login({ goHome }) {
 
@@ -53,7 +55,7 @@ export default function Login({ goHome }) {
   };
 
   return (
-    <div className="auth">
+    <AuthShell>
       <SEO {...staticPages.find(p => p.path === "/login")} />
       <div className="auth-card">
 
@@ -84,17 +86,19 @@ export default function Login({ goHome }) {
 
           <button
             type="submit"
-            className="btn primary auth-btn"
+            className="auth-btn primary"
           >
             Login
           </button>
 
         </form>
-<p style={{marginTop:20}}>Don't have an account? <a href="/signup" style={{color:"#7eb3ff"}}>Create one</a></p>
+        <p style={{ marginTop: 20, fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
+          Don't have an account? <a href="/signup" style={{ color: "var(--onyx-cyan, #4dd0ff)" }}>Create one</a>
+        </p>
 
         <button
           onClick={handleForgot}
-          className="btn secondary auth-btn"
+          className="auth-btn secondary"
         >
           Forgot password
         </button>
@@ -105,12 +109,12 @@ export default function Login({ goHome }) {
 
         <button
           onClick={()=>goHome && goHome()}
-          className="btn ghost auth-back"
+          className="auth-btn ghost"
         >
           Back
         </button>
 
       </div>
-    </div>
+    </AuthShell>
   );
 }

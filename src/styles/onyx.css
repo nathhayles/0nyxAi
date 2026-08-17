@@ -248,6 +248,20 @@
   cursor: not-allowed;
 }
 
+/* Scale-down press feedback (Emil Kowalski design-eng skill: buttons must
+   feel responsive to press). Reused anywhere a button needs instant tactile
+   feedback without a bespoke class. */
+.press-btn {
+  transition: transform 160ms ease-out, filter 160ms ease-out;
+}
+.press-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.press-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 /* ============================================================================
    Text overlay animations — driven by clip.animation field on FX text clips
    ============================================================================ */

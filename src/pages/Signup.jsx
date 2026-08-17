@@ -3,6 +3,8 @@ import { supabase } from "../supabaseClient"
 import { useNavigate } from "react-router-dom"
 import SEO from "../components/SEO"
 import { staticPages } from "../data/staticPagesSeo"
+import AuthShell from "../components/AuthShell"
+import "../auth.css"
 
 export default function Signup() {
   const [username, setUsername] = useState("")
@@ -45,92 +47,63 @@ export default function Signup() {
   }
 
   return (
-    <div style={{
-      minHeight: "100vh", background: "var(--onyx-bg)", display: "flex",
-      alignItems: "center", justifyContent: "center", fontFamily: "sans-serif"
-    }}>
+    <AuthShell>
       <SEO {...staticPages.find(p => p.path === "/signup")} />
-      <div style={{
-        width: 380, background: "var(--onyx-bg-2)", padding: 40,
-        borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)"
-      }}>
-        <h1 style={{ color: "var(--onyx-text)", marginBottom: 8, fontSize: 24, fontWeight: 700 }}>Create Account</h1>
-        <p style={{ color: "var(--onyx-text-faint)", fontSize: 13, marginBottom: 16 }}>
-          Free to use. No credit card required.
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24, padding: "12px 16px", background: "rgba(77,208,255,0.08)", borderRadius: 8, border: "1px solid rgba(77,208,255,0.2)" }}>
+      <div className="auth-card">
+        <h1>Create Account</h1>
+        <p className="auth-subtitle">Free to use. No credit card required.</p>
+
+        <div className="auth-perks">
           {["Full editor, unlimited stock & sharing", "Pay only for AI generation & downloads", "No trial, no expiry — just free"].map(item => (
-            <div key={item} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--onyx-cyan)" }}>
-              <span style={{ color: "#22c55e", fontWeight: 700 }}>✓</span> {item}
+            <div key={item} className="auth-perk">
+              <span className="auth-perk-check">✓</span> {item}
             </div>
           ))}
         </div>
 
-        {error && (
-          <div style={{
-            padding: "10px 14px", background: "rgba(239,68,68,0.1)",
-            border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8,
-            color: "#f87171", fontSize: 13, marginBottom: 16
-          }}>
-            {error}
-          </div>
-        )}
+        {error && <div className="auth-error">{error}</div>}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <input
-            placeholder="Username (optional)"
-            value={username}
-            onChange={e => setUsername(e.target.value)}
-            style={{
-              padding: "12px 16px", borderRadius: 8, fontSize: 14,
-              background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)",
-              color: "var(--onyx-text)", outline: "none", width: "100%", boxSizing: "border-box"
-            }}
-          />
-          <input
-            placeholder="Email"
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && handleSignup()}
-            style={{
-              padding: "12px 16px", borderRadius: 8, fontSize: 14,
-              background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)",
-              color: "var(--onyx-text)", outline: "none", width: "100%", boxSizing: "border-box"
-            }}
-          />
-          <input
-            placeholder="Password (min 6 characters)"
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && handleSignup()}
-            style={{
-              padding: "12px 16px", borderRadius: 8, fontSize: 14,
-              background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)",
-              color: "var(--onyx-text)", outline: "none", width: "100%", boxSizing: "border-box"
-            }}
-          />
+        <label className="auth-label">Username (optional)</label>
+        <input
+          className="auth-input"
+          placeholder="Username"
+          value={username}
+          onChange={e => setUsername(e.target.value)}
+        />
 
-          <button
-            onClick={handleSignup}
-            disabled={loading}
-            style={{
-              padding: "13px", borderRadius: 8, fontSize: 15, fontWeight: 700,
-              background: loading ? "#374151" : "linear-gradient(135deg, #4dd0ff, #ec4899)",
-              border: "none", color: "#fff", cursor: loading ? "not-allowed" : "pointer",
-              marginTop: 4,
-            }}
-          >
-            {loading ? "Creating account..." : "Create Account"}
-          </button>
+        <label className="auth-label">Email</label>
+        <input
+          className="auth-input"
+          placeholder="you@example.com"
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleSignup()}
+        />
 
-          <p style={{ textAlign: "center", color: "var(--onyx-text-faint)", fontSize: 13, marginTop: 8 }}>
-            Already have an account?{" "}
-            <a href="/login" style={{ color: "var(--onyx-cyan)", textDecoration: "none" }}>Sign in</a>
-          </p>
-        </div>
+        <label className="auth-label">Password</label>
+        <input
+          className="auth-input"
+          placeholder="Min 6 characters"
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && handleSignup()}
+        />
+
+        <button
+          onClick={handleSignup}
+          disabled={loading}
+          className="auth-btn primary"
+        >
+          {loading ? "Creating account…" : "Create Account"}
+        </button>
+
+        <p style={{ textAlign: "center", color: "rgba(255,255,255,0.6)", fontSize: 13, marginTop: 16 }}>
+          Already have an account?{" "}
+          <a href="/login" style={{ color: "var(--onyx-cyan, #4dd0ff)", textDecoration: "none" }}>Sign in</a>
+        </p>
       </div>
-    </div>
+    </AuthShell>
   )
 }
