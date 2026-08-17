@@ -639,6 +639,11 @@ body {
   border-radius: 8px;
 }
 
+.sceneSmallBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .sceneSmallBtn.primary {
   background: var(--btn-primary-grad);
   border: none;

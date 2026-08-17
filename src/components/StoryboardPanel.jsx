@@ -529,20 +529,28 @@ export default function StoryboardPanel({
                   per-model control panel below rather than submitting
                   immediately, since every model's control shape differs
                   (see upscaleCapabilities) and there's no single "just go"
-                  action that makes sense across all 5. */}
-              {onUpscaleScene && (sc.mediaUrl || sc.url) && (
-                <button
-                  className="sceneSmallBtn"
-                  disabled={!!upscalingScenes[sc.id]}
-                  onClick={(e) => { e.stopPropagation(); setUpscaleOpen(p => ({ ...p, [sc.id]: !p[sc.id] })); }}
-                >
-                  {upscalingScenes[sc.id]?.status === "submitting"
-                    ? "Starting…"
-                    : upscalingScenes[sc.id]?.status === "polling"
-                    ? "Upscaling…"
-                    : "Upscale"}
-                </button>
-              )}
+                  action that makes sense across all 5. Stays rendered (just
+                  disabled) when there's no media yet, rather than
+                  disappearing, so it doesn't read as random flicker while
+                  scrubbing between scenes. */}
+              {onUpscaleScene && (() => {
+                const hasMedia = !!(sc.mediaUrl || sc.url);
+                const disabled = !hasMedia || !!upscalingScenes[sc.id];
+                return (
+                  <button
+                    className="sceneSmallBtn"
+                    disabled={disabled}
+                    title={hasMedia ? undefined : "Generate this scene's media first"}
+                    onClick={(e) => { e.stopPropagation(); if (hasMedia) setUpscaleOpen(p => ({ ...p, [sc.id]: !p[sc.id] })); }}
+                  >
+                    {upscalingScenes[sc.id]?.status === "submitting"
+                      ? "Starting…"
+                      : upscalingScenes[sc.id]?.status === "polling"
+                      ? "Upscaling…"
+                      : "Upscale"}
+                  </button>
+                );
+              })()}
             </div>
 
             {/* ── Upscale panel ── */}
