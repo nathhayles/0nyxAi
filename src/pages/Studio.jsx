@@ -14,6 +14,7 @@ const TOOLS = [
   { id:"screen-recorder", icon:"", label:"Screen Recording", desc:"Record your screen and turn it into a video reel with AI voiceover and captions.", route:"/screen-recorder", color:"#0ea5e9", available:true, badge:"New" },
   { id:"webcam-recorder", icon:"", label:"Webcam Recording", desc:"Record yourself to camera and get a polished reel with AI captions and music.", route:"/webcam-recorder", color:"#6366f1", available:true, badge:"New" },
   { id:"viral-hooks", icon:"", label:"Viral Hooks", desc:"Generate 10 scroll-stopping opening lines using proven viral frameworks. Turn any hook into a reel in one click.", route:"/viral-hooks", color:"#ec4899", available:true, badge:"New" },
+  { id:"reframe360", icon:"", label:"360° to Reel", desc:"Upload equirectangular footage from a GoPro Max or Insta360 — Onyx auto-tracks the person in frame and crops it into a normal reel.", route:"/reframe360", color:"#b48dff", available:true, badge:"Beta" },
 ];
 
 function usageColor(used, quota) {

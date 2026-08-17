@@ -20,6 +20,7 @@ Disallow: /webcam-recorder
 Disallow: /viral-hooks
 Disallow: /content-plan
 Disallow: /video-to-reel
+Disallow: /reframe360
 Disallow: /projects
 Disallow: /characters
 Disallow: /admin
