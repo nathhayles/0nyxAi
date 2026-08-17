@@ -152,25 +152,41 @@ export default function LandingPage({ session }) {
 
       {/* PROBLEM */}
       <section className="landing-section landing-problem">
-        <div className="landing-container">
-          <h2>You know you need video content. The tools just aren't built for you.</h2>
-          <p className="landing-section-sub">You already know you should be posting more video content. But between running your business, serving customers, managing staff, and keeping everything moving, content creation becomes another job you don't have time for.</p>
-          <ul className="landing-problem-list">
-            {problems.map(p => <li key={p}><span className="landing-check landing-check-x">✕</span>{p}</li>)}
-          </ul>
-          <p className="landing-section-callout">That is where Onyx Reelz comes in.</p>
+        <div className="landing-container landing-split">
+          <div className="landing-split-text">
+            <h2>You know you need video content. The tools just aren't built for you.</h2>
+            <p className="landing-section-sub">You already know you should be posting more video content. But between running your business, serving customers, managing staff, and keeping everything moving, content creation becomes another job you don't have time for.</p>
+            <ul className="landing-problem-list">
+              {problems.map(p => <li key={p}><span className="landing-check landing-check-x">✕</span>{p}</li>)}
+            </ul>
+            <p className="landing-section-callout">That is where Onyx Reelz comes in.</p>
+          </div>
+          <img
+            className="landing-split-img"
+            src="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/landing/problem-section-illustration.png"
+            alt="A creator overwhelmed juggling multiple disconnected apps and browser tabs to make one video"
+            loading="lazy"
+          />
         </div>
       </section>
 
       {/* SOLUTION */}
       <section className="landing-section landing-solution">
-        <div className="landing-container">
-          <h2>One editor. Every AI tool you need. Built for speed.</h2>
-          <p className="landing-section-sub">Onyx Reelz combines AI video generation, lifelike avatars, professional voiceover, music, and branded captions into a single self-serve editor — so you create the reel yourself, in minutes, exactly the way you want it.</p>
-          <div className="landing-solution-points">
-            {["Generate AI video scenes from a text prompt", "Add a talking AI avatar presenter — no camera needed", "Choose from premium AI voiceovers or clone your own voice", "Drop in AI-generated music scored to your reel", "Auto-caption with branded styles, fonts, and colours", "Export in any aspect ratio — 9:16, 1:1, 16:9", "Stay on-brand with saved brand presets across every reel"].map(p => (
-              <div key={p} className="landing-solution-point"><span className="landing-check">✓</span><span>{p}</span></div>
-            ))}
+        <div className="landing-container landing-split landing-split-reverse">
+          <img
+            className="landing-split-img"
+            src="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/landing/solution-section-illustration.png"
+            alt="A creator confidently using one unified Onyx Reelz editor with timeline and AI scenes"
+            loading="lazy"
+          />
+          <div className="landing-split-text">
+            <h2>One editor. Every AI tool you need. Built for speed.</h2>
+            <p className="landing-section-sub">Onyx Reelz combines AI video generation, lifelike avatars, professional voiceover, music, and branded captions into a single self-serve editor — so you create the reel yourself, in minutes, exactly the way you want it.</p>
+            <div className="landing-solution-points">
+              {["Generate AI video scenes from a text prompt", "Add a talking AI avatar presenter — no camera needed", "Choose from premium AI voiceovers or clone your own voice", "Drop in AI-generated music scored to your reel", "Auto-caption with branded styles, fonts, and colours", "Export in any aspect ratio — 9:16, 1:1, 16:9", "Stay on-brand with saved brand presets across every reel"].map(p => (
+                <div key={p} className="landing-solution-point"><span className="landing-check">✓</span><span>{p}</span></div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
