@@ -325,7 +325,12 @@ export default function Account() {
   const atLimit = brands.length >= brandLimit;
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px", color: "var(--onyx-text)" }}>
+    <div style={{ minHeight: "100vh",
+      background:
+        "radial-gradient(ellipse 50% 40% at 15% 0%, rgba(77,208,255,0.10), transparent 60%)," +
+        "radial-gradient(ellipse 45% 35% at 88% 8%, rgba(255,181,71,0.08), transparent 60%)," +
+        "var(--onyx-bg)" }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px 64px", color: "var(--onyx-text)" }}>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
         <div>
@@ -553,6 +558,7 @@ export default function Account() {
         </div>
       </div>
 
+    </div>
     </div>
   );
 }
