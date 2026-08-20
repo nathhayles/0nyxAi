@@ -50,6 +50,23 @@ class Safe extends React.Component {
   }
 }
 
+// Dashboard renders thumbnail_url in a plain <img>, which silently shows
+// nothing for a video file -- but every thumbnailUrl fallback chain in this
+// file ends with "|| scene.mediaUrl", which is a video URL for any scene
+// built via Stock-mode direct-URL-paste or AI generation (only Pexels search
+// results populate a real stockThumb image). Confirmed live 2026-08-20: every
+// reel built by paste-URL today saved a .mp4 as its thumbnail_url and showed
+// blank in the dashboard grid. A reel with no real image thumbnail should
+// fall through to the dashboard's existing "No preview" placeholder instead
+// of a broken image, so the mediaUrl fallback is only used when it's not
+// itself a video.
+function isLikelyVideoUrl(u) {
+  if (!u) return true;
+  if (/^https:\/\/api\.sync\.so\//i.test(u)) return true;
+  const ext = u.split("?")[0].split(".").pop().toLowerCase();
+  return ["mp4", "webm", "mov", "m4v"].includes(ext);
+}
+
 function calcTotalDuration(state) {
   if (!state?.tracks) return 0;
   let max = 0;
@@ -907,6 +924,17 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
             const cBg    = sd.bg === "transparent" ? "transparent" : (userBg || sd.bg);
             const hasBg  = cBg !== "transparent";
 
+            // cSize is authored in export-resolution px (matches render.js's
+            // burnCaptions, which draws at these same native widths) but this
+            // preview box is CSS-scaled down to fit the sidebar -- FX text/emoji
+            // already correct for that via pxSize = (sizePct/100)*canvasW (see
+            // fxSizePct above), captions never did, so an 18px caption rendered
+            // literally as 18px CSS on a ~300px-wide preview looked roughly 2-3x
+            // too large relative to the frame. Scale by the same canvasW ratio.
+            const NATIVE_CAPTION_WIDTH = { "9:16": 720, "1:1": 720, "3:4": 720, "4:3": 960, "21:9": 1680 }[ratio] || 1280;
+            const captionCanvasW = frameRef.current?.getBoundingClientRect().width || 300;
+            const captionScale = captionCanvasW / NATIVE_CAPTION_WIDTH;
+
             const textShadow = sd.neon
               ? `0 0 4px ${cColor}, 0 0 10px ${cColor}, 0 0 18px ${cColor}, 0 0 30px ${cColor}`
               : sd.softShadow
@@ -920,7 +948,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
               maxWidth: "92%",
               textAlign: "center",
               fontWeight: sd.weight,
-              fontSize: cSize * (sd.fontScale || 1),
+              fontSize: cSize * (sd.fontScale || 1) * captionScale,
               color: sd.gradient ? "transparent" : cColor,
               fontFamily: sd.mono ? "'Courier New', monospace" : cFont,
               background: cBg,
@@ -1316,15 +1344,28 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       transitionToNext:  scene.transitionToNext || "cut",
       word_timestamps:   scene.word_timestamps || [],
       caption_style:     scene.caption_style || "normal",
+      // caption_font_size_px used to scale cSize by the LIVE on-screen preview
+      // panel's current pixel size (document.getElementById('onyx-preview-frame')
+      // .getBoundingClientRect(), captured at export time) against native export
+      // dimensions. cSize itself (default 18/15, matching render.js's own
+      // small/medium tiers which are proportional to the fixed 720/1280-wide
+      // export frame) was already calibrated in export-resolution terms, so that
+      // extra scaleRef multiplication double-counted: a narrow browser window or
+      // collapsed sidebar at export time (small canvasW/canvasH) inflated this
+      // into a huge multiplier, baking oversized captions permanently into the
+      // rendered video regardless of the size actually configured -- confirmed
+      // live 2026-08-19, a 157px-wide preview frame produced 62-83px captions
+      // on a 720px-wide export (8-11% of frame width) from an 18px default.
+      // cSize is now sent as-is (native export px), matching how render.js's
+      // own _sizeMap proportional tiers are already scaled.
       caption_font_size_px: (() => {
         const cSize = Number(scene.caption_size || brand?.caption_size || (ratio === "9:16" ? 18 : 15));
-        const scaleRef = ratio === "9:16" ? Math.min(videoW, videoH) / Math.min(canvasW, canvasH) : videoH / canvasH;
-        return Math.round(cSize * scaleRef);
+        return Math.round(cSize);
       })(),
       caption_bar_height_percent: (() => {
         const cSize = Number(scene.caption_size || brand?.caption_size || (ratio === "9:16" ? 18 : 15));
         const barH = cSize * 1.4 + 12;
-        return barH / canvasH;
+        return barH / videoH;
       })(),
       brollUrl:          brollClip?.src || brollClip?.url || brollClip?.mediaUrl || null,
       brollStart:        brollClip ? (brollClip.startTime || 0) - cStart : 0,
@@ -1478,25 +1519,41 @@ export default function EditorV2() {
 
   const [timelineState, dispatch] = useReducer(timelineReducer, null, makeInitialState);
 
-  // Undo/redo history
+  // Undo/redo history — snapshots BOTH timelineState (tracks/clips) and
+  // scenes together, as one atomic entry. Previously only timelineState was
+  // tracked, so any edit that only touched the `scenes` array (Duration,
+  // narration typed directly, Transitions applied via updateScene) was
+  // silently not undoable at all -- no error, undo just did nothing for
+  // those (confirmed live 2026-08-19). scenesRef is declared further down
+  // this component but by the time any of these callbacks actually run
+  // (always post-mount, from a user action), it's already initialized --
+  // same closure pattern moveScene/deleteScene/etc. already rely on.
   const historyRef = useRef({ past: [], future: [] });
+  const pushHistorySnapshot = useCallback(() => {
+    historyRef.current.past.push({
+      timelineState: JSON.parse(JSON.stringify(timelineState)),
+      scenes: JSON.parse(JSON.stringify(scenesRef.current)),
+    });
+    if (historyRef.current.past.length > 50) historyRef.current.past.shift();
+    historyRef.current.future = [];
+  }, [timelineState]);
   const dispatchWithHistory = useCallback((action) => {
     const noRecord = ["SEEK", "TRACK_VOLUME", "LOAD_STATE", "SELECT"];
-    if (!noRecord.includes(action.type)) {
-      historyRef.current.past.push(JSON.parse(JSON.stringify(timelineState)));
-      if (historyRef.current.past.length > 50) historyRef.current.past.shift();
-      historyRef.current.future = [];
-    }
+    if (!noRecord.includes(action.type)) pushHistorySnapshot();
     dispatch(action);
-  }, [dispatch, timelineState]);
+  }, [dispatch, pushHistorySnapshot]);
 
   const undoTimeline = useCallback(() => {
     const { past, future } = historyRef.current;
     if (!past.length) return;
     const prev = past[past.length - 1];
     historyRef.current.past = past.slice(0, -1);
-    historyRef.current.future = [JSON.parse(JSON.stringify(timelineState)), ...future];
-    dispatch({ type: "LOAD_STATE", state: prev });
+    historyRef.current.future = [
+      { timelineState: JSON.parse(JSON.stringify(timelineState)), scenes: JSON.parse(JSON.stringify(scenesRef.current)) },
+      ...future,
+    ];
+    dispatch({ type: "LOAD_STATE", state: prev.timelineState });
+    setScenes(prev.scenes);
   }, [dispatch, timelineState]);
 
   const redoTimeline = useCallback(() => {
@@ -1504,8 +1561,12 @@ export default function EditorV2() {
     if (!future.length) return;
     const next = future[0];
     historyRef.current.future = future.slice(1);
-    historyRef.current.past = [...past, JSON.parse(JSON.stringify(timelineState))];
-    dispatch({ type: "LOAD_STATE", state: next });
+    historyRef.current.past = [
+      ...past,
+      { timelineState: JSON.parse(JSON.stringify(timelineState)), scenes: JSON.parse(JSON.stringify(scenesRef.current)) },
+    ];
+    dispatch({ type: "LOAD_STATE", state: next.timelineState });
+    setScenes(next.scenes);
   }, [dispatch, timelineState]);
 
   // DEBUG: expose timeline state for console inspection
@@ -1877,7 +1938,7 @@ export default function EditorV2() {
                 const normalizedScenes = norm.map(s => ({ ...s, mediaUrl: s.mediaUrl || s.url || s.src || "" }));
                 const thumbnailUrl = normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.stockThumb
                   || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
-                  || normalizedScenes[0]?.mediaUrl || null;
+                  || (isLikelyVideoUrl(normalizedScenes[0]?.mediaUrl) ? null : normalizedScenes[0]?.mediaUrl) || null;
                 const body = JSON.stringify({ title: handoffTitle, scenes: normalizedScenes, timeline: { tracks: [] }, ratio: handoffRatio, status: "draft", globalMusicUrl: "", globalMusicName: "", thumbnail_url: thumbnailUrl, brand_id: d?.brandId || null, metadata: d?.metadata || {} });
                 const result = await createReelOnce(body, h);
                 if (result.id && !result.created) {
@@ -1926,7 +1987,7 @@ export default function EditorV2() {
               const normalizedScenes = norm.map(s => ({ ...s, mediaUrl: s.mediaUrl || s.url || s.src || "" }));
               const thumbnailUrl = normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.stockThumb
                 || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
-                || normalizedScenes[0]?.mediaUrl || null;
+                || (isLikelyVideoUrl(normalizedScenes[0]?.mediaUrl) ? null : normalizedScenes[0]?.mediaUrl) || null;
               const body = JSON.stringify({ title: autosaveTitle, scenes: normalizedScenes, timeline: { tracks: [] }, ratio: autosaveRatio, status: "draft", globalMusicUrl: d?.globalMusicUrl || "", globalMusicName: "", thumbnail_url: thumbnailUrl, template: autosaveTemplate, theme: autosaveTheme });
               const result = await createReelOnce(body, h);
               if (result.id && !result.created) {
@@ -2101,7 +2162,7 @@ export default function EditorV2() {
       const normalizedScenes = scenesRef.current.map(s => ({ ...s, mediaUrl: s.mediaUrl || s.url || s.src || "" }));
       const thumbnailUrl = normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.stockThumb
         || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
-        || normalizedScenes[0]?.mediaUrl || null;
+        || (isLikelyVideoUrl(normalizedScenes[0]?.mediaUrl) ? null : normalizedScenes[0]?.mediaUrl) || null;
       const bodyObj = { title, scenes: normalizedScenes, timeline: cleanedTimeline, ratio, status: "draft", globalMusicUrl, globalMusicName, thumbnail_url: thumbnailUrl, brand_id: selectedBrandId };
       // createReelOnce's POST doesn't need expected_updated_at -- there's
       // nothing on the server yet for a brand-new reel to conflict with.
@@ -2337,7 +2398,16 @@ export default function EditorV2() {
               avatar_video_url: data.video_url,
             } : s));
             const vidClip = tracksRef.current.find(t => t.key === "video")?.clips.find(c => c.sceneId === scene.id);
-            dispatchWithHistoryRef.current({
+            // Plain dispatch, not dispatchWithHistory -- this fires from a
+            // background poll on whatever timer HeyGen happens to finish
+            // on, completely independent of anything the user is doing at
+            // that moment. Now that history snapshots include scenes too,
+            // routing this through dispatchWithHistory would let a
+            // mid-session async completion get silently baked into
+            // whichever user edit's undo boundary happened to be open at
+            // that instant -- an undo could then jump to a state that
+            // never actually existed on screen for the user.
+            dispatch({
               type: "ADD_AVATAR_CLIP",
               sceneId: scene.id,
               src: data.video_url,
@@ -2562,8 +2632,18 @@ export default function EditorV2() {
       playStartRef.current = null;
       previewSrcRef.current = null; // force src re-sync on next play
       prevBrollClipRef.current = null;
-      // Pause both preview video slots
+      // Pause both preview video slots, plus the upload-overlay and B-roll
+      // video elements -- any non-Pexels A-roll (AI-generated, uploaded,
+      // reframe360, character-consistency, etc.) plays through
+      // uploadVideoRef instead of the a/b crossfade slots (see the isUpload
+      // branches above), and was never being paused here. Invisible for
+      // short AI-gen clips (a few seconds, easy to miss finishing on its
+      // own) but very visible on a long continuous upload-type video: it
+      // just kept playing after Pause, confirmed live 2026-08-21 on a 135s
+      // reframe360 reel.
       document.querySelectorAll(".v2-preview-video-a, .v2-preview-video-b").forEach(v => v.pause());
+      uploadVideoRef.current?.pause();
+      brollVideoRef.current?.pause();
       transitioningRef.current = false;
       // Pause all audio elements
       audioElementsRef.current.forEach(el => el.pause());
@@ -2693,9 +2773,25 @@ export default function EditorV2() {
                   bVidEl.setAttribute('data-src', clipSrc);
                   bVidEl.muted = true;
                   bVidEl.onended = () => {
-                    const { cur: arollCur } = getSlotsTick();
+                    // getSlotsTick() only ever manages the Pexels/streaming
+                    // crossfade slots (.v2-preview-video-a/-b) -- for an
+                    // uploaded A-roll clip (AI-generated, character-
+                    // consistency, any non-Pexels source), the actual
+                    // visible element is uploadVideoRef.current instead,
+                    // and those crossfade slots have no src at all for it.
+                    // Blindly resuming via getSlotsTick() here called
+                    // .play() on an empty element, throwing
+                    // NotSupportedError on every single B-roll-end boundary
+                    // during playback (confirmed live 2026-08-19: 14 errors
+                    // across one reel's two B-roll boundaries). Route to
+                    // the correct element based on the actual A-roll clip's
+                    // source, matching the same isUpload check used
+                    // everywhere else in this tick function.
+                    const arollClipOnEnd = findActive("video");
+                    const arollClipOnEndSrc = arollClipOnEnd ? (arollClipOnEnd.url || arollClipOnEnd.mediaUrl || arollClipOnEnd.src || "") : "";
+                    const arollOnEndIsUpload = arollClipOnEndSrc && !arollClipOnEndSrc.includes('videos.pexels.com');
+                    const arollCur = arollOnEndIsUpload ? uploadVideoRef.current : getSlotsTick().cur;
                     if (arollCur) {
-                      const arollClipOnEnd = findActive("video");
                       if (arollClipOnEnd) {
                         const ph = playStartRef.current.playheadAtStart + (performance.now() / 1000 - playStartRef.current.wallTime);
                         arollCur.currentTime = Math.max(0, (ph - arollClipOnEnd.startTime) * (arollClipOnEnd.speed || 1) + arollClipOnEnd.trimStart);
@@ -2937,9 +3033,23 @@ export default function EditorV2() {
           const clipDur = clip.trimEnd - clip.trimStart;
           const inRange = newPH >= clip.startTime && newPH < clip.startTime + clipDur;
           let el = audioElementsRef.current.get(clip.id);
+          // Pooled elements previously kept whatever src they were created
+          // with forever, even if the clip's src later changed (e.g. a
+          // regenerated voiceover) -- recreate on mismatch instead of
+          // silently playing stale audio or re-failing on an old bad URL.
+          if (el && el.dataset.src !== clip.src) { el.pause(); el = null; audioElementsRef.current.delete(clip.id); }
           if (!el) {
             el = new Audio(clip.src);
+            el.dataset.src = clip.src;
             el.preload = "auto";
+            // A source that's fundamentally unplayable (404, wrong codec,
+            // stale/moved URL) fails every single play() attempt -- without
+            // this, the tick loop below (runs on every animation frame,
+            // ~60/sec) retries forever, logging a fresh console.error and
+            // burning CPU every frame instead of once. Real fix belongs in
+            // whatever produced the broken URL; this stops the runaway
+            // retry storm regardless of the underlying cause.
+            el.addEventListener("error", () => { el.dataset.playFailed = "1"; }, { once: true });
             audioElementsRef.current.set(clip.id, el);
           }
           el.muted = !!track.muted;
@@ -2947,7 +3057,12 @@ export default function EditorV2() {
           if (inRange) {
             const localTime = newPH - clip.startTime + clip.trimStart;
             if (Math.abs(el.currentTime - localTime) > 0.25) el.currentTime = localTime;
-            if (el.paused) el.play().catch(err => console.error(`[preview] play() failed for audio track "${key}":`, err));
+            if (el.paused && !el.dataset.playFailed) {
+              el.play().catch(err => {
+                el.dataset.playFailed = "1";
+                console.error(`[preview] play() failed for audio track "${key}" (clip ${clip.id}, src ${clip.src}):`, err);
+              });
+            }
           } else {
             if (!el.paused) el.pause();
           }
@@ -2981,6 +3096,12 @@ export default function EditorV2() {
   }, [timelineState.tracks]);
 
   const updateScene = useCallback((id, changes) => {
+    // One snapshot for the whole atomic edit (scenes + the clip change it
+    // triggers below), taken BEFORE either mutates -- pushHistorySnapshot
+    // must run first while scenesRef.current still holds the pre-edit
+    // scenes array. The clip-side change below uses plain dispatch (not
+    // dispatchWithHistory) so this doesn't double-push.
+    pushHistorySnapshot();
     setScenes(prev => prev.map(s => s.id === id ? { ...s, ...changes } : s));
     const clip = timelineState.tracks?.flatMap(t => t.clips).find(c => c.sceneId === id);
     if (clip) {
@@ -2996,13 +3117,13 @@ export default function EditorV2() {
       // placeholder duration gets replaced once its real voiceover/video length
       // is known) — a plain UPDATE_CLIP only resizes this clip in place and
       // leaves every later clip's startTime stale, causing visual overlap.
-      dispatchWithHistory({
+      dispatch({
         type: durationChanged ? "RESIZE_CLIP_REFLOW" : "UPDATE_CLIP",
         clipId: clip.id,
         changes: clipChanges,
       });
     }
-  }, [timelineState.tracks, dispatchWithHistory]);
+  }, [timelineState.tracks, dispatch, pushHistorySnapshot]);
   const updateSceneRef = useRef(updateScene);
   updateSceneRef.current = updateScene;
 
@@ -3147,6 +3268,12 @@ export default function EditorV2() {
   }, [selectedBrandId, reelId, activeScene, scenes, toast]);
 
   const handleSetScenes = useCallback((updater) => {
+    // One snapshot for the whole batch of scene+clip changes below,
+    // taken BEFORE any mutation -- must run before setScenes so
+    // scenesRef.current still holds the pre-edit array. Internal syncs
+    // below use plain dispatch (not dispatchWithHistory) so a single
+    // user action (e.g. one Duration edit) is one undo step, not several.
+    pushHistorySnapshot();
     setScenes(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       if (!Array.isArray(next)) return prev;
@@ -3160,13 +3287,33 @@ export default function EditorV2() {
         const old = prev.find(s => s.id === scene.id);
         if (!old) return;
 
+        // Sync duration changes into the video track clip's trimEnd, same
+        // RESIZE_CLIP_REFLOW pattern updateScene() already uses (that
+        // function correctly reflows every downstream clip's startTime so
+        // later scenes don't visually overlap, and gets undo/redo for free
+        // via dispatchWithHistory). StoryboardPanel's Duration field goes
+        // through this function instead, not updateScene, and had no
+        // duration handling at all -- the clip never resized until Save,
+        // and being a plain setScenes with no dispatchWithHistory call, it
+        // wasn't undoable either (confirmed live 2026-08-19).
+        if (old.duration !== scene.duration && scene.duration != null) {
+          const vidClip = vidTrack?.clips.find(c => c.sceneId === scene.id);
+          if (vidClip) {
+            dispatch({
+              type: "RESIZE_CLIP_REFLOW",
+              clipId: vidClip.id,
+              changes: { duration: scene.duration, trimEnd: (vidClip.trimStart ?? 0) + scene.duration },
+            });
+          }
+        }
+
         // Sync media changes into the video track clip
         const newMedia = scene.mediaUrl || scene.url || "";
         const oldMedia = old.mediaUrl || old.url || "";
         if (newMedia !== oldMedia) {
           const vidClip = vidTrack?.clips.find(c => c.sceneId === scene.id);
           if (vidClip) {
-            dispatchWithHistory({ type: "UPDATE_CLIP", clipId: vidClip.id, changes: { src: newMedia, thumbnail: scene.thumbnail || newMedia } });
+            dispatch({ type: "UPDATE_CLIP", clipId: vidClip.id, changes: { src: newMedia, thumbnail: scene.thumbnail || newMedia } });
           } else {
             console.warn('[handleSetScenes] no vidClip found for sceneId', scene.id, 'clips:', vidTrack?.clips.map(c => c.sceneId));
           }
@@ -3183,7 +3330,7 @@ export default function EditorV2() {
         if (old.captionsEnabled !== scene.captionsEnabled) {
           const vidClip = vidTrack?.clips.find(c => c.sceneId === scene.id);
           if (vidClip) {
-            dispatchWithHistory({ type: "UPDATE_CLIP", clipId: vidClip.id, changes: { captionsEnabled: scene.captionsEnabled !== false } });
+            dispatch({ type: "UPDATE_CLIP", clipId: vidClip.id, changes: { captionsEnabled: scene.captionsEnabled !== false } });
           }
         }
 
@@ -3200,19 +3347,19 @@ export default function EditorV2() {
         if (old.narration !== scene.narration || old.action !== scene.action) {
           const vidClip = vidTrack?.clips.find(c => c.sceneId === scene.id);
           if (vidClip) {
-            dispatchWithHistory({ type: "UPDATE_CLIP", clipId: vidClip.id, changes: { narration: scene.narration || "", action: scene.action || "" } });
+            dispatch({ type: "UPDATE_CLIP", clipId: vidClip.id, changes: { narration: scene.narration || "", action: scene.action || "" } });
           }
         }
 
         // Sync per-scene SFX into the SFX track, same scene-keyed clip pattern as voiceover
         if (old.sfxUrl !== scene.sfxUrl) {
           const existingSfx = sfxTrack?.clips.find(c => c.sceneId === scene.id);
-          if (existingSfx) dispatchWithHistory({ type: "DELETE_CLIP", clipId: existingSfx.id });
+          if (existingSfx) dispatch({ type: "DELETE_CLIP", clipId: existingSfx.id });
           if (scene.sfxUrl) {
             const vidClipForSfx = vidTrack?.clips.find(c => c.sceneId === scene.id);
             const sfxStart = vidClipForSfx?.startTime ?? 0;
             const sfxDuration = vidClipForSfx ? vidClipForSfx.trimEnd - vidClipForSfx.trimStart : 3;
-            dispatchWithHistory({
+            dispatch({
               type: "ADD_CLIP",
               clip: makeClip({
                 trackKey:  "sfx",
@@ -3238,7 +3385,7 @@ export default function EditorV2() {
         // Guard: clip with this exact src already present — skip to prevent duplicate
         if (existing && existing.src === scene.voiceoverUrl) return;
 
-        if (existing) dispatchWithHistory({ type: "DELETE_CLIP", clipId: existing.id });
+        if (existing) dispatch({ type: "DELETE_CLIP", clipId: existing.id });
 
         if (!scene.voiceoverUrl) return;
 
@@ -3247,7 +3394,7 @@ export default function EditorV2() {
         const sceneDuration = vidClip ? vidClip.trimEnd - vidClip.trimStart : 3;
         const duration  = scene.voiceoverDuration || sceneDuration;
 
-        dispatchWithHistory({
+        dispatch({
           type: "ADD_CLIP",
           clip: makeClip({
             trackKey:  "voiceover",
@@ -3267,7 +3414,7 @@ export default function EditorV2() {
 
       return next;
     });
-  }, [voiceoverVolume, sfxVolume, dispatchWithHistory]);
+  }, [voiceoverVolume, sfxVolume, dispatch, pushHistorySnapshot]);
 
   const applySfxToActiveScene = useCallback((url, name) => {
     if (!activeScene) return;
@@ -3303,9 +3450,13 @@ export default function EditorV2() {
         // duration was only a placeholder (e.g. PPT-path scenes default to
         // 3s before this probe resolves) gets resized in place while
         // everything after it keeps a stale, now-overlapping start position.
+        // Plain dispatch (not dispatchWithHistory) throughout this probe --
+        // same reasoning as the avatar-poll fix above: this resolves on its
+        // own async timer, unrelated to whatever the user is doing right
+        // now, so it must not create or get folded into an undo boundary.
         const voClip = tracksRef.current.find(t => t.key === "voiceover")?.clips.find(c => c.sceneId === scene.id);
         if (voClip && voClip.src === url) {
-          dispatchWithHistory({ type: "RESIZE_CLIP_REFLOW", clipId: voClip.id, changes: { duration, trimEnd: duration } });
+          dispatch({ type: "RESIZE_CLIP_REFLOW", clipId: voClip.id, changes: { duration, trimEnd: duration } });
         }
 
         // Resize the video clip for this scene to match, using the same
@@ -3313,7 +3464,7 @@ export default function EditorV2() {
         const vidClip = tracksRef.current.find(t => t.key === "video")?.clips.find(c => c.sceneId === scene.id);
         if (vidClip) {
           const vidDur = duration + 1.5;
-          dispatchWithHistory({ type: "RESIZE_CLIP_REFLOW", clipId: vidClip.id, changes: { duration: vidDur, trimEnd: vidDur } });
+          dispatch({ type: "RESIZE_CLIP_REFLOW", clipId: vidClip.id, changes: { duration: vidDur, trimEnd: vidDur } });
         }
 
         setScenes(prev => prev.map(s =>
@@ -3323,7 +3474,7 @@ export default function EditorV2() {
       audio.onerror = () => { probedVoiceoverDurationsRef.current.delete(url); };
       audio.src = url;
     });
-  }, [scenes, dispatchWithHistory, setScenes]);
+  }, [scenes, dispatch, setScenes]);
 
   // Sync globalMusicUrl into the Music track whenever Apply is clicked in the
   // Library panel's Music section (the only place music is picked — see
@@ -3390,11 +3541,17 @@ export default function EditorV2() {
   // wrapper (see its definition) updates the ref synchronously inside the
   // updater, before returning.
   const moveScene      = useCallback((from, to) => {
+    // pushHistorySnapshot() must run before setScenes -- scenesRef.current
+    // is updated synchronously as soon as setScenes's own wrapper runs (see
+    // its definition), so snapshotting after would capture the ALREADY-
+    // reordered array instead of the pre-move one.
+    pushHistorySnapshot();
     setScenes(prev => { const n=[...prev]; const [m]=n.splice(from,1); n.splice(to,0,m); return n; });
-    dispatchWithHistory({ type: "REORDER_SCENE_CLIPS", sceneOrder: scenesRef.current.map(s => s.id) });
-  }, [dispatchWithHistory]);
-  const duplicateScene = useCallback((id) => { setScenes(prev => { const idx=prev.findIndex(s=>s.id===id); if(idx<0) return prev; const mx=prev.reduce((m,s)=>Math.max(m,Number(s.id)||0),0)+1; const n=[...prev]; n.splice(idx+1,0,{...prev[idx],id:mx}); return n; }); }, []);
+    dispatch({ type: "REORDER_SCENE_CLIPS", sceneOrder: scenesRef.current.map(s => s.id) });
+  }, [dispatch, pushHistorySnapshot]);
+  const duplicateScene = useCallback((id) => { pushHistorySnapshot(); setScenes(prev => { const idx=prev.findIndex(s=>s.id===id); if(idx<0) return prev; const mx=prev.reduce((m,s)=>Math.max(m,Number(s.id)||0),0)+1; const n=[...prev]; n.splice(idx+1,0,{...prev[idx],id:mx}); return n; }); }, [pushHistorySnapshot]);
   const deleteScene    = useCallback((id) => {
+    pushHistorySnapshot();
     setScenes(prev => {
       const next = prev.filter(s => s.id !== id);
       if (next.length === 0) return prev;
@@ -3402,8 +3559,8 @@ export default function EditorV2() {
     });
     setActiveScene(prev => prev === id ? null : prev);
     const clip = timelineState.tracks?.flatMap(t => t.clips).find(c => c.sceneId === id);
-    if (clip) dispatchWithHistory({ type: "DELETE_CLIP", clipId: clip.id });
-  }, [timelineState.tracks, dispatchWithHistory]);
+    if (clip) dispatch({ type: "DELETE_CLIP", clipId: clip.id });
+  }, [timelineState.tracks, dispatch, pushHistorySnapshot]);
   const addScene       = useCallback(() => {
     const n      = scenes.length + 1;
     const newId  = typeof crypto?.randomUUID === "function"
@@ -3412,12 +3569,13 @@ export default function EditorV2() {
     const videoTrack = timelineState.tracks?.find(t => t.key === "video");
     const startTime  = (videoTrack?.clips || []).reduce((max, c) =>
       Math.max(max, (c.startTime || 0) + ((c.trimEnd || 0) - (c.trimStart || 0))), 0);
+    pushHistorySnapshot();
     setScenes(prev => [...prev, makeEmptyScene(newId, `Scene ${n}`)]);
     setTimeout(() => {
       setActiveScene(newId);
-      dispatchWithHistory({ type: "SEEK", time: startTime });
+      dispatch({ type: "SEEK", time: startTime });
     }, 50);
-    dispatchWithHistory({
+    dispatch({
       type: "ADD_CLIP",
       clip: makeClip({
         trackKey:  "video",
@@ -3432,8 +3590,8 @@ export default function EditorV2() {
       }),
     });
     // Seek to the new scene's position so the preview shows blank instead of the previous clip
-    dispatchWithHistory({ type: "SEEK", time: startTime });
-  }, [scenes, timelineState.tracks, dispatchWithHistory]);
+    dispatch({ type: "SEEK", time: startTime });
+  }, [scenes, timelineState.tracks, dispatch, pushHistorySnapshot]);
 
   useEffect(() => {
     const handler = () => addScene();
@@ -3677,7 +3835,13 @@ export default function EditorV2() {
     }
   }, [scenes, toast, selectedBrandId]);
 
-  if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent)) {
+  // User-agent sniffing alone missed a real case: a desktop browser window
+  // narrowed below the editor's usable width (or an unusual/absent mobile
+  // UA string) rendered the actual multi-panel desktop layout instead of
+  // this gate -- panels overlapping, canvas squeezed to a sliver. Width is
+  // checked too now, not just UA, so any viewport too narrow for the editor
+  // gets this clean screen instead of the broken one.
+  if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent) || window.innerWidth < 1024) {
     return (
       <div style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, background: "#0b0f17", color: "#f1f5fb", fontFamily: "-apple-system,system-ui,sans-serif", textAlign: "center", padding: 32 }}>
         <div style={{ fontSize: 48 }}>🖥️</div>
@@ -3826,11 +3990,34 @@ export default function EditorV2() {
                     console.error("[Export] download failed:", dlErr);
                     setSavedMsg("✗ Download failed");
                   }
+                  // Completion previously only showed as small header text
+                  // for 3s while the prominent "Rendering..." modal was
+                  // removed in the same instant -- a real render can run for
+                  // over a minute, so by the time it's done the user's
+                  // attention has drifted away from that small text and the
+                  // 3s window is easy to miss entirely (confirmed live
+                  // 2026-08-19: watched a real export finish and saw no
+                  // visible confirmation at all). Repurposing the same
+                  // modal to show success instead of just vanishing.
+                  {
+                    const doneInd = document.getElementById("v2-render-indicator");
+                    if (doneInd) {
+                      doneInd.textContent = "✅ Export complete — your download has started";
+                      doneInd.style.borderColor = "rgba(74,222,128,0.5)";
+                      doneInd.style.color = "#4ade80";
+                      setTimeout(() => doneInd.remove(), 3500);
+                    }
+                  }
                   setTimeout(() => setSavedMsg("Saved"), 3000);
-                  document.getElementById("v2-render-indicator")?.remove();
                 } else if (jobFailedError) {
+                  const failInd = document.getElementById("v2-render-indicator");
+                  if (failInd) {
+                    failInd.textContent = "✗ Render failed — " + (jobFailedError || "please try again");
+                    failInd.style.borderColor = "rgba(248,113,113,0.5)";
+                    failInd.style.color = "#f87171";
+                    setTimeout(() => failInd.remove(), 4000);
+                  }
                   setSavedMsg("✗ Render failed");
-                  document.getElementById("v2-render-indicator")?.remove();
                   console.error("[Export]", jobFailedError);
                 } else {
                   // Hit the 60-minute client ceiling — the job itself is not necessarily dead.
@@ -3970,6 +4157,7 @@ export default function EditorV2() {
             {activeMenu==="sfx"        && <Safe name="SfxPanel"><SfxPanel
               tab={sfxTab} setTab={setSfxTab}
               activeScene={activeScene}
+              activeSceneNumber={scenes.findIndex(s => s.id === activeScene) + 1}
               activeSceneObj={scenes.find(s => s.id === activeScene) || null}
               sfxVolume={sfxVolume} setSfxVolume={setSfxVolume}
               applySfxToActiveScene={applySfxToActiveScene}
