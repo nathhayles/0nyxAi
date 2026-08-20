@@ -18,6 +18,8 @@ const PricingPage = lazy(() => import("./pages/PricingPage"));
 const Earn = lazy(() => import("./pages/Earn"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const Learn = lazy(() => import("./pages/Learn"));
+const Blog = lazy(() => import("./pages/Blog"));
+const BlogAiVideoMarketingBudget = lazy(() => import("./pages/BlogAiVideoMarketingBudget"));
 const LearnKlingPrompting = lazy(() => import("./pages/LearnKlingPrompting"));
 const LearnSeedancePrompting = lazy(() => import("./pages/LearnSeedancePrompting"));
 const LearnWanPrompting = lazy(() => import("./pages/LearnWanPrompting"));
@@ -215,6 +217,9 @@ function AppFooter() {
         <a href="/learn" style={{ color:"var(--onyx-text-dim)", textDecoration:"none" }}
           onMouseEnter={e=>e.target.style.color="#4dd0ff"}
           onMouseLeave={e=>e.target.style.color=""}>Learn</a>
+        <a href="/blog" style={{ color:"var(--onyx-text-dim)", textDecoration:"none" }}
+          onMouseEnter={e=>e.target.style.color="#4dd0ff"}
+          onMouseLeave={e=>e.target.style.color=""}>Blog</a>
         <a href="/privacy" style={{ color:"var(--onyx-text-dim)", textDecoration:"none" }}
           onMouseEnter={e=>e.target.style.color="#4dd0ff"}
           onMouseLeave={e=>e.target.style.color=""}>Privacy Policy</a>
@@ -356,6 +361,8 @@ export default function App() {
         <Route path="/learn/ai-video-pricing" element={<LearnVideoPricing />} />
         <Route path="/learn/model-comparison" element={<LearnModelComparison />} />
         <Route path="/learn/eu-ai-act-disclosure" element={<LearnEuAiActDisclosure />} />
+        <Route path="/blog" element={<Blog />} />
+        <Route path="/blog/ai-video-marketing-budget" element={<BlogAiVideoMarketingBudget />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/account" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Account /></ProtectedRoute>} />
         <Route path="/branding" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><BrandingPanel onApply={(brand) => navigate("/projects", { state: { applyBrandId: brand.id } })} /></ProtectedRoute>} />
