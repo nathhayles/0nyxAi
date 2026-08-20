@@ -728,7 +728,18 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
                 <video
                   ref={uploadVideoRef}
                   className="v2-preview-upload-video"
-                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 10, display: 'none' }}
+                  // objectFit: "contain", not "cover" -- same reasoning as
+                  // the a/b crossfade slots above (and already how the
+                  // sibling uploadImgRef image element right above this one
+                  // behaves): "cover" crops/zooms to fill the frame instead
+                  // of letterboxing, which is silently correct when a
+                  // scene's native aspect happens to match the canvas but
+                  // badly wrong the moment it doesn't. Confirmed live
+                  // 2026-08-21: a 9:16-native reframe360 scene viewed with
+                  // the canvas ratio set to 16:9 came out "oversized and
+                  // unable to watch" -- a heavily cropped, zoomed-in slice
+                  // instead of a clean letterboxed view.
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', zIndex: 10, display: 'none' }}
                   playsInline muted
                 />
                 {/* B-roll upload overlays — above A-roll overlays. Stage 1:
