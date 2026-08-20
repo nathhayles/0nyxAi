@@ -2498,17 +2498,29 @@ export default function EditorV2() {
     // Sets imgEl/vidEl's src+time so it shows `src` at `atTime` — shared by
     // the primary clip sync below and the "A-roll stays visible underneath
     // a partial b-roll inset" case, so both stay in lockstep.
-    function syncOverlay(imgEl, vidEl, src, atTime) {
+    //
+    // `muted`/`volume` default to the always-muted behavior every call site
+    // used to hardcode -- B-roll and Pexels/streaming overlays still want
+    // that. The one caller that now passes muted=false is A-roll's own
+    // upload path, so a scene with real embedded audio (an uploaded clip, a
+    // reframe360 render, any source with sourceAudioMuted left at its
+    // default false) actually plays here instead of being silently muted
+    // regardless of the scene's own audio settings. Confirmed live
+    // 2026-08-21: a reframe360 scene's real camera audio was inaudible in
+    // the editor even though the file has a genuine aac stream, because
+    // this was unconditionally muted no matter what.
+    function syncOverlay(imgEl, vidEl, src, atTime, muted = true, volume = 1) {
       if (!src) return;
       const isVid = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src) || /^https:\/\/api\.sync\.so\//i.test(src);
       if (isVid) {
         if (imgEl) imgEl.style.display = 'none';
         if (vidEl) {
           vidEl.style.display = 'block';
+          vidEl.muted = muted;
+          vidEl.volume = Math.max(0, Math.min(1, volume));
           if (vidEl.getAttribute('data-src') !== src) {
             vidEl.src = src;
             vidEl.setAttribute('data-src', src);
-            vidEl.muted = true;
             vidEl.load();
             vidEl.oncanplay = () => { vidEl.oncanplay = null; vidEl.currentTime = atTime; };
           } else {
@@ -2544,7 +2556,9 @@ export default function EditorV2() {
         // time 0 instead of clearing it once A-roll's own clip has ended.
         const arollSrc = videoClipScrub.src || videoClipScrub.url || videoClipScrub.mediaUrl || "";
         const arollLocalTime = Math.max(0, ph - videoClipScrub.startTime + videoClipScrub.trimStart);
-        syncOverlay(uploadImgRef.current, uploadVideoRef.current, arollSrc, arollLocalTime);
+        const arollScene = scenes.find(s => s.id === videoClipScrub.sceneId);
+        syncOverlay(uploadImgRef.current, uploadVideoRef.current, arollSrc, arollLocalTime,
+          !!arollScene?.sourceAudioMuted, (arollScene?.sourceAudioVolume ?? 100) / 100);
       } else {
         // No A-roll clip active at all (B-roll can outlive A-roll's own
         // clip — see clip_broll_1 on reel 9c3ed13d spanning 2.1875-21.1875
@@ -2570,7 +2584,9 @@ export default function EditorV2() {
       const slotB = document.querySelector('.v2-preview-video-b');
       if (slotA) slotA.style.visibility = 'hidden';
       if (slotB) slotB.style.visibility = 'hidden';
-      syncOverlay(uploadImgRef.current, uploadVideoRef.current, targetSrc, localTime);
+      const arollScene = scenes.find(s => s.id === clip?.sceneId);
+      syncOverlay(uploadImgRef.current, uploadVideoRef.current, targetSrc, localTime,
+        !!arollScene?.sourceAudioMuted, (arollScene?.sourceAudioVolume ?? 100) / 100);
       return;
     }
 
@@ -2734,10 +2750,12 @@ export default function EditorV2() {
         if (arollSrc && vidEl) {
           const arollSpeed = videoClip.speed || 1;
           const arollLocalTime = (newPH - videoClip.startTime) * arollSpeed + videoClip.trimStart;
+          const arollScene = scenes.find(s => s.id === videoClip.sceneId);
+          vidEl.muted = !!arollScene?.sourceAudioMuted;
+          vidEl.volume = Math.max(0, Math.min(1, (arollScene?.sourceAudioVolume ?? 100) / 100));
           if (vidEl.getAttribute('data-src') !== arollSrc) {
             vidEl.src = arollSrc;
             vidEl.setAttribute('data-src', arollSrc);
-            vidEl.muted = true;
             vidEl.load();
             vidEl.oncanplay = () => { vidEl.oncanplay = null; vidEl.currentTime = arollLocalTime; };
           } else if (Math.abs(vidEl.currentTime - arollLocalTime) > 0.3) {
@@ -2853,7 +2871,14 @@ export default function EditorV2() {
                   vidEl.style.display = 'block';
                   vidEl.src = clipSrc;
                   vidEl.setAttribute('data-src', clipSrc);
-                  vidEl.muted = true;
+                  // Respects the scene's own sourceAudioMuted/sourceAudioVolume
+                  // instead of always muting -- see syncOverlay's comment above
+                  // for why this changed (a scene's real embedded audio, e.g.
+                  // an uploaded clip or a reframe360 render, was previously
+                  // inaudible in the editor no matter what).
+                  const clipScene = scenes.find(s => s.id === clip.sceneId);
+                  vidEl.muted = !!clipScene?.sourceAudioMuted;
+                  vidEl.volume = Math.max(0, Math.min(1, (clipScene?.sourceAudioVolume ?? 100) / 100));
                   vidEl.load();
                   // Calling .play() synchronously right after .load() races the
                   // browser's own readiness state (readyState resets to
