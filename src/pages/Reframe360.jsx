@@ -36,6 +36,17 @@ export default function Reframe360() {
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
 
+  // Local (pre-upload) keyframe marking for the direct 2-file dual-lens
+  // path (as opposed to a batch-review pair -- same idea, separate state
+  // since there's no pendingPairs entry for a single pair added outside a
+  // batch drop).
+  const [directLocalT, setDirectLocalT] = useState(2);
+  const [directLocalPreviewUrl, setDirectLocalPreviewUrl] = useState(null);
+  const [directLocalPreviewLoading, setDirectLocalPreviewLoading] = useState(false);
+  const [directLocalPreviewError, setDirectLocalPreviewError] = useState(null);
+  const [directLocalKeyframes, setDirectLocalKeyframes] = useState([]);
+  const directLocalPreviewImgRef = useRef(null);
+
   // Set when a batch of >2 raw files is dropped at once (a full raw dump for
   // several scenes) -- [{id, frontFile, backFile, frontThumb, backThumb}],
   // reviewed and correctable (per-pair swap/remove) before any of them
@@ -108,6 +119,120 @@ export default function Reframe360() {
 
   function updateActiveScene(updater) {
     setScenes((prev) => prev.map((s) => (s.id === activeSceneId ? updater(s) : s)));
+  }
+
+  // --- Local (pre-upload) subject marking -----------------------------
+  // Lets the user mark keyframes against the raw local files BEFORE the
+  // multi-GB upload even starts, instead of waiting hours for the upload
+  // to finish before they can see anything. Grabs one frame from each lens
+  // file locally (no upload), replicates the server's dual-fisheye combine
+  // (services/reframe360/reframe.js combineDualFisheyeLenses: transpose the
+  // front lens 90 deg, transpose+hflip+vflip the back lens -- net effect is
+  // front rotated 90 CW, back rotated 90 CCW -- then side-by-side), and
+  // posts just that one combined still to /api/reframe360/preview-still for
+  // the same v360 equirect reprojection the real preview uses. The
+  // resulting click-to-yaw/pitch keyframes are stored against the pending
+  // pair and seeded onto the scene once the real upload completes, so the
+  // user's keyframing work isn't wasted or blocked on the transfer.
+
+  function grabVideoFrameCanvas(file, t) {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.muted = true;
+      video.src = URL.createObjectURL(file);
+      const cleanup = () => URL.revokeObjectURL(video.src);
+      video.onloadedmetadata = () => {
+        video.currentTime = Math.min(Math.max(0, t), Math.max(0, video.duration - 0.05));
+      };
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          canvas.getContext('2d').drawImage(video, 0, 0);
+          resolve(canvas);
+        } catch (err) {
+          reject(err);
+        } finally {
+          cleanup();
+        }
+      };
+      video.onerror = () => { cleanup(); reject(new Error(`Could not decode ${file.name} locally in this browser.`)); };
+    });
+  }
+
+  // Rotates a canvas 90deg clockwise (matches ffmpeg's transpose=1, used on
+  // the front lens) or 90deg counter-clockwise (matches transpose=1 followed
+  // by hflip+vflip -- a net 90CW+180 = 90CCW -- used on the back lens).
+  function rotateCanvas90(srcCanvas, direction) {
+    const out = document.createElement('canvas');
+    out.width = srcCanvas.height;
+    out.height = srcCanvas.width;
+    const ctx = out.getContext('2d');
+    if (direction === 'cw') {
+      ctx.translate(out.width, 0);
+      ctx.rotate(Math.PI / 2);
+    } else {
+      ctx.translate(0, out.height);
+      ctx.rotate(-Math.PI / 2);
+    }
+    ctx.drawImage(srcCanvas, 0, 0);
+    return out;
+  }
+
+  function hstackCanvases(leftCanvas, rightCanvas) {
+    const out = document.createElement('canvas');
+    out.width = leftCanvas.width + rightCanvas.width;
+    out.height = Math.max(leftCanvas.height, rightCanvas.height);
+    const ctx = out.getContext('2d');
+    ctx.drawImage(leftCanvas, 0, 0);
+    ctx.drawImage(rightCanvas, leftCanvas.width, 0);
+    return out;
+  }
+
+  function canvasToBlob(canvas) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Failed to encode local frame.'))), 'image/jpeg', 0.92);
+    });
+  }
+
+  // Grabs one frame from each raw lens file at time t, combines them
+  // client-side into the same dual-fisheye layout the server expects, and
+  // posts the result to /preview-still for reprojection -- returns an
+  // object URL for the equirect preview image. No upload of the source
+  // files themselves, just one small composed JPEG.
+  async function fetchLocalDualFisheyePreview(frontFile, backFile, t) {
+    const [frontCanvas, backCanvas] = await Promise.all([
+      grabVideoFrameCanvas(frontFile, t),
+      grabVideoFrameCanvas(backFile, t),
+    ]);
+    const combined = hstackCanvases(rotateCanvas90(frontCanvas, 'ccw'), rotateCanvas90(backCanvas, 'cw'));
+    const blob = await canvasToBlob(combined);
+
+    const headers = await getAuthHeaders();
+    const formData = new FormData();
+    formData.append('still', blob, 'still.jpg');
+    formData.append('inputFormat', 'dfisheye');
+    const res = await fetch('/api/reframe360/preview-still', {
+      method: 'POST',
+      headers: { Authorization: headers.Authorization },
+      body: formData,
+    });
+    if (!res.ok) {
+      let msg = 'Local preview failed';
+      try { msg = (await res.json()).error || msg; } catch { /* non-JSON error body */ }
+      throw new Error(msg);
+    }
+    const outBlob = await res.blob();
+    return URL.createObjectURL(outBlob);
+  }
+
+  function localPreviewClickToKeyframe(e, imgEl, t) {
+    const rect = imgEl.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    return { t, yaw: x * 360 - 180, pitch: 90 - y * 180 };
   }
 
   const addSingleFile = useCallback((files) => {
@@ -195,12 +320,18 @@ export default function Reframe360() {
       setBackThumb(null);
       grabThumbnail(a).then(setFrontThumb);
       grabThumbnail(b).then(setBackThumb);
+      setDirectLocalPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return null; });
+      setDirectLocalPreviewError(null);
+      setDirectLocalKeyframes([]);
       return;
     }
 
     const pairs = [];
     for (let i = 0; i < sorted.length; i += 2) {
-      pairs.push({ id: `pair-${++pairLocalId}`, frontFile: sorted[i], backFile: sorted[i + 1], frontThumb: null, backThumb: null });
+      pairs.push({
+        id: `pair-${++pairLocalId}`, frontFile: sorted[i], backFile: sorted[i + 1], frontThumb: null, backThumb: null,
+        localT: 2, localPreviewUrl: null, localPreviewLoading: false, localPreviewError: null, localKeyframes: [],
+      });
     }
     setPendingPairs(pairs);
     setStage('batch-review');
@@ -221,6 +352,37 @@ export default function Reframe360() {
 
   function removePair(id) {
     setPendingPairs((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  function updatePair(id, patch) {
+    setPendingPairs((prev) => prev.map((p) => (p.id === id ? { ...p, ...(typeof patch === 'function' ? patch(p) : patch) } : p)));
+  }
+
+  async function grabLocalPreviewForPair(pair) {
+    updatePair(pair.id, { localPreviewLoading: true, localPreviewError: null });
+    try {
+      const url = await fetchLocalDualFisheyePreview(pair.frontFile, pair.backFile, pair.localT);
+      updatePair(pair.id, (p) => {
+        if (p.localPreviewUrl) URL.revokeObjectURL(p.localPreviewUrl);
+        return { localPreviewUrl: url };
+      });
+    } catch (err) {
+      updatePair(pair.id, { localPreviewError: err.message });
+    } finally {
+      updatePair(pair.id, { localPreviewLoading: false });
+    }
+  }
+
+  function addLocalKeyframeForPair(pair, e, imgEl) {
+    const kf = localPreviewClickToKeyframe(e, imgEl, pair.localT);
+    updatePair(pair.id, (p) => {
+      const withoutCurrent = p.localKeyframes.filter((k) => Math.abs(k.t - pair.localT) > 0.05);
+      return { localKeyframes: [...withoutCurrent, kf].sort((a, b) => a.t - b.t) };
+    });
+  }
+
+  function removeLocalKeyframeForPair(pairId, t) {
+    updatePair(pairId, (p) => ({ localKeyframes: p.localKeyframes.filter((k) => k.t !== t) }));
   }
 
   function movePair(id, dir) {
@@ -314,7 +476,11 @@ export default function Reframe360() {
           duration: data.duration,
           label: `Scene ${prev.length + 1}`,
           sourceLabel: `${p.frontFile.name} + ${p.backFile.name}`,
-          keyframes: [],
+          // Seeded from whatever the user marked locally before this scene's
+          // upload finished (see fetchLocalDualFisheyePreview above) --
+          // often already complete, so the scene can go straight to render
+          // without a second keyframing pass.
+          keyframes: p.localKeyframes || [],
         }]);
         setPendingPairs((prev) => prev.filter((x) => x.id !== p.id));
       }
@@ -337,6 +503,37 @@ export default function Reframe360() {
     setBackFile(frontFile);
     setFrontThumb(backThumb);
     setBackThumb(frontThumb);
+    // A swap changes which lens is "front" for the combine step, so any
+    // local keyframes marked against the old orientation would be wrong --
+    // clearer to drop them and let the user re-mark than silently keep
+    // stale yaw/pitch values.
+    setDirectLocalPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return null; });
+    setDirectLocalKeyframes([]);
+  }
+
+  async function grabDirectLocalPreview() {
+    if (!frontFile || !backFile) return;
+    setDirectLocalPreviewLoading(true);
+    setDirectLocalPreviewError(null);
+    try {
+      const url = await fetchLocalDualFisheyePreview(frontFile, backFile, directLocalT);
+      setDirectLocalPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return url; });
+    } catch (err) {
+      setDirectLocalPreviewError(err.message);
+    } finally {
+      setDirectLocalPreviewLoading(false);
+    }
+  }
+
+  function addDirectLocalKeyframe(e) {
+    const img = directLocalPreviewImgRef.current;
+    if (!img) return;
+    const kf = localPreviewClickToKeyframe(e, img, directLocalT);
+    setDirectLocalKeyframes((prev) => [...prev.filter((k) => Math.abs(k.t - directLocalT) > 0.05), kf].sort((a, b) => a.t - b.t));
+  }
+
+  function removeDirectLocalKeyframe(t) {
+    setDirectLocalKeyframes((prev) => prev.filter((k) => k.t !== t));
   }
 
   async function handleUpload() {
@@ -367,7 +564,7 @@ export default function Reframe360() {
         duration: data.duration,
         label: `Scene ${scenes.length + 1}`,
         sourceLabel: label,
-        keyframes: [],
+        keyframes: mode === 'dual' ? directLocalKeyframes : [],
       };
       setScenes((prev) => [...prev, newScene]);
       setSingleFile(null);
@@ -375,6 +572,8 @@ export default function Reframe360() {
       setBackFile(null);
       setFrontThumb(null);
       setBackThumb(null);
+      setDirectLocalPreviewUrl((old) => { if (old) URL.revokeObjectURL(old); return null; });
+      setDirectLocalKeyframes([]);
       setStage('scenes');
     } catch (err) {
       setError(err.message);
@@ -651,6 +850,50 @@ export default function Reframe360() {
               <p style={{ color: 'var(--onyx-text-faint)', fontSize: 12, marginTop: 8 }}>
                 If the rendered preview looks wrong (flickers or looks stitched backwards), come back here and hit Swap — no re-upload needed.
               </p>
+
+              {frontFile && backFile && (
+                <div style={{ marginTop: 16, padding: 14, background: 'var(--onyx-surface)', borderRadius: 12, border: '1px solid var(--onyx-hairline-strong)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--onyx-text-faint)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                    Mark subject now (optional) — before the upload starts
+                  </div>
+                  <p style={{ color: 'var(--onyx-text-dim)', fontSize: 12, marginBottom: 10 }}>
+                    Grab a frame straight from these local files and click the subject — no upload needed for this. Any keyframes you set here carry straight onto the scene the moment its upload finishes.
+                  </p>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                    <label style={{ fontSize: 12, color: 'var(--onyx-text-faint)' }}>
+                      Timestamp (s):{' '}
+                      <input type="number" min={0} step={0.5} value={directLocalT} onChange={(e) => setDirectLocalT(parseFloat(e.target.value) || 0)}
+                        style={{ width: 64, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)' }} />
+                    </label>
+                    <button onClick={grabDirectLocalPreview} disabled={directLocalPreviewLoading} style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid #4dd0ff', background: 'rgba(77,208,255,0.1)', color: '#7de0ff', cursor: 'pointer' }}>
+                      {directLocalPreviewLoading ? 'Grabbing…' : 'Grab frame & preview'}
+                    </button>
+                  </div>
+                  {directLocalPreviewError && <div style={{ color: '#f87171', fontSize: 12, marginBottom: 10 }}>{directLocalPreviewError}</div>}
+                  {directLocalPreviewUrl && (
+                    <div style={{ position: 'relative', width: '100%', aspectRatio: `${PREVIEW_W}/${PREVIEW_H}`, background: '#000', borderRadius: 10, overflow: 'hidden', marginBottom: 10, cursor: 'crosshair' }}>
+                      <img ref={directLocalPreviewImgRef} src={directLocalPreviewUrl} onClick={addDirectLocalKeyframe} alt="Local 360° preview — click the subject" style={{ width: '100%', height: '100%', display: 'block' }} />
+                      {directLocalKeyframes.filter((k) => Math.abs(k.t - directLocalT) <= 0.05).map((k) => (
+                        <div key={k.t} style={{
+                          position: 'absolute', left: `${((k.yaw + 180) / 360) * 100}%`, top: `${((90 - k.pitch) / 180) * 100}%`,
+                          width: 18, height: 18, marginLeft: -9, marginTop: -9, borderRadius: '50%', border: '3px solid #4dd0ff',
+                          boxShadow: '0 0 12px rgba(77,208,255,0.8)', pointerEvents: 'none',
+                        }} />
+                      ))}
+                    </div>
+                  )}
+                  {directLocalKeyframes.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {directLocalKeyframes.map((k) => (
+                        <div key={k.t} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', background: 'var(--onyx-surface-2)', borderRadius: 7, fontSize: 12 }}>
+                          <span style={{ flex: 1, color: 'var(--onyx-text)' }}>t = {k.t.toFixed(1)}s · yaw {k.yaw.toFixed(0)}° · pitch {k.pitch.toFixed(0)}°</span>
+                          <button onClick={() => removeDirectLocalKeyframe(k.t)} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: 'none', background: 'transparent', color: '#f87171', cursor: 'pointer' }}>Remove</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -693,22 +936,70 @@ export default function Reframe360() {
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
             {pendingPairs.map((p, i) => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'var(--onyx-surface)', borderRadius: 10, border: '1px solid var(--onyx-hairline-strong)' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx-text-faint)', width: 20 }}>{i + 1}</span>
-                {[{ file: p.frontFile, thumb: p.frontThumb, label: 'F' }, { file: p.backFile, thumb: p.backThumb, label: 'B' }].map(({ file, thumb, label }) => (
-                  <div key={label} style={{ width: 52, height: 52, borderRadius: 8, overflow: 'hidden', background: '#000', flexShrink: 0, position: 'relative' }}>
-                    {thumb ? <img src={thumb} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
-                    <span style={{ position: 'absolute', bottom: 2, left: 4, fontSize: 9, fontWeight: 700, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>{label}</span>
+              <div key={p.id} style={{ padding: '10px 12px', background: 'var(--onyx-surface)', borderRadius: 10, border: '1px solid var(--onyx-hairline-strong)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--onyx-text-faint)', width: 20 }}>{i + 1}</span>
+                  {[{ file: p.frontFile, thumb: p.frontThumb, label: 'F' }, { file: p.backFile, thumb: p.backThumb, label: 'B' }].map(({ file, thumb, label }) => (
+                    <div key={label} style={{ width: 52, height: 52, borderRadius: 8, overflow: 'hidden', background: '#000', flexShrink: 0, position: 'relative' }}>
+                      {thumb ? <img src={thumb} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                      <span style={{ position: 'absolute', bottom: 2, left: 4, fontSize: 9, fontWeight: 700, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>{label}</span>
+                    </div>
+                  ))}
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--onyx-text-faint)' }}>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.frontFile.name}</div>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.backFile.name}</div>
+                    {p.localKeyframes.length > 0 && (
+                      <div style={{ color: '#7de0ff', marginTop: 2 }}>{p.localKeyframes.length} keyframe{p.localKeyframes.length === 1 ? '' : 's'} marked locally — carries onto the scene automatically</div>
+                    )}
                   </div>
-                ))}
-                <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: 'var(--onyx-text-faint)' }}>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.frontFile.name}</div>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.backFile.name}</div>
+                  <button onClick={() => movePair(p.id, -1)} disabled={i === 0} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: i === 0 ? 'var(--onyx-text-faint)' : 'var(--onyx-text-dim)', cursor: i === 0 ? 'default' : 'pointer' }}>↑</button>
+                  <button onClick={() => movePair(p.id, 1)} disabled={i === pendingPairs.length - 1} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: i === pendingPairs.length - 1 ? 'var(--onyx-text-faint)' : 'var(--onyx-text-dim)', cursor: i === pendingPairs.length - 1 ? 'default' : 'pointer' }}>↓</button>
+                  <button onClick={() => swapPair(p.id)} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: '#7de0ff', cursor: 'pointer', whiteSpace: 'nowrap' }}>⇄ Swap</button>
+                  <button onClick={() => removePair(p.id)} disabled={batchUploadIndex !== null} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, border: 'none', background: 'transparent', color: '#f87171', cursor: 'pointer' }}>Remove</button>
                 </div>
-                <button onClick={() => movePair(p.id, -1)} disabled={i === 0} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: i === 0 ? 'var(--onyx-text-faint)' : 'var(--onyx-text-dim)', cursor: i === 0 ? 'default' : 'pointer' }}>↑</button>
-                <button onClick={() => movePair(p.id, 1)} disabled={i === pendingPairs.length - 1} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: i === pendingPairs.length - 1 ? 'var(--onyx-text-faint)' : 'var(--onyx-text-dim)', cursor: i === pendingPairs.length - 1 ? 'default' : 'pointer' }}>↓</button>
-                <button onClick={() => swapPair(p.id)} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: '#7de0ff', cursor: 'pointer', whiteSpace: 'nowrap' }}>⇄ Swap</button>
-                <button onClick={() => removePair(p.id)} disabled={batchUploadIndex !== null} style={{ fontSize: 11, padding: '5px 10px', borderRadius: 6, border: 'none', background: 'transparent', color: '#f87171', cursor: 'pointer' }}>Remove</button>
+
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--onyx-hairline-strong)' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, color: 'var(--onyx-text-faint)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Mark subject now (optional)</span>
+                    <label style={{ fontSize: 12, color: 'var(--onyx-text-faint)', marginLeft: 'auto' }}>
+                      t (s):{' '}
+                      <input type="number" min={0} step={0.5} value={p.localT} disabled={batchUploadIndex !== null}
+                        onChange={(e) => updatePair(p.id, { localT: parseFloat(e.target.value) || 0 })}
+                        style={{ width: 56, padding: '3px 6px', borderRadius: 6, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)' }} />
+                    </label>
+                    <button onClick={() => grabLocalPreviewForPair(p)} disabled={p.localPreviewLoading || batchUploadIndex !== null} style={{ fontSize: 12, padding: '5px 10px', borderRadius: 7, border: '1px solid #4dd0ff', background: 'rgba(77,208,255,0.1)', color: '#7de0ff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      {p.localPreviewLoading ? 'Grabbing…' : 'Grab & preview'}
+                    </button>
+                  </div>
+                  {p.localPreviewError && <div style={{ color: '#f87171', fontSize: 12, marginBottom: 8 }}>{p.localPreviewError}</div>}
+                  {p.localPreviewUrl && (
+                    <div style={{ position: 'relative', width: '100%', maxWidth: 480, aspectRatio: `${PREVIEW_W}/${PREVIEW_H}`, background: '#000', borderRadius: 10, overflow: 'hidden', marginBottom: 8, cursor: 'crosshair' }}>
+                      <img
+                        src={p.localPreviewUrl}
+                        onClick={(e) => addLocalKeyframeForPair(p, e, e.currentTarget)}
+                        alt="Local 360° preview — click the subject"
+                        style={{ width: '100%', height: '100%', display: 'block' }}
+                      />
+                      {p.localKeyframes.filter((k) => Math.abs(k.t - p.localT) <= 0.05).map((k) => (
+                        <div key={k.t} style={{
+                          position: 'absolute', left: `${((k.yaw + 180) / 360) * 100}%`, top: `${((90 - k.pitch) / 180) * 100}%`,
+                          width: 16, height: 16, marginLeft: -8, marginTop: -8, borderRadius: '50%', border: '3px solid #4dd0ff',
+                          boxShadow: '0 0 12px rgba(77,208,255,0.8)', pointerEvents: 'none',
+                        }} />
+                      ))}
+                    </div>
+                  )}
+                  {p.localKeyframes.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {p.localKeyframes.map((k) => (
+                        <div key={k.t} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', background: 'var(--onyx-surface-2)', borderRadius: 6, fontSize: 11 }}>
+                          <span style={{ flex: 1, color: 'var(--onyx-text)' }}>t={k.t.toFixed(1)}s · yaw {k.yaw.toFixed(0)}° · pitch {k.pitch.toFixed(0)}°</span>
+                          <button onClick={() => removeLocalKeyframeForPair(p.id, k.t)} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 5, border: 'none', background: 'transparent', color: '#f87171', cursor: 'pointer' }}>Remove</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
