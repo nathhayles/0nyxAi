@@ -28,6 +28,43 @@ const SNAP_PX       = 8;    // snap threshold in pixels
 
 const TRACK_ORDER = ["video", "broll", "fx", "voiceover", "music", "sfx"];
 
+// rAF-throttled drag-scrub helper -- caps onScrub calls to at most once per
+// animation frame regardless of how fast mousemove actually fires (some
+// trackpads and high-poll-rate mice fire well past 60/sec). Before this,
+// nothing throttled the ruler/track drag handlers at all -- in fact
+// dragging the ruler or a track background didn't call onScrub on every
+// move to begin with (see handleMouseDown/onTrackClick below, both fixed
+// alongside this to actually scrub continuously during a drag instead of
+// only jumping once on mouseup). Once real per-move scrubbing was wired
+// up, an unthrottled version visibly lagged and stuttered on real footage
+// -- every raw mousemove was dispatching a SEEK and forcing a video
+// currentTime seek, faster than the browser's decoder could keep up with,
+// which is exactly the "delays and glitches" this was built to fix.
+// Returns { onMove, stop } -- call onMove(time) on every raw mousemove,
+// call stop() on mouseup/drag-end to cancel any pending frame.
+function createRafScrubber(onScrub) {
+  let pending = null;
+  let rafId = null;
+  function flush() {
+    rafId = null;
+    if (pending !== null) {
+      const t = pending;
+      pending = null;
+      onScrub(t);
+    }
+  }
+  return {
+    onMove(time) {
+      pending = time;
+      if (rafId === null) rafId = requestAnimationFrame(flush);
+    },
+    stop() {
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+      pending = null;
+    },
+  };
+}
+
 const TRACK_META = {
   video:     { label: "Video",  color: "#7c3aed", dimColor: "rgba(124,58,237,0.18)", icon: "▶" },
   broll:     { label: "B-Roll", color: "#3b82f6", dimColor: "rgba(59,130,246,0.18)", icon: "◈" },
@@ -228,12 +265,16 @@ function RulerBase({ zoom, scrollLeft, totalSec, onScrub, livePlayheadRef, isPla
 
     // ── Handle drag: grab loopIn edge ──
     if (regionExists && Math.abs(clickSec - loopIn) * zoom <= 8) {
+      const scrubber = createRafScrubber(onScrub);
       function onMoveIn(ev) {
-        onLoopChange(Math.min(getCanvasSec(ev.clientX), loopOut - 0.1), loopOut);
+        const t = Math.min(getCanvasSec(ev.clientX), loopOut - 0.1);
+        onLoopChange(t, loopOut);
+        scrubber.onMove(t);
       }
       function onUpIn() {
         window.removeEventListener("mousemove", onMoveIn);
         window.removeEventListener("mouseup", onUpIn);
+        scrubber.stop();
       }
       window.addEventListener("mousemove", onMoveIn);
       window.addEventListener("mouseup", onUpIn);
@@ -242,12 +283,16 @@ function RulerBase({ zoom, scrollLeft, totalSec, onScrub, livePlayheadRef, isPla
 
     // ── Handle drag: grab loopOut edge ──
     if (regionExists && Math.abs(clickSec - loopOut) * zoom <= 8) {
+      const scrubber = createRafScrubber(onScrub);
       function onMoveOut(ev) {
-        onLoopChange(loopIn, Math.max(getCanvasSec(ev.clientX), loopIn + 0.1));
+        const t = Math.max(getCanvasSec(ev.clientX), loopIn + 0.1);
+        onLoopChange(loopIn, t);
+        scrubber.onMove(t);
       }
       function onUpOut() {
         window.removeEventListener("mousemove", onMoveOut);
         window.removeEventListener("mouseup", onUpOut);
+        scrubber.stop();
       }
       window.addEventListener("mousemove", onMoveOut);
       window.addEventListener("mouseup", onUpOut);
@@ -255,13 +300,20 @@ function RulerBase({ zoom, scrollLeft, totalSec, onScrub, livePlayheadRef, isPla
     }
 
     // ── Click/drag inside existing region → scrub only, never reset region ──
+    // Previously this comment described the intent but the code never
+    // actually implemented it -- onMoveInside only tracked whether a drag
+    // happened at all, and onScrub only fired on mouseup if it DIDN'T move
+    // (i.e. only a plain click worked; dragging inside the region did
+    // nothing until release). Now genuinely scrubs on every frame of the
+    // drag, matching what the comment always said should happen.
     if (regionExists && clickSec >= loopIn && clickSec <= loopOut) {
-      let moved = false;
-      function onMoveInside(ev) { if (Math.abs(ev.clientX - startX) > 4) moved = true; }
+      const scrubber = createRafScrubber(onScrub);
+      onScrub(clickSec);
+      function onMoveInside(ev) { scrubber.onMove(getCanvasSec(ev.clientX)); }
       function onUpInside() {
         window.removeEventListener("mousemove", onMoveInside);
         window.removeEventListener("mouseup", onUpInside);
-        if (!moved) onScrub(clickSec);
+        scrubber.stop();
       }
       window.addEventListener("mousemove", onMoveInside);
       window.addEventListener("mouseup", onUpInside);
@@ -269,12 +321,18 @@ function RulerBase({ zoom, scrollLeft, totalSec, onScrub, livePlayheadRef, isPla
     }
 
     // ── Outside region (or no region): rubber-band new region or click-to-scrub ──
+    // Scrubs live on every frame of the drag (previously only the
+    // loop-region rubber-band updated during the drag itself; the preview
+    // never moved until mouseup, and even then only if you HADN'T moved).
     const startSec = clickSec;
     let moved = false;
+    const scrubber = createRafScrubber(onScrub);
+    onScrub(startSec);
     function onMove(ev) {
       if (Math.abs(ev.clientX - startX) > 4) moved = true;
+      const endSec = getCanvasSec(ev.clientX);
+      scrubber.onMove(endSec);
       if (moved) {
-        const endSec = getCanvasSec(ev.clientX);
         const a = Math.min(startSec, endSec);
         const b = Math.max(startSec, endSec);
         onLoopChange(a, b > a ? b : a + 0.5);
@@ -283,7 +341,7 @@ function RulerBase({ zoom, scrollLeft, totalSec, onScrub, livePlayheadRef, isPla
     function onUp() {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
-      if (!moved) onScrub(startSec);
+      scrubber.stop();
     }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
@@ -339,9 +397,16 @@ function RulerBase({ zoom, scrollLeft, totalSec, onScrub, livePlayheadRef, isPla
 const Ruler = memo(RulerBase);
 
 // ─── Transition duration handle ───────────────────────────────────────────────
-function TransitionHandle({ x, color, transitionType, duration, onDurationChange }) {
+// Also doubles as a drop target for applying a transition from the
+// Transitions panel -- previously only the clip body itself accepted that
+// drop, but this divider marker between two clips is the more intuitive
+// target for "apply a transition here" (confirmed live 2026-08-19: a real
+// test session dropped on the divider first and got no response). Applies
+// to the outgoing clip's transitionToNext, same as dropping on the clip.
+function TransitionHandle({ x, color, transitionType, duration, onDurationChange, dispatch, updateScene, clipId, sceneId }) {
   const [dragging, setDragging] = useState(false);
   const [hover, setHover]       = useState(false);
+  const [dropHover, setDropHover] = useState(false);
   const startRef = useRef(null);
 
   function onMouseDown(e) {
@@ -369,23 +434,45 @@ function TransitionHandle({ x, color, transitionType, duration, onDurationChange
       onMouseDown={onMouseDown}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      title={`${transitionType} · ${duration}s — drag to adjust`}
+      onDragOver={e => {
+        if (!sceneId || !window.__onyxDraggedTransition) return;
+        e.preventDefault();
+        setDropHover(true);
+      }}
+      onDragLeave={() => setDropHover(false)}
+      onDrop={e => {
+        if (!sceneId || !window.__onyxDraggedTransition) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setDropHover(false);
+        const data = window.__onyxDraggedTransition;
+        window.__onyxDraggedTransition = null;
+        updateScene?.(sceneId, { transitionToNext: data.type });
+        dispatch?.({ type: "UPDATE_CLIP", clipId, changes: { transitionToNext: data.type } });
+      }}
+      title={`${transitionType} · ${duration}s — drag to adjust, or drop a transition here to apply`}
       style={{
         position: "absolute",
-        left: x - 5,
+        // Widened well past the 10px visual marker so a transition dropped
+        // anywhere near the cut point registers -- the marker itself stays
+        // visually thin, only the interactive hit area is bigger.
+        left: x - 14,
         top: 0, bottom: 0,
-        width: 10,
+        width: 28,
         cursor: "ew-resize",
         zIndex: 10,
         display: "flex", alignItems: "center", justifyContent: "center",
+        background: dropHover ? `${color}22` : "transparent",
+        outline: dropHover ? `2px solid ${color}` : "none",
+        outlineOffset: -1,
       }}
     >
       <div style={{
-        width: dragging ? 4 : hover ? 3 : 2,
+        width: dragging ? 4 : (hover || dropHover) ? 3 : 2,
         height: "70%",
         background: color,
         borderRadius: 2,
-        boxShadow: `0 0 ${hover || dragging ? 6 : 3}px ${color}`,
+        boxShadow: `0 0 ${hover || dragging || dropHover ? 6 : 3}px ${color}`,
         transition: "width 0.1s, box-shadow 0.1s",
       }}/>
       {(hover || dragging) && (
@@ -860,19 +947,33 @@ function TrackRowBase({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
     } catch (err) { console.error("[sequencer] drop parse error:", err); }
   }
 
-  // ── click on empty track area to seek ─────────────────────────────────────
-  function onTrackClick(e) {
-    if (e.target !== trackRef.current) return;
+  // ── click/drag on empty track area to seek ────────────────────────────────
+  // Was click-only (single jump on mouseup) -- now scrubs live on every
+  // frame of the drag too, same rAF-throttled pattern as the ruler (see
+  // createRafScrubber's comment for why raw mousemove needed throttling).
+  function trackSec(clientX) {
     const rect = trackRef.current.getBoundingClientRect();
     // rect.left already reflects the row's current scroll position — see handleDrop.
-    const x    = e.clientX - rect.left;
-    onScrub(Math.max(0, x / zoom));
+    return Math.max(0, (clientX - rect.left) / zoom);
+  }
+  function onTrackMouseDown(e) {
+    if (e.button !== 0 || e.target !== trackRef.current) return;
+    onScrub(trackSec(e.clientX));
+    const scrubber = createRafScrubber(onScrub);
+    function onMove(ev) { scrubber.onMove(trackSec(ev.clientX)); }
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      scrubber.stop();
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   }
 
   return (
     <div ref={trackRef}
       data-track-bg="1"
-      onClick={onTrackClick}
+      onMouseDown={onTrackMouseDown}
       onDragOver={onDragOver}
       onDrop={handleDrop}
       style={{
@@ -933,6 +1034,10 @@ function TrackRowBase({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
                   updateScene?.(clip.sceneId, { transitionDuration: d });
                   dispatch({ type: "UPDATE_CLIP", clipId: clip.id, changes: { transitionDuration: d } });
                 }}
+                dispatch={dispatch}
+                updateScene={updateScene}
+                clipId={clip.id}
+                sceneId={clip.sceneId}
               />
             )}
           </React.Fragment>
