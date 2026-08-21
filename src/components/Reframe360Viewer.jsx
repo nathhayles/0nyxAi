@@ -231,13 +231,23 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
     dragState.current.dragging = false;
     if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
   }
-  function handleWheel(e) {
-    e.preventDefault();
-    const t = threeRef.current;
-    if (!t) return;
-    t.camera.fov = Math.max(40, Math.min(140, t.camera.fov + e.deltaY * 0.05));
-    t.camera.updateProjectionMatrix();
-  }
+  // React registers root-level wheel listeners as passive by default, so
+  // e.preventDefault() inside a JSX onWheel handler is a silent no-op (and
+  // throws a console error) -- attach a native, non-passive listener instead
+  // so the page doesn't scroll while the user scroll-zooms the canvas.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onWheelNative = (e) => {
+      e.preventDefault();
+      const t = threeRef.current;
+      if (!t) return;
+      t.camera.fov = Math.max(40, Math.min(140, t.camera.fov + e.deltaY * 0.05));
+      t.camera.updateProjectionMatrix();
+    };
+    canvas.addEventListener('wheel', onWheelNative, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheelNative);
+  }, []);
   function handleKeyDown(e) {
     const t = threeRef.current;
     if (!t) return;
@@ -261,7 +271,6 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
-      onWheel={handleWheel}
       onKeyDown={handleKeyDown}
       style={{ display: 'block', borderRadius: 10, cursor: 'grab', outline: 'none' }}
     />
