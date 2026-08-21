@@ -208,9 +208,64 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
     },
   }), [isReady]);
 
+  const dragState = useRef({ dragging: false, lastX: 0, lastY: 0 });
+
+  function handlePointerDown(e) {
+    dragState.current = { dragging: true, lastX: e.clientX, lastY: e.clientY };
+    canvasRef.current.style.cursor = 'grabbing';
+  }
+  function handlePointerMove(e) {
+    if (!dragState.current.dragging) return;
+    const dx = e.clientX - dragState.current.lastX;
+    const dy = e.clientY - dragState.current.lastY;
+    dragState.current.lastX = e.clientX;
+    dragState.current.lastY = e.clientY;
+    const t = threeRef.current;
+    if (!t) return;
+    const sensitivity = 0.005;
+    t.camera.rotation.order = 'YXZ';
+    t.camera.rotation.y -= dx * sensitivity;
+    t.camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, t.camera.rotation.x - dy * sensitivity));
+  }
+  function handlePointerUp() {
+    dragState.current.dragging = false;
+    if (canvasRef.current) canvasRef.current.style.cursor = 'grab';
+  }
+  function handleWheel(e) {
+    e.preventDefault();
+    const t = threeRef.current;
+    if (!t) return;
+    t.camera.fov = Math.max(40, Math.min(140, t.camera.fov + e.deltaY * 0.05));
+    t.camera.updateProjectionMatrix();
+  }
+  function handleKeyDown(e) {
+    const t = threeRef.current;
+    if (!t) return;
+    const step = (2 * Math.PI) / 180; // ~2 degrees per key press
+    t.camera.rotation.order = 'YXZ';
+    if (e.key === 'ArrowLeft') t.camera.rotation.y += step;
+    else if (e.key === 'ArrowRight') t.camera.rotation.y -= step;
+    else if (e.key === 'ArrowUp') t.camera.rotation.x = Math.max(-Math.PI / 2, t.camera.rotation.x + step);
+    else if (e.key === 'ArrowDown') t.camera.rotation.x = Math.min(Math.PI / 2, t.camera.rotation.x - step);
+  }
+
   if (initError) return null; // Reframe360.jsx (Task 6) checks this via a separate error callback prop
 
-  return <canvas ref={canvasRef} width={width} height={height} style={{ display: 'block', borderRadius: 10, cursor: 'grab' }} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      width={width}
+      height={height}
+      tabIndex={0}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+      onWheel={handleWheel}
+      onKeyDown={handleKeyDown}
+      style={{ display: 'block', borderRadius: 10, cursor: 'grab', outline: 'none' }}
+    />
+  );
 });
 
 export default Reframe360Viewer;
