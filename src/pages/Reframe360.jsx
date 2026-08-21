@@ -54,6 +54,9 @@ export default function Reframe360() {
   // same directLocalKeyframes array.
   const [viewerMode, setViewerMode] = useState('still');
   const directViewerRef = useRef(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const recordingBufferRef = useRef([]);
+  const recordingIntervalRef = useRef(null);
 
   // Set when a batch of >2 raw files is dropped at once (a full raw dump for
   // several scenes) -- [{id, frontFile, backFile, frontThumb, backThumb}],
@@ -615,6 +618,41 @@ export default function Reframe360() {
     setDirectLocalKeyframes((prev) => [...prev.filter((k) => Math.abs(k.t - t) > 0.05), { t, yaw, pitch, fov }].sort((a, b) => a.t - b.t));
   }
 
+  // Live-record mode: samples the viewer's camera state on a fixed
+  // wall-clock interval (independent of render/frame rate) while the video
+  // plays, then on stop replaces any existing keyframes that fall inside the
+  // recorded [startT, endT] range with the newly recorded points.
+  function startDirectRecording() {
+    const viewer = directViewerRef.current;
+    if (!viewer || !viewer.isReady) return;
+    recordingBufferRef.current = [];
+    setIsRecording(true);
+    viewer.play();
+    recordingIntervalRef.current = setInterval(() => {
+      const { yaw, pitch, fov } = viewer.getCameraState();
+      const t = viewer.getCurrentTime();
+      recordingBufferRef.current.push({ t, yaw, pitch, fov });
+    }, 400);
+  }
+
+  function stopDirectRecording() {
+    clearInterval(recordingIntervalRef.current);
+    recordingIntervalRef.current = null;
+    setIsRecording(false);
+    const viewer = directViewerRef.current;
+    viewer?.pause();
+
+    const recorded = recordingBufferRef.current;
+    if (recorded.length === 0) return;
+    const startT = recorded[0].t;
+    const endT = recorded[recorded.length - 1].t;
+    setDirectLocalKeyframes((prev) => {
+      const outsideRange = prev.filter((k) => k.t < startT - 0.05 || k.t > endT + 0.05);
+      return [...outsideRange, ...recorded].sort((a, b) => a.t - b.t);
+    });
+    recordingBufferRef.current = [];
+  }
+
   // Same seeded-tracking flow as handleTrackSubject, for the single-pair
   // direct-upload path (frontFile/backFile at the top level) rather than a
   // pendingPairs batch entry -- this is the code path a plain 2-file drop
@@ -1047,6 +1085,10 @@ export default function Reframe360() {
                         <button onClick={addDirectViewerKeyframe}
                           style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid #a855f7', background: 'rgba(168,85,247,0.1)', color: '#c9a3ff', cursor: 'pointer' }}>
                           Add keyframe
+                        </button>
+                        <button onClick={isRecording ? stopDirectRecording : startDirectRecording}
+                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid #f87171', background: isRecording ? 'rgba(248,113,113,0.25)' : 'rgba(248,113,113,0.1)', color: '#fca5a5', cursor: 'pointer' }}>
+                          {isRecording ? 'Stop recording' : 'Record'}
                         </button>
                       </div>
                     </div>
