@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getAuthHeaders } from '../utils/auth.js';
 import { runSeededTracking } from '../lib/seededTracking.js';
+import Reframe360Viewer from '../components/Reframe360Viewer.jsx';
 
 const RATIOS = [
   { id: '9:16', label: '9:16', desc: 'TikTok / Reels / Shorts' },
@@ -47,6 +48,12 @@ export default function Reframe360() {
   const [directLocalPreviewError, setDirectLocalPreviewError] = useState(null);
   const [directLocalKeyframes, setDirectLocalKeyframes] = useState([]);
   const directLocalPreviewImgRef = useRef(null);
+
+  // Live WebGL orbit-viewer mode (as opposed to the still-frame click flow
+  // above) -- 'still' | 'live', toggled by the user, both writing into the
+  // same directLocalKeyframes array.
+  const [viewerMode, setViewerMode] = useState('still');
+  const directViewerRef = useRef(null);
 
   // Set when a batch of >2 raw files is dropped at once (a full raw dump for
   // several scenes) -- [{id, frontFile, backFile, frontThumb, backThumb}],
@@ -597,6 +604,17 @@ export default function Reframe360() {
     setDirectLocalKeyframes((prev) => prev.filter((k) => k.t !== t));
   }
 
+  // Viewer-backed equivalent of addDirectLocalKeyframe: reads the live
+  // WebGL orbit viewer's own camera orientation directly (no click-to-pixel
+  // math needed) and writes into the same directLocalKeyframes array.
+  function addDirectViewerKeyframe() {
+    const viewer = directViewerRef.current;
+    if (!viewer || !viewer.isReady) return;
+    const { yaw, pitch, fov } = viewer.getCameraState();
+    const t = viewer.getCurrentTime();
+    setDirectLocalKeyframes((prev) => [...prev.filter((k) => Math.abs(k.t - t) > 0.05), { t, yaw, pitch, fov }].sort((a, b) => a.t - b.t));
+  }
+
   // Same seeded-tracking flow as handleTrackSubject, for the single-pair
   // direct-upload path (frontFile/backFile at the top level) rather than a
   // pendingPairs batch entry -- this is the code path a plain 2-file drop
@@ -1003,6 +1021,34 @@ export default function Reframe360() {
                           <button onClick={() => removeDirectLocalKeyframe(k.t)} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: 'none', background: 'transparent', color: '#f87171', cursor: 'pointer' }}>Remove</button>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {frontFile && backFile && (
+                <div style={{ marginTop: 16, padding: 14, background: 'var(--onyx-surface)', borderRadius: 12, border: '1px solid var(--onyx-hairline-strong)' }}>
+                  <button onClick={() => setViewerMode(viewerMode === 'live' ? 'still' : 'live')}
+                    style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid #4dd0ff', background: 'rgba(77,208,255,0.1)', color: '#7de0ff', cursor: 'pointer' }}>
+                    {viewerMode === 'live' ? 'Switch to still-frame mode' : 'Switch to live orbit view'}
+                  </button>
+                  {viewerMode === 'live' && (
+                    <div style={{ marginTop: 10 }}>
+                      <Reframe360Viewer ref={directViewerRef} frontFile={frontFile} backFile={backFile} />
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <button onClick={() => directViewerRef.current?.play()}
+                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)', cursor: 'pointer' }}>
+                          Play
+                        </button>
+                        <button onClick={() => directViewerRef.current?.pause()}
+                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)', cursor: 'pointer' }}>
+                          Pause
+                        </button>
+                        <button onClick={addDirectViewerKeyframe}
+                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid #a855f7', background: 'rgba(168,85,247,0.1)', color: '#c9a3ff', cursor: 'pointer' }}>
+                          Add keyframe
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
