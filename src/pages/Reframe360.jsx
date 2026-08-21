@@ -426,19 +426,18 @@ export default function Reframe360() {
         xNorm: (seedKf.yaw + 180) / 360,
         yNorm: (90 - seedKf.pitch) / 180,
       };
-      const tracked = await runSeededTracking({
+      const { keyframes: tracked, trackedCount, expectedCount } = await runSeededTracking({
         seed,
         fetchPreviewAt: (t) => fetchLocalDualFisheyePreview(pair.frontFile, pair.backFile, t),
         sceneDuration: duration,
       });
-      const expectedCount = Math.floor(Math.max(0, duration - seed.t) / 1.2) + 1;
       updatePair(pair.id, (p) => {
         const trackedTimes = new Set(tracked.map((k) => k.t));
         const keptManual = p.localKeyframes.filter((k) => ![...trackedTimes].some((t) => Math.abs(t - k.t) <= 0.05));
         return { localKeyframes: [...keptManual, ...tracked].sort((a, b) => a.t - b.t) };
       });
-      if (tracked.length < expectedCount) {
-        setTrackingError(`Tracked ${tracked.length} of ${expectedCount} points before losing the subject -- add manual corrections for the rest of the scene.`);
+      if (trackedCount < expectedCount) {
+        setTrackingError(`Tracked ${trackedCount} of ${expectedCount} points before losing the subject -- added a slow zoom-out for the rest of the scene, but add manual corrections if you want tighter framing.`);
       }
     } catch (err) {
       setTrackingError(err.message);
@@ -618,19 +617,18 @@ export default function Reframe360() {
         xNorm: (seedKf.yaw + 180) / 360,
         yNorm: (90 - seedKf.pitch) / 180,
       };
-      const tracked = await runSeededTracking({
+      const { keyframes: tracked, trackedCount, expectedCount } = await runSeededTracking({
         seed,
         fetchPreviewAt: (t) => fetchLocalDualFisheyePreview(frontFile, backFile, t),
         sceneDuration: duration,
       });
-      const expectedCount = Math.floor(Math.max(0, duration - seed.t) / 1.2) + 1;
       setDirectLocalKeyframes((prev) => {
         const trackedTimes = tracked.map((k) => k.t);
         const keptManual = prev.filter((k) => !trackedTimes.some((t) => Math.abs(t - k.t) <= 0.05));
         return [...keptManual, ...tracked].sort((a, b) => a.t - b.t);
       });
-      if (tracked.length < expectedCount) {
-        setTrackingError(`Tracked ${tracked.length} of ${expectedCount} points before losing the subject -- add manual corrections for the rest of the scene.`);
+      if (trackedCount < expectedCount) {
+        setTrackingError(`Tracked ${trackedCount} of ${expectedCount} points before losing the subject -- added a slow zoom-out for the rest of the scene, but add manual corrections if you want tighter framing.`);
       }
     } catch (err) {
       setTrackingError(err.message);
