@@ -623,14 +623,25 @@ export default function Reframe360() {
   // plays, then on stop replaces any existing keyframes that fall inside the
   // recorded [startT, endT] range with the newly recorded points.
   function startDirectRecording() {
+    // Re-entrancy guard: if an interval is already armed, a second rapid
+    // click (before React re-renders isRecording) must not overwrite the
+    // ref and orphan the first interval, which would then double-sample
+    // into recordingBufferRef forever with no way to stop it.
+    if (recordingIntervalRef.current) return;
     const viewer = directViewerRef.current;
     if (!viewer || !viewer.isReady) return;
     recordingBufferRef.current = [];
     setIsRecording(true);
     viewer.play();
     recordingIntervalRef.current = setInterval(() => {
-      const { yaw, pitch, fov } = viewer.getCameraState();
-      const t = viewer.getCurrentTime();
+      // Defensive: bail out if the viewer ref went stale/unmounted (e.g.
+      // viewerMode flipped away from 'live') so this callback can't throw
+      // even if the mode-change effect below hasn't cleared the interval
+      // yet.
+      const v = directViewerRef.current;
+      if (!v || !v.isReady) return;
+      const { yaw, pitch, fov } = v.getCameraState();
+      const t = v.getCurrentTime();
       recordingBufferRef.current.push({ t, yaw, pitch, fov });
     }, 400);
   }
@@ -644,14 +655,35 @@ export default function Reframe360() {
 
     const recorded = recordingBufferRef.current;
     if (recorded.length === 0) return;
-    const startT = recorded[0].t;
-    const endT = recorded[recorded.length - 1].t;
+    // min/max of the actual recorded timestamps, not first/last by array
+    // position -- Reframe360Viewer autoplays with loop=true, so a session
+    // that runs longer than the video's duration can wrap back toward 0
+    // mid-recording, making the last sample's t SMALLER than the first's.
+    // Using positional first/last in that case makes startT > endT, which
+    // breaks the "outside range" filter below (nothing is ever outside an
+    // inverted range) and silently degrades replace-on-overlap into pure
+    // append.
+    const startT = Math.min(...recorded.map((k) => k.t));
+    const endT = Math.max(...recorded.map((k) => k.t));
     setDirectLocalKeyframes((prev) => {
       const outsideRange = prev.filter((k) => k.t < startT - 0.05 || k.t > endT + 0.05);
       return [...outsideRange, ...recorded].sort((a, b) => a.t - b.t);
     });
     recordingBufferRef.current = [];
   }
+
+  // If the user switches viewerMode away from 'live' while a recording is
+  // in progress, Reframe360Viewer unmounts (it's conditionally rendered),
+  // but nothing else would ever clear the setInterval armed in
+  // startDirectRecording -- it would keep firing every 400ms against a
+  // stale/unmounted viewer ref. Stop cleanly the same way stopDirectRecording
+  // does whenever that happens.
+  useEffect(() => {
+    if (viewerMode !== 'live' && recordingIntervalRef.current) {
+      stopDirectRecording();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewerMode]);
 
   // Same seeded-tracking flow as handleTrackSubject, for the single-pair
   // direct-upload path (frontFile/backFile at the top level) rather than a
