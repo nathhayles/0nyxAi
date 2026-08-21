@@ -87,10 +87,25 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
       frontVideoRef.current = frontVideo;
       backVideoRef.current = backVideo;
 
-      await Promise.all([
-        new Promise((resolve) => { frontVideo.onloadeddata = resolve; }),
-        new Promise((resolve) => { backVideo.onloadeddata = resolve; }),
-      ]);
+      try {
+        await Promise.all([
+          new Promise((resolve, reject) => {
+            frontVideo.onloadeddata = resolve;
+            frontVideo.onerror = () => reject(new Error(
+              `Failed to decode ${frontFile.name}: ` + (frontVideo.error?.message || 'unknown error')
+            ));
+          }),
+          new Promise((resolve, reject) => {
+            backVideo.onloadeddata = resolve;
+            backVideo.onerror = () => reject(new Error(
+              `Failed to decode ${backFile.name}: ` + (backVideo.error?.message || 'unknown error')
+            ));
+          }),
+        ]);
+      } catch (err) {
+        if (!cancelled) setInitError(err.message);
+        return;
+      }
       if (cancelled) return;
 
       let renderer;
