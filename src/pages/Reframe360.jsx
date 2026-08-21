@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { getAuthHeaders } from '../utils/auth.js';
+import { runSeededTracking } from '../lib/seededTracking.js';
 
 const RATIOS = [
   { id: '9:16', label: '9:16', desc: 'TikTok / Reels / Shorts' },
@@ -52,6 +53,8 @@ export default function Reframe360() {
   // reviewed and correctable (per-pair swap/remove) before any of them
   // actually upload.
   const [pendingPairs, setPendingPairs] = useState([]);
+  const [trackingPairId, setTrackingPairId] = useState(null);
+  const [trackingError, setTrackingError] = useState(null);
   const [skippedLrvCount, setSkippedLrvCount] = useState(0);
   const [batchUploadIndex, setBatchUploadIndex] = useState(null); // null = not uploading; else 0-based progress
   // { pairIndex, phase: 'uploading'|'combining', loadedBytes, pairTotalBytes,
@@ -385,6 +388,65 @@ export default function Reframe360() {
     updatePair(pairId, (p) => ({ localKeyframes: p.localKeyframes.filter((k) => k.t !== t) }));
   }
 
+  function getLocalVideoDuration(file) {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.muted = true;
+      video.src = URL.createObjectURL(file);
+      video.onloadedmetadata = () => {
+        const d = video.duration;
+        URL.revokeObjectURL(video.src);
+        resolve(d);
+      };
+      video.onerror = () => { URL.revokeObjectURL(video.src); reject(new Error(`Could not read duration for ${file.name}.`)); };
+    });
+  }
+
+  // Click once, track the rest: seeds from whichever keyframe is currently
+  // marked at pair.localT (the still the user just clicked), then follows
+  // that point forward through the scene via optical flow, auto-filling
+  // the rest of the keyframes. Still fully editable afterward through the
+  // exact same manual add/remove keyframe UI -- a tracking failure
+  // (occlusion, motion blur, subject leaves frame) just means fewer
+  // auto-filled points, not a broken state; the user adds a manual
+  // correction click same as always.
+  async function handleTrackSubject(pair) {
+    setTrackingError(null);
+    const seedKf = pair.localKeyframes.find((k) => Math.abs(k.t - pair.localT) <= 0.05);
+    if (!seedKf) {
+      setTrackingError('Mark the subject on the current still first (click the preview), then track.');
+      return;
+    }
+    setTrackingPairId(pair.id);
+    try {
+      const duration = await getLocalVideoDuration(pair.frontFile);
+      const seed = {
+        t: seedKf.t,
+        xNorm: (seedKf.yaw + 180) / 360,
+        yNorm: (90 - seedKf.pitch) / 180,
+      };
+      const tracked = await runSeededTracking({
+        seed,
+        fetchPreviewAt: (t) => fetchLocalDualFisheyePreview(pair.frontFile, pair.backFile, t),
+        sceneDuration: duration,
+      });
+      const expectedCount = Math.floor(Math.max(0, duration - seed.t) / 1.2) + 1;
+      updatePair(pair.id, (p) => {
+        const trackedTimes = new Set(tracked.map((k) => k.t));
+        const keptManual = p.localKeyframes.filter((k) => ![...trackedTimes].some((t) => Math.abs(t - k.t) <= 0.05));
+        return { localKeyframes: [...keptManual, ...tracked].sort((a, b) => a.t - b.t) };
+      });
+      if (tracked.length < expectedCount) {
+        setTrackingError(`Tracked ${tracked.length} of ${expectedCount} points before losing the subject -- add manual corrections for the rest of the scene.`);
+      }
+    } catch (err) {
+      setTrackingError(err.message);
+    } finally {
+      setTrackingPairId(null);
+    }
+  }
+
   function movePair(id, dir) {
     setPendingPairs((prev) => {
       const idx = prev.findIndex((p) => p.id === id);
@@ -534,6 +596,47 @@ export default function Reframe360() {
 
   function removeDirectLocalKeyframe(t) {
     setDirectLocalKeyframes((prev) => prev.filter((k) => k.t !== t));
+  }
+
+  // Same seeded-tracking flow as handleTrackSubject, for the single-pair
+  // direct-upload path (frontFile/backFile at the top level) rather than a
+  // pendingPairs batch entry -- this is the code path a plain 2-file drop
+  // actually hits, so the feature needs to live here too, not just in
+  // batch-review.
+  async function handleTrackSubjectDirect() {
+    setTrackingError(null);
+    const seedKf = directLocalKeyframes.find((k) => Math.abs(k.t - directLocalT) <= 0.05);
+    if (!seedKf) {
+      setTrackingError('Mark the subject on the current still first (click the preview), then track.');
+      return;
+    }
+    setTrackingPairId('direct');
+    try {
+      const duration = await getLocalVideoDuration(frontFile);
+      const seed = {
+        t: seedKf.t,
+        xNorm: (seedKf.yaw + 180) / 360,
+        yNorm: (90 - seedKf.pitch) / 180,
+      };
+      const tracked = await runSeededTracking({
+        seed,
+        fetchPreviewAt: (t) => fetchLocalDualFisheyePreview(frontFile, backFile, t),
+        sceneDuration: duration,
+      });
+      const expectedCount = Math.floor(Math.max(0, duration - seed.t) / 1.2) + 1;
+      setDirectLocalKeyframes((prev) => {
+        const trackedTimes = tracked.map((k) => k.t);
+        const keptManual = prev.filter((k) => !trackedTimes.some((t) => Math.abs(t - k.t) <= 0.05));
+        return [...keptManual, ...tracked].sort((a, b) => a.t - b.t);
+      });
+      if (tracked.length < expectedCount) {
+        setTrackingError(`Tracked ${tracked.length} of ${expectedCount} points before losing the subject -- add manual corrections for the rest of the scene.`);
+      }
+    } catch (err) {
+      setTrackingError(err.message);
+    } finally {
+      setTrackingPairId(null);
+    }
   }
 
   async function handleUpload() {
@@ -882,6 +985,18 @@ export default function Reframe360() {
                       ))}
                     </div>
                   )}
+                  {directLocalPreviewUrl && (
+                    <div style={{ marginBottom: 10 }}>
+                      <button onClick={handleTrackSubjectDirect} disabled={trackingPairId === 'direct'}
+                        title="Follows the point you just clicked forward through the rest of the scene automatically (optical flow) -- review/correct the results below same as any manual keyframe."
+                        style={{ fontSize: 12, padding: '5px 10px', borderRadius: 7, border: '1px solid #a855f7', background: 'rgba(168,85,247,0.1)', color: '#c9a3ff', cursor: 'pointer' }}>
+                        {trackingPairId === 'direct' ? 'Tracking…' : '✨ Track subject through scene'}
+                      </button>
+                      {trackingError && trackingPairId === null && (
+                        <div style={{ color: '#f87171', fontSize: 11, marginTop: 6 }}>{trackingError}</div>
+                      )}
+                    </div>
+                  )}
                   {directLocalKeyframes.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {directLocalKeyframes.map((k) => (
@@ -987,6 +1102,18 @@ export default function Reframe360() {
                           boxShadow: '0 0 12px rgba(77,208,255,0.8)', pointerEvents: 'none',
                         }} />
                       ))}
+                    </div>
+                  )}
+                  {p.localPreviewUrl && (
+                    <div style={{ marginBottom: 8 }}>
+                      <button onClick={() => handleTrackSubject(p)} disabled={trackingPairId === p.id || batchUploadIndex !== null}
+                        title="Follows the point you just clicked forward through the rest of the scene automatically (optical flow) -- review/correct the results below same as any manual keyframe."
+                        style={{ fontSize: 12, padding: '5px 10px', borderRadius: 7, border: '1px solid #a855f7', background: 'rgba(168,85,247,0.1)', color: '#c9a3ff', cursor: 'pointer' }}>
+                        {trackingPairId === p.id ? 'Tracking…' : '✨ Track subject through scene'}
+                      </button>
+                      {trackingError && trackingPairId === null && (
+                        <div style={{ color: '#f87171', fontSize: 11, marginTop: 6 }}>{trackingError}</div>
+                      )}
                     </div>
                   )}
                   {p.localKeyframes.length > 0 && (
