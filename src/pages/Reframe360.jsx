@@ -374,12 +374,20 @@ export default function Reframe360() {
     setPendingPairs((prev) => prev.map((p) => (p.id === id ? { ...p, frontFile: p.backFile, backFile: p.frontFile, frontThumb: p.backThumb, backThumb: p.frontThumb } : p)));
   }
 
-  function removePair(id) {
+  // Shared by every code path that drops a pair from pendingPairs (explicit
+  // Remove, a finished batch upload, and the "start over" reset) so none of
+  // them can forget to tear down this pair's live-recording state -- an
+  // uncleared interval keeps firing forever against a now-gone viewer ref.
+  function cleanupPairRecordingState(id) {
     const interval = pairRecordingIntervalsRef.current.get(id);
     if (interval) clearInterval(interval);
     pairRecordingIntervalsRef.current.delete(id);
     pairRecordingBuffersRef.current.delete(id);
     viewerRefsByPairId.current.delete(id);
+  }
+
+  function removePair(id) {
+    cleanupPairRecordingState(id);
     setPendingPairs((prev) => prev.filter((p) => p.id !== id));
   }
 
@@ -646,6 +654,12 @@ export default function Reframe360() {
           // without a second keyframing pass.
           keyframes: p.localKeyframes || [],
         }]);
+        // A pair could in theory still be mid-recording when its upload
+        // finishes (nothing gates upload start on isRecording) -- always
+        // clean up its recording state here, not just when isRecording is
+        // true, since clearing an unset interval / deleting an absent Map
+        // key are harmless no-ops.
+        cleanupPairRecordingState(p.id);
         setPendingPairs((prev) => prev.filter((x) => x.id !== p.id));
       }
       setStage('scenes');
@@ -1417,7 +1431,7 @@ export default function Reframe360() {
             );
           })()}
 
-          <button onClick={() => { setPendingPairs([]); setStage('upload'); }} disabled={batchUploadIndex !== null} style={{ fontSize: 13, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text-dim)', cursor: 'pointer', marginBottom: 12, marginRight: 8 }}>
+          <button onClick={() => { pendingPairs.forEach((p) => cleanupPairRecordingState(p.id)); setPendingPairs([]); setStage('upload'); }} disabled={batchUploadIndex !== null} style={{ fontSize: 13, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text-dim)', cursor: 'pointer', marginBottom: 12, marginRight: 8 }}>
             Cancel
           </button>
           <button onClick={handleBatchUpload} disabled={batchUploadIndex !== null || pendingPairs.length === 0} className="btn-teal" style={{ width: '100%' }}>
