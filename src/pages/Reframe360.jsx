@@ -57,6 +57,11 @@ export default function Reframe360() {
   const [isRecording, setIsRecording] = useState(false);
   const recordingBufferRef = useRef([]);
   const recordingIntervalRef = useRef(null);
+  // Set by Reframe360Viewer's onError callback if three.js/WebGL init fails
+  // (e.g. no WebGL support in this browser). The still-frame UI above is
+  // never removed when this happens -- it's the fallback path, already
+  // fully usable, so no separate degraded-mode UI needs building here.
+  const [viewerError, setViewerError] = useState(null);
 
   // Set when a batch of >2 raw files is dropped at once (a full raw dump for
   // several scenes) -- [{id, frontFile, backFile, frontThumb, backThumb}],
@@ -344,6 +349,12 @@ export default function Reframe360() {
       pairs.push({
         id: `pair-${++pairLocalId}`, frontFile: sorted[i], backFile: sorted[i + 1], frontThumb: null, backThumb: null,
         localT: 2, localPreviewUrl: null, localPreviewLoading: false, localPreviewError: null, localKeyframes: [],
+        // Live WebGL orbit-viewer state, mirroring the top-level
+        // viewerMode/isRecording/viewerError used by the direct (single-pair)
+        // flow -- kept on the pair object itself (via updatePair) since
+        // batch-review can have several pairs, each needing its own
+        // independent live-viewer state.
+        viewerMode: 'still', viewerError: null, isRecording: false,
       });
     }
     setPendingPairs(pairs);
@@ -364,6 +375,11 @@ export default function Reframe360() {
   }
 
   function removePair(id) {
+    const interval = pairRecordingIntervalsRef.current.get(id);
+    if (interval) clearInterval(interval);
+    pairRecordingIntervalsRef.current.delete(id);
+    pairRecordingBuffersRef.current.delete(id);
+    viewerRefsByPairId.current.delete(id);
     setPendingPairs((prev) => prev.filter((p) => p.id !== id));
   }
 
@@ -455,6 +471,83 @@ export default function Reframe360() {
       setTrackingPairId(null);
     }
   }
+
+  // Live WebGL orbit-viewer refs for the batch-review flow -- one viewer
+  // instance per pending pair (unlike the direct flow's single
+  // directViewerRef), keyed by pair.id. Populated/cleared via the viewer's
+  // ref callback in the batch-review JSX below.
+  const viewerRefsByPairId = useRef(new Map());
+  const pairRecordingBuffersRef = useRef(new Map());
+  const pairRecordingIntervalsRef = useRef(new Map());
+
+  // Viewer-backed equivalent of addLocalKeyframeForPair, mirroring
+  // addDirectViewerKeyframe: reads the live WebGL orbit viewer's own camera
+  // orientation directly and writes into pair.localKeyframes via updatePair.
+  function addPairViewerKeyframe(pair) {
+    const viewer = viewerRefsByPairId.current.get(pair.id);
+    if (!viewer || !viewer.isReady) return;
+    const { yaw, pitch, fov } = viewer.getCameraState();
+    const t = viewer.getCurrentTime();
+    updatePair(pair.id, (p) => ({
+      localKeyframes: [...p.localKeyframes.filter((k) => Math.abs(k.t - t) > 0.05), { t, yaw, pitch, fov }].sort((a, b) => a.t - b.t),
+    }));
+  }
+
+  // Mirrors startDirectRecording, per-pair: samples this pair's viewer
+  // camera state on a fixed wall-clock interval into a buffer keyed by
+  // pair.id, independent of any other pair's recording.
+  function startPairRecording(pair) {
+    if (pairRecordingIntervalsRef.current.has(pair.id)) return;
+    const viewer = viewerRefsByPairId.current.get(pair.id);
+    if (!viewer || !viewer.isReady) return;
+    pairRecordingBuffersRef.current.set(pair.id, []);
+    updatePair(pair.id, { isRecording: true });
+    viewer.play();
+    const interval = setInterval(() => {
+      const v = viewerRefsByPairId.current.get(pair.id);
+      if (!v || !v.isReady) return;
+      const { yaw, pitch, fov } = v.getCameraState();
+      const t = v.getCurrentTime();
+      const buf = pairRecordingBuffersRef.current.get(pair.id) || [];
+      buf.push({ t, yaw, pitch, fov });
+      pairRecordingBuffersRef.current.set(pair.id, buf);
+    }, 400);
+    pairRecordingIntervalsRef.current.set(pair.id, interval);
+  }
+
+  // Mirrors stopDirectRecording, per-pair.
+  function stopPairRecording(pair) {
+    const interval = pairRecordingIntervalsRef.current.get(pair.id);
+    if (interval) clearInterval(interval);
+    pairRecordingIntervalsRef.current.delete(pair.id);
+    updatePair(pair.id, { isRecording: false });
+    const viewer = viewerRefsByPairId.current.get(pair.id);
+    viewer?.pause();
+
+    const recorded = pairRecordingBuffersRef.current.get(pair.id) || [];
+    pairRecordingBuffersRef.current.delete(pair.id);
+    if (recorded.length === 0) return;
+    const startT = Math.min(...recorded.map((k) => k.t));
+    const endT = Math.max(...recorded.map((k) => k.t));
+    updatePair(pair.id, (p) => {
+      const outsideRange = p.localKeyframes.filter((k) => k.t < startT - 0.05 || k.t > endT + 0.05);
+      return { localKeyframes: [...outsideRange, ...recorded].sort((a, b) => a.t - b.t) };
+    });
+  }
+
+  // Same unmount-safety guard as the direct flow's useEffect above, applied
+  // per-pair: if a pair's viewerMode flips away from 'live' (or its viewer
+  // errors out) while it's recording, its Reframe360Viewer instance
+  // unmounts, so its interval must be stopped the same clean way rather
+  // than left firing against a stale ref.
+  useEffect(() => {
+    for (const p of pendingPairs) {
+      if ((p.viewerMode !== 'live' || p.viewerError) && pairRecordingIntervalsRef.current.has(p.id)) {
+        stopPairRecording(p);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPairs]);
 
   function movePair(id, dir) {
     setPendingPairs((prev) => {
@@ -679,11 +772,11 @@ export default function Reframe360() {
   // stale/unmounted viewer ref. Stop cleanly the same way stopDirectRecording
   // does whenever that happens.
   useEffect(() => {
-    if (viewerMode !== 'live' && recordingIntervalRef.current) {
+    if ((viewerMode !== 'live' || viewerError) && recordingIntervalRef.current) {
       stopDirectRecording();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewerMode]);
+  }, [viewerMode, viewerError]);
 
   // Same seeded-tracking flow as handleTrackSubject, for the single-pair
   // direct-upload path (frontFile/backFile at the top level) rather than a
@@ -1098,13 +1191,13 @@ export default function Reframe360() {
 
               {frontFile && backFile && (
                 <div style={{ marginTop: 16, padding: 14, background: 'var(--onyx-surface)', borderRadius: 12, border: '1px solid var(--onyx-hairline-strong)' }}>
-                  <button onClick={() => setViewerMode(viewerMode === 'live' ? 'still' : 'live')}
+                  <button onClick={() => { setViewerError(null); setViewerMode(viewerMode === 'live' ? 'still' : 'live'); }}
                     style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid #4dd0ff', background: 'rgba(77,208,255,0.1)', color: '#7de0ff', cursor: 'pointer' }}>
                     {viewerMode === 'live' ? 'Switch to still-frame mode' : 'Switch to live orbit view'}
                   </button>
-                  {viewerMode === 'live' && (
+                  {viewerMode === 'live' && !viewerError && (
                     <div style={{ marginTop: 10 }}>
-                      <Reframe360Viewer ref={directViewerRef} frontFile={frontFile} backFile={backFile} />
+                      <Reframe360Viewer ref={directViewerRef} frontFile={frontFile} backFile={backFile} onError={setViewerError} />
                       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                         <button onClick={() => directViewerRef.current?.play()}
                           style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)', cursor: 'pointer' }}>
@@ -1124,6 +1217,11 @@ export default function Reframe360() {
                         </button>
                       </div>
                     </div>
+                  )}
+                  {viewerMode === 'live' && viewerError && (
+                    <p style={{ color: '#f87171', fontSize: 12, marginTop: 8 }}>
+                      Live viewer unavailable ({viewerError}) — using still-frame mode instead.
+                    </p>
                   )}
                 </div>
               )}
@@ -1243,6 +1341,49 @@ export default function Reframe360() {
                         </div>
                       ))}
                     </div>
+                  )}
+                </div>
+
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--onyx-hairline-strong)' }}>
+                  <button
+                    onClick={() => updatePair(p.id, { viewerError: null, viewerMode: p.viewerMode === 'live' ? 'still' : 'live' })}
+                    disabled={batchUploadIndex !== null}
+                    style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid #4dd0ff', background: 'rgba(77,208,255,0.1)', color: '#7de0ff', cursor: 'pointer' }}
+                  >
+                    {p.viewerMode === 'live' ? 'Switch to still-frame mode' : 'Switch to live orbit view'}
+                  </button>
+                  {p.viewerMode === 'live' && !p.viewerError && (
+                    <div style={{ marginTop: 10 }}>
+                      <Reframe360Viewer
+                        ref={(el) => { if (el) viewerRefsByPairId.current.set(p.id, el); else viewerRefsByPairId.current.delete(p.id); }}
+                        frontFile={p.frontFile}
+                        backFile={p.backFile}
+                        onError={(msg) => updatePair(p.id, { viewerError: msg })}
+                      />
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <button onClick={() => viewerRefsByPairId.current.get(p.id)?.play()}
+                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)', cursor: 'pointer' }}>
+                          Play
+                        </button>
+                        <button onClick={() => viewerRefsByPairId.current.get(p.id)?.pause()}
+                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)', cursor: 'pointer' }}>
+                          Pause
+                        </button>
+                        <button onClick={() => addPairViewerKeyframe(p)}
+                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid #a855f7', background: 'rgba(168,85,247,0.1)', color: '#c9a3ff', cursor: 'pointer' }}>
+                          Add keyframe
+                        </button>
+                        <button onClick={() => (p.isRecording ? stopPairRecording(p) : startPairRecording(p))}
+                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid #f87171', background: p.isRecording ? 'rgba(248,113,113,0.25)' : 'rgba(248,113,113,0.1)', color: '#fca5a5', cursor: 'pointer' }}>
+                          {p.isRecording ? 'Stop recording' : 'Record'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {p.viewerMode === 'live' && p.viewerError && (
+                    <p style={{ color: '#f87171', fontSize: 12, marginTop: 8 }}>
+                      Live viewer unavailable ({p.viewerError}) — using still-frame mode instead.
+                    </p>
                   )}
                 </div>
               </div>

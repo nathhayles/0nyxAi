@@ -53,7 +53,7 @@ const VERTEX_SHADER = `
   }
 `;
 
-const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backFile, width = 480, height = 480 }, ref) {
+const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backFile, width = 480, height = 480, onError }, ref) {
   const canvasRef = useRef(null);
   const frontVideoRef = useRef(null);
   const backVideoRef = useRef(null);
@@ -70,7 +70,11 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
       try {
         THREE = await import('three');
       } catch (err) {
-        if (!cancelled) setInitError('WebGL viewer failed to load: ' + err.message);
+        if (!cancelled) {
+          const msg = 'WebGL viewer failed to load: ' + err.message;
+          setInitError(msg);
+          onError?.(msg);
+        }
         return;
       }
       if (cancelled) return;
@@ -103,7 +107,10 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
           }),
         ]);
       } catch (err) {
-        if (!cancelled) setInitError(err.message);
+        if (!cancelled) {
+          setInitError(err.message);
+          onError?.(err.message);
+        }
         return;
       }
       if (cancelled) return;
@@ -112,7 +119,9 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
       try {
         renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true });
       } catch (err) {
-        setInitError('WebGL is not available in this browser: ' + err.message);
+        const msg = 'WebGL is not available in this browser: ' + err.message;
+        setInitError(msg);
+        onError?.(msg);
         return;
       }
       renderer.setSize(width, height);
