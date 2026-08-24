@@ -371,6 +371,15 @@ export default function Reframe360() {
   }
 
   function swapPair(id) {
+    // Swapping front/back changes frontFile/backFile props on this pair's
+    // Reframe360Viewer, which re-runs its init effect and unmounts/remounts
+    // the viewer -- same hazard as handleUpload's frontFile/backFile reset.
+    // If this pair is mid-recording, stop it first so the interval doesn't
+    // leak and startPairRecording's re-entrancy guard doesn't get stuck.
+    const pair = pendingPairs.find((p) => p.id === id);
+    if (pair && pairRecordingIntervalsRef.current.has(id)) {
+      stopPairRecording(pair);
+    }
     setPendingPairs((prev) => prev.map((p) => (p.id === id ? { ...p, frontFile: p.backFile, backFile: p.frontFile, frontThumb: p.backThumb, backThumb: p.frontThumb } : p)));
   }
 
@@ -677,6 +686,17 @@ export default function Reframe360() {
   }
 
   function swapLenses() {
+    // Swapping front/back changes the frontFile/backFile props passed to
+    // Reframe360Viewer, which re-runs its init effect and unmounts/remounts
+    // the viewer -- same hazard as handleUpload's frontFile/backFile reset.
+    // Stop an in-progress recording first so its interval doesn't leak and
+    // startDirectRecording's re-entrancy guard doesn't get permanently
+    // stuck. (directLocalKeyframes gets cleared right below regardless, so
+    // there's nothing worth committing from the buffer here.)
+    if (recordingIntervalRef.current) {
+      stopDirectRecording();
+      setViewerMode('still');
+    }
     setFrontFile(backFile);
     setBackFile(frontFile);
     setFrontThumb(backThumb);
@@ -753,6 +773,11 @@ export default function Reframe360() {
     }, 400);
   }
 
+  // Returns the resulting keyframes array (after merging in whatever was
+  // recorded) so callers that need the up-to-date list synchronously --
+  // e.g. handleUpload, which reads directLocalKeyframes into the uploaded
+  // scene in the same tick -- don't have to wait on the setState below to
+  // flush, which wouldn't happen in time.
   function stopDirectRecording() {
     clearInterval(recordingIntervalRef.current);
     recordingIntervalRef.current = null;
@@ -761,7 +786,8 @@ export default function Reframe360() {
     viewer?.pause();
 
     const recorded = recordingBufferRef.current;
-    if (recorded.length === 0) return;
+    recordingBufferRef.current = [];
+    if (recorded.length === 0) return directLocalKeyframes;
     // min/max of the actual recorded timestamps, not first/last by array
     // position -- Reframe360Viewer autoplays with loop=true, so a session
     // that runs longer than the video's duration can wrap back toward 0
@@ -772,11 +798,10 @@ export default function Reframe360() {
     // append.
     const startT = Math.min(...recorded.map((k) => k.t));
     const endT = Math.max(...recorded.map((k) => k.t));
-    setDirectLocalKeyframes((prev) => {
-      const outsideRange = prev.filter((k) => k.t < startT - 0.05 || k.t > endT + 0.05);
-      return [...outsideRange, ...recorded].sort((a, b) => a.t - b.t);
-    });
-    recordingBufferRef.current = [];
+    const outsideRange = directLocalKeyframes.filter((k) => k.t < startT - 0.05 || k.t > endT + 0.05);
+    const merged = [...outsideRange, ...recorded].sort((a, b) => a.t - b.t);
+    setDirectLocalKeyframes(merged);
+    return merged;
   }
 
   // If the user switches viewerMode away from 'live' while a recording is
@@ -837,6 +862,21 @@ export default function Reframe360() {
     if (mode === 'single' && !singleFile) return setError('Upload a pre-stitched equirectangular video first.');
     if (mode === 'dual' && (!frontFile || !backFile)) return setError('Drop both the front and back lens files.');
 
+    // Below, on success, frontFile/backFile get reset to null, which
+    // unmounts Reframe360Viewer. If a recording is still running at that
+    // point, its interval would leak (harmless no-op thanks to a defensive
+    // guard, but never cleared) and recordingIntervalRef.current staying
+    // non-null would permanently trip startDirectRecording's re-entrancy
+    // guard, disabling Record for the rest of the session. Stop it first,
+    // synchronously, and use ITS return value (not directLocalKeyframes,
+    // which wouldn't reflect the just-finished recording since setState
+    // hasn't flushed yet) for the scene we're about to upload.
+    let keyframesForUpload = directLocalKeyframes;
+    if (mode === 'dual' && recordingIntervalRef.current) {
+      keyframesForUpload = stopDirectRecording();
+      setViewerMode('still');
+    }
+
     setUploading(true);
     try {
       const headers = await getAuthHeaders();
@@ -860,7 +900,7 @@ export default function Reframe360() {
         duration: data.duration,
         label: `Scene ${scenes.length + 1}`,
         sourceLabel: label,
-        keyframes: mode === 'dual' ? directLocalKeyframes : [],
+        keyframes: mode === 'dual' ? keyframesForUpload : [],
       };
       setScenes((prev) => [...prev, newScene]);
       setSingleFile(null);
@@ -1217,8 +1257,9 @@ export default function Reframe360() {
                           style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)', cursor: 'pointer' }}>
                           Play
                         </button>
-                        <button onClick={() => directViewerRef.current?.pause()}
-                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)', cursor: 'pointer' }}>
+                        <button onClick={() => directViewerRef.current?.pause()} disabled={isRecording}
+                          title={isRecording ? 'Pausing mid-recording is disabled -- it would sample duplicate timestamps while paused.' : undefined}
+                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)', cursor: isRecording ? 'not-allowed' : 'pointer', opacity: isRecording ? 0.5 : 1 }}>
                           Pause
                         </button>
                         <button onClick={addDirectViewerKeyframe}
@@ -1379,8 +1420,9 @@ export default function Reframe360() {
                           style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)', cursor: 'pointer' }}>
                           Play
                         </button>
-                        <button onClick={() => viewerRefsByPairId.current.get(p.id)?.pause()}
-                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)', cursor: 'pointer' }}>
+                        <button onClick={() => viewerRefsByPairId.current.get(p.id)?.pause()} disabled={p.isRecording}
+                          title={p.isRecording ? 'Pausing mid-recording is disabled -- it would sample duplicate timestamps while paused.' : undefined}
+                          style={{ fontSize: 12, padding: '6px 12px', borderRadius: 7, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text)', cursor: p.isRecording ? 'not-allowed' : 'pointer', opacity: p.isRecording ? 0.5 : 1 }}>
                           Pause
                         </button>
                         <button onClick={() => addPairViewerKeyframe(p)}

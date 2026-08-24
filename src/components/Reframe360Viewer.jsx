@@ -5,8 +5,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 // lens covers the +Z hemisphere, back lens the -Z hemisphere in the
 // direction vector computed from each sphere fragment's own position.
 //
-// uFrontRotation/uBackRotation (radians) and uFrontFlip/uBackFlip (0 or 1,
-// per-axis) exist ONLY for empirical calibration in Task 2 Step 4 below --
+// uFrontRotation/uBackRotation (radians) exist ONLY for empirical
+// calibration in Task 2 Step 4 below --
 // this project's own combine function (fetchLocalDualFisheyePreview in
 // Reframe360.jsx, rotateCanvas90('ccw') for front / rotateCanvas90('cw')
 // for back) is the proven-correct reference to calibrate against, not a
@@ -57,13 +57,14 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
   const canvasRef = useRef(null);
   const frontVideoRef = useRef(null);
   const backVideoRef = useRef(null);
-  const threeRef = useRef(null); // { THREE, renderer, scene, camera, frontTex, backTex }
+  const threeRef = useRef(null); // { THREE, renderer, scene, camera, sphere, geometry, material, frontTex, backTex }
   const [isReady, setIsReady] = useState(false);
   const [initError, setInitError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     let rafId = null;
+    setIsReady(false);
 
     async function init() {
       let THREE;
@@ -148,7 +149,7 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
       const sphere = new THREE.Mesh(geometry, material);
       scene.add(sphere);
 
-      threeRef.current = { THREE, renderer, scene, camera, sphere };
+      threeRef.current = { THREE, renderer, scene, camera, sphere, geometry, material, frontTex, backTex };
 
       function tick() {
         renderer.render(scene, camera);
@@ -168,11 +169,18 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
       const t = threeRef.current;
       if (t) {
         t.renderer.dispose();
+        t.geometry.dispose();
+        t.material.dispose();
+        t.frontTex.dispose();
+        t.backTex.dispose();
       }
+      threeRef.current = null;
       for (const v of [frontVideoRef.current, backVideoRef.current]) {
         if (v) {
           v.pause();
           URL.revokeObjectURL(v.src);
+          v.src = '';
+          v.load();
         }
       }
     };
@@ -204,6 +212,13 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
       return frontVideoRef.current ? frontVideoRef.current.currentTime : 0;
     },
     play() {
+      // Resync the two hemispheres before resuming -- pause/play cycles,
+      // buffering stalls, and drift across loop=true wraparound can leave
+      // them at different currentTime values otherwise. Front is treated
+      // as authoritative, matching getCurrentTime() above.
+      if (frontVideoRef.current && backVideoRef.current) {
+        backVideoRef.current.currentTime = frontVideoRef.current.currentTime;
+      }
       frontVideoRef.current?.play();
       backVideoRef.current?.play();
     },
@@ -258,6 +273,10 @@ const Reframe360Viewer = forwardRef(function Reframe360Viewer({ frontFile, backF
     return () => canvas.removeEventListener('wheel', onWheelNative);
   }, []);
   function handleKeyDown(e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    // keydown isn't passive by default (unlike wheel), so a plain
+    // preventDefault() here is enough to stop the page from also scrolling.
+    e.preventDefault();
     const t = threeRef.current;
     if (!t) return;
     const step = (2 * Math.PI) / 180; // ~2 degrees per key press
