@@ -532,7 +532,12 @@ export default function Reframe360() {
     pairRecordingIntervalsRef.current.set(pair.id, interval);
   }
 
-  // Mirrors stopDirectRecording, per-pair.
+  // Mirrors stopDirectRecording, per-pair. Returns the merged keyframes
+  // array synchronously (computed from the `pair` passed in, not a stale
+  // closure) so a caller that needs the committed result immediately --
+  // handleBatchUpload, since setState from updatePair isn't visible until
+  // the next render -- doesn't read pair.localKeyframes from before this
+  // call and silently upload without the just-recorded samples.
   function stopPairRecording(pair) {
     const interval = pairRecordingIntervalsRef.current.get(pair.id);
     if (interval) clearInterval(interval);
@@ -543,13 +548,13 @@ export default function Reframe360() {
 
     const recorded = pairRecordingBuffersRef.current.get(pair.id) || [];
     pairRecordingBuffersRef.current.delete(pair.id);
-    if (recorded.length === 0) return;
+    if (recorded.length === 0) return pair.localKeyframes;
     const startT = Math.min(...recorded.map((k) => k.t));
     const endT = Math.max(...recorded.map((k) => k.t));
-    updatePair(pair.id, (p) => {
-      const outsideRange = p.localKeyframes.filter((k) => k.t < startT - 0.05 || k.t > endT + 0.05);
-      return { localKeyframes: [...outsideRange, ...recorded].sort((a, b) => a.t - b.t) };
-    });
+    const outsideRange = pair.localKeyframes.filter((k) => k.t < startT - 0.05 || k.t > endT + 0.05);
+    const merged = [...outsideRange, ...recorded].sort((a, b) => a.t - b.t);
+    updatePair(pair.id, { localKeyframes: merged });
+    return merged;
   }
 
   // Same unmount-safety guard as the direct flow's useEffect above, applied
@@ -647,6 +652,16 @@ export default function Reframe360() {
 
         bytesDoneBeforeThisPair += pairTotalBytes;
         uploadedCount++;
+        // A pair can still be mid-recording when its upload finishes
+        // (nothing gates upload start on isRecording) -- commit that
+        // in-progress recording into keyframesForUpload BEFORE building the
+        // scene object below, not just clean up its timer afterward, or the
+        // just-recorded samples silently never make it into the uploaded
+        // scene (same defect class fixed for handleUpload/swapLenses/
+        // swapPair -- this was the one call site that fix wave missed).
+        const keyframesForUpload = pairRecordingIntervalsRef.current.has(p.id)
+          ? stopPairRecording(p)
+          : (p.localKeyframes || []);
         // Added to the visible scene list the moment THIS ONE finishes,
         // not batched until the whole set completes -- so scene 1 is
         // already keyframe-able while scenes 2+ are still uploading.
@@ -661,13 +676,12 @@ export default function Reframe360() {
           // upload finished (see fetchLocalDualFisheyePreview above) --
           // often already complete, so the scene can go straight to render
           // without a second keyframing pass.
-          keyframes: p.localKeyframes || [],
+          keyframes: keyframesForUpload,
         }]);
-        // A pair could in theory still be mid-recording when its upload
-        // finishes (nothing gates upload start on isRecording) -- always
-        // clean up its recording state here, not just when isRecording is
-        // true, since clearing an unset interval / deleting an absent Map
-        // key are harmless no-ops.
+        // Clears the interval/buffer/viewer-ref Map entries -- a no-op for
+        // the interval/buffer if stopPairRecording already ran above (both
+        // deletes are idempotent), but viewerRefsByPairId still needs this
+        // regardless since stopPairRecording never touches it.
         cleanupPairRecordingState(p.id);
         setPendingPairs((prev) => prev.filter((x) => x.id !== p.id));
       }
