@@ -82,6 +82,7 @@ export default function Reframe360() {
   // is expected, not a hang, and the UI needs to say so explicitly rather
   // than look broken.
   const [batchProgress, setBatchProgress] = useState(null);
+  const [singleUploadProgress, setSingleUploadProgress] = useState(null);
   const [renderElapsedMs, setRenderElapsedMs] = useState(0);
 
   // Ordered list of scenes -- a real skydive job is 5-6 separate raw
@@ -600,11 +601,17 @@ export default function Reframe360() {
   // the instant the browser finishes sending, which is the signal the caller
   // uses to switch the UI into the "combining server-side" phase (see
   // batchProgress comment above) rather than leaving a dead-looking bar.
-  function uploadOnePairXHR(frontFile, backFile, authHeader, onProgress) {
+  // fetch() doesn't expose upload progress in a widely-supported way, so
+  // every real upload in this file (single pre-stitched file, one dual-lens
+  // pair, or a whole batch of pairs) goes through this shared XHR helper
+  // instead -- previously only the batch path had this (uploadOnePairXHR),
+  // which is why a real single-file upload (e.g. a 226MB already-stitched
+  // panoramic video) showed no counter/rate at all: handleUpload was still
+  // on a plain fetch() with only a static "Uploading..." label, no percent,
+  // no speed, nothing to indicate whether it had stalled on a multi-minute
+  // real transfer.
+  function uploadXHR(formData, authHeader, onProgress) {
     return new Promise((resolve, reject) => {
-      const formData = new FormData();
-      formData.append('front', frontFile);
-      formData.append('back', backFile);
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/reframe360/upload');
       xhr.setRequestHeader('Authorization', authHeader);
@@ -620,6 +627,13 @@ export default function Reframe360() {
       xhr.onerror = () => reject(new Error('Network error during upload -- connection may have dropped'));
       xhr.send(formData);
     });
+  }
+
+  function uploadOnePairXHR(frontFile, backFile, authHeader, onProgress) {
+    const formData = new FormData();
+    formData.append('front', frontFile);
+    formData.append('back', backFile);
+    return uploadXHR(formData, authHeader, onProgress);
   }
 
   async function handleBatchUpload() {
@@ -898,13 +912,14 @@ export default function Reframe360() {
       if (mode === 'single') formData.append('video', singleFile);
       else { formData.append('front', frontFile); formData.append('back', backFile); }
 
-      const res = await fetch('/api/reframe360/upload', {
-        method: 'POST',
-        headers: { Authorization: headers.Authorization },
-        body: formData,
+      const totalBytes = mode === 'single' ? singleFile.size : frontFile.size + backFile.size;
+      const phaseStartedAt = Date.now();
+      setSingleUploadProgress({ loadedBytes: 0, totalBytes, speedBps: 0 });
+      const data = await uploadXHR(formData, headers.Authorization, ({ loaded }) => {
+        const elapsedSec = (Date.now() - phaseStartedAt) / 1000;
+        const speedBps = elapsedSec > 0.2 ? loaded / elapsedSec : 0;
+        setSingleUploadProgress({ loadedBytes: loaded, totalBytes, speedBps });
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
 
       const label = mode === 'single' ? singleFile.name : `${frontFile.name} + ${backFile.name}`;
       const newScene = {
@@ -929,6 +944,7 @@ export default function Reframe360() {
       setError(err.message);
     } finally {
       setUploading(false);
+      setSingleUploadProgress(null);
     }
   }
 
@@ -1317,6 +1333,30 @@ export default function Reframe360() {
           )}
 
           {error && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '12px 16px', color: '#f87171', fontSize: 14, marginBottom: 20 }}>{error}</div>}
+
+          {singleUploadProgress && (() => {
+            const { loadedBytes, totalBytes, speedBps } = singleUploadProgress;
+            const pct = totalBytes > 0 ? Math.min(100, (loadedBytes / totalBytes) * 100) : 0;
+            const remainingBytes = totalBytes - loadedBytes;
+            const eta = speedBps > 0 ? formatDuration(remainingBytes / speedBps) : '...';
+            const finishedTransferring = loadedBytes >= totalBytes;
+            return (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ height: 6, borderRadius: 3, background: 'var(--onyx-surface-2)', overflow: 'hidden', marginBottom: 6 }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: '#4dd0ff', transition: 'width 0.2s' }} />
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--onyx-text-faint)' }}>
+                  {formatBytes(loadedBytes)} / {formatBytes(totalBytes)} ({pct.toFixed(0)}%)
+                  {!finishedTransferring && speedBps > 0 && (
+                    <> · {formatBytes(speedBps)}/s · ~{eta} remaining</>
+                  )}
+                  {finishedTransferring && (
+                    <> — transfer complete, server is now processing. This can take a while for longer clips; it's not stuck.</>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           <button onClick={handleUpload} disabled={uploading} className="btn-teal" style={{ width: '100%' }}>
             {uploading ? 'Uploading & preparing…' : scenes.length > 0 ? 'Add this scene' : 'Continue'}
