@@ -182,6 +182,8 @@ export default function StoryboardPanel({
   upscalingScenes = {},
   upscaleCapabilities = {},
   onReorder,
+  timelineState,
+  dispatch,
 }) {
   // Scene drag-to-reorder — was completely unwired until 2026-08-17 (found
   // during the tool tutorial campaign: a real moveScene(from,to) function
@@ -191,6 +193,35 @@ export default function StoryboardPanel({
   // own click-to-select and its many nested buttons/inputs.
   const [dragIndex, setDragIndex] = useState(null);
   const [dragOverIndex, setDragOverIndex] = useState(null);
+
+  // Selecting a scene card here only ever updated `activeScene` -- the
+  // matching timeline clip never got the SequencerPanel's own `selected`
+  // highlight, since that's driven by a separate SELECT dispatch (only ever
+  // fired from a timeline click, see SequencerPanel.jsx's TrackRowBase).
+  // The reverse direction (timeline click -> scene highlight) already
+  // worked. Confirmed via a real UX audit (2026-08-27) as a genuine gap,
+  // not a data-model problem -- clip.sceneId already links every clip back
+  // to its scene (SPLIT_CLIP and SPEED_RAMP_PRESET both preserve it), this
+  // was purely missing UI wiring. A split scene can have multiple clips;
+  // picks the earliest by startTime as the representative one to select.
+  const sceneCardRefs = useRef({});
+  function handleSceneClick(sceneId) {
+    setActiveScene(sceneId);
+    if (!dispatch || !timelineState) return;
+    const matches = timelineState.tracks
+      .flatMap(t => t.clips)
+      .filter(c => c.sceneId === sceneId)
+      .sort((a, b) => a.startTime - b.startTime);
+    if (matches[0]) dispatch({ type: "SELECT", clipId: matches[0].id });
+  }
+
+  // Auto-scroll the active scene's card into view -- e.g. when the
+  // playhead crosses into a new scene during playback, or a timeline click
+  // sets activeScene to a scene whose card is currently scrolled out of
+  // view. Neither direction auto-scrolled before this (audit finding).
+  useEffect(() => {
+    sceneCardRefs.current[activeScene]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [activeScene]);
   const [stockQuery, setStockQuery] = useState({});
   const [stockResults, setStockResults] = useState({});
   const [stockSearching, setStockSearching] = useState({});
@@ -429,8 +460,9 @@ export default function StoryboardPanel({
         return (
           <div
             key={sc.id}
+            ref={el => { sceneCardRefs.current[sc.id] = el; }}
             className={"sceneCard" + (sc.id === activeScene ? " active" : "")}
-            onClick={() => setActiveScene(sc.id)}
+            onClick={() => handleSceneClick(sc.id)}
             onDragOver={(e) => {
               if (dragIndex === null || dragIndex === index) return;
               e.preventDefault();
@@ -459,7 +491,15 @@ export default function StoryboardPanel({
                   e.dataTransfer.setData("text/plain", String(index));
                 }}
                 onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-                style={{ cursor: "grab", flexShrink: 0, color: "var(--onyx-text-faint)", fontSize: 14, padding: "0 2px", userSelect: "none" }}
+                // Hit area padded well past the glyph itself -- the bare
+                // 14px "⠿" character was too small a target to reliably
+                // grab (flagged 2026-08-19: real drag attempts landed just
+                // outside it and silently did nothing, no visual feedback
+                // either way so it read as "reordering doesn't work" even
+                // though the underlying reorder logic is fine). Negative
+                // margin keeps the larger hit box from pushing sibling
+                // header items outward.
+                style={{ cursor: "grab", flexShrink: 0, color: "var(--onyx-text-faint)", fontSize: 14, padding: "8px 10px", margin: "-8px -6px -8px -8px", userSelect: "none", display: "flex", alignItems: "center" }}
               >
                 ⠿
               </span>

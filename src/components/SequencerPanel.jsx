@@ -1351,6 +1351,27 @@ function SequencerPanelBase({
     }
   }, [checkpointPlayhead, zoom]);
 
+  // Auto-scroll to a clip selected from OUTSIDE the timeline (a scene-card
+  // click in StoryboardPanel now dispatches SELECT for that scene's clip --
+  // see StoryboardPanel.jsx's handleSceneClick) -- a click ON the timeline
+  // already has its clip visible, so this is a no-op there (phPx already
+  // within the viewport, same threshold check as the playhead-follow effect
+  // above). Confirmed missing in a real UX audit (2026-08-27): selecting a
+  // scene card never brought its timeline clip into view.
+  useEffect(() => {
+    if (!scrollRef.current || !selected) return;
+    const clip = timelineState.tracks.flatMap(t => t.clips).find(c => c.id === selected);
+    if (!clip) return;
+    const el = scrollRef.current;
+    const phPx = clip.startTime * zoom;
+    const { scrollLeft: sl, clientWidth: cw } = el;
+    if (phPx < sl + 20 || phPx > sl + cw - 20) {
+      const next = Math.max(0, phPx - cw / 2);
+      el.scrollLeft = next;
+      setScrollLeft(next);
+    }
+  }, [selected]);
+
   // While actively playing, auto-scroll continuously from the live ref via
   // its own rAF loop -- purely imperative (direct DOM scrollLeft write),
   // only calling setScrollLeft on the rare frame that actually crosses the
