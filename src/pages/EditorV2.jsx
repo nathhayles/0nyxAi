@@ -2525,13 +2525,23 @@ export default function EditorV2() {
     // 2026-08-21: a reframe360 scene's real camera audio was inaudible in
     // the editor even though the file has a genuine aac stream, because
     // this was unconditionally muted no matter what.
-    function syncOverlay(imgEl, vidEl, src, atTime, muted = true, volume = 1) {
+    // fitMode default "fit" so B-roll's call site (which never passes one)
+    // keeps its existing "contain" behavior unchanged -- B-roll has its own
+    // separate position/size system, not this scene-level toggle. Only the
+    // two A-roll upload/direct call sites below pass the scene's real
+    // fitMode. Was previously a hardcoded "contain" set once in JSX,
+    // completely unaware of scene.fitMode -- a real preview/export mismatch
+    // found live 2026-08-27: a scene set to "Fill" still showed pillarboxed
+    // in the editor (looking like the toggle did nothing) while the actual
+    // export correctly cropped to fill.
+    function syncOverlay(imgEl, vidEl, src, atTime, muted = true, volume = 1, fitMode = "fit") {
       if (!src) return;
       const isVid = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src) || /^https:\/\/api\.sync\.so\//i.test(src);
       if (isVid) {
         if (imgEl) imgEl.style.display = 'none';
         if (vidEl) {
           vidEl.style.display = 'block';
+          vidEl.style.objectFit = fitMode === "fill" ? "cover" : "contain";
           vidEl.muted = muted;
           vidEl.volume = Math.max(0, Math.min(1, volume));
           if (vidEl.getAttribute('data-src') !== src) {
@@ -2574,7 +2584,7 @@ export default function EditorV2() {
         const arollLocalTime = Math.max(0, ph - videoClipScrub.startTime + videoClipScrub.trimStart);
         const arollScene = scenes.find(s => s.id === videoClipScrub.sceneId);
         syncOverlay(uploadImgRef.current, uploadVideoRef.current, arollSrc, arollLocalTime,
-          !!arollScene?.sourceAudioMuted, (arollScene?.sourceAudioVolume ?? 100) / 100);
+          !!arollScene?.sourceAudioMuted, (arollScene?.sourceAudioVolume ?? 100) / 100, arollScene?.fitMode);
       } else {
         // No A-roll clip active at all (B-roll can outlive A-roll's own
         // clip — see clip_broll_1 on reel 9c3ed13d spanning 2.1875-21.1875
@@ -2602,7 +2612,7 @@ export default function EditorV2() {
       if (slotB) slotB.style.visibility = 'hidden';
       const arollScene = scenes.find(s => s.id === clip?.sceneId);
       syncOverlay(uploadImgRef.current, uploadVideoRef.current, targetSrc, localTime,
-        !!arollScene?.sourceAudioMuted, (arollScene?.sourceAudioVolume ?? 100) / 100);
+        !!arollScene?.sourceAudioMuted, (arollScene?.sourceAudioVolume ?? 100) / 100, arollScene?.fitMode);
       return;
     }
 
@@ -2767,6 +2777,10 @@ export default function EditorV2() {
           const arollSpeed = videoClip.speed || 1;
           const arollLocalTime = (newPH - videoClip.startTime) * arollSpeed + videoClip.trimStart;
           const arollScene = scenes.find(s => s.id === videoClip.sceneId);
+          // Same preview/export mismatch fix as syncOverlay() above (scrub
+          // path) -- this is the separate play-loop implementation, doesn't
+          // share code with syncOverlay, so needed its own one-line fix.
+          vidEl.style.objectFit = arollScene?.fitMode === "fill" ? "cover" : "contain";
           vidEl.muted = !!arollScene?.sourceAudioMuted;
           vidEl.volume = Math.max(0, Math.min(1, (arollScene?.sourceAudioVolume ?? 100) / 100));
           if (vidEl.getAttribute('data-src') !== arollSrc) {
