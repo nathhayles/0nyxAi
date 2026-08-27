@@ -14,7 +14,9 @@
   --onyx-hairline-strong: rgba(255,255,255,0.14);
   --toolbar-bg:           rgba(6,9,15,0.85);
   --panel-bg:             rgba(6,9,15,0.50);
-  --input-bg:             rgba(0,0,0,0.35);
+  /* See onyx.css's --input-bg for the full explanation -- same fix, kept
+     consistent across both token files. */
+  --input-bg:             rgba(255,255,255,0.06);
   --chip-bg:              rgba(255,255,255,0.06);
   --chip-bg-low:          rgba(255,255,255,0.04);
   --chip-bg-strong:       rgba(255,255,255,0.08);

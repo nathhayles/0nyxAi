@@ -772,6 +772,15 @@ export default function VisualsPanel({
 
               {stockLoading ? (
                 <div className="emptyState">Searching stock…</div>
+              ) : !currentSceneQuery ? (
+                // Previously fell through to the "No video/image results
+                // found" branches below even when NO search had actually
+                // run yet (a scene with no narration/action text has an
+                // empty currentSceneQuery, so videoStockItems/
+                // imageStockItems are just their empty initial state, not a
+                // real failed search) -- read as "search is broken" rather
+                // than "nothing to search for yet" (UX audit 2026-08-27).
+                <div className="emptyState">Add narration or action text to this scene to see related stock suggestions here.</div>
               ) : (
                 <>
                   <div style={{ marginBottom: 14 }}>

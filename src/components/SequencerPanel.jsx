@@ -1776,8 +1776,12 @@ function SequencerPanelBase({
             <span style={{ fontSize: 9, color: isOpal ? "rgba(6,18,27,0.6)" : "var(--onyx-text-faint)", fontFamily: "monospace", minWidth: 22 }}>
               {selectedClip.volume ?? 100}%
             </span>
-            {/* Speed controls */}
-            <div style={{ display:"flex", alignItems:"center", gap:4, marginLeft:8 }}>
+            {/* Speed controls -- explicit "Speed" label + divider before the
+                ramp-preset group added 2026-08-27 (UX audit finding: these
+                read as loose unlabeled buttons crammed at the toolbar's
+                edge, easy to miss entirely). */}
+            <span style={{ fontSize: 9.5, color: isOpal ? "rgba(6,18,27,0.6)" : "var(--onyx-text-faint)", marginLeft: 8 }}>Speed</span>
+            <div style={{ display:"flex", alignItems:"center", gap:4, marginLeft:4 }}>
               {[0.25, 0.5, 1, 1.5, 2].map(s => (
                 <button key={s} onClick={() => dispatch({ type:"SPEED_CLIP", clipId:selectedClip.id, speed:s })}
                   style={{ padding:"2px 6px", fontSize:10, borderRadius:4, border:"none", cursor:"pointer",
@@ -1788,7 +1792,9 @@ function SequencerPanelBase({
               ))}
             </div>
             {selectedClip.trackKey === "video" && (
-              <div style={{ display:"flex", alignItems:"center", gap:4, marginLeft:8 }}>
+              <>
+              <Div/>
+              <div style={{ display:"flex", alignItems:"center", gap:4 }}>
                 {Object.entries(SPEED_RAMP_PRESETS).map(([key, preset]) => (
                   <button key={key}
                     onClick={() => dispatch({ type:"SPEED_RAMP_PRESET", clipId:selectedClip.id, preset:key })}
@@ -1800,6 +1806,7 @@ function SequencerPanelBase({
                   </button>
                 ))}
               </div>
+              </>
             )}
             {selectedClip.trackKey === "voiceover" && selectedClip.sceneId && (
               <TlBtn

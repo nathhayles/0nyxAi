@@ -214,7 +214,18 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
               onChange={e => setSearch(e.target.value)}
             />
             {loadingAvatars ? (
-              <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", padding: 10 }}>Loading avatars...</div>
+              // Was plain text with no motion for 4+ seconds on a real
+              // HeyGen avatar-list fetch -- read as stalled/broken rather
+              // than in-progress (UX audit 2026-08-27).
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 20 }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: "50%",
+                  border: "2px solid rgba(148,163,184,0.25)", borderTopColor: "#94a3b8",
+                  animation: "avatarPanelSpin 0.8s linear infinite",
+                }} />
+                <span style={{ fontSize: 12, color: "#94a3b8" }}>Loading avatars…</span>
+                <style>{`@keyframes avatarPanelSpin { to { transform: rotate(360deg); } }`}</style>
+              </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, maxHeight: 180, overflowY: "auto" }}>
                 {filteredAvatars.map(avatar => (

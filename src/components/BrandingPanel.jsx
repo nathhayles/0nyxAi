@@ -904,7 +904,18 @@ export default function BrandingPanel({ onApply }) {
                     </div>
                   )}
                   {avatarsLoading ? (
-                    <div style={{ color: "var(--onyx-text-faint)", fontSize: 13, textAlign: "center", padding: 20 }}>Loading avatars...</div>
+                    // Same fix as AvatarPanel.jsx's identical loading state
+                    // -- plain text with no motion read as stalled (UX
+                    // audit 2026-08-27).
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: 20 }}>
+                      <div style={{
+                        width: 22, height: 22, borderRadius: "50%",
+                        border: "2px solid var(--onyx-hairline-strong)", borderTopColor: "var(--onyx-text-faint)",
+                        animation: "brandingPanelSpin 0.8s linear infinite",
+                      }} />
+                      <span style={{ color: "var(--onyx-text-faint)", fontSize: 13 }}>Loading avatars…</span>
+                      <style>{`@keyframes brandingPanelSpin { to { transform: rotate(360deg); } }`}</style>
+                    </div>
                   ) : (
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 16 }}>
                       {filteredAvatars.map(av => {
