@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
@@ -34,8 +34,25 @@ export default function ViralHooks() {
   const [captionLoading, setCaptionLoading] = useState(null);
   const [captions, setCaptions] = useState({});
   const [brandId, setBrandId] = useState("");
+  // Real cost from the backend (0 for pro/agency, 2 otherwise) -- was
+  // previously shown nowhere at all on this page's Generate button,
+  // inconsistent with Music Studio which does show its real cost (backlog
+  // item since the 2026-08-16 tutorial pipeline test). Same
+  // fetch-on-mount pattern as Music.jsx's lyriaCost.
+  const [hookCost, setHookCost] = useState(2);
   const onTopicSpeech = useCallback((text) => setTopic(prev => prev ? prev + " " + text : text), []);
   const { listening: micListening, supported: micSupported, toggle: micToggle } = useSpeechInput(onTopicSpeech);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const headers = await getHeaders();
+        const res = await fetch("/api/viral-hooks/cost", { headers });
+        const data = await res.json();
+        if (typeof data?.cost === "number") setHookCost(data.cost);
+      } catch { /* keep the default 2 */ }
+    })();
+  }, []);
 
   async function getHeaders() {
     const { data: { session } } = await supabase.auth.getSession();
@@ -212,7 +229,7 @@ export default function ViralHooks() {
                 <input type="range" min={5} max={20} value={count} onChange={e => setCount(Number(e.target.value))} style={{ width: "100%" }} />
               </div>
               <button onClick={generateHooks} disabled={loading} className="btn-teal" style={{ flexShrink: 0 }}>
-                {loading ? "Generating..." : "Generate Hooks"}
+                {loading ? "Generating..." : hookCost > 0 ? `Generate Hooks — ${hookCost} credits` : "Generate Hooks — free"}
               </button>
             </div>
           </div>

@@ -608,7 +608,7 @@ export default function CreatePage() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {VIDEO_MODEL_OPTIONS.map(opt => (
                       <label key={opt.id} style={{
-                        display: "flex", alignItems: "center", gap: 10,
+                        display: "flex", alignItems: "flex-start", gap: 10,
                         cursor: opt.disabled ? "not-allowed" : "pointer",
                         padding: "9px 12px", borderRadius: 10,
                         background: "var(--onyx-bg-2)",
@@ -622,17 +622,26 @@ export default function CreatePage() {
                           checked={videoModel === opt.id}
                           disabled={opt.disabled}
                           onChange={() => setVideoModel(opt.id)}
-                          style={{ accentColor: "#00d2ff", cursor: opt.disabled ? "not-allowed" : "pointer" }}
+                          style={{ accentColor: "#00d2ff", cursor: opt.disabled ? "not-allowed" : "pointer", marginTop: 2, flexShrink: 0 }}
                         />
+                        {/* Was a single nowrap row (name + description + credits label) --
+                            Wan 2.7's combined text ("Native audio, 1080p-capable (Alibaba)" +
+                            its unusually long credits range) overlapped in this 320px sidebar
+                            at 1440px width (backlog item since the 2026-08-16 tutorial pipeline
+                            test). Credits label now on its own wrapping line instead of forced
+                            nowrap sharing the row with the description. */}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <span style={{ fontWeight: 600, fontSize: 13 }}>{opt.label}</span>
-                          <span style={{ fontSize: 12, opacity: 0.55, marginLeft: 6 }}>{opt.description}</span>
+                          <div>
+                            <span style={{ fontWeight: 600, fontSize: 13 }}>{opt.label}</span>
+                            <span style={{ fontSize: 12, opacity: 0.55, marginLeft: 6 }}>{opt.description}</span>
+                          </div>
+                          {!opt.disabled && (
+                            <div style={{
+                              fontSize: 11, fontWeight: 700, marginTop: 2,
+                              color: videoModel === opt.id ? "#00d2ff" : "rgba(255,255,255,0.4)",
+                            }}>{opt.creditsLabel || `${opt.credits} cr/scene`}</div>
+                          )}
                         </div>
-                        <span style={{
-                          fontSize: 12, fontWeight: 700,
-                          color: videoModel === opt.id ? "#00d2ff" : "rgba(255,255,255,0.4)",
-                          whiteSpace: "nowrap",
-                        }}>{opt.disabled ? "" : (opt.creditsLabel || `${opt.credits} cr/scene`)}</span>
                       </label>
                     ))}
                   </div>
