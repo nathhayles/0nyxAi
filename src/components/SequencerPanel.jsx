@@ -66,12 +66,33 @@ function createRafScrubber(onScrub) {
 }
 
 const TRACK_META = {
+  // `icon` (a text glyph) is kept only for the <option> dropdown at line
+  // ~1646, which can't render markup -- the real track-header rendering
+  // uses TRACK_ICON_SVG below instead (see that const's own comment).
   video:     { label: "Video",  color: "#7c3aed", dimColor: "rgba(124,58,237,0.18)", icon: "▶" },
   broll:     { label: "B-Roll", color: "#3b82f6", dimColor: "rgba(59,130,246,0.18)", icon: "◈" },
   fx:        { label: "FX",     color: "#ec4899", dimColor: "rgba(236,72,153,0.18)", icon: "✦" },
   voiceover: { label: "Voice",  color: "#22c55e", dimColor: "rgba(34,197,94,0.18)",  icon: "♪" },
   music:     { label: "Music",  color: "#8b5cf6", dimColor: "rgba(139,92,246,0.18)", icon: "♫" },
   sfx:       { label: "SFX",    color: "#f59e0b", dimColor: "rgba(245,158,11,0.18)", icon: "◉" },
+};
+
+// Raw Unicode glyphs (▶ ◈ ✦ ♪ ♫ ◉) as the actual track-header icons were
+// flagged in a real UX audit (2026-08-27) as the single most visible
+// "doesn't look like a professional video tool" signal in the whole app --
+// different weights/styles, some read as math symbols rather than
+// intentional iconography. Same thin-stroke visual language as
+// EditorV2.jsx's EDITOR_ICONS (left sidebar rail) for consistency across
+// the app, though not literally shared code -- that map is local to
+// EditorV2.jsx and this is a different, smaller icon set (track headers
+// only need 6, not the sidebar's 12).
+const TRACK_ICON_SVG = {
+  video: <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M7 5l12 7-12 7V5z"/></svg>,
+  broll: <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={1.8}><rect x="2" y="6" width="14" height="12" rx="1.5"/><path d="M16 10.5 21.5 7v10L16 13.5"/></svg>,
+  fx: <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={1.8}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3z"/></svg>,
+  voiceover: <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>,
+  music: <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
+  sfx: <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={1.8}><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>,
 };
 
 // Media "kind" each track accepts on a Library/panel drop. voiceover is
@@ -1847,7 +1868,7 @@ function SequencerPanelBase({
               }}>
                 {/* icon + label */}
                 <div style={{ display: "flex", alignItems: "center", gap: 4, overflow: "hidden" }}>
-                  <span style={{ fontSize: 12, opacity: 0.6, flexShrink: 0 }}>{meta.icon}</span>
+                  <span style={{ display: "flex", opacity: 0.75, flexShrink: 0, color: isOpal ? "#06121b" : meta.color }}>{TRACK_ICON_SVG[track.key]}</span>
                   <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.06em",
                     textTransform: "uppercase", color: isOpal ? "#06121b" : meta.color, opacity: 0.9,
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
