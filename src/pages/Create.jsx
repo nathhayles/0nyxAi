@@ -5,6 +5,7 @@ import { generateStoryboardFromScript } from "../lib/createStoryboard";
 import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
 import TemplateSelectorPill from "../components/TemplateSelectorPill.jsx";
+import QuickCreatePanel from "../components/QuickCreatePanel.jsx";
 import ThemeSelectorPill from "../components/ThemeSelectorPill.jsx";
 import { TEMPLATES } from "../data/templates.js";
 import { useSpeechInput } from "../hooks/useSpeechInput.js";
@@ -122,6 +123,13 @@ export default function CreatePage() {
   const [characterLock, setCharacterLock] = useState(false);
   const [motionRefUrl, setMotionRefUrl] = useState("");
   const [videoModel, setVideoModel] = useState("kling-2.6-pro");
+
+  // "Storyboard" is the original script/multi-scene flow (untouched below);
+  // "quick" is the Style Presets one-click flow (see
+  // docs/competitive-feature-parity-scoping.md item 3 -- Higgsfield gap),
+  // sharing this page rather than a new route so it reuses the auth/credits
+  // gating above instead of duplicating it (2026-08-27 product call).
+  const [pageMode, setPageMode] = useState("storyboard");
 
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState("Idle");
@@ -436,6 +444,26 @@ export default function CreatePage() {
           </Link>
         </div>
 
+        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+          {[
+            { id: "storyboard", label: "Storyboard" },
+            { id: "quick", label: "Quick Create" },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setPageMode(t.id)}
+              style={{
+                padding: "8px 16px", borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                border: pageMode === t.id ? "1px solid var(--onyx-cyan)" : "1px solid var(--onyx-hairline-strong)",
+                background: pageMode === t.id ? "rgba(77,208,255,0.12)" : "transparent",
+                color: pageMode === t.id ? "var(--onyx-cyan)" : "var(--onyx-text-dim)",
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         <div
           style={{
             marginBottom: 20,
@@ -451,6 +479,15 @@ export default function CreatePage() {
           </b>
         </div>
 
+        {pageMode === "quick" && (
+          <QuickCreatePanel
+            brand={brand}
+            videoModelOptions={VIDEO_MODEL_OPTIONS}
+            onCreated={(reelId) => navigate(`/editor-v2?reelId=${reelId}`)}
+          />
+        )}
+
+        {pageMode === "storyboard" && (
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "320px 1fr", gap: isMobile ? 20 : 32 }}>
           <div>
             <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>Brand</label>
@@ -783,6 +820,7 @@ export default function CreatePage() {
             </button>
           </div>
         </div>
+        )}
 
         {showUpgradeModal ? (
           <div
