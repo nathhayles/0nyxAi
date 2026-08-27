@@ -14,6 +14,16 @@ export const TRACK_TYPES = {
   SFX:       { id: 6, key: "sfx",       label: "SFX",      icon: "🔊",  color: "#f59e0b", kind: "audio" },
 };
 
+// CapCut-precedent preset names (see docs/competitive-feature-parity-scoping.md
+// item 2). `frac` values are the portion of the clip's CURRENT span each
+// segment occupies, front-to-back, and must sum to 1 (SPEED_RAMP_PRESET
+// below derives the last segment's boundary implicitly from the others).
+export const SPEED_RAMP_PRESETS = {
+  "ramp-up":     { label: "Ramp Up",     segments: [{ frac: 0.34, speed: 0.5 }, { frac: 0.66, speed: 1.5 }] },
+  "ramp-down":   { label: "Ramp Down",   segments: [{ frac: 0.34, speed: 1.5 }, { frac: 0.66, speed: 0.5 }] },
+  "bullet-time": { label: "Bullet Time", segments: [{ frac: 0.34, speed: 1 }, { frac: 0.32, speed: 0.3 }, { frac: 0.34, speed: 1 }] },
+};
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 let _idCounter = Date.now();
@@ -42,6 +52,10 @@ export function makeClip(overrides = {}) {
     // sped-up) trimEnd, or repeated speed changes on the same clip compound
     // errors (see the SPEED_CLIP case below).
     sourceDuration: null,
+    // Set only by SPEED_RAMP_PRESET, purely a UI label ("this segment is
+    // part of a Ramp Up") -- render.js/export never reads it, each segment's
+    // flat `speed` above is the only thing that actually affects playback.
+    speedRampPreset: null,
     muted:      false,
     // Volume automation: null = flat `volume` applies as-is (unchanged legacy
     // behavior). When length >= 2, each point's `v` (0-100) is a percentage of
@@ -567,6 +581,82 @@ export function timelineReducer(state, action) {
           return { ...c, speed, duration: newDur, trimEnd: c.trimStart + newDur, sourceDuration: rawDur };
         }),
       }));
+      return { ...state, tracks };
+    }
+
+    case "SPEED_RAMP_PRESET": {
+      // action: { clipId, preset } -- preset key into SPEED_RAMP_PRESETS.
+      // Deliberately a fixed set of preset curves (CapCut-precedent naming),
+      // NOT a freeform draggable speed-vs-time curve editor like
+      // VolumeEnvelope: a true continuous curve needs live preview to
+      // integrate speed(t) over time (today's playbackRate/currentTime
+      // per-tick logic only does a flat multiply) and an export-side ffmpeg
+      // time-warp with no existing precedent (setpts supports expressions,
+      // but a correct one here is the integral of 1/speed(t), not a
+      // per-frame plug-in the way volume's linear filter is) -- real new
+      // architecture on both ends, too much risk for the editing surface
+      // real paying users depend on. A preset instead reuses SLOW_MO_REGION's
+      // exact split-into-flat-speed-segments approach (proven, already in
+      // production), so live preview and export both work with ZERO new
+      // code on either side -- each resulting segment is just an ordinary
+      // clip with a flat `speed`, identical to one a user set by hand.
+      const preset = SPEED_RAMP_PRESETS[action.preset];
+      if (!preset) return state;
+      const tracks = state.tracks.map(t => {
+        if (t.key !== "video") return t;
+        const target = t.clips.find(c => c.id === action.clipId);
+        if (!target) return t;
+        // Boundaries computed off the clip's CURRENT effective (already
+        // trimmed/sped) span -- same "act on what's visible now" convention
+        // as SLOW_MO_REGION's loop-region selection, not the fixed
+        // sourceDuration anchor (that anchor is for compounding-error
+        // protection on repeated speed edits to the SAME piece, not for
+        // deciding where a NEW split should land).
+        const span = target.trimEnd - target.trimStart;
+        let acc = 0;
+        const boundaries = [];
+        for (let i = 0; i < preset.segments.length - 1; i++) {
+          acc += preset.segments[i].frac;
+          boundaries.push(target.startTime + acc * span);
+        }
+        function splitOne(clips, atTime, sourceId) {
+          const idx = clips.findIndex(c =>
+            c.id === sourceId &&
+            atTime > c.startTime + 0.05 &&
+            atTime < c.startTime + (c.trimEnd - c.trimStart) - 0.05
+          );
+          if (idx < 0) return { clips, rightId: sourceId };
+          const c = clips[idx];
+          const localTime = atTime - c.startTime;
+          const leftDur  = localTime;
+          const rightDur = (c.trimEnd - c.trimStart) - localTime;
+          const rightId = newId("clip");
+          const left  = { ...c, duration: leftDur, trimEnd: c.trimStart + leftDur };
+          const right = { ...c, id: rightId, startTime: atTime, duration: rightDur, trimStart: c.trimStart + leftDur, trimEnd: c.trimEnd };
+          const next = [...clips];
+          next.splice(idx, 1, left, right);
+          return { clips: next, rightId };
+        }
+        let clips = t.clips;
+        let currentId = action.clipId;
+        const segmentIds = [];
+        for (const atTime of boundaries) {
+          const result = splitOne(clips, atTime, currentId);
+          clips = result.clips;
+          segmentIds.push(currentId);
+          currentId = result.rightId;
+        }
+        segmentIds.push(currentId);
+        clips = clips.map(c => {
+          const segIdx = segmentIds.indexOf(c.id);
+          if (segIdx < 0) return c;
+          const segSpeed = preset.segments[segIdx].speed;
+          const rawDur = c.sourceDuration ?? ((c.trimEnd - c.trimStart) / (c.speed || 1));
+          const newDur = rawDur / segSpeed;
+          return { ...c, speed: segSpeed, duration: newDur, trimEnd: c.trimStart + newDur, sourceDuration: rawDur, speedRampPreset: action.preset };
+        });
+        return { ...t, clips };
+      });
       return { ...state, tracks };
     }
 

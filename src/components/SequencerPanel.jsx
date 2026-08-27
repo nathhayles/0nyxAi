@@ -13,7 +13,7 @@ import { usePlayheadTicker } from "../hooks/usePlayheadTicker.js";
 import { PLATFORM_SAFE_ZONES, SAFE_ZONE_PLATFORMS } from "../data/platformSafeZones.js";
 import {
   TRACK_TYPES, makeClip, totalDuration, snapTargets, nearestSnap, evalVolumeEnvelope,
-  clipOverlapsTrack,
+  clipOverlapsTrack, SPEED_RAMP_PRESETS,
 } from "../reducers/timelineReducer.js";
 import { AUDIO_CEILING_MULTIPLIERS } from "@shared/audioConstants.js";
 
@@ -1787,6 +1787,20 @@ function SequencerPanelBase({
                 </button>
               ))}
             </div>
+            {selectedClip.trackKey === "video" && (
+              <div style={{ display:"flex", alignItems:"center", gap:4, marginLeft:8 }}>
+                {Object.entries(SPEED_RAMP_PRESETS).map(([key, preset]) => (
+                  <button key={key}
+                    onClick={() => dispatch({ type:"SPEED_RAMP_PRESET", clipId:selectedClip.id, preset:key })}
+                    title={`${preset.label} -- splits this clip into ${preset.segments.length} segments at preset speeds`}
+                    style={{ padding:"2px 6px", fontSize:10, borderRadius:4, border:"none", cursor:"pointer",
+                      background: selectedClip.speedRampPreset===key ? "var(--onyx-cyan)" : "var(--chip-bg)",
+                      color: selectedClip.speedRampPreset===key ? "#06121b" : "var(--onyx-text-dim)" }}>
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            )}
             {selectedClip.trackKey === "voiceover" && selectedClip.sceneId && (
               <TlBtn
                 onClick={() => dispatch({ type: "SNAP_VO_TO_SCENE", clipId: selected })}
