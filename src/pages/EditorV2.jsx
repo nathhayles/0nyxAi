@@ -1329,6 +1329,10 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       sfxItems:          sfxItems.length ? sfxItems : (scene.sfxUrl ? [{ url: scene.sfxUrl, volume: scene.sfxVolume ?? sfxVolume ?? 80, startTime: 0 }] : []),
       sourceAudioVolume: scene.sourceAudioVolume ?? 100,
       sourceAudioMuted:  scene.sourceAudioMuted ?? false,
+      // "fit" (default, pad) vs "fill" (crop-to-cover) when this scene's
+      // source doesn't match the reel's aspect ratio -- see the Fill/Fit
+      // toggle in StoryboardPanel.jsx and render.js's scaleFilter().
+      fitMode:           scene.fitMode === "fill" ? "fill" : "fit",
       // No scene.action fallback here -- action is the internal AI generation
       // prompt, never meant to be user-facing. An empty narration must mean
       // no caption, not "show the raw prompt instead" (see sourcePrompt below
@@ -1498,6 +1502,7 @@ function normalizeScene(scene, fallbackId) {
     voiceoverSourceText: scene?.voiceoverSourceText || "",
     sourceAudioVolume: typeof scene?.sourceAudioVolume === "number" ? scene.sourceAudioVolume : 100,
     sourceAudioMuted: !!scene?.sourceAudioMuted,
+    fitMode: scene?.fitMode === "fill" ? "fill" : "fit",
     musicUrl: scene?.musicUrl || null,
     sfxUrl: scene?.sfxUrl || null,
     sfxName: scene?.sfxName || "",
