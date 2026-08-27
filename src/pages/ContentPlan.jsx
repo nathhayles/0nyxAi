@@ -546,10 +546,11 @@ function GenerateReelModal({ item, onClose, onReelCreated }) {
 
 // ─── Detail Modal ─────────────────────────────────────────────────────────────
 
-function DetailModal({ item, onClose, onStatusChange, onReelCreated }) {
+function DetailModal({ item, onClose, onStatusChange, onReelCreated, onDeleted }) {
   const navigate = useNavigate();
   const [localItem, setLocalItem] = useState(item);
   const [saving, setSaving] = useState(false);
+  const [deletingItem, setDeletingItem] = useState(false);
   const [showGenerate, setShowGenerate] = useState(false);
   const [additionalContext, setAdditionalContext] = useState(item.additional_context || "");
   const [contextSaving, setContextSaving] = useState(false);
@@ -632,6 +633,21 @@ function DetailModal({ item, onClose, onStatusChange, onReelCreated }) {
     onReelCreated(updatedItem);
   }
 
+  async function handleDeleteItem() {
+    // Single-item removal, distinct from DeletePlanModal (whole plan,
+    // cascades to every item) -- a plain confirm() is proportionate here
+    // since one item is trivially re-generated, unlike a whole plan.
+    if (!window.confirm("Delete this content plan item? This cannot be undone.")) return;
+    setDeletingItem(true);
+    try {
+      await apiFetch(`/api/content-plans/items/${localItem.id}`, { method: "DELETE" });
+      onDeleted(localItem.id);
+    } catch (err) {
+      console.error("Item delete failed:", err);
+      setDeletingItem(false);
+    }
+  }
+
   return (
     <>
     <div
@@ -674,6 +690,18 @@ function DetailModal({ item, onClose, onStatusChange, onReelCreated }) {
           <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--onyx-text-mute)" }}>
             {new Date(localItem.target_date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
           </span>
+          <button
+            onClick={handleDeleteItem}
+            disabled={deletingItem}
+            title="Delete this item"
+            style={{
+              padding: "5px 9px", borderRadius: 7, fontSize: 12,
+              background: "var(--chip-bg)", border: "0.5px solid var(--onyx-hairline-strong)",
+              color: "var(--onyx-rose)", cursor: deletingItem ? "default" : "pointer", opacity: deletingItem ? 0.6 : 1,
+            }}
+          >
+            {deletingItem ? "…" : "🗑️"}
+          </button>
         </div>
 
         {/* Topic */}
@@ -931,6 +959,89 @@ function DeletePlanModal({ plan, itemCount, onClose, onDeleted }) {
   );
 }
 
+// ─── Edit Plan Modal ──────────────────────────────────────────────────────────
+// Rename/adjust a plan's date range without deleting and recreating it --
+// PATCH /api/content-plans/:id was genuinely missing before this (only
+// item-level PATCH existed). Deliberately name/dates only, not the full
+// CreatePlanModal generation form (niche/platforms/cadence) -- those only
+// matter at initial generation time, not for editing an existing plan.
+
+function EditPlanModal({ plan, onClose, onEdited }) {
+  const [name, setName] = useState(plan.name || "");
+  const [startDate, setStartDate] = useState(plan.start_date || "");
+  const [endDate, setEndDate] = useState(plan.end_date || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const inputStyle = {
+    width: "100%", padding: "9px 12px", borderRadius: 8,
+    background: "var(--input-bg)", border: "0.5px solid var(--onyx-hairline-strong)",
+    color: "var(--onyx-text)", fontSize: 13, outline: "none", boxSizing: "border-box",
+  };
+
+  async function handleSave() {
+    if (!name.trim()) { setError("Name is required"); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const { plan: updated } = await apiFetch(`/api/content-plans/${plan.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: name.trim(), start_date: startDate, end_date: endDate }),
+      });
+      onEdited(updated);
+    } catch (err) {
+      setError(err.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: "var(--onyx-bg-2)", border: "0.5px solid var(--onyx-hairline-strong)",
+        borderRadius: 14, width: "100%", maxWidth: 440, padding: "28px 30px",
+        display: "flex", flexDirection: "column", gap: 16, position: "relative",
+      }}>
+        <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, background: "var(--chip-bg)", border: "none", color: "var(--onyx-text-faint)", width: 28, height: 28, borderRadius: 7, cursor: "pointer", fontSize: 16 }}>×</button>
+        <h2 style={{ margin: 0, fontSize: 18, color: "var(--onyx-text)", fontWeight: 700 }}>Edit Plan</h2>
+
+        <div>
+          <label style={labelStyle}>Name</label>
+          <input value={name} onChange={e => setName(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Start date</label>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>End date</label>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+
+        {error && <p style={{ color: "var(--onyx-rose)", margin: 0, fontSize: 13 }}>{error}</p>}
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
+          <button
+            onClick={onClose}
+            disabled={saving}
+            style={{ padding: "9px 18px", borderRadius: 9, fontWeight: 600, fontSize: 13, background: "var(--chip-bg)", color: "var(--onyx-text-dim)", border: "none", cursor: saving ? "default" : "pointer" }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ padding: "9px 18px", borderRadius: 9, fontWeight: 700, fontSize: 13, background: "var(--onyx-cyan)", color: "#06121b", border: "none", cursor: saving ? "default" : "pointer", opacity: saving ? 0.7 : 1 }}
+          >
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Create Plan Modal ────────────────────────────────────────────────────────
 
 function CreatePlanModal({ onClose, onCreated }) {
@@ -1154,6 +1265,7 @@ export default function ContentPlan() {
   const [detailItem, setDetailItem] = useState(null); // modal
   const [showCreate, setShowCreate] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [error, setError] = useState("");
 
   // Calendar month-navigation state — independent of any single plan's fixed
@@ -1320,6 +1432,18 @@ export default function ContentPlan() {
     setShowCreate(false);
   }
 
+  function handlePlanEdited(updatedPlan) {
+    setPlans(prev => prev.map(p => p.id === updatedPlan.id ? { ...p, ...updatedPlan } : p));
+    if (selectedPlanId === updatedPlan.id) setPlan(prev => prev ? { ...prev, ...updatedPlan } : prev);
+    setShowEdit(false);
+  }
+
+  function handleItemDeleted(itemId) {
+    setItems(prev => prev.filter(i => i.id !== itemId));
+    setMonthItems(prev => prev.filter(i => i.id !== itemId));
+    if (detailItem?.id === itemId) setDetailItem(null);
+  }
+
   function handlePlanDeleted(deletedId) {
     setPlans(prev => {
       const remaining = prev.filter(p => p.id !== deletedId);
@@ -1399,6 +1523,20 @@ export default function ContentPlan() {
               {!selectedPlanId && <option value="">— No plan for this month —</option>}
               {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
+
+            {plan && (
+              <button
+                onClick={() => setShowEdit(true)}
+                title="Edit plan"
+                style={{
+                  padding: "7px 10px", borderRadius: 8, fontSize: 13,
+                  background: "var(--chip-bg)", border: "0.5px solid var(--onyx-hairline-strong)",
+                  color: "var(--onyx-text-faint)", cursor: "pointer",
+                }}
+              >
+                ✏️
+              </button>
+            )}
 
             {plan && (
               <button
@@ -1525,6 +1663,7 @@ export default function ContentPlan() {
           onClose={() => setDetailItem(null)}
           onStatusChange={handleStatusChange}
           onReelCreated={handleReelCreated}
+          onDeleted={handleItemDeleted}
         />
       )}
       {showCreate && (
@@ -1539,6 +1678,13 @@ export default function ContentPlan() {
           itemCount={items.length}
           onClose={() => setShowDelete(false)}
           onDeleted={handlePlanDeleted}
+        />
+      )}
+      {showEdit && plan && (
+        <EditPlanModal
+          plan={plan}
+          onClose={() => setShowEdit(false)}
+          onEdited={handlePlanEdited}
         />
       )}
     </div>
