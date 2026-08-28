@@ -67,6 +67,28 @@ function isLikelyVideoUrl(u) {
   return ["mp4", "webm", "mov", "m4v"].includes(ext);
 }
 
+// The 3 save call sites below used to do
+// `scenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.stockThumb`
+// -- .find() returns the FIRST scene matching ANY of the three, then reads
+// just .stockThumb off THAT scene, so a reel whose first scene is video-only
+// (no stockThumb/thumbnail -- true of most AI-generated or direct-URL-paste
+// scenes) permanently loses out on a real image thumbnail sitting on scene 2
+// or later. Confirmed live 2026-08-28: a 2-scene reel (scene 1 direct-URL
+// video, scene 2 a real Pexels image thumbnail) saved thumbnail_url as null
+// and showed "No preview" in the dashboard despite scene 2's perfectly good
+// thumbnail existing right there. Also guards stockThumb/thumbnail
+// themselves against holding a video URL (not just the old mediaUrl
+// fallback) -- ai_studio_library rows default thumbnail_url to the raw
+// video url when no real poster frame was ever generated (see
+// aiStudioLibrary.js POST), and picking that item via "Use on Scene" writes
+// that same video url straight into a scene's thumbnail/stockThumb fields.
+function pickReelThumbnail(scenes) {
+  const isRealImage = (u) => !!u && !isLikelyVideoUrl(u);
+  return scenes.find(s => isRealImage(s.stockThumb))?.stockThumb
+    || scenes.find(s => isRealImage(s.thumbnail))?.thumbnail
+    || (isRealImage(scenes[0]?.mediaUrl) ? scenes[0].mediaUrl : null);
+}
+
 function calcTotalDuration(state) {
   if (!state?.tracks) return 0;
   let max = 0;
@@ -1952,9 +1974,7 @@ export default function EditorV2() {
               try {
                 const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
                 const normalizedScenes = norm.map(s => ({ ...s, mediaUrl: s.mediaUrl || s.url || s.src || "" }));
-                const thumbnailUrl = normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.stockThumb
-                  || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
-                  || (isLikelyVideoUrl(normalizedScenes[0]?.mediaUrl) ? null : normalizedScenes[0]?.mediaUrl) || null;
+                const thumbnailUrl = pickReelThumbnail(normalizedScenes);
                 const body = JSON.stringify({ title: handoffTitle, scenes: normalizedScenes, timeline: { tracks: [] }, ratio: handoffRatio, status: "draft", globalMusicUrl: "", globalMusicName: "", thumbnail_url: thumbnailUrl, brand_id: d?.brandId || null, metadata: d?.metadata || {} });
                 const result = await createReelOnce(body, h);
                 if (result.id && !result.created) {
@@ -2001,9 +2021,7 @@ export default function EditorV2() {
             try {
               const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
               const normalizedScenes = norm.map(s => ({ ...s, mediaUrl: s.mediaUrl || s.url || s.src || "" }));
-              const thumbnailUrl = normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.stockThumb
-                || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
-                || (isLikelyVideoUrl(normalizedScenes[0]?.mediaUrl) ? null : normalizedScenes[0]?.mediaUrl) || null;
+              const thumbnailUrl = pickReelThumbnail(normalizedScenes);
               const body = JSON.stringify({ title: autosaveTitle, scenes: normalizedScenes, timeline: { tracks: [] }, ratio: autosaveRatio, status: "draft", globalMusicUrl: d?.globalMusicUrl || "", globalMusicName: "", thumbnail_url: thumbnailUrl, template: autosaveTemplate, theme: autosaveTheme });
               const result = await createReelOnce(body, h);
               if (result.id && !result.created) {
@@ -2176,9 +2194,7 @@ export default function EditorV2() {
       });
       const cleanedTimeline = { ...timelineState, tracks: cleanedTracks };
       const normalizedScenes = scenesRef.current.map(s => ({ ...s, mediaUrl: s.mediaUrl || s.url || s.src || "" }));
-      const thumbnailUrl = normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.stockThumb
-        || normalizedScenes.find(s => s.stockThumb || s.thumbnail || s.mediaUrl)?.thumbnail
-        || (isLikelyVideoUrl(normalizedScenes[0]?.mediaUrl) ? null : normalizedScenes[0]?.mediaUrl) || null;
+      const thumbnailUrl = pickReelThumbnail(normalizedScenes);
       const bodyObj = { title, scenes: normalizedScenes, timeline: cleanedTimeline, ratio, status: "draft", globalMusicUrl, globalMusicName, thumbnail_url: thumbnailUrl, brand_id: selectedBrandId };
       // createReelOnce's POST doesn't need expected_updated_at -- there's
       // nothing on the server yet for a brand-new reel to conflict with.
