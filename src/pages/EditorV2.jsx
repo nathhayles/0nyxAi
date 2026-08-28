@@ -2576,11 +2576,20 @@ export default function EditorV2() {
     if (!clip?.paintMaskUrl) {
       imgEl.style.display = 'none';
       imgEl.removeAttribute('data-clip-id');
+      imgEl.removeAttribute('data-mask-url');
       return;
     }
-    if (imgEl.getAttribute('data-clip-id') === clip.id) return; // already showing this clip's mask
+    // Key the cache off BOTH clip.id and paintMaskUrl (mirrors the video-slot
+    // sync's data-src + data-clip-id check above) -- clip.id alone doesn't
+    // change when a user re-saves an edited mask on the still-active clip,
+    // which previously caused the stale mask/position to stick until the
+    // user navigated away and back.
+    if (imgEl.getAttribute('data-clip-id') === clip.id && imgEl.getAttribute('data-mask-url') === clip.paintMaskUrl) {
+      return; // already showing this clip's current mask
+    }
     imgEl.src = clip.paintMaskUrl;
     imgEl.setAttribute('data-clip-id', clip.id);
+    imgEl.setAttribute('data-mask-url', clip.paintMaskUrl);
     imgEl.style.left = `${clip.paintMaskXPct}%`;
     imgEl.style.top = `${clip.paintMaskYPct}%`;
     imgEl.style.width = `${clip.paintMaskWidthPct}%`;
