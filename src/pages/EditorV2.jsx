@@ -265,8 +265,11 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, onExport, 
       }
       {saved && <span style={{ fontSize: 12, fontWeight: 600, color: saved.startsWith("✗") ? "#ff6b6b" : saved.startsWith("✓") || saved === "Saved" ? "#4dd0ff" : "var(--onyx-text-dim)", background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 9px", whiteSpace: "nowrap" }}>{saved}</span>}
 
-      {/* Add Scene */}
-      <button onClick={onAddScene} style={{ background: "linear-gradient(180deg,#5edcff,#2db8ee)", border: "0.5px solid rgba(255,255,255,0.45)", borderRadius: 7, padding: "5px 11px", cursor: "pointer", color: theme === "opal" ? "#ffffff" : "#06121b", fontWeight: 600, fontSize: 11.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5, boxShadow: "0 1px 0 rgba(255,255,255,0.4) inset,0 3px 10px rgba(77,208,255,0.25)" }}>
+      {/* Add Scene -- secondary with a cyan accent so it still reads as
+          "the create action" without competing with Export's primary
+          weight (both used to be the same gradient, diluting the
+          hierarchy -- editor-chrome-visual-polish pass 2026-08-28). */}
+      <button onClick={onAddScene} className="btn-secondary" style={{ borderColor: "var(--onyx-cyan,#4dd0ff)", color: "var(--onyx-cyan,#4dd0ff)", padding: "5px 11px", fontWeight: 600, fontSize: 11.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
         + Add Scene
       </button>
 
@@ -279,36 +282,37 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, onExport, 
         style={{ display: "none" }}
         onChange={(e) => handleUploadPicked(e.target.files)}
       />
-      <button onClick={() => uploadInputRef.current?.click()} disabled={uploading} style={{ background: "linear-gradient(180deg,#5edcff,#2db8ee)", border: "0.5px solid rgba(255,255,255,0.45)", borderRadius: 7, padding: "5px 11px", cursor: uploading ? "default" : "pointer", opacity: uploading ? 0.6 : 1, color: theme === "opal" ? "#ffffff" : "#06121b", fontWeight: 600, fontSize: 11.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5, boxShadow: "0 1px 0 rgba(255,255,255,0.4) inset,0 3px 10px rgba(77,208,255,0.25)" }}>
+      <button onClick={() => uploadInputRef.current?.click()} disabled={uploading} className="btn-secondary" style={{ padding: "5px 11px", fontWeight: 600, fontSize: 11.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
         {uploading ? "Uploading…" : "Upload"}
       </button>
 
       <div style={{ flex: 1 }}/>
 
-      {/* Theme toggle */}
-      <button onClick={onThemeToggle} style={{ background: "var(--chip-bg,rgba(255,255,255,0.06))", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", borderRadius: 8, padding: "5px 10px", cursor: "pointer", color: "var(--onyx-text-dim)", fontSize: 11, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
+      {/* Theme toggle -- lowest emphasis, a preference not an action */}
+      <button onClick={onThemeToggle} className="btn-ghost" style={{ padding: "5px 10px", fontSize: 11, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
         <Glyph name={theme === "onyx" ? "sun" : "moon"} size={12} color="var(--onyx-cyan,#4dd0ff)"/>
         {theme === "onyx" ? "Opal" : "Onyx"}
       </button>
 
       {/* Save */}
-      <button onClick={onSave} style={{ background: "var(--chip-bg,rgba(255,255,255,0.06))", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", borderRadius: 8, padding: "6px 13px", cursor: "pointer", color: "var(--onyx-text,#f1f5fb)", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
+      <button onClick={onSave} className="btn-secondary" style={{ padding: "6px 13px", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
         <Glyph name="save" size={13} color="var(--onyx-cyan,#4dd0ff)"/> Save
       </button>
 
       {/* Share */}
-      <button onClick={onShare} style={{ background: "var(--chip-bg,rgba(255,255,255,0.06))", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", borderRadius: 8, padding: "6px 13px", cursor: "pointer", color: "var(--onyx-text,#f1f5fb)", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
+      <button onClick={onShare} className="btn-secondary" style={{ padding: "6px 13px", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
         <Glyph name="share" size={13} color="var(--onyx-cyan,#4dd0ff)"/> Share
       </button>
 
       {/* Publish */}
-      <button onClick={onPublish} style={{ background: "var(--chip-bg,rgba(255,255,255,0.06))", border: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", borderRadius: 8, padding: "6px 13px", cursor: "pointer", color: "var(--onyx-text,#f1f5fb)", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
+      <button onClick={onPublish} className="btn-secondary" style={{ padding: "6px 13px", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
         <Glyph name="upload" size={13} color="var(--onyx-cyan,#4dd0ff)"/> Publish
       </button>
 
-      {/* Export */}
-      <button onClick={onExport} style={{ background: "linear-gradient(180deg,#5edcff,#2db8ee)", border: "0.5px solid rgba(255,255,255,0.45)", borderRadius: 8, padding: "6px 14px", cursor: "pointer", color: theme === "opal" ? "#ffffff" : "#06121b", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 1px 0 rgba(255,255,255,0.4) inset,0 4px 14px rgba(77,208,255,0.35)" }}>
-        <Glyph name="download" size={13} color={theme === "opal" ? "#ffffff" : "#06121b"}/> Export
+      {/* Export -- the one true primary action in this toolbar: the actual
+          end-goal a user is working toward. */}
+      <button onClick={onExport} className="btn-primary" style={{ padding: "6px 14px", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6, boxShadow: "0 1px 0 rgba(255,255,255,0.4) inset,0 4px 14px rgba(77,208,255,0.35)" }}>
+        <Glyph name="download" size={13} color="var(--btn-primary-text,#06121b)"/> Export
       </button>
       <HelpTooltip topic="export" />
     </div>
@@ -316,19 +320,31 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, onExport, 
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
+// Icon rail width. Labels are always-visible (Nathan's call, 2026-08-28,
+// overriding the earlier hover-flyout-only draft in
+// editor-chrome-visual-polish-design.md) laid out horizontally next to each
+// icon rather than stacked underneath -- keeps every row at the same fixed
+// height it always had, so nothing can clip vertically on a short viewport
+// regardless of how many of the 12 tabs there are. That vertical-clipping
+// risk (not a horizontal one) was the original reason always-visible labels
+// were deferred; this layout sidesteps it instead of accepting the risk.
+const RAIL_WIDTH = 136;
+
 function Sidebar({ open, activeTab, setActiveTab, children }) {
   return (
-    <div style={{ width: open ? 320 : 48, flexShrink: 0, borderRight: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", background: "var(--panel-bg,rgba(6,9,15,0.5))", display: "flex", flexDirection: "column", transition: "width 0.2s ease", overflow: "hidden", position: "relative", zIndex: 10 }}>
+    <div style={{ width: open ? RAIL_WIDTH + 320 : RAIL_WIDTH, flexShrink: 0, borderRight: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", background: "var(--panel-bg,rgba(6,9,15,0.5))", display: "flex", flexDirection: "column", transition: "width 0.2s ease", overflow: "hidden", position: "relative", zIndex: 10 }}>
       {/* Icon rail */}
-      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 48, display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 8, gap: 2, borderRight: open ? "0.5px solid var(--onyx-hairline,rgba(255,255,255,0.07))" : "none" }}>
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: RAIL_WIDTH, display: "flex", flexDirection: "column", alignItems: "stretch", paddingTop: 8, paddingLeft: 6, paddingRight: 6, gap: 2, borderRight: open ? "0.5px solid var(--onyx-hairline,rgba(255,255,255,0.07))" : "none" }}>
         {SIDEBAR_TABS.map((t, idx) => (
           <button key={t.key} onClick={() => setActiveTab(t.key)} title={t.label}
-            style={{ width: 36, height: 36, borderRadius: 8, border: "none", cursor: "pointer", background: activeTab === t.key ? "var(--chip-bg-strong,rgba(255,255,255,0.08))" : "transparent", color: activeTab === t.key ? "var(--onyx-cyan,#4dd0ff)" : "var(--onyx-text-faint,rgba(241,245,251,0.40))", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, fontSize: 14 }}>
+            className={activeTab === t.key ? "btn-ghost active" : "btn-ghost"}
+            style={{ height: 34, border: "0.5px solid transparent", cursor: "pointer", display: "flex", flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 8, fontSize: 14 }}>
             <EditorIcon name={t.icon} />
+            <span style={{ fontSize: 11.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.label}</span>
           </button>
         ))}
       </div>
-      {open && <div style={{ marginLeft: 48, width: "calc(100% - 48px)", overflowY: "auto", overflowX: "hidden" }}>{children}</div>}
+      {open && <div style={{ marginLeft: RAIL_WIDTH, width: `calc(100% - ${RAIL_WIDTH}px)`, overflowY: "auto", overflowX: "hidden" }}>{children}</div>}
     </div>
   );
 }

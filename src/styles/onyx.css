@@ -228,6 +228,77 @@
 }
 
 /* ============================================================================
+   Editor chrome button hierarchy — .btn-primary / .btn-secondary / .btn-ghost
+   Added 2026-08-28 (editor-chrome-visual-polish pass, see
+   backend/docs/editor-chrome-visual-polish-design.md). Before this, every
+   chrome button (.topControls button, .panelTabs button, .smallBtn,
+   .tabBtn) was an independent near-duplicate definition, all effectively
+   the same grey --chip-bg pill with no consistent radius (6/8/8/10px mixed)
+   and no visual distinction between a primary action and a low-emphasis
+   toggle. These three classes are the shared hierarchy; editor.css points
+   its existing selectors at them below instead of duplicating the rules.
+   Also introduces the two-value radius scale used everywhere in the editor
+   chrome: --radius-compact (toolbar-level controls) and --radius-panel
+   (panel-level cards/buttons).
+   ============================================================================ */
+:root {
+  --radius-compact: 6px;
+  --radius-panel: 10px;
+}
+
+.btn-primary {
+  background: var(--btn-primary-grad);
+  color: var(--btn-primary-text);
+  border: none;
+  border-radius: var(--radius-compact);
+  cursor: pointer;
+  font-weight: 700;
+  transition: filter 140ms ease, transform 140ms ease;
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn-primary:active:not(:disabled) { transform: scale(0.97); }
+.btn-primary:disabled {
+  background: var(--onyx-surface-2);
+  color: var(--onyx-text-faint);
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--chip-bg);
+  color: var(--onyx-text);
+  border: 0.5px solid var(--onyx-hairline-strong);
+  border-radius: var(--radius-compact);
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--chip-bg-strong);
+  border-color: var(--onyx-cyan);
+}
+.btn-secondary:active:not(:disabled) { transform: scale(0.97); }
+.btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--onyx-text-faint);
+  border: 0.5px solid transparent;
+  border-radius: var(--radius-compact);
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--chip-bg-low);
+  border-color: var(--onyx-hairline-strong);
+  color: var(--onyx-text);
+}
+.btn-ghost.active {
+  background: var(--chip-bg-strong);
+  border-color: var(--onyx-cyan);
+  color: var(--onyx-cyan);
+}
+.btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ============================================================================
    Global button utilities — available on every page via this global import.
    ============================================================================ */
 .btn-teal {

@@ -231,8 +231,14 @@ body {
   background: var(--chip-bg);
   color: var(--onyx-text);
   border: 0.5px solid var(--onyx-hairline-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-panel, 10px);
   cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.panelTabs button:hover:not(.active) {
+  background: var(--chip-bg-strong);
+  border-color: var(--onyx-cyan);
 }
 
 .panelTabs button.active {
@@ -247,7 +253,7 @@ body {
   background: var(--chip-bg);
   color: var(--onyx-text);
   border: 0.5px solid var(--onyx-hairline-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-panel, 10px);
   cursor: pointer;
   font-weight: 700;
   transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
@@ -275,8 +281,14 @@ body {
   background: var(--chip-bg);
   color: var(--onyx-text);
   border: 0.5px solid var(--onyx-hairline-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-compact, 6px);
   cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.smallBtn:hover:not(.primary):not(:disabled) {
+  background: var(--chip-bg-strong);
+  border-color: var(--onyx-cyan);
 }
 
 .smallBtn.primary {
@@ -288,7 +300,7 @@ body {
 .panelBlock {
   background: var(--onyx-surface-2);
   border: 0.5px solid var(--onyx-hairline-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-panel, 10px);
   padding: 10px;
   margin-bottom: 10px;
 }
