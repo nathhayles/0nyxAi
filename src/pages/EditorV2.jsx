@@ -441,7 +441,7 @@ function applyTransition(type, cur, nxt, onDone) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePlayheadRef, checkpointPlayhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform, onSplit, onOpenVoiceOver, onOpenMusic, onOpenAI, paintActive, paintMode, paintBrushSize, paintColor, paintStrokes, setPaintStrokes, paintCanvasRef }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePlayheadRef, checkpointPlayhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform, onSplit, onOpenVoiceOver, onOpenMusic, onOpenAI, paintActive, paintMode, paintBrushSize, paintColor, paintStrokes, setPaintStrokes, paintCanvasRef, paintMaskImgRef }) {
   // Live 60fps value during playback (see usePlayheadTicker) -- reads
   // livePlayheadRef, which EditorV2's master rAF clock updates every frame.
   // timelineState.playhead itself is now only updated at checkpoints
@@ -974,6 +974,12 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
                     </div>
                   );
                 })()}
+                <img
+                  ref={paintMaskImgRef}
+                  className="v2-preview-paint-mask"
+                  style={{ position: 'absolute', display: 'none', zIndex: 35, pointerEvents: 'none', objectFit: 'fill' }}
+                  alt=""
+                />
                 {(captionScene?.mediaType === 'image' ||
                   (!captionScene?.mediaType && captionScene?.mediaUrl &&
                    !(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(captionScene.mediaUrl) || /^https:\/\/api\.sync\.so\//i.test(captionScene.mediaUrl)))) && captionScene?.mediaUrl && (
@@ -2472,6 +2478,7 @@ export default function EditorV2() {
   const brollImgRef        = useRef(null);
   const brollVideoRef      = useRef(null);
   const brollWrapperRef    = useRef(null);
+  const paintMaskImgRef    = useRef(null);
   const prevBrollClipRef   = useRef(null);
   const tracksRef = useRef(timelineState.tracks);
   useEffect(() => { tracksRef.current = timelineState.tracks; }, [timelineState.tracks]);
@@ -2555,6 +2562,32 @@ export default function EditorV2() {
       wRect.right >= fRect.right - EPS && wRect.bottom >= fRect.bottom - EPS;
   }
 
+  // Paint mask overlay -- always-on for the clip's whole duration (unlike
+  // B-Roll's overlay, which is time-bound to a sub-range). Static
+  // position/size only (v1 scope, see docs/paint-mask-editing-tool-design.md)
+  // so this never needs per-frame updates -- only when the ACTIVE clip
+  // changes does anything here need to run again. Defined at component scope
+  // (not nested inside either effect below) because both the paused/scrub
+  // effect and the imperative tick() play-loop effect need to call it, and
+  // those are two separate useEffect closures that don't share scope --
+  // same reason brollCoversFrame() above lives at this level.
+  function syncPaintMask(imgEl, clip) {
+    if (!imgEl) return;
+    if (!clip?.paintMaskUrl) {
+      imgEl.style.display = 'none';
+      imgEl.removeAttribute('data-clip-id');
+      return;
+    }
+    if (imgEl.getAttribute('data-clip-id') === clip.id) return; // already showing this clip's mask
+    imgEl.src = clip.paintMaskUrl;
+    imgEl.setAttribute('data-clip-id', clip.id);
+    imgEl.style.left = `${clip.paintMaskXPct}%`;
+    imgEl.style.top = `${clip.paintMaskYPct}%`;
+    imgEl.style.width = `${clip.paintMaskWidthPct}%`;
+    imgEl.style.height = `${clip.paintMaskHeightPct}%`;
+    imgEl.style.display = 'block';
+  }
+
   // Sync preview on scrub (not playing) — dual-buffer crossfade, no black frame.
   useEffect(() => {
     if (isPlaying) return;
@@ -2583,6 +2616,8 @@ export default function EditorV2() {
     const brollClipScrub = findAt("broll");
     const videoClipScrub = findAt("video");
     const isBrollScrub = !!brollClipScrub;
+
+    syncPaintMask(paintMaskImgRef.current, videoClipScrub);
 
     if (!targetSrc) {
       cur.style.visibility = "hidden";
@@ -2849,6 +2884,7 @@ export default function EditorV2() {
         .find(c => newPH >= c.startTime && newPH < c.startTime + (c.trimEnd - c.trimStart));
       const brollClip = findActive("broll");
       const videoClip = findActive("video");
+      syncPaintMask(paintMaskImgRef.current, videoClip);
       const clip = brollClip ?? videoClip;
       const isBroll = !!brollClip;
       const brollFullyCovers = !isBroll || brollCoversFrame(brollClip);
@@ -4506,6 +4542,7 @@ export default function EditorV2() {
               brollImgRef={brollImgRef}
               brollVideoRef={brollVideoRef}
               brollWrapperRef={brollWrapperRef}
+              paintMaskImgRef={paintMaskImgRef}
               theme={theme}
               safeZonePlatform={safeZoneEnabled ? safeZonePlatform : null}
               onSplit={() => {
