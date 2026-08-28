@@ -15,6 +15,7 @@ import SequencerPanel   from "../components/SequencerPanel.jsx";
 import StoryboardPanel  from "../components/StoryboardPanel.jsx";
 import VisualsPanel     from "../components/VisualsPanel.jsx";
 import StylesPanel      from "../components/StylesPanel.jsx";
+import PaintMaskPanel   from "../components/PaintMaskPanel.jsx";
 import TextPanel        from "../components/TextPanel.jsx";
 import BrollPanel       from "../components/BrollPanel.jsx";
 import ElementsPanel    from "../components/ElementsPanel.jsx";
@@ -4445,6 +4446,14 @@ export default function EditorV2() {
               reelVideoUrl={reelVideoUrl}
               timelineTracks={timelineState.tracks}
               reelId={reelId}
+            /></Safe>}
+            {activeMenu==="paint" && <Safe name="PaintMaskPanel"><PaintMaskPanel
+              paintMode={paintMode} setPaintMode={setPaintMode}
+              paintBrushSize={paintBrushSize} setPaintBrushSize={setPaintBrushSize}
+              paintColor={paintColor} setPaintColor={setPaintColor}
+              paintStrokes={paintStrokes} setPaintStrokes={setPaintStrokes}
+              paintCanvasRef={paintCanvasRef}
+              activeScene={activeScene} scenes={scenes} timelineState={timelineState} dispatch={dispatchWithHistory}
             /></Safe>}
           </Sidebar>
 
