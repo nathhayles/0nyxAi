@@ -1428,6 +1428,12 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       // source doesn't match the reel's aspect ratio -- see the Fill/Fit
       // toggle in StoryboardPanel.jsx and render.js's scaleFilter().
       fitMode:           scene.fitMode === "fill" ? "fill" : "fit",
+      paintMaskUrl:         clip.paintMaskUrl || null,
+      paintMaskMode:        clip.paintMaskMode || null,
+      paintMaskXPct:        clip.paintMaskXPct,
+      paintMaskYPct:        clip.paintMaskYPct,
+      paintMaskWidthPct:    clip.paintMaskWidthPct,
+      paintMaskHeightPct:   clip.paintMaskHeightPct,
       // No scene.action fallback here -- action is the internal AI generation
       // prompt, never meant to be user-facing. An empty narration must mean
       // no caption, not "show the raw prompt instead" (see sourcePrompt below
