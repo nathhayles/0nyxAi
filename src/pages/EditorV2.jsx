@@ -4194,7 +4194,7 @@ export default function EditorV2() {
               }}
               aiStudioItems={aiStudioItems}
               apiBase=""
-              libraryKey="onyx_ai_studio_library_v1"
+              libraryKey={currentUser?.id ? `onyx_ai_studio_library_v1_${currentUser.id}` : "onyx_ai_studio_library_v1_anon"}
             /></Safe>}
             {activeMenu==="audio"      && <Safe name="AudioPanel"><AudioPanel
               musicVolume={musicVolume} setMusicVolume={setMusicVolume}
