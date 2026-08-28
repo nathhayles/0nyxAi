@@ -1809,6 +1809,12 @@ export default function EditorV2() {
   const [paintColor,      setPaintColor]      = useState("#ff3b30");
   const [paintStrokes,    setPaintStrokes]    = useState([]); // [{points:[[x,y],...], size, color}]
   const paintCanvasRef = useRef(null);
+  // Unsaved strokes must not follow the user to a different scene -- without
+  // this, drawing on scene 1 without saving then selecting scene 2 leaves
+  // scene 1's strokes drawn over scene 2's frame, and a subsequent Save
+  // would write them onto scene 2's clip at scene-1 coordinates. See final
+  // whole-branch review, Important #5.
+  useEffect(() => { setPaintStrokes([]); }, [activeScene]);
   const [brandTab,         setBrandTab]         = useState("kit");
   const [activeMode,       setActiveMode]       = useState("Edit");
   const [sidebarOpen,      setSidebarOpen]      = useState(() => localStorage.getItem("onyx_sidebar")   !== "false");
@@ -4504,7 +4510,7 @@ export default function EditorV2() {
               paintColor={paintColor} setPaintColor={setPaintColor}
               paintStrokes={paintStrokes} setPaintStrokes={setPaintStrokes}
               paintCanvasRef={paintCanvasRef}
-              activeScene={activeScene} scenes={scenes} timelineState={timelineState} dispatch={dispatchWithHistory}
+              activeScene={activeScene} scenes={scenes} timelineState={timelineState} playhead={playhead} dispatch={dispatchWithHistory}
             /></Safe>}
           </Sidebar>
 
