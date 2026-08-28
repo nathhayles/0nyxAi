@@ -3768,7 +3768,11 @@ export default function EditorV2() {
         method: "POST",
         headers: h,
         body: JSON.stringify({
-          prompt: scene.action || scene.narration,
+          // stylePromptPrefix comes from StylesPanel's applyTheme() (e.g.
+          // Pop Art, Manga/Anime, Synthwave -- see StylesPanel.jsx) --
+          // stored separately from scene.action so switching themes never
+          // duplicates/stacks text into the user's own editable prompt.
+          prompt: [scene.stylePromptPrefix, scene.action || scene.narration].filter(Boolean).join(" "),
           sceneId: id,
           aspect_ratio: ratio ?? "9:16",
           duration: scene.duration || 5,

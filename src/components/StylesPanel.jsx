@@ -1,6 +1,14 @@
 import React, { useState } from "react";
 import { FONTS } from "../data/fonts.js";
 
+// Every theme's promptPrefix gets prepended to the scene's generation
+// prompt when applied (see applyTheme() below + EditorV2.jsx's regenerate
+// call site) -- added 2026-08-29. Before this, applyTheme() only ever
+// touched caption_color/caption_bg_color: picking a theme like "Retro"
+// recolored the captions but had zero effect on what the AI actually
+// generated, which is what Nathan was really asking for ("do a manga
+// style scene with..."). Text drawn from real, checkable visual
+// vocabulary for each named style/aesthetic, not generic filler.
 const THEMES = [
   {
     id: "cinematic",
@@ -10,6 +18,7 @@ const THEMES = [
     caption: { font: "Georgia", size: 18, color: "#ffffff", bg: "rgba(0,0,0,0.85)", position: "bottom" },
     musicKeyword: "cinematic epic",
     desc: "Dark, dramatic, high-impact",
+    promptPrefix: "Cinematic style, dramatic lighting, deep shadows, wide anamorphic framing, high-contrast color grading,",
   },
   {
     id: "business",
@@ -19,6 +28,7 @@ const THEMES = [
     caption: { font: "Arial", size: 16, color: "#ffffff", bg: "rgba(30,58,95,0.9)", position: "bottom" },
     musicKeyword: "corporate professional",
     desc: "Clean, professional, trustworthy",
+    promptPrefix: "Professional corporate style, clean composition, blue tones, modern office aesthetic,",
   },
   {
     id: "energetic",
@@ -28,6 +38,7 @@ const THEMES = [
     caption: { font: "Trebuchet MS", size: 17, color: "#ffffff", bg: "rgba(245,158,11,0.9)", position: "bottom" },
     musicKeyword: "upbeat energetic",
     desc: "Bold, vibrant, high energy",
+    promptPrefix: "High-energy vibrant style, bold saturated colors, dynamic motion, fast-paced dramatic angles,",
   },
   {
     id: "minimal",
@@ -37,6 +48,7 @@ const THEMES = [
     caption: { font: "sans-serif", size: 15, color: "#0f172a", bg: "rgba(255,255,255,0.92)", position: "bottom" },
     musicKeyword: "ambient minimal",
     desc: "Clean, simple, elegant",
+    promptPrefix: "Minimalist style, clean negative space, muted tones, simple elegant composition, Scandinavian aesthetic,",
   },
   {
     id: "documentary",
@@ -46,6 +58,7 @@ const THEMES = [
     caption: { font: "Georgia", size: 16, color: "#fef3c7", bg: "rgba(28,25,23,0.88)", position: "bottom" },
     musicKeyword: "documentary thoughtful",
     desc: "Authentic, storytelling, warm",
+    promptPrefix: "Documentary style, handheld feel, natural available light, authentic candid atmosphere, photojournalism,",
   },
   {
     id: "luxury",
@@ -55,6 +68,7 @@ const THEMES = [
     caption: { font: "Georgia", size: 17, color: "#c9a84c", bg: "rgba(26,26,26,0.92)", position: "bottom" },
     musicKeyword: "luxury elegant",
     desc: "Premium, sophisticated, gold",
+    promptPrefix: "Ultra-luxury aesthetic, elegant minimalist composition, gold and black palette, aspirational lifestyle, high fashion editorial,",
   },
   {
     id: "tech",
@@ -64,6 +78,7 @@ const THEMES = [
     caption: { font: "monospace", size: 15, color: "#06b6d4", bg: "rgba(15,23,42,0.92)", position: "bottom" },
     musicKeyword: "technology futuristic",
     desc: "Modern, digital, innovative",
+    promptPrefix: "Futuristic tech style, sleek digital interfaces, cool blue and cyan lighting, high-tech minimalist environment,",
   },
   {
     id: "wellness",
@@ -73,19 +88,31 @@ const THEMES = [
     caption: { font: "sans-serif", size: 16, color: "#14532d", bg: "rgba(240,253,244,0.92)", position: "bottom" },
     musicKeyword: "relaxing nature",
     desc: "Calm, natural, healthy",
+    promptPrefix: "Calm wellness aesthetic, soft natural light, serene green and cream tones, peaceful organic atmosphere,",
   },
-  { id: "viral", label: "Viral", icon: "", palette: ["#ff0050", "#ffffff", "#000000", "#ff4081", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 20, color: "#ffffff", bg: "rgba(0,0,0,0.0)", position: "bottom" }, musicKeyword: "viral upbeat", desc: "TikTok-ready, bold, viral" },
-  { id: "retro", label: "Retro", icon: "", palette: ["#f97316", "#fbbf24", "#84cc16", "#06b6d4", "#1a1a1a"], caption: { font: "monospace", size: 16, color: "#fbbf24", bg: "rgba(26,26,26,0.92)", position: "bottom" }, musicKeyword: "retro vintage", desc: "80s/90s nostalgic vibes" },
-  { id: "neon", label: "Neon", icon: "", palette: ["#0f0f0f", "#a855f7", "#ec4899", "#06b6d4", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 17, color: "#a855f7", bg: "rgba(0,0,0,0.85)", position: "bottom" }, musicKeyword: "electronic neon", desc: "Dark, glowing, nightlife" },
-  { id: "nature", label: "Nature", icon: "", palette: ["#166534", "#86efac", "#fef9c3", "#92400e", "#f0fdf4"], caption: { font: "Georgia", size: 16, color: "#166534", bg: "rgba(240,253,244,0.9)", position: "bottom" }, musicKeyword: "nature peaceful", desc: "Earthy, organic, outdoors" },
-  { id: "food", label: "Food", icon: "", palette: ["#dc2626", "#f97316", "#fbbf24", "#ffffff", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 17, color: "#ffffff", bg: "rgba(220,38,38,0.9)", position: "bottom" }, musicKeyword: "upbeat fun", desc: "Warm, appetising, vibrant" },
-  { id: "fitness", label: "Fitness", icon: "", palette: ["#1f2937", "#f59e0b", "#ef4444", "#ffffff", "#111827"], caption: { font: "Arial", size: 18, color: "#f59e0b", bg: "rgba(31,41,55,0.95)", position: "bottom" }, musicKeyword: "motivational workout", desc: "Powerful, motivational, bold" },
-  { id: "fashion", label: "Fashion", icon: "", palette: ["#fdf2f8", "#f9a8d4", "#9d174d", "#ffffff", "#1a1a1a"], caption: { font: "Georgia", size: 16, color: "#9d174d", bg: "rgba(253,242,248,0.92)", position: "bottom" }, musicKeyword: "fashion stylish", desc: "Elegant, feminine, stylish" },
-  { id: "realestate", label: "Real Estate", icon: "", palette: ["#1e3a5f", "#94a3b8", "#f8fafc", "#c9a84c", "#0f172a"], caption: { font: "Arial", size: 16, color: "#ffffff", bg: "rgba(30,58,95,0.92)", position: "bottom" }, musicKeyword: "professional calm", desc: "Trustworthy, premium, clean" },
-  { id: "education", label: "Education", icon: "", palette: ["#1d4ed8", "#fbbf24", "#ffffff", "#f0f9ff", "#1e3a5f"], caption: { font: "Arial", size: 16, color: "#1d4ed8", bg: "rgba(240,249,255,0.95)", position: "bottom" }, musicKeyword: "educational inspiring", desc: "Clear, informative, bright" },
-  { id: "horror", label: "Horror", icon: "", palette: ["#000000", "#dc2626", "#4a1942", "#ffffff", "#1a0a0a"], caption: { font: "Georgia", size: 18, color: "#dc2626", bg: "rgba(0,0,0,0.95)", position: "bottom" }, musicKeyword: "dark suspense", desc: "Dark, eerie, intense" },
-  { id: "travel", label: "Travel", icon: "", palette: ["#0ea5e9", "#f59e0b", "#ffffff", "#1e3a5f", "#f0f9ff"], caption: { font: "sans-serif", size: 16, color: "#ffffff", bg: "rgba(14,165,233,0.85)", position: "bottom" }, musicKeyword: "adventure travel", desc: "Bright, adventurous, wanderlust" },
-  { id: "comedy", label: "Comedy", icon: "", palette: ["#fbbf24", "#f97316", "#ffffff", "#1a1a1a", "#fef9c3"], caption: { font: "Trebuchet MS", size: 18, color: "#1a1a1a", bg: "rgba(251,191,36,0.92)", position: "bottom" }, musicKeyword: "funny upbeat", desc: "Fun, playful, lighthearted" },
+  { id: "viral", label: "Viral", icon: "", palette: ["#ff0050", "#ffffff", "#000000", "#ff4081", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 20, color: "#ffffff", bg: "rgba(0,0,0,0.0)", position: "bottom" }, musicKeyword: "viral upbeat", desc: "TikTok-ready, bold, viral", promptPrefix: "Vibrant social media style, high energy, bright saturated colors, dynamic close-up composition, vertical framing," },
+  { id: "retro", label: "Retro", icon: "", palette: ["#f97316", "#fbbf24", "#84cc16", "#06b6d4", "#1a1a1a"], caption: { font: "monospace", size: 16, color: "#fbbf24", bg: "rgba(26,26,26,0.92)", position: "bottom" }, musicKeyword: "retro vintage", desc: "80s/90s nostalgic vibes", promptPrefix: "Retro 80s/90s aesthetic, warm film grain, VHS tracking artifacts, saturated sunset color grading, nostalgic analog look," },
+  { id: "neon", label: "Neon", icon: "", palette: ["#0f0f0f", "#a855f7", "#ec4899", "#06b6d4", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 17, color: "#a855f7", bg: "rgba(0,0,0,0.85)", position: "bottom" }, musicKeyword: "electronic neon", desc: "Dark, glowing, nightlife", promptPrefix: "Neon-lit nightlife aesthetic, glowing pink and cyan lights, dark wet-street reflections, cyberpunk atmosphere," },
+  { id: "nature", label: "Nature", icon: "", palette: ["#166534", "#86efac", "#fef9c3", "#92400e", "#f0fdf4"], caption: { font: "Georgia", size: 16, color: "#166534", bg: "rgba(240,253,244,0.9)", position: "bottom" }, musicKeyword: "nature peaceful", desc: "Earthy, organic, outdoors", promptPrefix: "Natural earthy style, organic outdoor lighting, lush green tones, grounded documentary-style framing," },
+  { id: "food", label: "Food", icon: "", palette: ["#dc2626", "#f97316", "#fbbf24", "#ffffff", "#1a1a1a"], caption: { font: "Trebuchet MS", size: 17, color: "#ffffff", bg: "rgba(220,38,38,0.9)", position: "bottom" }, musicKeyword: "upbeat fun", desc: "Warm, appetising, vibrant", promptPrefix: "Appetising food-styled aesthetic, warm golden lighting, close-up macro detail, vibrant fresh colors," },
+  { id: "fitness", label: "Fitness", icon: "", palette: ["#1f2937", "#f59e0b", "#ef4444", "#ffffff", "#111827"], caption: { font: "Arial", size: 18, color: "#f59e0b", bg: "rgba(31,41,55,0.95)", position: "bottom" }, musicKeyword: "motivational workout", desc: "Powerful, motivational, bold", promptPrefix: "Powerful fitness aesthetic, high-contrast dramatic lighting, bold dynamic angles, motivational intensity," },
+  { id: "fashion", label: "Fashion", icon: "", palette: ["#fdf2f8", "#f9a8d4", "#9d174d", "#ffffff", "#1a1a1a"], caption: { font: "Georgia", size: 16, color: "#9d174d", bg: "rgba(253,242,248,0.92)", position: "bottom" }, musicKeyword: "fashion stylish", desc: "Elegant, feminine, stylish", promptPrefix: "Elegant fashion-editorial style, soft studio lighting, refined composition, high-fashion runway aesthetic," },
+  { id: "realestate", label: "Real Estate", icon: "", palette: ["#1e3a5f", "#94a3b8", "#f8fafc", "#c9a84c", "#0f172a"], caption: { font: "Arial", size: 16, color: "#ffffff", bg: "rgba(30,58,95,0.92)", position: "bottom" }, musicKeyword: "professional calm", desc: "Trustworthy, premium, clean", promptPrefix: "Premium real-estate style, clean architectural composition, natural daylight, polished professional framing," },
+  { id: "education", label: "Education", icon: "", palette: ["#1d4ed8", "#fbbf24", "#ffffff", "#f0f9ff", "#1e3a5f"], caption: { font: "Arial", size: 16, color: "#1d4ed8", bg: "rgba(240,249,255,0.95)", position: "bottom" }, musicKeyword: "educational inspiring", desc: "Clear, informative, bright", promptPrefix: "Bright educational style, clear well-lit composition, friendly approachable framing, clean informative visuals," },
+  { id: "horror", label: "Horror", icon: "", palette: ["#000000", "#dc2626", "#4a1942", "#ffffff", "#1a0a0a"], caption: { font: "Georgia", size: 18, color: "#dc2626", bg: "rgba(0,0,0,0.95)", position: "bottom" }, musicKeyword: "dark suspense", desc: "Dark, eerie, intense", promptPrefix: "Dark moody atmosphere, deep shadows, horror cinematic aesthetic, dramatic low-key lighting, muted desaturated color," },
+  { id: "travel", label: "Travel", icon: "", palette: ["#0ea5e9", "#f59e0b", "#ffffff", "#1e3a5f", "#f0f9ff"], caption: { font: "sans-serif", size: 16, color: "#ffffff", bg: "rgba(14,165,233,0.85)", position: "bottom" }, musicKeyword: "adventure travel", desc: "Bright, adventurous, wanderlust", promptPrefix: "Adventurous travel aesthetic, warm golden-hour light, sweeping wide landscapes, wanderlust cinematic framing," },
+  { id: "comedy", label: "Comedy", icon: "", palette: ["#fbbf24", "#f97316", "#ffffff", "#1a1a1a", "#fef9c3"], caption: { font: "Trebuchet MS", size: 18, color: "#1a1a1a", bg: "rgba(251,191,36,0.92)", position: "bottom" }, musicKeyword: "funny upbeat", desc: "Fun, playful, lighthearted", promptPrefix: "Playful comedic style, bright bold colors, exaggerated expressive framing, lighthearted energetic pacing," },
+
+  // Named classic art styles -- added 2026-08-29 per Nathan's direct ask
+  // ("do a manga style scene with...", referencing pop art / art nouveau /
+  // synthwave examples). Distinct from the mood/industry themes above:
+  // these map to real, checkable art-historical/genre visual vocabulary.
+  { id: "popart", label: "Pop Art", icon: "", palette: ["#e63946", "#ffd60a", "#1d3557", "#000000", "#ffffff"], caption: { font: "Trebuchet MS", size: 19, color: "#ffffff", bg: "rgba(230,57,70,0.9)", position: "bottom" }, musicKeyword: "pop upbeat retro", desc: "Lichtenstein-style comic pop art", promptPrefix: "Pop art style, bold flat colors, thick black outlines, Ben-Day halftone dots, comic-book aesthetic, high-contrast graphic composition," },
+  { id: "artnouveau", label: "Art Nouveau", icon: "❧", palette: ["#c9a84c", "#f5ecd7", "#2f5233", "#a8375f", "#1a1a1a"], caption: { font: "Georgia", size: 17, color: "#c9a84c", bg: "rgba(47,82,51,0.85)", position: "bottom" }, musicKeyword: "elegant orchestral", desc: "Mucha-style flowing ornamental illustration", promptPrefix: "Art Nouveau style, flowing organic linework, ornamental floral motifs, elegant decorative borders, Mucha-inspired illustration," },
+  { id: "synthwave", label: "Synthwave", icon: "◢", palette: ["#ff2e97", "#00e5ff", "#7b2ff7", "#0a0014", "#ff9e00"], caption: { font: "monospace", size: 18, color: "#00e5ff", bg: "rgba(10,0,20,0.9)", position: "bottom" }, musicKeyword: "synthwave electronic", desc: "80s vaporwave neon-grid retro-futurism", promptPrefix: "Synthwave vaporwave aesthetic, neon grid horizon, magenta and cyan gradient sky, retro-futuristic 80s digital art, glowing chrome," },
+  { id: "vintageposter", label: "Vintage Poster", icon: "", palette: ["#2a6f77", "#e9b44c", "#f4ecd8", "#c1502e", "#1e3a4c"], caption: { font: "Georgia", size: 16, color: "#f4ecd8", bg: "rgba(42,111,119,0.88)", position: "bottom" }, musicKeyword: "vintage jazzy", desc: "Mid-century travel-poster illustration", promptPrefix: "Vintage travel poster style, flat bold color blocks, mid-century illustration, WPA-era poster art, simplified geometric shapes," },
+  { id: "filmnoir", label: "Film Noir", icon: "", palette: ["#000000", "#ffffff", "#4a4a4a", "#1a1a1a", "#8a8a8a"], caption: { font: "Georgia", size: 18, color: "#ffffff", bg: "rgba(0,0,0,0.9)", position: "bottom" }, musicKeyword: "noir suspense jazz", desc: "1940s black-and-white detective aesthetic", promptPrefix: "Film noir style, high-contrast black and white, dramatic venetian-blind shadows, moody low-key lighting, 1940s detective film aesthetic," },
+  { id: "manga", label: "Manga / Anime", icon: "", palette: ["#ff6f91", "#4fc3f7", "#ffffff", "#1a1a1a", "#ff3b3b"], caption: { font: "Trebuchet MS", size: 18, color: "#1a1a1a", bg: "rgba(255,255,255,0.92)", position: "bottom" }, musicKeyword: "anime upbeat", desc: "Japanese manga/anime cel-shaded style", promptPrefix: "Japanese manga anime style, clean cel-shaded line art, expressive characters, dynamic speed lines, vibrant anime color palette," },
 ];
 
 const CAPTION_STYLES = [
@@ -363,6 +390,14 @@ export default function StylesPanel({ scenes = [], setScenes, activeScene, activ
         caption_color: theme.caption.color,
         caption_bg_color: theme.caption.bg,
         // caption_font, caption_size, caption_position intentionally preserved
+        // Stored separately from the user's own editable Action/Background
+        // text (scene.action) and combined only at generation time (see
+        // EditorV2.jsx's regenerateScene) -- baking it directly into
+        // scene.action would duplicate/stack on every repeat click and
+        // pollute the user's own prompt text. Set (not appended) so
+        // switching themes replaces the previous style cleanly rather than
+        // accumulating multiple styles' prefixes.
+        stylePromptPrefix: theme.promptPrefix || null,
       };
     });
     setScenes(next);
