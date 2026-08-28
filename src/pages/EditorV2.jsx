@@ -440,7 +440,7 @@ function applyTransition(type, cur, nxt, onDone) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePlayheadRef, checkpointPlayhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform, onSplit, onOpenVoiceOver, onOpenMusic, onOpenAI }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePlayheadRef, checkpointPlayhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform, onSplit, onOpenVoiceOver, onOpenMusic, onOpenAI, paintActive, paintMode, paintBrushSize, paintColor, paintStrokes, setPaintStrokes, paintCanvasRef }) {
   // Live 60fps value during playback (see usePlayheadTicker) -- reads
   // livePlayheadRef, which EditorV2's master rAF clock updates every frame.
   // timelineState.playhead itself is now only updated at checkpoints
@@ -689,6 +689,30 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
     };
   }, [captionScene?.avatar_video_url, captionScene?.avatar_position]);
 
+  useEffect(() => {
+    if (!paintActive) return;
+    const canvas = paintCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const cw = Math.max(1, Math.round(rect.width * dpr));
+    const ch = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    for (const stroke of paintStrokes) {
+      if (stroke.points.length < 2) continue;
+      ctx.strokeStyle = stroke.color;
+      ctx.lineWidth = stroke.size * dpr;
+      ctx.beginPath();
+      ctx.moveTo(stroke.points[0][0] * dpr, stroke.points[0][1] * dpr);
+      for (const [x, y] of stroke.points.slice(1)) ctx.lineTo(x * dpr, y * dpr);
+      ctx.stroke();
+    }
+  }, [paintActive, paintStrokes]);
+
   return (
     <div style={{
       flex: 1, minWidth: 0, display: "flex", flexDirection: "column",
@@ -782,6 +806,30 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
                   style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', zIndex: 10, display: 'none' }}
                   playsInline muted
                 />
+                {paintActive && (
+                  <canvas
+                    ref={paintCanvasRef}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 40, cursor: 'crosshair', touchAction: 'none' }}
+                    onPointerDown={e => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      setPaintStrokes(prev => [...prev, { points: [[x, y]], size: paintBrushSize, color: paintColor }]);
+                    }}
+                    onPointerMove={e => {
+                      if (e.buttons !== 1) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+                      setPaintStrokes(prev => {
+                        if (!prev.length) return prev;
+                        const next = prev.slice();
+                        const last = next[next.length - 1];
+                        next[next.length - 1] = { ...last, points: [...last.points, [x, y]] };
+                        return next;
+                      });
+                    }}
+                  />
+                )}
                 {/* B-roll upload overlays — above A-roll overlays. Stage 1:
                     position/size only (no animation). Wrapper's style is
                     ONLY the custom xPct/yPct/sizePct box when all three are
@@ -1743,6 +1791,11 @@ export default function EditorV2() {
   const [loopIn,           setLoopIn]           = useState(0);
   const [loopOut,          setLoopOut]          = useState(null);
   const [activeMenu,       setActiveMenu]       = useState("storyboard");
+  const [paintMode,       setPaintMode]       = useState("cover"); // "cover" | "cutout"
+  const [paintBrushSize,  setPaintBrushSize]  = useState(24);
+  const [paintColor,      setPaintColor]      = useState("#ff3b30");
+  const [paintStrokes,    setPaintStrokes]    = useState([]); // [{points:[[x,y],...], size, color}]
+  const paintCanvasRef = useRef(null);
   const [brandTab,         setBrandTab]         = useState("kit");
   const [activeMode,       setActiveMode]       = useState("Edit");
   const [sidebarOpen,      setSidebarOpen]      = useState(() => localStorage.getItem("onyx_sidebar")   !== "false");
@@ -4454,6 +4507,13 @@ export default function EditorV2() {
               onOpenVoiceOver={() => setActiveMenu("voiceover")}
               onOpenMusic={() => setActiveMenu("audio")}
               onOpenAI={() => setActiveMenu("storyboard")}
+              paintActive={activeMenu === "paint"}
+              paintMode={paintMode}
+              paintBrushSize={paintBrushSize}
+              paintColor={paintColor}
+              paintStrokes={paintStrokes}
+              setPaintStrokes={setPaintStrokes}
+              paintCanvasRef={paintCanvasRef}
             />
           </div>
 
