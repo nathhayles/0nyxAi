@@ -144,6 +144,7 @@ const SIDEBAR_TABS = [
   { key: "transitions", label: "Transitions",  icon: "transitions" },
   { key: "branding",    label: "Brand",        icon: "brand"       },
   { key: "avatar",      label: "Avatar",       icon: "avatar"      },
+  { key: "paint",       label: "Paint",        icon: "paint"       },
 ];
 
 const EDITOR_ICONS = {
@@ -159,6 +160,7 @@ const EDITOR_ICONS = {
   transitions: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14"/><path d="m15 6 6 6-6 6"/><path d="M3 6v12"/></svg>`,
   brand:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>`,
   avatar:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`,
+  paint:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>`,
 };
 
 const EditorIcon = ({ name, size = 20 }) => (
