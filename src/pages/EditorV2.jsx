@@ -9,6 +9,7 @@ import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import { generateReelTitle } from "../utils/autoTitle.js";
 import { usePlayheadTicker } from "../hooks/usePlayheadTicker.js";
+import { renderStroke } from "../utils/paintBrush.js";
 import "../styles/editor.css";
 
 import SequencerPanel   from "../components/SequencerPanel.jsx";
@@ -441,7 +442,7 @@ function applyTransition(type, cur, nxt, onDone) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePlayheadRef, checkpointPlayhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform, onSplit, onOpenVoiceOver, onOpenMusic, onOpenAI, paintActive, paintMode, paintBrushSize, paintColor, paintStrokes, setPaintStrokes, paintCanvasRef, paintMaskImgRef }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePlayheadRef, checkpointPlayhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform, onSplit, onOpenVoiceOver, onOpenMusic, onOpenAI, paintActive, paintMode, paintBrushSize, paintColor, paintBrushType, paintOpacity, paintErasing, paintStrokes, setPaintStrokes, paintCanvasRef, paintMaskImgRef }) {
   // Live 60fps value during playback (see usePlayheadTicker) -- reads
   // livePlayheadRef, which EditorV2's master rAF clock updates every frame.
   // timelineState.playhead itself is now only updated at checkpoints
@@ -701,17 +702,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
     if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    for (const stroke of paintStrokes) {
-      if (stroke.points.length < 2) continue;
-      ctx.strokeStyle = stroke.color;
-      ctx.lineWidth = stroke.size * dpr;
-      ctx.beginPath();
-      ctx.moveTo(stroke.points[0][0] * dpr, stroke.points[0][1] * dpr);
-      for (const [x, y] of stroke.points.slice(1)) ctx.lineTo(x * dpr, y * dpr);
-      ctx.stroke();
-    }
+    for (const stroke of paintStrokes) renderStroke(ctx, stroke, dpr);
   }, [paintActive, paintStrokes]);
 
   return (
@@ -810,12 +801,15 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
                 {paintActive && (
                   <canvas
                     ref={paintCanvasRef}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 40, cursor: 'crosshair', touchAction: 'none' }}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 40, cursor: paintErasing ? 'cell' : 'crosshair', touchAction: 'none' }}
                     onPointerDown={e => {
                       const rect = e.currentTarget.getBoundingClientRect();
                       const x = e.clientX - rect.left, y = e.clientY - rect.top;
                       e.currentTarget.setPointerCapture(e.pointerId);
-                      setPaintStrokes(prev => [...prev, { points: [[x, y]], size: paintBrushSize, color: paintColor }]);
+                      setPaintStrokes(prev => [...prev, {
+                        points: [[x, y]], size: paintBrushSize, color: paintColor,
+                        brushType: paintBrushType, opacity: paintOpacity, erase: paintErasing,
+                      }]);
                     }}
                     onPointerMove={e => {
                       if (e.buttons !== 1) return;
@@ -1807,7 +1801,10 @@ export default function EditorV2() {
   const [paintMode,       setPaintMode]       = useState("cover"); // "cover" | "cutout"
   const [paintBrushSize,  setPaintBrushSize]  = useState(24);
   const [paintColor,      setPaintColor]      = useState("#ff3b30");
-  const [paintStrokes,    setPaintStrokes]    = useState([]); // [{points:[[x,y],...], size, color}]
+  const [paintBrushType,  setPaintBrushType]  = useState("hard"); // "hard" | "soft" | "square"
+  const [paintOpacity,    setPaintOpacity]    = useState(1);
+  const [paintErasing,    setPaintErasing]    = useState(false);
+  const [paintStrokes,    setPaintStrokes]    = useState([]); // [{points:[[x,y],...], size, color, brushType, opacity, erase}]
   const paintCanvasRef = useRef(null);
   // Unsaved strokes must not follow the user to a different scene -- without
   // this, drawing on scene 1 without saving then selecting scene 2 leaves
@@ -4508,6 +4505,9 @@ export default function EditorV2() {
               paintMode={paintMode} setPaintMode={setPaintMode}
               paintBrushSize={paintBrushSize} setPaintBrushSize={setPaintBrushSize}
               paintColor={paintColor} setPaintColor={setPaintColor}
+              paintBrushType={paintBrushType} setPaintBrushType={setPaintBrushType}
+              paintOpacity={paintOpacity} setPaintOpacity={setPaintOpacity}
+              paintErasing={paintErasing} setPaintErasing={setPaintErasing}
               paintStrokes={paintStrokes} setPaintStrokes={setPaintStrokes}
               paintCanvasRef={paintCanvasRef}
               activeScene={activeScene} scenes={scenes} timelineState={timelineState} playhead={playhead} dispatch={dispatchWithHistory}
@@ -4578,6 +4578,9 @@ export default function EditorV2() {
               paintMode={paintMode}
               paintBrushSize={paintBrushSize}
               paintColor={paintColor}
+              paintBrushType={paintBrushType}
+              paintOpacity={paintOpacity}
+              paintErasing={paintErasing}
               paintStrokes={paintStrokes}
               setPaintStrokes={setPaintStrokes}
               paintCanvasRef={paintCanvasRef}
