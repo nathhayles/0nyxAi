@@ -1535,6 +1535,8 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       caption_size:      scene.caption_size || brand?.caption_size || 16,
       caption_position:  scene.caption_position || brand?.caption_position || "bottom",
       transitionToNext:  scene.transitionToNext || "cut",
+      transitionDuration: scene.transitionDuration || null,
+      transitionDirection: scene.transitionDirection || null,
       word_timestamps:   scene.word_timestamps || [],
       caption_style:     scene.caption_style || "normal",
       // caption_font_size_px used to scale cSize by the LIVE on-screen preview
