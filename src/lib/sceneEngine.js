@@ -41,6 +41,7 @@ export function buildScenesFromAnalysis(analysisScenes = [], theme = 'cinematic'
       isAiGenerated: false,
       thumbnail: null,
       transitionToNext: 'cut',
+      transitionDirection: null,
       speakers: scene.speakers || [],
     };
   });
@@ -89,5 +90,6 @@ export function buildScenesFromScript(script = '', theme = 'cinematic') {
     isAiGenerated: false,
     thumbnail: null,
     transitionToNext: 'cut',
+    transitionDirection: null,
   }));
 }
