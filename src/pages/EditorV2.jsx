@@ -4,7 +4,8 @@
 import React, {
   useReducer, useState, useEffect, useCallback, useRef, useMemo,
 } from "react";
-import { timelineReducer, makeInitialState, makeClip, importFromScenes, rangesOverlapDuration } from "../reducers/timelineReducer.js";
+import { timelineReducer, makeInitialState, makeClip, importFromScenes, rangesOverlapDuration, evalVolumeEnvelope } from "../reducers/timelineReducer.js";
+import { AUDIO_CEILING_MULTIPLIERS } from "@shared/audioConstants.js";
 import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import { generateReelTitle } from "../utils/autoTitle.js";
@@ -36,6 +37,7 @@ import Toast from "../components/Toast.jsx";
 import { useToast } from "../state/useToast.jsx";
 import { bucketFilesByAssetType } from "../utils/mediaType.js";
 import SafeZoneOverlay from "../components/SafeZoneOverlay.jsx";
+import { PLATFORM_SAFE_ZONES } from "../data/platformSafeZones.js";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -842,7 +844,14 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
                   {scenes.length ? "Scene " + ((activeIdx >= 0 ? activeIdx : 0) + 1) + " of " + scenes.length : "No scenes yet"}
                 </span>
               </div>
-          {safeZonePlatform && <SafeZoneOverlay platform={safeZonePlatform} />}
+          {/* All 4 platforms' safe-zone data (platformSafeZones.js) is derived
+              against a 9:16 vertical canvas -- applying those same percentages
+              to a landscape frame produces large, meaningless "unsafe" bands
+              that visually eat into the frame (confirmed live 2026-08-29: a
+              16:9 reel with a safe-zone platform selected looked like the
+              video only filled part of the screen). Gate to 9:16 until a
+              landscape-specific safe-zone dataset exists. */}
+          {safeZonePlatform && ratio === "9:16" && <SafeZoneOverlay platform={safeZonePlatform} />}
           {/* Dual-buffer with color grading — filter wrapper keeps captions/FX unaffected */}
           {(() => {
             const br  = captionScene?.brightness ?? 50;
@@ -1123,11 +1132,20 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
             const cFont  = captionScene.caption_font || brand?.caption_font || "sans-serif";
             const cSize  = Number(captionScene.caption_size || brand?.caption_size || (ratio === "9:16" ? 18 : 15));
             const cPos   = captionScene.caption_position || brand?.caption_position || "bottom";
+            // Inset by the active safe-zone's top/bottom margin so captions
+            // land inside the guide box instead of at the literal frame edge
+            // -- same 9:16-only gating as the overlay itself (see the
+            // SafeZoneOverlay render site above), since that's the only
+            // orientation the safe-zone data is actually meaningful for.
+            // Confirmed live 2026-08-29: a "bottom" caption sat flush against
+            // the physical bottom edge, squarely inside e.g. Instagram Reels'
+            // published 21.9% bottom unsafe band.
+            const safeZone = (safeZonePlatform && ratio === "9:16") ? PLATFORM_SAFE_ZONES[safeZonePlatform] : null;
             const posStyle = cPos === "top"
-              ? { top: 0 }
+              ? { top: safeZone ? `${safeZone.top}%` : 0 }
               : (cPos === "middle" || cPos === "center")
               ? { top: "50%", transform: "translateY(-50%)" }
-              : { bottom: 0 };
+              : { bottom: safeZone ? `${safeZone.bottom}%` : 0 };
 
             // Visual defaults approximating each burnCaptions() branch in render.js —
             // not pixel-perfect, just enough that each style reads as distinct in the editor.
@@ -3502,9 +3520,29 @@ export default function EditorV2() {
             audioElementsRef.current.set(clip.id, el);
           }
           el.muted = !!track.muted;
-          el.volume = track.muted ? 0 : Math.min(1, Math.max(0, volRef.current * ((track.volume ?? 100) / 100)));
+          // Real absolute volume = sliderVolume * this track's ceiling
+          // multiplier (see shared/audioConstants.js -- e.g. music is hard-
+          // capped at 30% of full even at 100% slider, so it can never
+          // overpower voiceover) * this clip's volume-envelope value at the
+          // current local time (0-100, "% of ceiling" -- matches the
+          // VolumeEnvelope UI's own math in SequencerPanel.jsx exactly, and
+          // the same envelope render.js's real export already applies via
+          // volumeFilterChain()). Previously this only applied volRef and
+          // track.volume, silently skipping both the ceiling multiplier and
+          // the envelope entirely -- confirmed live 2026-08-29: dragging the
+          // music envelope's keyframes up and down produced zero audible
+          // change in the live preview, and preview volume didn't match what
+          // the real export actually produces.
+          const clipLocalTimeForVolume = newPH - clip.startTime + clip.trimStart;
+          const ceilingMultiplier = AUDIO_CEILING_MULTIPLIERS[key] ?? 1;
+          const envelopeV = clip.volumePoints?.length
+            ? evalVolumeEnvelope(clip.volumePoints, clipLocalTimeForVolume)
+            : 100;
+          el.volume = track.muted ? 0 : Math.min(1, Math.max(0,
+            volRef.current * ((track.volume ?? 100) / 100) * ceilingMultiplier * (envelopeV / 100)
+          ));
           if (inRange) {
-            const localTime = newPH - clip.startTime + clip.trimStart;
+            const localTime = clipLocalTimeForVolume;
             if (Math.abs(el.currentTime - localTime) > 0.25) el.currentTime = localTime;
             if (el.paused && !el.dataset.playFailed) {
               el.play().catch(err => {
