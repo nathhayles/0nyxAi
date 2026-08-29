@@ -3303,7 +3303,7 @@ export default function EditorV2() {
             if (slotA) slotA.style.visibility = 'hidden';
             if (slotB) slotB.style.visibility = 'hidden';
             if (brollImgRef.current) brollImgRef.current.style.display = 'none';
-            if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
+            if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.removeAttribute('data-src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
             prevBrollClipRef.current = null;
 
             const { cur: curUpT, nxt: nxtUpT } = getUploadSlotsTick();
@@ -3391,7 +3391,7 @@ export default function EditorV2() {
           }
           if (!isBroll) {
             if (brollImgRef.current) brollImgRef.current.style.display = 'none';
-            if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
+            if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.removeAttribute('data-src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
             prevBrollClipRef.current = null;
           } else {
             // Stock/Pexels broll video — show it over A-roll
@@ -3513,7 +3513,7 @@ export default function EditorV2() {
         if (uploadImgRef2.current) uploadImgRef2.current.style.display = 'none';
         if (uploadVideoRef2.current) { uploadVideoRef2.current.style.display = 'none'; uploadVideoRef2.current.pause(); }
         if (brollImgRef.current) brollImgRef.current.style.display = 'none';
-        if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
+        if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.removeAttribute('data-src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
         prevBrollClipRef.current = null;
       }
 
