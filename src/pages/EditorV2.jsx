@@ -1601,10 +1601,13 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       sfxItems:          sfxItems.length ? sfxItems : (scene.sfxUrl ? [{ url: scene.sfxUrl, volume: scene.sfxVolume ?? sfxVolume ?? 80, startTime: 0 }] : []),
       sourceAudioVolume: scene.sourceAudioVolume ?? 100,
       sourceAudioMuted:  scene.sourceAudioMuted ?? false,
-      // "fit" (default, pad) vs "fill" (crop-to-cover) when this scene's
-      // source doesn't match the reel's aspect ratio -- see the Fill/Fit
-      // toggle in StoryboardPanel.jsx and render.js's scaleFilter().
-      fitMode:           scene.fitMode === "fill" ? "fill" : "fit",
+      // "fill" (default, crop-to-cover) vs "fit" (pad/letterbox) when this
+      // scene's source doesn't match the reel's aspect ratio -- see the
+      // Fill/Fit toggle in StoryboardPanel.jsx and render.js's scaleFilter().
+      // Default is "fill" so AI/upload-generated scenes (none of which set
+      // fitMode explicitly) cover the frame edge-to-edge instead of
+      // pillarboxing; "fit" only applies when a scene explicitly opts in.
+      fitMode:           scene.fitMode === "fit" ? "fit" : "fill",
       paintMaskUrl:         clip.paintMaskUrl || null,
       paintMaskMode:        clip.paintMaskMode || null,
       paintMaskXPct:        clip.paintMaskXPct,
@@ -1782,7 +1785,7 @@ function normalizeScene(scene, fallbackId) {
     voiceoverSourceText: scene?.voiceoverSourceText || "",
     sourceAudioVolume: typeof scene?.sourceAudioVolume === "number" ? scene.sourceAudioVolume : 100,
     sourceAudioMuted: !!scene?.sourceAudioMuted,
-    fitMode: scene?.fitMode === "fill" ? "fill" : "fit",
+    fitMode: scene?.fitMode === "fit" ? "fit" : "fill",
     musicUrl: scene?.musicUrl || null,
     sfxUrl: scene?.sfxUrl || null,
     sfxName: scene?.sfxName || "",
@@ -2876,7 +2879,7 @@ export default function EditorV2() {
     // found live 2026-08-27: a scene set to "Fill" still showed pillarboxed
     // in the editor (looking like the toggle did nothing) while the actual
     // export correctly cropped to fill.
-    function syncOverlay(imgEl, vidEl, src, atTime, muted = true, volume = 1, fitMode = "fit") {
+    function syncOverlay(imgEl, vidEl, src, atTime, muted = true, volume = 1, fitMode = "fill") {
       if (!src) return;
       const isVid = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src) || /^https:\/\/api\.sync\.so\//i.test(src);
       if (isVid) {

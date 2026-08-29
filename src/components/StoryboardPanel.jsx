@@ -1278,15 +1278,15 @@ export default function StoryboardPanel({
             </div>
 
             {/* ── Fill/Fit toggle ── When this scene's source doesn't match
-                the reel's aspect ratio, "Fit" (default) pads with black bars
-                -- never crops any part of the subject out, the safe choice
-                when nothing overrides it. "Fill" crops to cover instead,
-                matching what most competitor editors default to. Added as
-                an explicit per-scene opt-in rather than changing the
-                default, so no existing reel's export silently changes (a
-                real UX audit 2026-08-27 flagged the pillarbox result as
-                "looks broken," but an automatic crop can just as easily cut
-                off part of a subject with zero user control over where). */}
+                the reel's aspect ratio, "Fill" (default, since 2026-08-29)
+                crops to cover so the frame is always filled edge-to-edge --
+                no scene-generation flow (Campaign Generator, PPT-to-Video,
+                Video-to-Reel, Text-to-Video) ever set fitMode explicitly, so
+                under the old "fit" default every AI/upload-generated scene
+                silently pillarboxed regardless of the reel's ratio, in both
+                the live preview and the real export. "Fit (bars)" remains
+                available as an explicit per-scene opt-in for anyone who
+                wants to guarantee no part of the subject is ever cropped. */}
             <div
               style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 11 }}
               onClick={(e) => e.stopPropagation()}
@@ -1298,9 +1298,9 @@ export default function StoryboardPanel({
                   onClick={() => updateField(sc.id, "fitMode", key)}
                   style={{
                     padding: "3px 8px", borderRadius: 5, fontSize: 11, cursor: "pointer",
-                    border: (sc.fitMode || "fit") === key ? "1px solid var(--onyx-cyan)" : "1px solid var(--onyx-hairline-strong)",
-                    background: (sc.fitMode || "fit") === key ? "rgba(77,208,255,0.12)" : "transparent",
-                    color: (sc.fitMode || "fit") === key ? "var(--onyx-cyan)" : "var(--onyx-text-dim)",
+                    border: (sc.fitMode || "fill") === key ? "1px solid var(--onyx-cyan)" : "1px solid var(--onyx-hairline-strong)",
+                    background: (sc.fitMode || "fill") === key ? "rgba(77,208,255,0.12)" : "transparent",
+                    color: (sc.fitMode || "fill") === key ? "var(--onyx-cyan)" : "var(--onyx-text-dim)",
                   }}
                 >
                   {label}
