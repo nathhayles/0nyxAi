@@ -2,7 +2,7 @@
 // Preview-first + Classic NLE, Onyx design system, theme switcher, all 3 ratios
 
 import React, {
-  useReducer, useState, useEffect, useCallback, useRef, useMemo,
+  useReducer, useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo,
 } from "react";
 import { timelineReducer, makeInitialState, makeClip, importFromScenes, rangesOverlapDuration, evalVolumeEnvelope } from "../reducers/timelineReducer.js";
 import { AUDIO_CEILING_MULTIPLIERS } from "@shared/audioConstants.js";
@@ -609,6 +609,22 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
 
   // ── FX interactive state ──────────────────────────────────────────────────
   const frameRef     = useRef(null);
+  // Caption sizing reads frameRef's live width (see captionCanvasW below), but
+  // a plain getBoundingClientRect() call during render reads the DOM as it
+  // stood after the PREVIOUS commit -- when ratio just changed in this same
+  // render, frameRef.current is still the old-ratio-sized node until this
+  // render is committed, so captionScale came out wrong (e.g. still measuring
+  // the wider 16:9 frame right after switching to 9:16, inflating the caption)
+  // until some unrelated re-render (toggling CC off/on) happened to run after
+  // the real commit. useLayoutEffect fires synchronously after commit but
+  // before paint, so re-measuring here and pushing it into state corrects the
+  // value before the browser ever shows the stale size (confirmed live
+  // 2026-08-30: switching 16:9 -> 9:16 no longer flashes oversized captions).
+  const [frameWidth, setFrameWidth] = useState(300);
+  useLayoutEffect(() => {
+    const w = frameRef.current?.getBoundingClientRect().width;
+    if (w) setFrameWidth(w);
+  }, [ratio]);
   const fxDragRef    = useRef(null); // { type:"move"|"resize", clipId, startX, startY, startXPct, startYPct, startSizePct }
   // Parallel, separate drag state for B-roll position/size — deliberately not
   // sharing fxDragRef/handleFxMouseMove so fx-specific code stays untouched.
@@ -1215,7 +1231,11 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
             // literally as 18px CSS on a ~300px-wide preview looked roughly 2-3x
             // too large relative to the frame. Scale by the same canvasW ratio.
             const NATIVE_CAPTION_WIDTH = { "9:16": 720, "1:1": 720, "3:4": 720, "4:3": 960, "21:9": 1680 }[ratio] || 1280;
-            const captionCanvasW = frameRef.current?.getBoundingClientRect().width || 300;
+            // frameWidth (state, kept in sync by the useLayoutEffect above) instead
+            // of a live frameRef.current.getBoundingClientRect() read here -- see
+            // that effect's comment for why the live read was stale right after a
+            // ratio change.
+            const captionCanvasW = frameWidth || 300;
             const captionScale = captionCanvasW / NATIVE_CAPTION_WIDTH;
 
             const textShadow = sd.neon
