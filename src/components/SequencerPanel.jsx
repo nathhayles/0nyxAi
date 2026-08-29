@@ -16,6 +16,7 @@ import {
   clipOverlapsTrack, SPEED_RAMP_PRESETS,
 } from "../reducers/timelineReducer.js";
 import { AUDIO_CEILING_MULTIPLIERS } from "@shared/audioConstants.js";
+import { TRANSITION_CATALOG } from "../utils/transitions.js";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const TRACK_H       = 48;   // px per track row
@@ -131,36 +132,23 @@ function trackMeta(track) {
   };
 }
 
-const TRANSITION_TYPES = [
-  { value: "cut",         label: "Cut" },
-  { value: "fade",        label: "Fade" },
-  { value: "dissolve",    label: "Dissolve" },
-  { value: "slide-left",  label: "Slide Left" },
-  { value: "slide-right", label: "Slide Right" },
-  { value: "zoom-in",     label: "Zoom In" },
-  { value: "zoom-out",    label: "Zoom Out" },
-  { value: "wipe",        label: "Wipe" },
-  { value: "blur",        label: "Blur" },
-  { value: "push",        label: "Push" },
-  { value: "spin",        label: "Spin" },
-];
-
+// Colors keyed by canonical catalog type (see src/utils/transitions.js).
+// Legacy keys (slideLeft, zoomOut, spin, push, flash, hyphenated
+// variants) are gone -- normalizeTransition() resolves those to a
+// canonical type before this map is ever consulted, so only the 12
+// current catalog keys are needed here.
 const TRANSITION_PIP = {
-  fade:          "#4dd0ff",
-  dissolve:      "#a78bfa",
-  "slide-left":  "#34d399",
-  "slide-right": "#fbbf24",
-  "zoom-in":     "#f87171",
-  "zoom-out":    "#fb923c",
-  wipe:          "#60a5fa",
-  slideLeft:     "#22c55e",
-  slideRight:    "#22c55e",
-  zoomIn:        "#f97316",
-  zoomOut:       "#f97316",
-  blur:          "#06b6d4",
-  flash:         "#fbbf24",
-  spin:          "#a855f7",
-  push:          "#84cc16",
+  fade:      "#4dd0ff",
+  dissolve:  "#a78bfa",
+  slide:     "#34d399",
+  wipe:      "#60a5fa",
+  zoom:      "#f87171",
+  blur:      "#06b6d4",
+  circle:    "#a855f7",
+  fadeblack: "#64748b",
+  fadewhite: "#e2e8f0",
+  pixelize:  "#f97316",
+  radial:    "#fbbf24",
 };
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -424,10 +412,9 @@ const Ruler = memo(RulerBase);
 // target for "apply a transition here" (confirmed live 2026-08-19: a real
 // test session dropped on the divider first and got no response). Applies
 // to the outgoing clip's transitionToNext, same as dropping on the clip.
-function TransitionHandle({ x, color, transitionType, duration, onDurationChange, dispatch, updateScene, clipId, sceneId }) {
+function TransitionHandle({ x, color, transitionType, duration, onDurationChange, dispatch, updateScene, clipId, sceneId, onOpenTransitionPanel }) {
   const [dragging, setDragging] = useState(false);
   const [hover, setHover]       = useState(false);
-  const [dropHover, setDropHover] = useState(false);
   const startRef = useRef(null);
 
   function onMouseDown(e) {
@@ -455,45 +442,28 @@ function TransitionHandle({ x, color, transitionType, duration, onDurationChange
       onMouseDown={onMouseDown}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      onDragOver={e => {
-        if (!sceneId || !window.__onyxDraggedTransition) return;
-        e.preventDefault();
-        setDropHover(true);
-      }}
-      onDragLeave={() => setDropHover(false)}
-      onDrop={e => {
-        if (!sceneId || !window.__onyxDraggedTransition) return;
-        e.preventDefault();
-        e.stopPropagation();
-        setDropHover(false);
-        const data = window.__onyxDraggedTransition;
-        window.__onyxDraggedTransition = null;
-        updateScene?.(sceneId, { transitionToNext: data.type });
-        dispatch?.({ type: "UPDATE_CLIP", clipId, changes: { transitionToNext: data.type } });
-      }}
-      title={`${transitionType} · ${duration}s — drag to adjust, or drop a transition here to apply`}
+      onClick={(e) => { e.stopPropagation(); onOpenTransitionPanel?.(sceneId); }}
+      title={`${transitionType} · ${duration}s — drag to adjust, click to edit`}
       style={{
         position: "absolute",
-        // Widened well past the 10px visual marker so a transition dropped
-        // anywhere near the cut point registers -- the marker itself stays
+        // Widened well past the 10px visual marker so the click target
+        // near the cut point is easy to hit -- the marker itself stays
         // visually thin, only the interactive hit area is bigger.
         left: x - 14,
         top: 0, bottom: 0,
         width: 28,
-        cursor: "ew-resize",
+        cursor: "pointer",
         zIndex: 10,
         display: "flex", alignItems: "center", justifyContent: "center",
-        background: dropHover ? `${color}22` : "transparent",
-        outline: dropHover ? `2px solid ${color}` : "none",
-        outlineOffset: -1,
+        background: "transparent",
       }}
     >
       <div style={{
-        width: dragging ? 4 : (hover || dropHover) ? 3 : 2,
+        width: dragging ? 4 : hover ? 3 : 2,
         height: "70%",
         background: color,
         borderRadius: 2,
-        boxShadow: `0 0 ${hover || dragging || dropHover ? 6 : 3}px ${color}`,
+        boxShadow: `0 0 ${hover || dragging ? 6 : 3}px ${color}`,
         transition: "width 0.1s, box-shadow 0.1s",
       }}/>
       {(hover || dragging) && (
@@ -690,7 +660,7 @@ function VolumeEnvelope({ clip, w, dispatch, trackKey, trackVolume }) {
 // ─── Clip block ───────────────────────────────────────────────────────────────
 function ClipBlock({ clip, zoom, selected, onSelect, onTrimStart, onTrimEnd, onDragMove,
                      trackColor, trackDimColor, trackKey, trackVolume, timelineRef, onDeleteScene, dispatch,
-                     onContextMenu, transitionToNext, updateScene }) {
+                     onContextMenu, transitionToNext, updateScene, onOpenTransitionPanel }) {
   const x     = clip.startTime * zoom;
   const w     = Math.max(4, (clip.trimEnd - clip.trimStart) * zoom);
   const isAudio = clip.type === "audio";
@@ -707,25 +677,6 @@ function ClipBlock({ clip, zoom, selected, onSelect, onTrimStart, onTrimEnd, onD
     <div
       onMouseDown={onMouseDownBody}
       onContextMenu={onContextMenu}
-      onDragOver={e => {
-        if (!clip.sceneId || !window.__onyxDraggedTransition) return;
-        e.preventDefault();
-        e.currentTarget.style.outline = "2px solid #4dd0ff";
-      }}
-      onDragLeave={e => { e.currentTarget.style.outline = "none"; }}
-      onDrop={e => {
-        // Only video clips accept transition drags; everything else (media dropped
-        // from a panel onto an existing audio clip, etc.) must bubble up to the
-        // track row's own onDrop instead of being silently swallowed here.
-        if (!clip.sceneId || !window.__onyxDraggedTransition) return;
-        e.preventDefault();
-        e.stopPropagation();
-        e.currentTarget.style.outline = 'none';
-        const data = window.__onyxDraggedTransition;
-        window.__onyxDraggedTransition = null;
-        updateScene?.(clip.sceneId, { transitionToNext: data.type });
-        dispatch({ type: "UPDATE_CLIP", clipId: clip.id, changes: { transitionToNext: data.type } });
-      }}
       style={{
         position: "absolute",
         left: x, width: w, top: 3, bottom: 3,
@@ -815,12 +766,22 @@ function ClipBlock({ clip, zoom, selected, onSelect, onTrimStart, onTrimEnd, onD
 
       {/* Transition pip — right edge, shown when a non-cut transition is set */}
       {pipColor && (
-        <div style={{
-          position: "absolute", right: 9, top: "50%", transform: "translateY(-50%)",
-          width: 6, height: 6, borderRadius: "50%",
-          background: pipColor, boxShadow: `0 0 4px ${pipColor}`,
-          pointerEvents: "none", zIndex: 5,
-        }}/>
+        <div
+          onClick={(e) => { e.stopPropagation(); onOpenTransitionPanel?.(clip.sceneId); }}
+          title="Edit transition"
+          style={{
+            position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)",
+            width: 14, height: 14, borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", zIndex: 5,
+          }}
+        >
+          <div style={{
+            width: 6, height: 6, borderRadius: "50%",
+            background: pipColor, boxShadow: `0 0 4px ${pipColor}`,
+            pointerEvents: "none",
+          }}/>
+        </div>
       )}
 
     </div>
@@ -835,7 +796,7 @@ function ClipBlock({ clip, zoom, selected, onSelect, onTrimStart, onTrimEnd, onD
 // (SequencerPanel) re-rendering on every playback tick.
 function TrackRowBase({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
                     onScrub, onDrop, dispatch, snapEnabled, snapTgts, onDeleteScene,
-                    scenes, setCtxMenu, updateScene, setActiveScene }) {
+                    scenes, setCtxMenu, updateScene, setActiveScene, onOpenTransitionPanel }) {
   const meta = trackMeta(track);
   const trackRef = useRef(null);
   const [rejectFlash, setRejectFlash] = useState(false);
@@ -1039,6 +1000,7 @@ function TrackRowBase({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
               dispatch={dispatch}
               transitionToNext={transitionToNext}
               updateScene={updateScene}
+              onOpenTransitionPanel={onOpenTransitionPanel}
               onContextMenu={setCtxMenu ? e => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1059,6 +1021,7 @@ function TrackRowBase({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
                 updateScene={updateScene}
                 clipId={clip.id}
                 sceneId={clip.sceneId}
+                onOpenTransitionPanel={onOpenTransitionPanel}
               />
             )}
           </React.Fragment>
@@ -1077,10 +1040,6 @@ function ClipContextMenu({ ctxMenu, onClose, dispatch, updateScene, onDeleteScen
   const isBRoll = !clip.sceneId && trackKey === "broll";
   const isFX    = trackKey === "fx" || (!clip.sceneId && !isBRoll);
 
-  const currentTransition = clip.transitionToNext || "cut";
-  const [duration, setDuration] = useState(clip.transitionDuration ?? 0.5);
-  const [strength, setStrength] = useState(clip.transitionStrength ?? 50);
-  const [transitionAxis, setTransitionAxis] = useState(clip.transitionAxis || { x: false, y: true, z: false });
   const fadeIn  = !!clip.fadeIn;
   const fadeOut = !!clip.fadeOut;
 
@@ -1137,73 +1096,6 @@ function ClipContextMenu({ ctxMenu, onClose, dispatch, updateScene, onDeleteScen
 
   return createPortal(
     <div ref={menuRef} style={menuStyle} onClick={e => e.stopPropagation()}>
-
-      {isVideo && (
-        <>
-          <div style={sectionLabel}>Transition to next</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, padding: "4px 14px 6px" }}>
-            {TRANSITION_TYPES.map(t => (
-              <button key={t.value} onClick={() => {
-                updateScene?.(clip.sceneId, { transitionToNext: t.value, transitionDuration: duration });
-                dispatch({ type: "UPDATE_CLIP", clipId: clip.id, changes: { transitionToNext: t.value } });
-              }} style={{
-                padding: "3px 8px", fontSize: 10, borderRadius: 4, border: "none", cursor: "pointer",
-                background: currentTransition === t.value ? "#4dd0ff" : "var(--chip-bg-strong)",
-                color: currentTransition === t.value ? "#06121b" : "var(--onyx-text)", fontWeight: currentTransition === t.value ? 700 : 400,
-              }}>{t.label}</button>
-            ))}
-          </div>
-          <div style={{ padding: "0 14px 6px", display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 10, color: "var(--onyx-text-faint)", flexShrink: 0 }}>Duration</span>
-            <input type="range" min={0.1} max={2.0} step={0.1} value={duration}
-              onChange={e => {
-                const v = Number(e.target.value);
-                setDuration(v);
-                if (currentTransition !== "cut") {
-                  updateScene?.(clip.sceneId, { transitionToNext: currentTransition, transitionDuration: v });
-                  dispatch({ type: "UPDATE_CLIP", clipId: clip.id, changes: { transitionDuration: v } });
-                }
-              }}
-              style={{ flex: 1, accentColor: "var(--onyx-cyan)", cursor: "pointer" }}/>
-            <span style={{ fontSize: 10, color: "var(--onyx-text-faint)", minWidth: 28, fontFamily: "monospace" }}>{duration.toFixed(1)}s</span>
-          </div>
-          <div style={{ padding: "0 14px 6px", display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 10, color: "var(--onyx-text-faint)", flexShrink: 0 }}>Strength</span>
-            <input type="range" min={0} max={100} step={5} value={strength}
-              onChange={e => {
-                const v = Number(e.target.value);
-                setStrength(v);
-                if (currentTransition !== "cut") {
-                  updateScene?.(clip.sceneId, { transitionStrength: v });
-                  dispatch({ type: "UPDATE_CLIP", clipId: clip.id, changes: { transitionStrength: v } });
-                }
-              }}
-              style={{ flex: 1, accentColor: "var(--onyx-cyan)", cursor: "pointer" }}/>
-            <span style={{ fontSize: 10, color: "var(--onyx-text-faint)", minWidth: 28, fontFamily: "monospace" }}>{strength}%</span>
-          </div>
-          {currentTransition === "spin" && (
-            <div style={{ padding: "0 14px 8px" }}>
-              <div style={{ fontSize: 10, color: "var(--onyx-text-faint)", marginBottom: 4 }}>Spin axis</div>
-              <div style={{ display: "flex", gap: 12 }}>
-                {["x", "y", "z"].map(axis => (
-                  <label key={axis} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "var(--onyx-text-dim)", cursor: "pointer" }}>
-                    <input type="checkbox" checked={!!transitionAxis[axis]}
-                      onChange={e => {
-                        const next = { ...transitionAxis, [axis]: e.target.checked };
-                        setTransitionAxis(next);
-                        updateScene?.(clip.sceneId, { transitionAxis: next });
-                        dispatch({ type: "UPDATE_CLIP", clipId: clip.id, changes: { transitionAxis: next } });
-                      }}
-                      style={{ accentColor: "var(--onyx-cyan)" }}/>
-                    {axis.toUpperCase()}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-          <div style={divider}/>
-        </>
-      )}
 
       {(isVideo || isBRoll) && (
         <>
@@ -1276,6 +1168,7 @@ function SequencerPanelBase({
   onDeleteScene,
   onSfxOutOfRange,
   theme,
+  onOpenTransitionPanel,
 }) {
   const isOpal = theme === "opal";
   const [zoom, setZoom]           = useState(DEFAULT_ZOOM);
@@ -1978,6 +1871,7 @@ function SequencerPanelBase({
                 setCtxMenu={setCtxMenu}
                 updateScene={updateScene}
                 setActiveScene={setActiveScene}
+                onOpenTransitionPanel={onOpenTransitionPanel}
               />
             ))}
 
