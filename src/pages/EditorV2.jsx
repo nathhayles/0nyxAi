@@ -362,6 +362,19 @@ function Sidebar({ open, activeTab, setActiveTab, children }) {
 // several catalog types (pixelize, radial) have no reasonable CSS
 // equivalent and fall back to a fade simulation here, while still
 // rendering their real, distinct ffmpeg preset in the actual export.
+// Setting a CSS "from" state and starting a transition to its "to" state in
+// the same single requestAnimationFrame callback is a known browser gotcha:
+// the browser can coalesce both style writes into one paint, since the
+// "from" state was never actually flushed to the screen -- the transition
+// then has nothing to interpolate from and jumps straight to the end state,
+// looking exactly like an instant cut. A nested (double) rAF forces a real
+// paint of the "from" state before the transition + "to" state are applied.
+// Confirmed live 2026-08-29: every transition type was resolving instantly
+// despite a real configured duration, traced to this exact single-rAF gap.
+function doubleRAF(fn) {
+  requestAnimationFrame(() => requestAnimationFrame(fn));
+}
+
 function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
   const { type, direction } = normalizeTransition(rawType, rawDirection);
   const DUR = Math.min(Math.max(duration || 0.5, 0.2), 2);
@@ -385,7 +398,7 @@ function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
     nxt.style.transform = `translate${axis}(${sign * 100}%)`;
     nxt.style.transition = "";
     cur.style.transition = "";
-    requestAnimationFrame(() => {
+    doubleRAF(() => {
       nxt.style.transition = `transform ${DUR}s ease`;
       nxt.style.transform = `translate${axis}(0)`;
       cur.style.transition = `transform ${DUR}s ease`;
@@ -411,7 +424,7 @@ function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
     nxt.style.opacity = "1";
     nxt.style.clipPath = clipFrom;
     nxt.style.transition = "";
-    requestAnimationFrame(() => {
+    doubleRAF(() => {
       nxt.style.transition = `clip-path ${DUR}s ease`;
       nxt.style.clipPath = "inset(0 0 0 0)";
       setTimeout(() => {
@@ -428,7 +441,7 @@ function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
     nxt.style.opacity = "0";
     nxt.style.transition = "";
     cur.style.transition = "";
-    requestAnimationFrame(() => {
+    doubleRAF(() => {
       cur.style.transition = `transform ${DUR}s ease, opacity ${DUR}s ease`;
       cur.style.transform = "scale(1.15)";
       cur.style.opacity = "0";
@@ -449,7 +462,7 @@ function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
     nxt.style.opacity = "0";
     nxt.style.filter = "blur(24px)";
     cur.style.transition = "";
-    requestAnimationFrame(() => {
+    doubleRAF(() => {
       cur.style.transition = `opacity ${DUR}s ease, filter ${DUR}s ease`;
       cur.style.filter = "blur(24px)";
       cur.style.opacity = "0";
@@ -472,7 +485,7 @@ function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
     nxt.style.opacity = "1";
     nxt.style.clipPath = "circle(0% at 50% 50%)";
     nxt.style.transition = "";
-    requestAnimationFrame(() => {
+    doubleRAF(() => {
       nxt.style.transition = `clip-path ${DUR}s ease`;
       nxt.style.clipPath = "circle(75% at 50% 50%)";
       setTimeout(() => {
@@ -492,7 +505,7 @@ function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
     const overlay = document.createElement("div");
     overlay.style.cssText = `position:absolute;inset:0;background:${overlayColor};opacity:0;z-index:5;pointer-events:none;`;
     cur.parentElement.appendChild(overlay);
-    requestAnimationFrame(() => {
+    doubleRAF(() => {
       overlay.style.transition = `opacity ${DUR / 2}s ease`;
       overlay.style.opacity = "1";
       setTimeout(() => {
@@ -509,7 +522,7 @@ function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
   }
   // fade / dissolve / pixelize / radial (no closer CSS approximation) — plain fade
   nxt.style.opacity = "0";
-  requestAnimationFrame(() => {
+  doubleRAF(() => {
     nxt.style.transition = `opacity ${DUR}s ease`;
     nxt.style.opacity = "1";
     cur.style.transition = `opacity ${DUR}s ease`;
@@ -525,7 +538,7 @@ function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
 }
 
 // ── Preview canvas ────────────────────────────────────────────────────────────
-function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePlayheadRef, checkpointPlayhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform, onSplit, onOpenVoiceOver, onOpenMusic, onOpenAI, paintActive, paintMode, paintBrushSize, paintColor, paintBrushType, paintOpacity, paintErasing, paintStrokes, setPaintStrokes, paintCanvasRef, paintMaskImgRef }) {
+function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePlayheadRef, checkpointPlayhead, totalSec, onSeek, onPlayPause, ratio, captionsVisible, brand, tracks, onFxUpdate, onFxDragEnd, onBrollUpdate, onBrollDragEnd, selectedClipId, onSelectClip, uploadImgRef, uploadVideoRef, uploadImgRef2, uploadVideoRef2, uploadSlotARef, uploadSlotBRef, brollImgRef, brollVideoRef, brollWrapperRef, theme, safeZonePlatform, onSplit, onOpenVoiceOver, onOpenMusic, onOpenAI, paintActive, paintMode, paintBrushSize, paintColor, paintBrushType, paintOpacity, paintErasing, paintStrokes, setPaintStrokes, paintCanvasRef, paintMaskImgRef }) {
   // Live 60fps value during playback (see usePlayheadTicker) -- reads
   // livePlayheadRef, which EditorV2's master rAF clock updates every frame.
   // timelineState.playhead itself is now only updated at checkpoints
@@ -857,30 +870,64 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
                     style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", zIndex: 2, visibility: "hidden" }} playsInline/>
                 <video className="v2-preview-video-b"
                     style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", zIndex: 2, visibility: "hidden" }} playsInline/>
-                {/* Upload overlay elements — sit above both buffer slots */}
-                <img
-                  ref={uploadImgRef}
-                  className="v2-preview-upload-img"
-                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', zIndex: 10, display: 'none', background: 'transparent' }}
-                  alt=""
-                />
-                <video
-                  ref={uploadVideoRef}
-                  className="v2-preview-upload-video"
-                  // objectFit: "contain", not "cover" -- same reasoning as
-                  // the a/b crossfade slots above (and already how the
-                  // sibling uploadImgRef image element right above this one
-                  // behaves): "cover" crops/zooms to fill the frame instead
-                  // of letterboxing, which is silently correct when a
-                  // scene's native aspect happens to match the canvas but
-                  // badly wrong the moment it doesn't. Confirmed live
-                  // 2026-08-21: a 9:16-native reframe360 scene viewed with
-                  // the canvas ratio set to 16:9 came out "oversized and
-                  // unable to watch" -- a heavily cropped, zoomed-in slice
-                  // instead of a clean letterboxed view.
-                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', zIndex: 10, display: 'none' }}
-                  playsInline muted
-                />
+                {/* Upload overlay slots — sit above both Pexels buffer slots.
+                    Two wrapper divs (mirroring the .v2-preview-video-a/-b
+                    dual-buffer pattern above) so scene-to-scene transitions
+                    can crossfade for uploaded content too, not just Pexels.
+                    applyTransition() animates the WRAPPER divs, never their
+                    img/video children directly, so it doesn't need to know
+                    or care whether a slot's active content is an image or a
+                    video underneath -- see docs/upload-transition-preview-design.md. */}
+                {/* will-change forces each slot onto its own GPU compositing
+                    layer -- without it, Chromium can render a <video>
+                    element via a hardware overlay plane that ignores CSS
+                    opacity during a crossfade (the computed opacity value is
+                    correct but the pixels on screen don't reflect it),
+                    confirmed live 2026-08-29: getComputedStyle showed a
+                    correct, smoothly-animating 0.4/0.6 opacity split but the
+                    actual rendered frame showed one slot at 100% with zero
+                    blend. will-change (not transform: translateZ(0), which
+                    applyTransition() unconditionally clears at the top of
+                    every call) survives every transition type untouched. */}
+                <div ref={uploadSlotARef} className="v2-upload-slot-a" style={{ position: 'absolute', inset: 0, zIndex: 10, willChange: 'opacity, transform, clip-path, filter' }}>
+                  <img
+                    ref={uploadImgRef}
+                    className="v2-preview-upload-img"
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'none', background: 'transparent' }}
+                    alt=""
+                  />
+                  <video
+                    ref={uploadVideoRef}
+                    className="v2-preview-upload-video"
+                    // objectFit: "contain", not "cover" -- same reasoning as
+                    // the a/b crossfade slots above (and already how the
+                    // sibling uploadImgRef image element right above this one
+                    // behaves): "cover" crops/zooms to fill the frame instead
+                    // of letterboxing, which is silently correct when a
+                    // scene's native aspect happens to match the canvas but
+                    // badly wrong the moment it doesn't. Confirmed live
+                    // 2026-08-21: a 9:16-native reframe360 scene viewed with
+                    // the canvas ratio set to 16:9 came out "oversized and
+                    // unable to watch" -- a heavily cropped, zoomed-in slice
+                    // instead of a clean letterboxed view.
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'none' }}
+                    playsInline muted
+                  />
+                </div>
+                <div ref={uploadSlotBRef} className="v2-upload-slot-b" style={{ position: 'absolute', inset: 0, zIndex: 10, visibility: 'hidden', willChange: 'opacity, transform, clip-path, filter' }}>
+                  <img
+                    ref={uploadImgRef2}
+                    className="v2-preview-upload-img-2"
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'none', background: 'transparent' }}
+                    alt=""
+                  />
+                  <video
+                    ref={uploadVideoRef2}
+                    className="v2-preview-upload-video-2"
+                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'contain', display: 'none' }}
+                    playsInline muted
+                  />
+                </div>
                 {paintActive && (
                   <canvas
                     ref={paintCanvasRef}
@@ -2570,6 +2617,11 @@ export default function EditorV2() {
   const transitioningRef   = useRef(false); // true during the 150 ms crossfade
   const uploadImgRef       = useRef(null);
   const uploadVideoRef     = useRef(null);
+  const uploadImgRef2      = useRef(null);
+  const uploadVideoRef2    = useRef(null);
+  const uploadSlotARef     = useRef(null); // wrapper div around uploadImgRef/uploadVideoRef
+  const uploadSlotBRef     = useRef(null); // wrapper div around uploadImgRef2/uploadVideoRef2
+  const activeUploadSlotRef = useRef("a"); // "a" | "b" — which upload wrapper slot is currently showing (mirrors activeVideoSlotRef)
   const brollImgRef        = useRef(null);
   const brollVideoRef      = useRef(null);
   const brollWrapperRef    = useRef(null);
@@ -2702,6 +2754,14 @@ export default function EditorV2() {
     };
     const { cur, nxt } = getSlots();
     if (!cur || !nxt) return;
+    // Upload-source dual buffer -- mirrors getSlots() above, one level up
+    // (wrapper divs, each holding its own img+video pair) since upload
+    // content can be either type. See docs/upload-transition-preview-design.md.
+    const getUploadSlots = () => {
+      const a = { wrapper: uploadSlotARef.current, img: uploadImgRef.current, video: uploadVideoRef.current };
+      const b = { wrapper: uploadSlotBRef.current, img: uploadImgRef2.current, video: uploadVideoRef2.current };
+      return activeUploadSlotRef.current === "a" ? { cur: a, nxt: b } : { cur: b, nxt: a };
+    };
     const ph = playhead;
     const findAt = (key) => tracksRef.current
       .find(t => t.key === key)?.clips
@@ -2731,6 +2791,8 @@ export default function EditorV2() {
       if (b) { b.src = ""; b.load(); }
       if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
       if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+      if (uploadImgRef2.current) uploadImgRef2.current.style.display = 'none';
+      if (uploadVideoRef2.current) { uploadVideoRef2.current.style.display = 'none'; uploadVideoRef2.current.pause(); }
       if (brollImgRef.current) brollImgRef.current.style.display = 'none';
       if (brollVideoRef.current) { brollVideoRef.current.style.display = 'none'; brollVideoRef.current.pause(); }
       return;
@@ -2801,6 +2863,8 @@ export default function EditorV2() {
       if (brollCoversFrame(brollClipScrub)) {
         if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
         if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+        if (uploadImgRef2.current) uploadImgRef2.current.style.display = 'none';
+        if (uploadVideoRef2.current) { uploadVideoRef2.current.style.display = 'none'; uploadVideoRef2.current.pause(); }
       } else if (videoClipScrub) {
         // Partial inset with a real A-roll clip underneath — keep it
         // visible and correctly seeked. Deliberately NOT falling back to
@@ -2810,15 +2874,22 @@ export default function EditorV2() {
         const arollSrc = videoClipScrub.src || videoClipScrub.url || videoClipScrub.mediaUrl || "";
         const arollLocalTime = Math.max(0, ph - videoClipScrub.startTime + videoClipScrub.trimStart);
         const arollScene = scenes.find(s => s.id === videoClipScrub.sceneId);
-        syncOverlay(uploadImgRef.current, uploadVideoRef.current, arollSrc, arollLocalTime,
+        // No transition needed here -- just show whatever's currently active,
+        // same as before B-roll started overlaying it. The other slot (if any
+        // transition was mid-flight when B-roll started) stays hidden.
+        const { cur: curUpload } = getUploadSlots();
+        if (curUpload.wrapper) curUpload.wrapper.style.visibility = 'visible';
+        syncOverlay(curUpload.img, curUpload.video, arollSrc, arollLocalTime,
           !!arollScene?.sourceAudioMuted, (arollScene?.sourceAudioVolume ?? 100) / 100, arollScene?.fitMode);
       } else {
         // No A-roll clip active at all (B-roll can outlive A-roll's own
         // clip — see clip_broll_1 on reel 9c3ed13d spanning 2.1875-21.1875
         // against an 8s A-roll clip) — nothing to show underneath, so
-        // clear it instead of freezing on whatever was there before.
+        // clear both slots instead of freezing on whatever was there before.
         if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
         if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+        if (uploadImgRef2.current) uploadImgRef2.current.style.display = 'none';
+        if (uploadVideoRef2.current) { uploadVideoRef2.current.style.display = 'none'; uploadVideoRef2.current.pause(); }
       }
 
       syncOverlay(brollImgRef.current, brollVideoRef.current, targetSrc, localTime);
@@ -2838,14 +2909,62 @@ export default function EditorV2() {
       if (slotA) slotA.style.visibility = 'hidden';
       if (slotB) slotB.style.visibility = 'hidden';
       const arollScene = scenes.find(s => s.id === clip?.sceneId);
-      syncOverlay(uploadImgRef.current, uploadVideoRef.current, targetSrc, localTime,
-        !!arollScene?.sourceAudioMuted, (arollScene?.sourceAudioVolume ?? 100) / 100, arollScene?.fitMode);
+      const muted = !!arollScene?.sourceAudioMuted;
+      const volume = (arollScene?.sourceAudioVolume ?? 100) / 100;
+      const fitMode = arollScene?.fitMode;
+
+      const { cur: curUp, nxt: nxtUp } = getUploadSlots();
+      const curActiveEl = curUp.video.style.display !== 'none' ? curUp.video : curUp.img;
+      const curDataSrc = curActiveEl.getAttribute('data-src') || (curActiveEl.tagName === 'IMG' ? curActiveEl.src : '');
+
+      // Same src AND same clip -- just reseek the current slot, no transition.
+      if (curDataSrc === targetSrc && curUp.wrapper.getAttribute('data-clip-id') === (clip?.id || '')) {
+        curUp.wrapper.style.visibility = 'visible';
+        syncOverlay(curUp.img, curUp.video, targetSrc, localTime, muted, volume, fitMode);
+        return;
+      }
+
+      // New src -- sync into the OTHER slot, then crossfade between the two
+      // wrapper divs using the same applyTransition() Pexels already uses.
+      if (transitioningRef.current) return; // don't stack transitions
+      transitioningRef.current = true;
+
+      nxtUp.wrapper.setAttribute('data-clip-id', clip?.id || '');
+      // syncOverlay() sets data-src on the video element itself when loading a
+      // video; for an image, set it here so the same-src check above works
+      // identically for image-sourced scenes.
+      if (nxtUp.img) nxtUp.img.setAttribute('data-src', targetSrc);
+      syncOverlay(nxtUp.img, nxtUp.video, targetSrc, localTime, muted, volume, fitMode);
+      nxtUp.wrapper.style.visibility = 'visible';
+      nxtUp.wrapper.style.zIndex = 11;
+      curUp.wrapper.style.zIndex = 10;
+
+      // Outgoing scene's transition settings drive the animation -- same
+      // resolution pattern the Pexels branch above uses (match the PREVIOUS
+      // source against known clips, not the incoming one).
+      const outgoingUpClip = tracksRef.current.flatMap(t => t.clips || []).find(c =>
+        (c.src || c.url || c.mediaUrl) === curDataSrc
+      );
+      const outgoingScene = outgoingUpClip ? scenes.find(s => s.id === outgoingUpClip.sceneId) : null;
+      const upTransType = outgoingScene?.transitionToNext || "fade";
+      const upTransDirection = outgoingScene?.transitionDirection || null;
+      const upTransDuration = outgoingScene?.transitionDuration || 0.5;
+
+      applyTransition(upTransType, upTransDirection, upTransDuration, curUp.wrapper, nxtUp.wrapper, () => {
+        curUp.wrapper.style.zIndex = 10;
+        nxtUp.wrapper.style.zIndex = 10;
+        activeUploadSlotRef.current = activeUploadSlotRef.current === "a" ? "b" : "a";
+        transitioningRef.current = false;
+      });
       return;
     }
 
-    // Pexels/streaming A-roll scene: hide upload overlay, use dual-buffer crossfade
+    // Pexels/streaming A-roll scene: hide upload overlay (both slots), use
+    // the Pexels dual-buffer crossfade below.
     if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
     if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+    if (uploadImgRef2.current) uploadImgRef2.current.style.display = 'none';
+    if (uploadVideoRef2.current) { uploadVideoRef2.current.style.display = 'none'; uploadVideoRef2.current.pause(); }
 
     // Same src AND same clip — just seek
     if (cur.getAttribute("data-src") === targetSrc && cur.getAttribute("data-clip-id") === (clip?.id || '')) {
@@ -2913,6 +3032,7 @@ export default function EditorV2() {
       // reframe360 reel.
       document.querySelectorAll(".v2-preview-video-a, .v2-preview-video-b").forEach(v => v.pause());
       uploadVideoRef.current?.pause();
+      uploadVideoRef2.current?.pause();
       brollVideoRef.current?.pause();
       transitioningRef.current = false;
       // Pause all audio elements
@@ -2967,6 +3087,7 @@ export default function EditorV2() {
         dispatchWithHistory({ type: "SEEK", time: 0 });
         setIsPlaying(false);
         uploadVideoRef.current?.pause();
+        uploadVideoRef2.current?.pause();
         return;
       }
 
@@ -2999,8 +3120,17 @@ export default function EditorV2() {
       // own clip — see clip_broll_1 on reel 9c3ed13d spanning 2.1875-21.1875
       // against an 8s A-roll clip). Leaving it untouched froze A-roll on its
       // last real frame indefinitely instead of clearing once it ends.
+      // Which upload slot (img/video pair) is currently the active one --
+      // mirrors getSlotsTick()'s activeVideoSlotRef pattern for the Pexels
+      // pair, one level up (wrapper + child pair) since upload content can
+      // be either an image or a video. See docs/upload-transition-preview-design.md.
+      const getUploadSlotsTick = () => {
+        const a = { wrapper: uploadSlotARef.current, img: uploadImgRef.current, video: uploadVideoRef.current };
+        const b = { wrapper: uploadSlotBRef.current, img: uploadImgRef2.current, video: uploadVideoRef2.current };
+        return activeUploadSlotRef.current === "a" ? { cur: a, nxt: b } : { cur: b, nxt: a };
+      };
       function syncOrHideAroll() {
-        const vidEl = uploadVideoRef.current;
+        const vidEl = getUploadSlotsTick().cur.video;
         const arollSrc = videoClip ? (videoClip.url || videoClip.mediaUrl || videoClip.src || "") : "";
         if (arollSrc && vidEl) {
           const arollSpeed = videoClip.speed || 1;
@@ -3023,7 +3153,8 @@ export default function EditorV2() {
           vidEl.style.display = 'block';
           return;
         }
-        if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
+        const imgElHide = getUploadSlotsTick().cur.img;
+        if (imgElHide) imgElHide.style.display = 'none';
         if (vidEl) { vidEl.style.display = 'none'; vidEl.pause(); }
       }
       if (clip) {
@@ -3067,7 +3198,7 @@ export default function EditorV2() {
                     const arollClipOnEnd = findActive("video");
                     const arollClipOnEndSrc = arollClipOnEnd ? (arollClipOnEnd.url || arollClipOnEnd.mediaUrl || arollClipOnEnd.src || "") : "";
                     const arollOnEndIsUpload = arollClipOnEndSrc && !arollClipOnEndSrc.includes('videos.pexels.com');
-                    const arollCur = arollOnEndIsUpload ? uploadVideoRef.current : getSlotsTick().cur;
+                    const arollCur = arollOnEndIsUpload ? getUploadSlotsTick().cur.video : getSlotsTick().cur;
                     if (arollCur) {
                       if (arollClipOnEnd) {
                         const ph = playStartRef.current.playheadAtStart + (performance.now() / 1000 - playStartRef.current.wallTime);
@@ -3111,7 +3242,9 @@ export default function EditorV2() {
             }
             skipArollSync = true;
           } else {
-            // A-roll upload: hide video slots and broll overlays, show upload overlay
+            // A-roll upload: hide Pexels video slots and broll overlays, use
+            // the upload dual-buffer (mirrors the Pexels crossfade block
+            // below -- see docs/upload-transition-preview-design.md).
             const slotA = document.querySelector('.v2-preview-video-a');
             const slotB = document.querySelector('.v2-preview-video-b');
             if (slotA) slotA.style.visibility = 'hidden';
@@ -3119,53 +3252,75 @@ export default function EditorV2() {
             if (brollImgRef.current) brollImgRef.current.style.display = 'none';
             if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
             prevBrollClipRef.current = null;
-            const imgEl = uploadImgRef.current;
-            const vidEl = uploadVideoRef.current;
-            let arollFreshlyLoaded = false;
-            if (previewSrcRef.current !== clipSrc) {
+
+            const { cur: curUpT, nxt: nxtUpT } = getUploadSlotsTick();
+            const clipScene = scenes.find(s => s.id === clip.sceneId);
+            const upMuted = !!clipScene?.sourceAudioMuted;
+            const upVolume = Math.max(0, Math.min(1, (clipScene?.sourceAudioVolume ?? 100) / 100));
+
+            if (previewSrcRef.current !== clipSrc && !transitioningRef.current) {
+              const outgoingSrc = previewSrcRef.current;
               previewSrcRef.current = clipSrc;
+              transitioningRef.current = true;
+
+              const outgoingClipForTrans = tracksRef.current.flatMap(t => t.clips || []).find(c =>
+                outgoingSrc && (c.src || c.url || c.mediaUrl) === outgoingSrc
+              );
+              const outgoingScene = outgoingClipForTrans ? scenesRef.current.find(s => s.id === outgoingClipForTrans.sceneId) : null;
+              const upTransType = outgoingScene?.transitionToNext || "fade";
+              const upTransDirection = outgoingScene?.transitionDirection || null;
+              const upTransDuration = outgoingScene?.transitionDuration || 0.5;
+
+              nxtUpT.wrapper.setAttribute('data-clip-id', clip.id || '');
+              const finishUpTransition = () => {
+                if (curUpT.video) curUpT.video.pause();
+                curUpT.wrapper.style.visibility = 'hidden';
+                activeUploadSlotRef.current = activeUploadSlotRef.current === "a" ? "b" : "a";
+                transitioningRef.current = false;
+              };
+
               if (isVideoUpload) {
-                if (imgEl) imgEl.style.display = 'none';
-                if (vidEl) {
-                  vidEl.style.display = 'block';
-                  vidEl.src = clipSrc;
-                  vidEl.setAttribute('data-src', clipSrc);
-                  // Respects the scene's own sourceAudioMuted/sourceAudioVolume
-                  // instead of always muting -- see syncOverlay's comment above
-                  // for why this changed (a scene's real embedded audio, e.g.
-                  // an uploaded clip or a reframe360 render, was previously
-                  // inaudible in the editor no matter what).
-                  const clipScene = scenes.find(s => s.id === clip.sceneId);
-                  vidEl.muted = !!clipScene?.sourceAudioMuted;
-                  vidEl.volume = Math.max(0, Math.min(1, (clipScene?.sourceAudioVolume ?? 100) / 100));
-                  vidEl.load();
-                  // Calling .play() synchronously right after .load() races the
-                  // browser's own readiness state (readyState resets to
-                  // HAVE_NOTHING) and commonly rejects with AbortError -- gate
-                  // on oncanplay instead, same pattern syncOrHideAroll() above
-                  // already uses for currentTime. This is the main A-roll
-                  // preview path for any non-Pexels source (AI-generated,
-                  // uploaded, character-consistency, ...) -- previewSrcRef is
-                  // force-reset to null on every pause (see the !isPlaying
-                  // branch above), so this exact load()-then-play() race fires
-                  // on every single Play press, not just once.
-                  vidEl.oncanplay = () => {
-                    vidEl.oncanplay = null;
-                    vidEl.play().catch(err => console.error("[preview] oncanplay play() failed for A-roll upload:", err));
-                  };
-                  arollFreshlyLoaded = true;
-                }
+                if (nxtUpT.img) nxtUpT.img.style.display = 'none';
+                const vidEl = nxtUpT.video;
+                vidEl.style.display = 'block';
+                vidEl.src = clipSrc;
+                vidEl.setAttribute('data-src', clipSrc);
+                // Respects the scene's own sourceAudioMuted/sourceAudioVolume
+                // instead of always muting -- see syncOverlay's comment above
+                // for why this changed (a scene's real embedded audio, e.g.
+                // an uploaded clip or a reframe360 render, was previously
+                // inaudible in the editor no matter what).
+                vidEl.muted = upMuted;
+                vidEl.volume = upVolume;
+                vidEl.onerror = () => { vidEl.onerror = null; vidEl.oncanplay = null; transitioningRef.current = false; };
+                // Calling .play() synchronously right after .load() races the
+                // browser's own readiness state (readyState resets to
+                // HAVE_NOTHING) and commonly rejects with AbortError -- gate
+                // on oncanplay instead, same pattern syncOrHideAroll() above
+                // already uses for currentTime.
+                vidEl.oncanplay = () => {
+                  vidEl.oncanplay = null;
+                  vidEl.onerror = null;
+                  vidEl.currentTime = Math.max(0, (newPH - clip.startTime) * (clip.speed || 1) + clip.trimStart);
+                  nxtUpT.wrapper.style.visibility = 'visible';
+                  vidEl.play().catch(err => console.error("[preview] oncanplay play() failed for upload dual-buffer crossfade:", err));
+                  applyTransition(upTransType, upTransDirection, upTransDuration, curUpT.wrapper, nxtUpT.wrapper, finishUpTransition);
+                };
+                vidEl.load();
               } else {
-                if (vidEl) { vidEl.style.display = 'none'; vidEl.pause(); }
-                if (imgEl) { imgEl.src = clipSrc; imgEl.style.display = 'block'; }
+                // Image scene -- no load-readiness event to gate on, transition immediately.
+                if (nxtUpT.video) { nxtUpT.video.style.display = 'none'; nxtUpT.video.pause(); }
+                if (nxtUpT.img) { nxtUpT.img.src = clipSrc; nxtUpT.img.setAttribute('data-src', clipSrc); nxtUpT.img.style.display = 'block'; }
+                nxtUpT.wrapper.style.visibility = 'visible';
+                applyTransition(upTransType, upTransDirection, upTransDuration, curUpT.wrapper, nxtUpT.wrapper, finishUpTransition);
               }
-            }
-            if (isVideoUpload && vidEl) {
+            } else if (!transitioningRef.current && isVideoUpload && curUpT.video) {
+              // Same clip still active -- keep the current slot's playback in sync.
               const clipSpeed = clip.speed || 1;
               const localTime = (newPH - clip.startTime) * clipSpeed + clip.trimStart;
-              if (Math.abs(vidEl.currentTime - localTime) > 0.3) vidEl.currentTime = localTime;
-              vidEl.playbackRate = clipSpeed;
-              if (!arollFreshlyLoaded && vidEl.paused) vidEl.play().catch(err => console.error("[preview] play() failed for A-roll upload:", err));
+              if (Math.abs(curUpT.video.currentTime - localTime) > 0.3) curUpT.video.currentTime = localTime;
+              curUpT.video.playbackRate = clipSpeed;
+              if (curUpT.video.paused) curUpT.video.play().catch(err => console.error("[preview] play() failed for A-roll upload:", err));
             }
             skipArollSync = true;
           }
@@ -3178,6 +3333,8 @@ export default function EditorV2() {
           if (brollFullyCovers) {
             if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
             if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+            if (uploadImgRef2.current) uploadImgRef2.current.style.display = 'none';
+            if (uploadVideoRef2.current) { uploadVideoRef2.current.style.display = 'none'; uploadVideoRef2.current.pause(); }
           }
           if (!isBroll) {
             if (brollImgRef.current) brollImgRef.current.style.display = 'none';
@@ -3300,6 +3457,8 @@ export default function EditorV2() {
         if (cur) { cur.pause(); cur.currentTime = 0; cur.style.visibility = "hidden"; }
         if (uploadImgRef.current) uploadImgRef.current.style.display = 'none';
         if (uploadVideoRef.current) { uploadVideoRef.current.style.display = 'none'; uploadVideoRef.current.pause(); }
+        if (uploadImgRef2.current) uploadImgRef2.current.style.display = 'none';
+        if (uploadVideoRef2.current) { uploadVideoRef2.current.style.display = 'none'; uploadVideoRef2.current.pause(); }
         if (brollImgRef.current) brollImgRef.current.style.display = 'none';
         if (brollVideoRef.current) { brollVideoRef.current.pause(); brollVideoRef.current.removeAttribute('src'); brollVideoRef.current.load(); brollVideoRef.current.style.display = 'none'; }
         prevBrollClipRef.current = null;
@@ -4657,6 +4816,10 @@ export default function EditorV2() {
               onSelectClip={onSelectClip}
               uploadImgRef={uploadImgRef}
               uploadVideoRef={uploadVideoRef}
+              uploadImgRef2={uploadImgRef2}
+              uploadVideoRef2={uploadVideoRef2}
+              uploadSlotARef={uploadSlotARef}
+              uploadSlotBRef={uploadSlotBRef}
               brollImgRef={brollImgRef}
               brollVideoRef={brollVideoRef}
               brollWrapperRef={brollWrapperRef}
