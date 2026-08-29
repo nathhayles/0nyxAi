@@ -3022,10 +3022,20 @@ export default function EditorV2() {
     if (uploadImgRef2.current) uploadImgRef2.current.style.display = 'none';
     if (uploadVideoRef2.current) { uploadVideoRef2.current.style.display = 'none'; uploadVideoRef2.current.pause(); }
 
+    // Fit/fill: read the clip's own scene (not just the UI-selected
+    // activeScene, which can lag behind `clip` while scrubbing across a
+    // scene boundary) so the main Pexels/stock dual-buffer slots respect
+    // fitMode the same way the B-roll/upload overlays already do via
+    // syncOverlay() -- these two <video> elements were previously hardcoded
+    // to objectFit:"contain" in JSX and never read fitMode at all.
+    const clipScene = scenes.find(s => s.id === clip?.sceneId) || sc;
+    const targetObjectFit = clipScene?.fitMode === "fit" ? "contain" : "cover";
+
     // Same src AND same clip — just seek
     if (cur.getAttribute("data-src") === targetSrc && cur.getAttribute("data-clip-id") === (clip?.id || '')) {
       cur.currentTime = localTime;
       cur.style.visibility = "visible";
+      cur.style.objectFit = targetObjectFit;
       return;
     }
 
@@ -3037,6 +3047,7 @@ export default function EditorV2() {
     nxt.src = targetSrc;
     nxt.setAttribute("data-src", targetSrc);
     nxt.setAttribute("data-clip-id", clip?.id || '');
+    nxt.style.objectFit = targetObjectFit;
     nxt.muted = true;
     nxt.style.zIndex = 3;
     cur.style.zIndex = 2;
@@ -3466,6 +3477,13 @@ export default function EditorV2() {
               nxt.style.visibility = "hidden";
               nxt.src = arollSrc;
               nxt.setAttribute("data-src", arollSrc);
+              // Mirrors the scrub-sync effect's fitMode handling above --
+              // these dual-buffer slots were previously hardcoded to
+              // objectFit:"contain" and never read fitMode during playback.
+              {
+                const arollScene = scenesRef.current.find(s => s.id === arollClip?.sceneId);
+                nxt.style.objectFit = arollScene?.fitMode === "fit" ? "contain" : "cover";
+              }
               nxt.muted = true;
               nxt.style.zIndex = 3;
               cur.style.zIndex = 2;
