@@ -4593,6 +4593,15 @@ export default function EditorV2() {
                 let shareSourceUrl = data.url;
                 if (!shareSourceUrl) {
                   setSavedMsg("Rendering watermarked preview…");
+                  // Same visible indicator as Export -- a real render can take over
+                  // a minute, and the small header text alone is easy to miss by the
+                  // time it finishes (same gap already fixed for Export; Share had
+                  // it too since it goes through the same /api/render pipeline).
+                  const shareInd = document.createElement("div");
+                  shareInd.id = "v2-share-indicator";
+                  shareInd.textContent = "⏳ Rendering a shareable preview… this may take a minute";
+                  shareInd.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(6,9,15,0.95);border:1px solid rgba(77,208,255,0.4);color:#4dd0ff;padding:20px 32px;border-radius:12px;font-weight:600;font-size:14px;z-index:99999;box-shadow:0 8px 40px rgba(0,0,0,0.6);text-align:center;";
+                  document.body.appendChild(shareInd);
                   const rh = { ...h, "Content-Type": "application/json" };
                   const _previewFrame2 = document.getElementById('onyx-preview-frame');
                   const _previewRect2 = _previewFrame2?.getBoundingClientRect();
@@ -4610,7 +4619,12 @@ export default function EditorV2() {
                   if (!payload.scenes.length) { setSavedMsg("No scenes to share."); return; }
                   const rRes = await fetch("/api/render", { method: "POST", headers: rh, body: JSON.stringify(payload) });
                   const rData = await rRes.json();
-                  if (!rData.jobId) { setSavedMsg("✗ Share failed"); console.error("[Share]", rData); return; }
+                  if (!rData.jobId) {
+                    setSavedMsg("✗ Share failed");
+                    document.getElementById("v2-share-indicator")?.remove();
+                    console.error("[Share]", rData);
+                    return;
+                  }
 
                   // POST /api/render only ever returns { jobId, status:"processing" } --
                   // never a url on this initial response. The old code read
@@ -4631,6 +4645,17 @@ export default function EditorV2() {
                   }
                   if (!rawUrl) {
                     setSavedMsg(jobFailedError ? "✗ Share failed" : "Still rendering — try again shortly");
+                    const timeoutInd = document.getElementById("v2-share-indicator");
+                    if (timeoutInd) {
+                      if (jobFailedError) {
+                        timeoutInd.textContent = "✗ Share render failed — " + jobFailedError;
+                        timeoutInd.style.borderColor = "rgba(248,113,113,0.5)";
+                        timeoutInd.style.color = "#f87171";
+                      } else {
+                        timeoutInd.textContent = "Still rendering — check back shortly, your preview isn't lost";
+                      }
+                      setTimeout(() => timeoutInd.remove(), 4000);
+                    }
                     if (jobFailedError) console.error("[Share]", jobFailedError);
                     return;
                   }
@@ -4647,8 +4672,19 @@ export default function EditorV2() {
                   document.execCommand("copy"); document.body.removeChild(ta);
                 });
                 setSavedMsg("Share link copied!");
+                {
+                  const doneInd = document.getElementById("v2-share-indicator");
+                  if (doneInd) {
+                    doneInd.textContent = "✅ Share link copied to clipboard";
+                    doneInd.style.borderColor = "rgba(74,222,128,0.5)";
+                    doneInd.style.color = "#4ade80";
+                    setTimeout(() => doneInd.remove(), 3500);
+                  }
+                }
+                setTimeout(() => setSavedMsg("Saved"), 3000);
               } catch(e) {
                 setSavedMsg("Share failed");
+                document.getElementById("v2-share-indicator")?.remove();
                 console.error("[Share]", e);
               }
             }}
