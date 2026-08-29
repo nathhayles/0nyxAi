@@ -149,6 +149,7 @@ const TRANSITION_PIP = {
   fadewhite: "#e2e8f0",
   pixelize:  "#f97316",
   radial:    "#fbbf24",
+  whippan:   "#fb7185",
 };
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

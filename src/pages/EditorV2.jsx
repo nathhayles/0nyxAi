@@ -417,6 +417,41 @@ function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
     });
     return;
   }
+  if (type === "whippan") {
+    // Same directional slide as "slide" above, plus a brief blur pulse at
+    // the midpoint (both frames overlapping) to approximate the real
+    // export's motion-streak effect (whipPanFilterComplex() in render.js,
+    // built from tmix-based directional motion blur). Not pixel-matched --
+    // just distinct enough from plain Slide to read as "faster + blurred."
+    const axis = (direction === "up" || direction === "down") ? "Y" : "X";
+    const sign = (direction === "left" || direction === "up") ? 1 : -1;
+    nxt.style.opacity = "1";
+    nxt.style.transform = `translate${axis}(${sign * 100}%)`;
+    nxt.style.filter = "blur(0px)";
+    nxt.style.transition = "";
+    cur.style.filter = "blur(0px)";
+    cur.style.transition = "";
+    doubleRAF(() => {
+      nxt.style.transition = `transform ${DUR}s ease, filter ${DUR}s ease`;
+      nxt.style.transform = `translate${axis}(0)`;
+      cur.style.transition = `transform ${DUR}s ease, filter ${DUR}s ease`;
+      cur.style.transform = `translate${axis}(${-sign * 100}%)`;
+      setTimeout(() => { cur.style.filter = "blur(10px)"; nxt.style.filter = "blur(10px)"; }, DUR * 400);
+      setTimeout(() => { cur.style.filter = "blur(0px)"; nxt.style.filter = "blur(0px)"; }, DUR * 700);
+      setTimeout(() => {
+        cur.style.visibility = "hidden";
+        cur.style.opacity = "0";
+        cur.style.transform = "";
+        cur.style.filter = "";
+        cur.style.transition = "";
+        nxt.style.transform = "";
+        nxt.style.filter = "";
+        nxt.style.transition = "";
+        onDone();
+      }, DUR * 1000 + 30);
+    });
+    return;
+  }
   if (type === "wipe") {
     // Empirically verified against real ffmpeg xfade output 2026-08-29: "left"
     // means the incoming frame is revealed growing from the right edge toward

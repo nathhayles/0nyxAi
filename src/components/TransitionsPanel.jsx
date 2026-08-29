@@ -10,11 +10,13 @@ const ANIM_STYLES = `
 @keyframes tp-circle    { 0%,100%{clip-path:circle(75% at 50% 50%)} 50%{clip-path:circle(10% at 50% 50%)} }
 @keyframes tp-fadeblack { 0%,100%{opacity:1;background:#000} 50%{opacity:0.2;background:#000} }
 @keyframes tp-fadewhite { 0%,100%{opacity:1;background:#fff} 50%{opacity:0.2;background:#fff} }
+@keyframes tp-whippan   { 0%,100%{transform:translateX(0);filter:blur(0)} 48%{transform:translateX(-100%);filter:blur(8px)} 50%{transform:translateX(100%);filter:blur(8px)} 60%{filter:blur(0)} }
 `;
 
 const ANIM_MAP = {
   fade: "tp-fade", slide: "tp-slide", wipe: "tp-wipe", zoom: "tp-zoom",
   blur: "tp-blur", circle: "tp-circle", fadeblack: "tp-fadeblack", fadewhite: "tp-fadewhite",
+  whippan: "tp-whippan",
 };
 
 const DIRECTIONS = [
@@ -49,6 +51,7 @@ const SWATCH_COLORS = {
   cut: "#64748b", fade: "#4dd0ff", dissolve: "#b48dff", slide: "#22c55e",
   wipe: "#ec4899", zoom: "#f97316", blur: "#06b6d4", circle: "#a855f7",
   fadeblack: "#334155", fadewhite: "#cbd5e1", pixelize: "#eab308", radial: "#f43f5e",
+  whippan: "#fb7185",
 };
 
 export default function TransitionsPanel({ scenes, selectedBoundarySceneId, onUpdateScene }) {

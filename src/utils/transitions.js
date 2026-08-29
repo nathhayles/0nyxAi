@@ -21,6 +21,7 @@ export const TRANSITION_CATALOG = {
   fadewhite: { label: "Fade to White", directional: false, previewAnim: "fadewhite" },
   pixelize:  { label: "Pixelize",      directional: false, previewAnim: "fade" },
   radial:    { label: "Radial",        directional: false, previewAnim: "fade" },
+  whippan:   { label: "Whip Pan",      directional: true,  previewAnim: "whippan" },
 };
 
 const LEGACY_MAP = {
