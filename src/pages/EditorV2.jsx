@@ -403,7 +403,11 @@ function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
     return;
   }
   if (type === "wipe") {
-    const clipFrom = { left: "inset(0 100% 0 0)", right: "inset(0 0 0 100%)", up: "inset(100% 0 0 0)", down: "inset(0 0 100% 0)" }[direction] || "inset(0 100% 0 0)";
+    // Empirically verified against real ffmpeg xfade output 2026-08-29: "left"
+    // means the incoming frame is revealed growing from the right edge toward
+    // the left (i.e. clipped from the left initially), matching ffmpeg's real
+    // wipeleft/wiperight direction -- up/down already matched without change.
+    const clipFrom = { left: "inset(0 0 0 100%)", right: "inset(0 100% 0 0)", up: "inset(100% 0 0 0)", down: "inset(0 0 100% 0)" }[direction] || "inset(0 0 0 100%)";
     nxt.style.opacity = "1";
     nxt.style.clipPath = clipFrom;
     nxt.style.transition = "";
