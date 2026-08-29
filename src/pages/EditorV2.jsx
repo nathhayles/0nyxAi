@@ -1930,6 +1930,11 @@ export default function EditorV2() {
   // would silently overwrite changes made elsewhere (another tab, another
   // device, or a direct DB fix) every 30s forever.
   const lastKnownUpdatedAtRef = useRef(null);
+  // Snapshot of the JSON body from the last successful save -- lets saveNow
+  // skip the PUT entirely when nothing render-relevant changed. See the
+  // no-op-save skip in saveNow below for why this matters beyond just
+  // avoiding wasted requests.
+  const lastSavedBodyRef = useRef(null);
   // Set (non-null) when the last save attempt was rejected as stale -- gates
   // saveNow from retrying with the same doomed expected_updated_at every 30s
   // (which would just 409 again), and drives the conflict banner. Cleared on
@@ -2496,6 +2501,19 @@ export default function EditorV2() {
       // nothing on the server yet for a brand-new reel to conflict with.
       const body = JSON.stringify(bodyObj);
 
+      // Skip the network round-trip entirely when nothing has actually
+      // changed since the last successful save -- the 30s interval below
+      // fires unconditionally regardless of edits, and every PUT (even a
+      // pure no-op) bumped reels.updated_at, which the Share render-cache
+      // freshness check (GET /api/reels/:id/renders) uses to decide whether
+      // to reuse a cached export. Without this, updated_at kept creeping
+      // forward every 30s just from the editor being open, making every
+      // render look "stale" forever and forcing a full re-render on every
+      // Share click even when literally nothing had changed.
+      if (reelIdRef.current && body === lastSavedBodyRef.current) {
+        return;
+      }
+
       // Shared PUT path for both the normal case and the "another concurrent
       // call already created the reel" fallback below -- carries
       // expected_updated_at and handles the 409/200 response the same way
@@ -2513,6 +2531,7 @@ export default function EditorV2() {
         if (!res.ok) return false;
         const data = await res.json().catch(() => null);
         if (data?.updated_at) lastKnownUpdatedAtRef.current = data.updated_at;
+        lastSavedBodyRef.current = body;
         return true;
       };
 
@@ -2528,6 +2547,7 @@ export default function EditorV2() {
           ok = await putReel(result.id).catch(() => false);
         } else {
           ok = !!result.id;
+          if (ok) lastSavedBodyRef.current = body;
         }
       }
       setSavedMsg(ok ? "Saved " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Save failed");
