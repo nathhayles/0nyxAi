@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import PromptResultShowcase from "../components/PromptResultShowcase";
 import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
@@ -37,6 +38,24 @@ export default function LearnSeedancePrompting() {
         wet pavement, rain streaking past the frame, streetlights blurring
         behind her" gives Seedance far more to work with than "a dramatic
         action scene."
+      </p>
+
+      <h2 style={h2Style}>A real prompt at the right length</h2>
+      <p style={pStyle}>
+        A genuine Seedance prompt from Onyx Reelz, right in that 60-100 word
+        range, next to what it actually produced:
+      </p>
+      <PromptResultShowcase
+        label="Real Seedance generation"
+        videoUrl="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_2836bb93-2501-4926-95e8-a3cbe1fe1341.mp4"
+        prompt="A golden retriever puppy running joyfully across a sunlit meadow, slow motion. The puppy bounds through tall grass with ears fluttering, tail wagging with pure delight. Warm sunlight bathes the scene, creating a dreamy, ethereal atmosphere. The meadow stretches endlessly behind, dotted with wildflowers swaying gently. The puppy's fur catches the light, glowing golden. Soft, natural golden hour rim lighting. Shot on Sony A7, shallow depth of field, film grain, vertical portrait format. Dutch angle. Slow tilt up."
+      />
+      <p style={pStyle}>
+        Note how much of this is specific, checkable detail — "ears
+        fluttering," "tail wagging," "fur catches the light" — the kind of
+        concrete physical description that rewards Seedance's strength in
+        motion-heavy scenes, rather than a shorter prompt that just names the
+        subject and hopes the model fills in the rest.
       </p>
 
       <h2 style={h2Style}>One action per scene, still</h2>

@@ -367,6 +367,7 @@ export default function VisualsPanel({
   const [stockLoading, setStockLoading] = useState(false);
   const [stockErr, setStockErr] = useState("");
   const [stockItems, setStockItems] = useState([]);
+  const [searchedQuery, setSearchedQuery] = useState("");
   const lastAutoQueryRef = useRef("");
 
   const currentSceneQuery = useMemo(
@@ -460,6 +461,7 @@ export default function VisualsPanel({
 
     setStockErr("");
     setStockLoading(true);
+    setSearchedQuery(query);
 
     try {
       const authHeaders = await getAuthHeaders();
@@ -772,15 +774,15 @@ export default function VisualsPanel({
 
               {stockLoading ? (
                 <div className="emptyState">Searching stock…</div>
-              ) : !currentSceneQuery ? (
-                // Previously fell through to the "No video/image results
-                // found" branches below even when NO search had actually
-                // run yet (a scene with no narration/action text has an
-                // empty currentSceneQuery, so videoStockItems/
-                // imageStockItems are just their empty initial state, not a
-                // real failed search) -- read as "search is broken" rather
-                // than "nothing to search for yet" (UX audit 2026-08-27).
-                <div className="emptyState">Add narration or action text to this scene to see related stock suggestions here.</div>
+              ) : !currentSceneQuery && !searchedQuery ? (
+                // Previously gated on currentSceneQuery alone, which only
+                // reflects the scene's own narration/action text -- a
+                // manual search via the input box above set stockItems but
+                // never touched currentSceneQuery, so results silently
+                // never rendered for a scene with no narration (UX audit
+                // 2026-08-27, fixed 2026-08-29: gate on searchedQuery too,
+                // which searchStock() sets on every manual or auto search).
+                <div className="emptyState">Add narration or action text to this scene, or search above, to see stock suggestions here.</div>
               ) : (
                 <>
                   <div style={{ marginBottom: 14 }}>
@@ -795,7 +797,7 @@ export default function VisualsPanel({
                             key={`${item.id || item.url}_${idx}`}
                             item={item}
                             label="stock"
-                            query={currentSceneQuery}
+                            query={currentSceneQuery || searchedQuery}
                             onSelect={onSelect}
                             onDragStartPayload={onDragStartPayload}
                           />
@@ -818,7 +820,7 @@ export default function VisualsPanel({
                             key={`${item.id || item.url}_${idx}`}
                             item={item}
                             label="stock"
-                            query={currentSceneQuery}
+                            query={currentSceneQuery || searchedQuery}
                             onSelect={onSelect}
                             onDragStartPayload={onDragStartPayload}
                           />

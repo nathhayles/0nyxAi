@@ -3,18 +3,18 @@ import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
 
 const TOOLS = [
-  { id:"blank-editor", icon:"", label:"Blank Editor", desc:"Skip AI generation and templates — start with an empty timeline and build your reel from scratch", route:"/editor", color:"#94a3b8", available:true },
-  { id:"text-to-video", icon:"", label:"Text to Video", desc:"Turn your script or idea into a full reel with stock visuals, voiceover and music", route:"/create", color:"var(--btn-primary-grad)", available:true },
-  { id:"video-to-reel", icon:"", label:"Video to Reel", desc:"Upload your footage and turn it into a polished short-form reel with AI editing, captions and music", route:"/video-to-reel", color:"var(--btn-primary-grad)", available:true, badge:"New" },
-  { id:"campaign", icon:"", label:"Campaign Generator", desc:"Generate 5–10 reels from one brief — perfect for social media campaigns", route:"/campaign", color:"#4dd0ff", available:true, badge:"New" },
-  { id:"text-to-music", icon:"", label:"Text to Music", desc:"Generate original background music or full tracks from a text prompt", route:"/music", color:"#ec4899", available:true, badge:"New" },
-  { id:"url-to-video", icon:"", label:"URL to Video", desc:"Paste a URL and we'll turn the content into a reel automatically", route:"/url-to-video", color:"#10b981", available:true, badge:"New" },
-  { id:"audio-to-video", icon:"", label:"Audio to Video", desc:"Upload audio or a podcast clip and get a video reel with matched visuals", route:"/audio-to-video", color:"#f59e0b", available:true, badge:"New" },
-  { id:"ppt-to-video", icon:"", label:"PPT to Video", desc:"Convert your presentation slides into an animated video reel", route:"/ppt-to-video", color:"#ef4444", available:true, badge:"New" },
-  { id:"screen-recorder", icon:"", label:"Screen Recording", desc:"Record your screen and turn it into a video reel with AI voiceover and captions.", route:"/screen-recorder", color:"#0ea5e9", available:true, badge:"New" },
-  { id:"webcam-recorder", icon:"", label:"Webcam Recording", desc:"Record yourself to camera and get a polished reel with AI captions and music.", route:"/webcam-recorder", color:"#6366f1", available:true, badge:"New" },
-  { id:"viral-hooks", icon:"", label:"Viral Hooks", desc:"Generate 10 scroll-stopping opening lines using proven viral frameworks. Turn any hook into a reel in one click.", route:"/viral-hooks", color:"#ec4899", available:true, badge:"New" },
-  { id:"reframe360", icon:"", label:"360° to Reel", desc:"Upload equirectangular footage from a GoPro Max or Insta360 — Onyx auto-tracks the person in frame and crops it into a normal reel.", route:"/reframe360", color:"#b48dff", available:true, badge:"Beta" },
+  { id:"blank-editor", icon:"🎬", label:"Blank Editor", desc:"Skip AI generation and templates — start with an empty timeline and build your reel from scratch", route:"/editor", color:"#94a3b8", available:true },
+  { id:"text-to-video", icon:"📝", label:"Text to Video", desc:"Turn your script or idea into a full reel with stock visuals, voiceover and music", route:"/create", color:"var(--btn-primary-grad)", available:true },
+  { id:"video-to-reel", icon:"📹", label:"Video to Reel", desc:"Upload your footage and turn it into a polished short-form reel with AI editing, captions and music", route:"/video-to-reel", color:"var(--btn-primary-grad)", available:true, badge:"New" },
+  { id:"campaign", icon:"📢", label:"Campaign Generator", desc:"Generate 5–10 reels from one brief — perfect for social media campaigns", route:"/campaign", color:"#4dd0ff", available:true, badge:"New" },
+  { id:"text-to-music", icon:"🎵", label:"Text to Music", desc:"Generate original background music or full tracks from a text prompt", route:"/music", color:"#ec4899", available:true, badge:"New" },
+  { id:"url-to-video", icon:"🔗", label:"URL to Video", desc:"Paste a URL and we'll turn the content into a reel automatically", route:"/url-to-video", color:"#10b981", available:true, badge:"New" },
+  { id:"audio-to-video", icon:"🎙️", label:"Audio to Video", desc:"Upload audio or a podcast clip and get a video reel with matched visuals", route:"/audio-to-video", color:"#f59e0b", available:true, badge:"New" },
+  { id:"ppt-to-video", icon:"📊", label:"PPT to Video", desc:"Convert your presentation slides into an animated video reel", route:"/ppt-to-video", color:"#ef4444", available:true, badge:"New" },
+  { id:"screen-recorder", icon:"🖥️", label:"Screen Recording", desc:"Record your screen and turn it into a video reel with AI voiceover and captions.", route:"/screen-recorder", color:"#0ea5e9", available:true, badge:"New" },
+  { id:"webcam-recorder", icon:"📷", label:"Webcam Recording", desc:"Record yourself to camera and get a polished reel with AI captions and music.", route:"/webcam-recorder", color:"#6366f1", available:true, badge:"New" },
+  { id:"viral-hooks", icon:"🔥", label:"Viral Hooks", desc:"Generate 10 scroll-stopping opening lines using proven viral frameworks. Turn any hook into a reel in one click.", route:"/viral-hooks", color:"#ec4899", available:true, badge:"New" },
+  { id:"reframe360", icon:"🌐", label:"360° to Reel", desc:"Upload equirectangular footage from a GoPro Max or Insta360 — Onyx auto-tracks the person in frame and crops it into a normal reel.", route:"/reframe360", color:"#b48dff", available:true, badge:"Beta" },
 ];
 
 function usageColor(used, quota) {

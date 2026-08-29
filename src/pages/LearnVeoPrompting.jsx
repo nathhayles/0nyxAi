@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import PromptResultShowcase from "../components/PromptResultShowcase";
 import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
@@ -42,6 +43,21 @@ export default function LearnVeoPrompting() {
         behavior — "shallow depth of field, soft background blur" rather than
         "cinematic" — tends to produce noticeably more controlled,
         intentional-looking results.
+      </p>
+
+      <p style={pStyle}>
+        Here's a real Veo 3.1 prompt built around exactly that kind of
+        precision, next to what it actually produced:
+      </p>
+      <PromptResultShowcase
+        label="Real Veo 3.1 generation"
+        videoUrl="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_5039585a-5e90-48d6-9e0c-194bf76cce4b.mp4"
+        prompt="A single bright red apple slowly rotating on a plain white background, soft studio lighting, minimal and clean, shallow depth of field, no text, no logos, no watermark, close-up, slow tilt down, shot on Sony A7, shallow depth of field, film grain, vertical portrait format, mobile-first framing, tight compositional focus, soft diffused key light with subtle rim highlights."
+      />
+      <p style={pStyle}>
+        "Soft diffused key light with subtle rim highlights" is a real lighting
+        setup, not a mood word — that specificity is exactly what separates a
+        controlled, intentional-looking Veo result from a generic one.
       </p>
 
       <h2 style={h2Style}>Seed-locking, same as Wan</h2>

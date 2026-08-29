@@ -86,6 +86,7 @@ export default function SfxPanel({
   tab,
   setTab,
   activeScene,
+  activeSceneNumber,
   activeSceneObj,
   sfxVolume,
   setSfxVolume,
@@ -179,7 +180,7 @@ export default function SfxPanel({
         </div>
 
         <div style={{ fontSize: 12, color: "var(--onyx-text-faint)", marginBottom: 10 }}>
-          Applying to <strong style={{ color: "var(--onyx-text)" }}>Scene {activeScene}</strong>
+          Applying to <strong style={{ color: "var(--onyx-text)" }}>Scene {activeSceneNumber}</strong>
           {activeSceneObj?.sfxName ? (
             <>
               {" "}— <span style={{ color: "#a3e635" }}>{activeSceneObj.sfxName}</span>
@@ -218,7 +219,7 @@ export default function SfxPanel({
                   </div>
                   <AudioPreview src={it.url} volume={sfxVolume} />
                   <button type="button" onClick={() => applySfxToActiveScene(it.url, it.name)} style={{ marginTop: 8, width: "100%", padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "#1d4ed8", border: "none", color: "#fff", cursor: "pointer" }}>
-                    ✓ Apply to Scene {activeScene}
+                    ✓ Apply to Scene {activeSceneNumber}
                   </button>
                 </div>
               ))}

@@ -96,6 +96,16 @@ export default function Reframe360() {
   const [scrubTime, setScrubTime] = useState(0);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  // Zoom (v360's v_fov/h_fov, degrees) for the keyframe about to be set --
+  // renderKeyframed has supported a per-keyframe `fov` for a while (used by
+  // the live-record path), but this classic scrub-and-click editor never
+  // exposed a control for it, so every manually-placed keyframe silently
+  // fell back to the fixed 70deg default -- confirmed live 2026-08-27
+  // against a real freefall scene: subject stayed in frame but the whole
+  // scene sat at one tight, unchanging crop with no zoom variation at all.
+  // 70 matches that same existing default so scenes keyframed before this
+  // control existed keep rendering identically.
+  const [zoomFov, setZoomFov] = useState(70);
 
   const [jobId, setJobId] = useState(null);
   const [status, setStatus] = useState(null);
@@ -610,7 +620,7 @@ export default function Reframe360() {
   // on a plain fetch() with only a static "Uploading..." label, no percent,
   // no speed, nothing to indicate whether it had stalled on a multi-minute
   // real transfer.
-  function uploadXHR(formData, authHeader, onProgress) {
+  function uploadAttemptXHR(formData, authHeader, onProgress) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/reframe360/upload');
@@ -621,12 +631,32 @@ export default function Reframe360() {
       xhr.onload = () => {
         let data;
         try { data = JSON.parse(xhr.responseText); } catch { data = null; }
-        if (xhr.status >= 200 && xhr.status < 300 && data) resolve(data);
-        else reject(new Error(data?.error || `Upload failed (HTTP ${xhr.status})`));
+        resolve({ status: xhr.status, data });
       };
       xhr.onerror = () => reject(new Error('Network error during upload -- connection may have dropped'));
       xhr.send(formData);
     });
+  }
+
+  // Retries once on 401 with a forced session refresh before giving up --
+  // same discipline as useVoiceoverEngine.js's fetchVoicesWithRetry. Real
+  // multi-minute uploads (hundreds of MB over a slow connection) give a
+  // token sitting near its expiry buffer plenty of time to actually expire
+  // mid-transfer even though getAuthHeaders() checked it fresh at send
+  // time -- confirmed live 2026-08-27: a real upload 401'd, and by the time
+  // the user could react the session had already self-healed, meaning the
+  // retry below would have succeeded automatically instead of stranding a
+  // multi-hundred-MB transfer on one transient auth blip.
+  async function uploadXHR(formData, authHeader, onProgress) {
+    let { status, data } = await uploadAttemptXHR(formData, authHeader, onProgress);
+    if (status === 401) {
+      const { supabase } = await import('../supabaseClient.js');
+      await supabase.auth.refreshSession();
+      const freshHeaders = await getAuthHeaders();
+      ({ status, data } = await uploadAttemptXHR(formData, freshHeaders.Authorization, onProgress));
+    }
+    if (status >= 200 && status < 300 && data) return data;
+    throw new Error(data?.error || `Upload failed (HTTP ${status})`);
   }
 
   function uploadOnePairXHR(frontFile, backFile, authHeader, onProgress) {
@@ -968,6 +998,7 @@ export default function Reframe360() {
     setActiveSceneId(scene.id);
     const t = Math.min(1, scene.duration / 2);
     setScrubTime(t);
+    setZoomFov(scene.keyframes.find((k) => Math.abs(k.t - t) <= 0.05)?.fov ?? 70);
     setStage('keyframe');
     loadPreview(scene.uploadId, scene.inputFormat, t);
   }
@@ -984,8 +1015,24 @@ export default function Reframe360() {
 
     updateActiveScene((s) => {
       const withoutCurrent = s.keyframes.filter((k) => Math.abs(k.t - scrubTime) > 0.05);
-      return { ...s, keyframes: [...withoutCurrent, { t: scrubTime, yaw, pitch }].sort((a, b) => a.t - b.t) };
+      return { ...s, keyframes: [...withoutCurrent, { t: scrubTime, yaw, pitch, fov: zoomFov }].sort((a, b) => a.t - b.t) };
     });
+  }
+
+  // Re-clicking the subject at the SAME scrub position keeps whatever zoom
+  // is already set (handlePreviewClick above), but dragging the zoom slider
+  // alone -- without re-clicking -- should still update an existing
+  // keyframe sitting at this exact scrub position, or it'd look like the
+  // slider did nothing.
+  function handleZoomChange(fov) {
+    setZoomFov(fov);
+    if (!activeScene) return;
+    const existing = activeScene.keyframes.find((k) => Math.abs(k.t - scrubTime) <= 0.05);
+    if (!existing) return;
+    updateActiveScene((s) => ({
+      ...s,
+      keyframes: s.keyframes.map((k) => (Math.abs(k.t - scrubTime) <= 0.05 ? { ...k, fov } : k)),
+    }));
   }
 
   function removeKeyframe(t) {
@@ -994,6 +1041,7 @@ export default function Reframe360() {
 
   async function handleScrub(t) {
     setScrubTime(t);
+    setZoomFov(activeScene?.keyframes.find((k) => Math.abs(k.t - t) <= 0.05)?.fov ?? 70);
     if (activeScene) await loadPreview(activeScene.uploadId, activeScene.inputFormat, t);
   }
 
@@ -1602,6 +1650,22 @@ export default function Reframe360() {
             <span>{activeScene.duration.toFixed(1)}s total</span>
           </div>
 
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--onyx-text-faint)', marginBottom: 6 }}>
+              <span>Zoom (wider ← → tighter)</span>
+              <span>{zoomFov}°</span>
+            </div>
+            <input
+              type="range" min={30} max={110} step={1} value={zoomFov}
+              onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+              style={{ width: '100%' }}
+            />
+            <p style={{ fontSize: 12, color: 'var(--onyx-text-faint)', marginTop: 6 }}>
+              Sets how tight this moment's crop is. Click the subject above to place a keyframe here at this zoom -- vary it
+              across keyframes (e.g. wide right after opening, tighter for freefall closeups) instead of one fixed crop for the whole scene.
+            </p>
+          </div>
+
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 12, color: 'var(--onyx-text-faint)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
               Keyframes ({activeScene.keyframes.length})
@@ -1612,7 +1676,7 @@ export default function Reframe360() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {activeScene.keyframes.map((k) => (
                   <div key={k.t} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--onyx-surface)', borderRadius: 8, border: '1px solid var(--onyx-hairline-strong)' }}>
-                    <span style={{ fontSize: 13, color: 'var(--onyx-text)', flex: 1 }}>t = {k.t.toFixed(1)}s · yaw {k.yaw.toFixed(0)}° · pitch {k.pitch.toFixed(0)}°</span>
+                    <span style={{ fontSize: 13, color: 'var(--onyx-text)', flex: 1 }}>t = {k.t.toFixed(1)}s · yaw {k.yaw.toFixed(0)}° · pitch {k.pitch.toFixed(0)}° · zoom {(k.fov ?? 70).toFixed(0)}°</span>
                     <button onClick={() => handleScrub(k.t)} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--onyx-hairline-strong)', background: 'transparent', color: 'var(--onyx-text-dim)', cursor: 'pointer' }}>Jump</button>
                     <button onClick={() => removeKeyframe(k.t)} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, border: 'none', background: 'transparent', color: '#f87171', cursor: 'pointer' }}>Remove</button>
                   </div>

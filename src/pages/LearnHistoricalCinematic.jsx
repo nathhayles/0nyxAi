@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import PromptResultShowcase from "../components/PromptResultShowcase";
 import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
@@ -52,6 +53,16 @@ export default function LearnHistoricalCinematic() {
           <text x="60" y="130" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="9">vulnerable, small</text>
         </g>
       </svg>
+
+      <p style={pStyle}>
+        A real example built on exactly that low-angle, dramatic-lighting
+        combination:
+      </p>
+      <PromptResultShowcase
+        label="Real Kling generation"
+        videoUrl="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_0ea27dfe-1bdb-4d00-bd16-a077710cea9b.mp4"
+        prompt="A confident on-screen presenter appears in one smooth continuous cinematic cut, consistent editorial styling and mood throughout, warm cinematic lighting, low angle, handheld follow, soft warm key light with gentle fill creating flattering shadows, shot on Sony A7, shallow depth of field, crisp commercial clarity, vertical portrait format, mobile-first framing, clean product-ad composition."
+      />
 
       <h2 style={h2Style}>Keep a character consistent across a long story</h2>
       <p style={pStyle}>

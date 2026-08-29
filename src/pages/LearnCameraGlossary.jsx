@@ -6,6 +6,10 @@ const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marg
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
 const termStyle = { marginBottom: 10 };
 const termLabel = { color: "var(--onyx-text)" };
+const videoStyle = {
+  width: "100%", maxWidth: 260, display: "block", borderRadius: 12,
+  border: "0.5px solid var(--onyx-hairline-strong)", background: "#000",
+};
 
 export default function LearnCameraGlossary() {
   return (
@@ -76,6 +80,32 @@ export default function LearnCameraGlossary() {
       <p style={pStyle}>
         <strong style={termLabel}>Rack focus</strong> — the focal point shifts from one subject or depth to another within a single continuous shot, redirecting the viewer's attention without cutting.
       </p>
+
+      <h2 style={h2Style}>Two real terms, in action</h2>
+      <p style={pStyle}>
+        Rather than just describe these, here are two real Onyx Reelz
+        generations built directly from prompts naming a specific movement
+        and angle:
+      </p>
+      <div style={{
+        display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 16,
+        padding: 16, borderRadius: 12, border: "0.5px solid var(--onyx-hairline-strong)",
+      }}>
+        <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--onyx-cyan)", marginBottom: 8 }}>Dolly push-in, high angle</div>
+          <video style={videoStyle} src="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_8396e09f-18d1-4089-8c5b-b2a90fab9be0.mp4" controls muted playsInline preload="metadata" />
+          <p style={{ ...pStyle, fontSize: 12, fontStyle: "italic", marginTop: 8, marginBottom: 0 }}>
+            "...slow dolly push in, high angle, soft key light with clean fill..."
+          </p>
+        </div>
+        <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--onyx-cyan)", marginBottom: 8 }}>Crash zoom, low angle</div>
+          <video style={videoStyle} src="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_03867b99-5744-4930-a1e0-20117eda3bb7.mp4" controls muted playsInline preload="metadata" />
+          <p style={{ ...pStyle, fontSize: 12, fontStyle: "italic", marginTop: 8, marginBottom: 0 }}>
+            "...crash zoom in, low angle, dramatic side lighting..."
+          </p>
+        </div>
+      </div>
 
       <h2 style={h2Style}>Shot composition — where the camera sits relative to the subject</h2>
       <svg viewBox="0 0 500 180" style={{ width: "100%", maxWidth: 500, margin: "24px auto", display: "block" }}>

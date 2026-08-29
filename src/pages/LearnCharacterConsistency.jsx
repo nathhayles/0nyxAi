@@ -83,28 +83,36 @@ export default function LearnCharacterConsistency() {
         resetting with each new generation.
       </p>
 
-      <h2 style={h2Style}>Reference mode: two settings, two real purposes</h2>
+      <h2 style={h2Style}>Reference mode: two settings, two real tradeoffs</h2>
       <p style={pStyle}>
-        Every Character has a reference mode setting with two options, and
-        choosing the right one matters.
+        Every Character has a reference mode setting with two options, shown
+        exactly as they appear in the Character Library:
+      </p>
+      <img
+        src="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/content-pipeline/learn-assets/character-reference-mode-ui.png"
+        alt="Onyx Reelz Character Library reference mode setting, showing Scene accuracy and Character consistency options"
+        style={{ width: "100%", maxWidth: 480, display: "block", margin: "16px auto", borderRadius: 10, border: "0.5px solid var(--onyx-hairline-strong)" }}
+      />
+      <p style={pStyle}>
+        <strong style={{ color: "var(--onyx-text)" }}>Scene accuracy</strong> (the
+        default) is a more surprising setting than its name suggests: with it
+        selected, a Character's look comes entirely from the text description
+        you filled in — build, hair, eye color, and so on — not from the
+        reference photos at all. The photos still get uploaded and stored, but
+        this mode prioritizes your scene's prompt over anchoring to any
+        specific image.
       </p>
       <p style={pStyle}>
-        Scene Accuracy lets the character's appearance adapt naturally to
-        whatever a given scene describes — different lighting, different
-        angle, different context — while still drawing on the same underlying
-        reference. This favors flexibility.
-      </p>
-      <p style={pStyle}>
-        Character Consistency locks appearance more tightly across every
-        generation, prioritizing "this always looks like the same specific
-        person" over scene-by-scene visual variation. This favors continuity.
-      </p>
-      <p style={pStyle}>
-        Neither is universally correct — a reel with dramatically different
-        scene settings (a character at home, then outdoors, then at work) may
-        benefit from Scene Accuracy's flexibility, while a tightly serialized
-        piece of content (recurring host, recurring mascot) usually benefits
-        from Character Consistency's stricter lock.
+        <strong style={{ color: "var(--onyx-text)" }}>Character consistency</strong>{" "}
+        flips that: scenes closely match the actual reference photo. The real
+        tradeoff worth knowing before you pick it — a generation in this mode
+        may start the video anchored to that reference photo itself rather
+        than the scene you described, so the opening moment can read as more
+        "photo coming to life" than "scene beginning." For a character who
+        needs to look identical across many generations, that's usually a
+        worthwhile trade. For a character who needs to convincingly inhabit a
+        wide range of different scenes, Scene Accuracy is often the better
+        starting point.
       </p>
 
       <h2 style={h2Style}>What this doesn't do</h2>

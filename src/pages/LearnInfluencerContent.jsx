@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import PromptResultShowcase from "../components/PromptResultShowcase";
 import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
@@ -35,6 +36,16 @@ export default function LearnInfluencerContent() {
           </g>
         ))}
       </svg>
+
+      <p style={pStyle}>
+        A real generation showing the kind of tidy, professional "creator at
+        work" content this pattern makes possible:
+      </p>
+      <PromptResultShowcase
+        label="Real Kling generation"
+        videoUrl="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_8396e09f-18d1-4089-8c5b-b2a90fab9be0.mp4"
+        prompt="Wide shot of a creator happily working on a single device with a video editing app, surrounded by creative elements and a tidy workspace. slow dolly push in, high angle, soft key light with clean fill, shot on Sony A7, shallow depth of field, crisp commercial clarity, vertical portrait format, mobile-first framing, clean product-ad composition."
+      />
 
       <h2 style={h2Style}>From idea to published post, in one place</h2>
       <p style={pStyle}>

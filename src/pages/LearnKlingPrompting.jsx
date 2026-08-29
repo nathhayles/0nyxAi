@@ -6,6 +6,22 @@ const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marg
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
 const olStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16, paddingLeft: 20 };
 const liStyle = { marginBottom: 10 };
+const videoStyle = {
+  width: "100%", maxWidth: 320, display: "block", borderRadius: 12,
+  border: "0.5px solid var(--onyx-hairline-strong)", background: "#000",
+};
+
+// Real prompt + real Kling output, pulled directly from kling_jobs (not
+// rewritten or idealized) so this maps exactly onto the four-part structure
+// taught above. Chosen because every part of the structure is genuinely
+// present and easy to point to, unlike most real prompts which blur the
+// boundaries between parts.
+const EXAMPLE_PROMPT_PARTS = [
+  { label: "Subject & action", color: "#4dd0ff", text: "Sweet Jam (18, female, athletic, tall, filipina, brown, tanned skin, dark, straight, long hair, brown eyes, flirty, excited) walks through a quiet park path at golden hour, glancing toward camera and smiling as she walks, natural relaxed pace." },
+  { label: "Camera movement", color: "#a78bfa", text: "Full body in frame, steady tracking shot at eye level," },
+  { label: "Shot composition", color: "#f59e0b", text: " warm late-afternoon light through the trees, path and greenery in the background." },
+  { label: "Lighting & style", color: "#34d399", text: "Golden hour rim lighting filtering through foliage, soft natural glow on skin. Shot on Sony A7, shallow depth of field, film grain, warm color grading." },
+];
 
 export default function LearnKlingPrompting() {
   return (
@@ -75,6 +91,45 @@ export default function LearnKlingPrompting() {
         have a specific vision, naming it directly in your prompt always takes
         priority — the system detects and preserves any camera or composition
         language you've already written.
+      </p>
+
+      <h2 style={h2Style}>A real prompt, broken down</h2>
+      <p style={pStyle}>
+        Here's an actual prompt sent to Kling on Onyx Reelz, color-coded
+        against the four parts above, next to the real clip it produced — no
+        cherry-picked re-generation, this is the first and only take.
+      </p>
+      <div style={{
+        display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start",
+        marginBottom: 16, padding: 16, borderRadius: 12,
+        border: "0.5px solid var(--onyx-hairline-strong)", background: "var(--onyx-surface, rgba(255,255,255,0.02))",
+      }}>
+        <video
+          style={videoStyle}
+          src="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_a0bb213d-ec88-4ce2-9f68-b0d10622ca80.mp4"
+          controls muted playsInline preload="metadata"
+        />
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+            {EXAMPLE_PROMPT_PARTS.map(part => (
+              <span key={part.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--onyx-text-faint)" }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: part.color, display: "inline-block" }} />
+                {part.label}
+              </span>
+            ))}
+          </div>
+          <p style={{ fontSize: 13.5, lineHeight: 1.7, fontFamily: "ui-monospace, monospace" }}>
+            {EXAMPLE_PROMPT_PARTS.map(part => (
+              <span key={part.label} style={{ color: part.color }}>{part.text}</span>
+            ))}
+          </p>
+        </div>
+      </div>
+      <p style={pStyle}>
+        Notice camera movement and shot composition are interleaved in one
+        sentence here rather than kept in strict order — Kling doesn't require
+        the four parts as rigid, separated clauses. What matters is that all
+        four are present somewhere, with subject and action stated first.
       </p>
 
       <h2 style={h2Style}>Why one action per scene matters</h2>

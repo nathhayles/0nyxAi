@@ -19,7 +19,7 @@ export const staticPages = [
   },
   {
     title: "Pricing — AI Video Editing Software",
-    description: "Plans for Onyx Reelz, the AI video editing software with AI generation, voiceover, captions, and auto-posting. Plans from $7/month, billed via Stripe.",
+    description: "Onyx Reelz is free to use, no card required. Buy credits from $5 (never expire) for AI generation, voiceover, and music, or add Unlimited Brands / Auto-posting for $15/month, billed via Stripe.",
     path: "/pricing",
     ogType: "website",
     schemaType: "WebPage",

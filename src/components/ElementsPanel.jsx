@@ -119,6 +119,13 @@ export default function ElementsPanel({ scenes, setScenes, activeScene, dispatch
           </button>
         ))}
       </div>
+      {/* Clicking an item only stages it below for positioning/reorder --
+          it does NOT appear on the canvas/timeline until "+FX" is clicked
+          on that staged item. Without this hint that two-step flow reads
+          as "I clicked it and nothing happened" (confirmed live 2026-08-19). */}
+      <div style={{padding:"8px 10px",fontSize:10,color:"var(--onyx-text-mute)",background:"var(--onyx-inset)",flexShrink:0,lineHeight:1.4}}>
+        Click to stage below, then hit <strong style={{color:"#ec4899"}}>+FX</strong> to add it to your scene — or double-click / drag it straight onto the timeline.
+      </div>
 
       {/* ── Emoji tab ── */}
       {tab==="emoji" && (

@@ -1,0 +1,36 @@
+# Onyx Reelz
+
+> Onyx Reelz is an AI video editor and AI video maker: multi-track editing, AI voiceover, captions, AI video generation (Kling, Seedance, Wan, Veo), avatar presenters, AI music, and one-click auto-posting to Instagram, YouTube, and LinkedIn.
+
+Free to use, no card required. Credits (never expire) pay for AI generation, premium voiceover, avatar presenters, music, and clean/watermark-free downloads. Optional $15/month add-ons: Unlimited Brands, Auto-posting.
+
+## Product
+
+- [Homepage](https://onyx-reelz.com/): what Onyx Reelz does and who it's for
+- [Pricing](https://onyx-reelz.com/pricing): free tier, credit packs, and add-on pricing
+- [Support & FAQ](https://onyx-reelz.com/support): setup, features, billing, and troubleshooting
+
+## Learn (guides and reference)
+
+- [Learn hub](https://onyx-reelz.com/learn)
+- [Choosing a model](https://onyx-reelz.com/learn/choosing-a-model)
+- [Model comparison](https://onyx-reelz.com/learn/model-comparison)
+- [AI video pricing](https://onyx-reelz.com/learn/ai-video-pricing)
+- [Kling prompting guide](https://onyx-reelz.com/learn/kling-prompting)
+- [Seedance prompting guide](https://onyx-reelz.com/learn/seedance-prompting)
+- [Wan prompting guide](https://onyx-reelz.com/learn/wan-prompting)
+- [Veo prompting guide](https://onyx-reelz.com/learn/veo-prompting)
+- [Camera glossary](https://onyx-reelz.com/learn/camera-glossary)
+- [Character consistency](https://onyx-reelz.com/learn/character-consistency)
+- [Editor tools tour](https://onyx-reelz.com/learn/editor-tools)
+- [EU AI Act disclosure](https://onyx-reelz.com/learn/eu-ai-act-disclosure)
+- [Marketing & branding](https://onyx-reelz.com/learn/marketing-branding)
+- [Influencer content](https://onyx-reelz.com/learn/influencer-content)
+- [Music promotion](https://onyx-reelz.com/learn/music-promotion)
+- [Children's content](https://onyx-reelz.com/learn/childrens-content)
+- [Historical & cinematic](https://onyx-reelz.com/learn/historical-cinematic)
+
+## Legal
+
+- [Terms](https://onyx-reelz.com/terms)
+- [Privacy](https://onyx-reelz.com/privacy)

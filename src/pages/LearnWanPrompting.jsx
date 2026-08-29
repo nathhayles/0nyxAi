@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import PromptResultShowcase from "../components/PromptResultShowcase";
 import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
@@ -42,6 +43,23 @@ export default function LearnWanPrompting() {
         than relying on the model to fill in vague gaps: specific nouns and
         verbs consistently outperform mood-only language like "epic" or
         "cinematic" on their own.
+      </p>
+
+      <h2 style={h2Style}>A real Wan prompt and result</h2>
+      <p style={pStyle}>
+        A genuine prompt sent to Wan 2.5 on Onyx Reelz, next to what it
+        actually produced:
+      </p>
+      <PromptResultShowcase
+        label="Real Wan 2.5 generation"
+        videoUrl="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_d0e769e8-63e0-41c6-bf39-787930bda3b4.mp4"
+        prompt="Sleek smartphone on a dark studio table, screen glowing with vibrant short-form video content, camera slowly pushes in, cinematic lighting, shallow depth of field, subtle particle dust in the light beams, premium tech aesthetic, dramatic side lighting, shot on Sony A7, shallow depth of field, film grain, vertical portrait format, mobile-first framing, tight compositional focus."
+      />
+      <p style={pStyle}>
+        Notice the concrete nouns doing the real work — "dark studio table,"
+        "particle dust in the light beams," "camera slowly pushes in" — rather
+        than relying on adjectives like "premium" or "cinematic" alone to
+        carry the shot.
       </p>
 
       <h2 style={h2Style}>Seed-locking: Wan's real advantage</h2>

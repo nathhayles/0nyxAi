@@ -4,6 +4,10 @@ import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
+const videoStyle = {
+  width: "100%", maxWidth: 260, display: "block", borderRadius: 12,
+  border: "0.5px solid var(--onyx-hairline-strong)", background: "#000",
+};
 
 export default function LearnChoosingAModel() {
   return (
@@ -43,6 +47,35 @@ export default function LearnChoosingAModel() {
         <circle cx="90" cy="60" r="10" fill="var(--onyx-cyan)" />
         <text x="90" y="45" textAnchor="middle" fill="var(--onyx-text)" fontSize="12">Seedance 2.0</text>
       </svg>
+
+      <h2 style={h2Style}>Same prompt, two models — a real side-by-side</h2>
+      <p style={pStyle}>
+        Rather than describe the quality difference abstractly, here's the
+        near-identical prompt sent to two different models on Onyx Reelz. Same
+        subject, same lighting direction, same framing intent — the
+        differences you see below come from the models themselves.
+      </p>
+      <div style={{
+        display: "flex", gap: 20, flexWrap: "wrap", marginBottom: 16,
+        padding: 16, borderRadius: 12, border: "0.5px solid var(--onyx-hairline-strong)",
+      }}>
+        <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--onyx-cyan)", marginBottom: 8 }}>Seedance 1 Pro</div>
+          <video style={videoStyle} src="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_d53d69e9-f6cc-48d4-8ec7-efdfe2974c7c.mp4" controls muted playsInline preload="metadata" />
+        </div>
+        <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.4, color: "var(--onyx-cyan)", marginBottom: 8 }}>Veo 3.1</div>
+          <video style={videoStyle} src="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_5039585a-5e90-48d6-9e0c-194bf76cce4b.mp4" controls muted playsInline preload="metadata" />
+        </div>
+      </div>
+      <p style={{ ...pStyle, fontSize: 13, fontStyle: "italic" }}>
+        Both built from the same core prompt: "A single bright red apple
+        slowly rotating on a plain white background, soft studio lighting,
+        minimal and clean, shallow depth of field, no text, no logos, no
+        watermark... shot on Sony A7, shallow depth of field, film grain,
+        vertical portrait format, mobile-first framing, tight compositional
+        focus."
+      </p>
 
       <h2 style={h2Style}>Wan — fastest and most affordable</h2>
       <p style={pStyle}>

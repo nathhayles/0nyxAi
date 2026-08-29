@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
+import PromptResultShowcase from "../components/PromptResultShowcase";
 import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
@@ -31,6 +32,16 @@ export default function LearnMarketingBranding() {
         ))}
         <text x="200" y="110" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">Same palette, every reel</text>
       </svg>
+
+      <p style={pStyle}>
+        A real example of the polished, commercial look this kind of prompt
+        produces:
+      </p>
+      <PromptResultShowcase
+        label="Real Kling generation"
+        videoUrl="https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/kling_c57d6f8d-577d-40d7-9f42-93476a8dbd23.mp4"
+        prompt="Overhead shot of hands typing quickly and energetically on a sleek laptop keyboard, the screen glowing softly out of focus in the background, fingers moving with purpose and speed. Slow dolly pull back, over-the-shoulder composition with dramatic side lighting, shot on Sony A7, shallow depth of field, film grain, vertical portrait format, mobile-first framing, tight compositional focus."
+      />
 
       <h2 style={h2Style}>A recurring brand presenter</h2>
       <p style={pStyle}>
