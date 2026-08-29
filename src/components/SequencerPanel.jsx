@@ -550,11 +550,17 @@ function VolumeEnvelope({ clip, w, dispatch, trackKey, trackVolume }) {
     dispatch({ type: "SET_VOLUME_POINTS", clipId: clip.id, points: nextPoints });
   }
 
-  // Click the line itself (not a handle) → insert a point at the current
-  // interpolated value, so there's no visual jump (confirmed UX decision).
+  // Double-click the line itself (not a handle) → insert a point at the
+  // current interpolated value, so there's no visual jump (confirmed UX
+  // decision). Was a single mousedown -- a hair-trigger on a thin 4px hit
+  // target that fired the moment a plain click-drag (meant to move the
+  // clip) happened to land near the line, and made the line itself too
+  // easy to hit by accident while too imprecise to hit on purpose.
+  // Double-click is a deliberate, unambiguous gesture, so the hit area can
+  // also be widened (10px vs the old 4px) without reintroducing that risk.
   // evalVolumeEnvelope already operates in stored-v space (% of ceiling), so
   // this needs no change for the new axis — only where it's drawn changed.
-  function onLineMouseDown(e) {
+  function onLineDoubleClick(e) {
     e.stopPropagation();
     const rect = e.currentTarget.closest('[data-clip-envelope]').getBoundingClientRect();
     const x = clamp(e.clientX - rect.left, 0, w);
@@ -615,14 +621,13 @@ function VolumeEnvelope({ clip, w, dispatch, trackKey, trackVolume }) {
   return (
     <svg data-clip-envelope="1" width={w} height={H}
       style={{ position: "absolute", left: 0, top: 0, pointerEvents: "none", overflow: "visible" }}>
-      {/* Widened invisible hit-area around the visible 1.5px stroke — was 10px,
-          which on a short/narrow clip (esp. music, before the real-duration
-          fix above) covered nearly the whole clip body and stole plain
-          click-drags meant to move the clip, not touch its volume line.
-          4px keeps the line comfortably grabbable without eating the clip. */}
-      <polyline points={polylineStr} fill="none" stroke="rgba(0,0,0,0.01)" strokeWidth={4}
+      {/* Invisible hit-area around the visible 1.5px stroke, sized for a
+          double-click gesture (see onLineDoubleClick above) rather than the
+          old hair-trigger single-click, so it can be comfortably wide (10px)
+          without stealing plain click-drags meant to move the clip. */}
+      <polyline points={polylineStr} fill="none" stroke="rgba(0,0,0,0.01)" strokeWidth={10}
         data-volume-line="1" style={{ pointerEvents: "all", cursor: "copy" }}
-        onMouseDown={onLineMouseDown}
+        onDoubleClick={onLineDoubleClick}
         onMouseEnter={e => { setLineHovered(true); showHintIfFirstTime(e); }}
         onMouseLeave={() => setLineHovered(false)}/>
       <polyline points={polylineStr} fill="none" stroke="#4dd0ff"
@@ -653,7 +658,7 @@ function VolumeEnvelope({ clip, w, dispatch, trackKey, trackVolume }) {
             borderRadius: 4, padding: "3px 6px", fontSize: 9, color: "#4dd0ff",
             lineHeight: 1.3, fontFamily: "inherit", whiteSpace: "nowrap",
           }}>
-            Click to add a point · drag up/down
+            Double-click to add a point · drag up/down
           </div>
         </foreignObject>
       )}
