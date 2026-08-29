@@ -10,6 +10,7 @@ import { getAuthHeaders } from "../utils/auth.js";
 import { generateReelTitle } from "../utils/autoTitle.js";
 import { usePlayheadTicker } from "../hooks/usePlayheadTicker.js";
 import { renderStroke } from "../utils/paintBrush.js";
+import { TRANSITION_CATALOG, normalizeTransition } from "../utils/transitions.js";
 import "../styles/editor.css";
 
 import SequencerPanel   from "../components/SequencerPanel.jsx";
@@ -354,19 +355,16 @@ function Sidebar({ open, activeTab, setActiveTab, children }) {
 }
 
 // ── Preview transition helper ────────────────────────────────────────────────
-function applyTransition(type, cur, nxt, onDone) {
-  const typeMap = {
-    crossfade: 'fade',
-    slideLeft: 'slide', slideRight: 'slide',
-    zoomIn: 'zoom', zoomOut: 'zoom',
-    dissolve: 'fade', blur: 'fade', flash: 'fade',
-    spin: 'zoom', push: 'slide', wipe: 'slide',
-    'slide-left': 'slide', 'slide-right': 'slide',
-    'zoom-in': 'zoom', 'zoom-out': 'zoom',
-  };
-  type = typeMap[type] || type;
-
-  const DUR = 0.5;
+// ── Preview transition helper ────────────────────────────────────────────────
+// Simulates the export-side transition (see backend applyTransition() in
+// routes/render.js) using CSS transforms/opacity for the live in-editor
+// scrub/playback preview. This is an approximation, not a pixel match --
+// several catalog types (pixelize, radial) have no reasonable CSS
+// equivalent and fall back to a fade simulation here, while still
+// rendering their real, distinct ffmpeg preset in the actual export.
+function applyTransition(rawType, rawDirection, duration, cur, nxt, onDone) {
+  const { type, direction } = normalizeTransition(rawType, rawDirection);
+  const DUR = Math.min(Math.max(duration || 0.5, 0.2), 2);
   nxt.style.visibility = "visible";
   nxt.style.transform = "";
   cur.style.transform = "";
@@ -381,15 +379,17 @@ function applyTransition(type, cur, nxt, onDone) {
     return;
   }
   if (type === "slide") {
+    const axis = (direction === "up" || direction === "down") ? "Y" : "X";
+    const sign = (direction === "left" || direction === "up") ? 1 : -1;
     nxt.style.opacity = "1";
-    nxt.style.transform = "translateX(100%)";
+    nxt.style.transform = `translate${axis}(${sign * 100}%)`;
     nxt.style.transition = "";
     cur.style.transition = "";
     requestAnimationFrame(() => {
       nxt.style.transition = `transform ${DUR}s ease`;
-      nxt.style.transform = "translateX(0)";
+      nxt.style.transform = `translate${axis}(0)`;
       cur.style.transition = `transform ${DUR}s ease`;
-      cur.style.transform = "translateX(-100%)";
+      cur.style.transform = `translate${axis}(${-sign * 100}%)`;
       setTimeout(() => {
         cur.style.visibility = "hidden";
         cur.style.opacity = "0";
@@ -402,14 +402,31 @@ function applyTransition(type, cur, nxt, onDone) {
     });
     return;
   }
+  if (type === "wipe") {
+    const clipFrom = { left: "inset(0 100% 0 0)", right: "inset(0 0 0 100%)", up: "inset(100% 0 0 0)", down: "inset(0 0 100% 0)" }[direction] || "inset(0 100% 0 0)";
+    nxt.style.opacity = "1";
+    nxt.style.clipPath = clipFrom;
+    nxt.style.transition = "";
+    requestAnimationFrame(() => {
+      nxt.style.transition = `clip-path ${DUR}s ease`;
+      nxt.style.clipPath = "inset(0 0 0 0)";
+      setTimeout(() => {
+        cur.style.visibility = "hidden";
+        cur.style.opacity = "0";
+        nxt.style.clipPath = "";
+        nxt.style.transition = "";
+        onDone();
+      }, DUR * 1000 + 30);
+    });
+    return;
+  }
   if (type === "zoom") {
     nxt.style.opacity = "0";
     nxt.style.transition = "";
     cur.style.transition = "";
     requestAnimationFrame(() => {
       cur.style.transition = `transform ${DUR}s ease, opacity ${DUR}s ease`;
-      const scaleOut = type === 'zoomOut' ? 0.85 : 1.15;
-      cur.style.transform = `scale(${scaleOut})`;
+      cur.style.transform = "scale(1.15)";
       cur.style.opacity = "0";
       nxt.style.transition = `opacity ${DUR}s ease`;
       nxt.style.opacity = "1";
@@ -424,7 +441,69 @@ function applyTransition(type, cur, nxt, onDone) {
     });
     return;
   }
-  // fade (default)
+  if (type === "blur") {
+    nxt.style.opacity = "0";
+    nxt.style.filter = "blur(24px)";
+    cur.style.transition = "";
+    requestAnimationFrame(() => {
+      cur.style.transition = `opacity ${DUR}s ease, filter ${DUR}s ease`;
+      cur.style.filter = "blur(24px)";
+      cur.style.opacity = "0";
+      nxt.style.transition = `opacity ${DUR}s ease, filter ${DUR}s ease`;
+      nxt.style.opacity = "1";
+      nxt.style.filter = "blur(0px)";
+      setTimeout(() => {
+        cur.style.visibility = "hidden";
+        cur.style.opacity = "0";
+        cur.style.filter = "";
+        cur.style.transition = "";
+        nxt.style.filter = "";
+        nxt.style.transition = "";
+        onDone();
+      }, DUR * 1000 + 30);
+    });
+    return;
+  }
+  if (type === "circle") {
+    nxt.style.opacity = "1";
+    nxt.style.clipPath = "circle(0% at 50% 50%)";
+    nxt.style.transition = "";
+    requestAnimationFrame(() => {
+      nxt.style.transition = `clip-path ${DUR}s ease`;
+      nxt.style.clipPath = "circle(75% at 50% 50%)";
+      setTimeout(() => {
+        cur.style.visibility = "hidden";
+        cur.style.opacity = "0";
+        nxt.style.clipPath = "";
+        nxt.style.transition = "";
+        onDone();
+      }, DUR * 1000 + 30);
+    });
+    return;
+  }
+  if (type === "fadeblack" || type === "fadewhite") {
+    const overlayColor = type === "fadeblack" ? "#000" : "#fff";
+    cur.style.transition = "";
+    nxt.style.opacity = "0";
+    const overlay = document.createElement("div");
+    overlay.style.cssText = `position:absolute;inset:0;background:${overlayColor};opacity:0;z-index:5;pointer-events:none;`;
+    cur.parentElement.appendChild(overlay);
+    requestAnimationFrame(() => {
+      overlay.style.transition = `opacity ${DUR / 2}s ease`;
+      overlay.style.opacity = "1";
+      setTimeout(() => {
+        cur.style.visibility = "hidden";
+        nxt.style.opacity = "1";
+        overlay.style.opacity = "0";
+        setTimeout(() => {
+          overlay.remove();
+          onDone();
+        }, DUR * 500 + 30);
+      }, DUR * 500 + 30);
+    });
+    return;
+  }
+  // fade / dissolve / pixelize / radial (no closer CSS approximation) — plain fade
   nxt.style.opacity = "0";
   requestAnimationFrame(() => {
     nxt.style.transition = `opacity ${DUR}s ease`;
@@ -1798,6 +1877,7 @@ export default function EditorV2() {
   const [loopIn,           setLoopIn]           = useState(0);
   const [loopOut,          setLoopOut]          = useState(null);
   const [activeMenu,       setActiveMenu]       = useState("storyboard");
+  const [selectedTransitionBoundary, setSelectedTransitionBoundary] = useState(null); // sceneId whose transitionToNext the sidebar Transitions panel is editing
   const [paintMode,       setPaintMode]       = useState("cover"); // "cover" | "cutout"
   const [paintBrushSize,  setPaintBrushSize]  = useState(24);
   const [paintColor,      setPaintColor]      = useState("#ff3b30");
@@ -2785,14 +2865,15 @@ export default function EditorV2() {
     const outgoingClip = tracksRef.current.flatMap(t => t.clips || []).find(c =>
       (c.src || c.url || c.mediaUrl) === outgoingSrc
     );
-    const scrubTransType = outgoingClip
-      ? (scenesRef.current.find(s => s.id === outgoingClip.sceneId)?.transitionToNext || "crossfade")
-      : "crossfade";
+    const outgoingSceneForScrub = outgoingClip ? scenesRef.current.find(s => s.id === outgoingClip.sceneId) : null;
+    const scrubTransType = outgoingSceneForScrub?.transitionToNext || "fade";
+    const scrubTransDirection = outgoingSceneForScrub?.transitionDirection || null;
+    const scrubTransDuration = outgoingSceneForScrub?.transitionDuration || 0.5;
 
     nxt.oncanplay = () => {
       nxt.oncanplay = null;
       nxt.currentTime = localTime;
-      applyTransition(scrubTransType, cur, nxt, () => {
+      applyTransition(scrubTransType, scrubTransDirection, scrubTransDuration, cur, nxt, () => {
         cur.style.zIndex = 2;
         nxt.style.zIndex = 2;
         activeVideoSlotRef.current = activeVideoSlotRef.current === "a" ? "b" : "a";
@@ -3151,6 +3232,12 @@ export default function EditorV2() {
             const playTransType = outgoingClipForTrans?.transitionToNext
               || outgoingScene?.transitionToNext
               || "fade";
+            const playTransDirection = outgoingClipForTrans?.transitionDirection
+              || outgoingScene?.transitionDirection
+              || null;
+            const playTransDuration = outgoingClipForTrans?.transitionDuration
+              || outgoingScene?.transitionDuration
+              || 0.5;
             const { cur, nxt } = getSlotsTick();
             if (cur && nxt) {
               cur.pause();
@@ -3170,7 +3257,7 @@ export default function EditorV2() {
                 nxt.currentTime = Math.max(0, newPH - arollClip.startTime + arollClip.trimStart);
                 nxt.style.visibility = "visible";
                 nxt.play().catch(err => console.error("[preview] oncanplay play() failed for dual-buffer crossfade:", err));
-                applyTransition(playTransType, cur, nxt, () => {
+                applyTransition(playTransType, playTransDirection, playTransDuration, cur, nxt, () => {
                   cur.pause();
                   cur.style.visibility = 'hidden';
                   cur.style.opacity = '0';
@@ -4390,7 +4477,11 @@ export default function EditorV2() {
             {activeMenu==="text"       && <Safe name="TextPanel"><TextPanel dispatch={dispatchWithHistory} playhead={playhead} selectedClip={selectedFxClip} brand={brand}/></Safe>}
             {activeMenu==="broll"      && <Safe name="BrollPanel"><BrollPanel dispatch={dispatchWithHistory} selectedClip={selectedBrollClip}/></Safe>}
             {activeMenu==="elements"   && <Safe name="ElementsPanel"><ElementsPanel scenes={scenes} setScenes={setScenes} activeScene={activeScene} onUpdateScene={updateScene} dispatch={dispatch} playhead={playhead} brand={brand}/></Safe>}
-            {activeMenu==="transitions" && <Safe name="TransitionsPanel"><TransitionsPanel onUpdateScene={updateScene} /></Safe>}
+            {activeMenu==="transitions" && <Safe name="TransitionsPanel"><TransitionsPanel
+              scenes={scenes}
+              selectedBoundarySceneId={selectedTransitionBoundary}
+              onUpdateScene={updateScene}
+            /></Safe>}
             {activeMenu==="branding"   && <Safe name="BrandingPanel">
               <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
                 {/* Tab bar */}
@@ -4597,6 +4688,7 @@ export default function EditorV2() {
               isPlaying={isPlaying} livePlayheadRef={livePlayheadRef} onPlayPause={() => setIsPlaying(p => !p)}
               scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene}
               updateScene={updateScene}
+              onOpenTransitionPanel={(sceneId) => { setSelectedTransitionBoundary(sceneId); setActiveMenu("transitions"); }}
               globalMusicUrl={globalMusicUrl} globalMusicName={globalMusicName}
               musicVolume={musicVolume} voiceoverVolume={voiceoverVolume}
               totalDuration={totalSec}
