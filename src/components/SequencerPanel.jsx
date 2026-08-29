@@ -16,7 +16,7 @@ import {
   clipOverlapsTrack, SPEED_RAMP_PRESETS,
 } from "../reducers/timelineReducer.js";
 import { AUDIO_CEILING_MULTIPLIERS } from "@shared/audioConstants.js";
-import { TRANSITION_CATALOG } from "../utils/transitions.js";
+import { TRANSITION_CATALOG, normalizeTransition } from "../utils/transitions.js";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const TRACK_H       = 48;   // px per track row
@@ -416,6 +416,10 @@ function TransitionHandle({ x, color, transitionType, duration, onDurationChange
   const [dragging, setDragging] = useState(false);
   const [hover, setHover]       = useState(false);
   const startRef = useRef(null);
+  // Normalized for display so a legacy pre-v2 value (e.g. "spin") shows its
+  // current real label ("Circle") in the tooltip, matching what the sidebar
+  // panel will show when clicked -- the raw stored value stays untouched.
+  const displayLabel = TRANSITION_CATALOG[normalizeTransition(transitionType).type]?.label || transitionType;
 
   function onMouseDown(e) {
     e.stopPropagation();
@@ -443,7 +447,7 @@ function TransitionHandle({ x, color, transitionType, duration, onDurationChange
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={(e) => { e.stopPropagation(); onOpenTransitionPanel?.(sceneId); }}
-      title={`${transitionType} · ${duration}s — drag to adjust, click to edit`}
+      title={`${displayLabel} · ${duration}s — drag to adjust, click to edit`}
       style={{
         position: "absolute",
         // Widened well past the 10px visual marker so the click target
@@ -473,7 +477,7 @@ function TransitionHandle({ x, color, transitionType, duration, onDurationChange
           borderRadius: 4, padding: "2px 6px",
           fontSize: 9, color, whiteSpace: "nowrap", pointerEvents: "none",
         }}>
-          {transitionType} {duration}s
+          {displayLabel} {duration}s
         </div>
       )}
     </div>
