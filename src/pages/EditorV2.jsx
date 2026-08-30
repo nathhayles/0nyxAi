@@ -2149,6 +2149,25 @@ export default function EditorV2() {
   const [reelLoaded,      setReelLoaded]      = useState(false);
   const totalSec = useMemo(() => { try { return calcTotalDuration(timelineState) || 0; } catch { return 0; } }, [timelineState]);
   const playhead = timelineState.playhead ?? 0;
+  // The scene actually visible at the current playhead -- same derivation
+  // PreviewCanvas's own captionScene memo uses, and for the same reason:
+  // activeScene only updates on specific interactions (clicking a scene
+  // card, selecting a clip) and does NOT track scrubbing/playback, so it
+  // silently goes stale as soon as the user moves the playhead without
+  // reselecting. Confirmed live 2026-08-30: scrubbed to Scene 2's caption,
+  // clicked Bold in the Brand panel > "Apply to this scene" -- it applied
+  // to Scene 1 instead (activeScene's last explicit value), leaving Scene
+  // 2's caption completely unchanged with zero visible feedback that
+  // anything went wrong. "This scene" actions (Brand Kit's Apply-to-scene,
+  // and StylesPanel's Themes/Captions/Custom apply) should target whatever
+  // scene the user is actually looking at, not this lagging id.
+  const previewingSceneId = useMemo(() => {
+    const videoTrack = timelineState.tracks?.find(t => t.key === "video");
+    const clip = videoTrack?.clips?.find(c =>
+      playhead >= c.startTime && playhead < c.startTime + (c.trimEnd - c.trimStart)
+    );
+    return clip?.sceneId ?? activeScene;
+  }, [timelineState.tracks, playhead, activeScene]);
   // Live 60fps playhead position during playback, updated every frame by
   // the rAF master clock further below -- declared here (rather than
   // alongside playStartRef, deeper in the component) so it's available to
@@ -3773,7 +3792,7 @@ export default function EditorV2() {
   const applyBrandToScenes = useCallback(async (scope) => {
     if (!selectedBrandId) { toast.show("Select a brand first", "error"); return; }
     if (!reelId) { toast.show("Save the reel before applying a brand", "error"); return; }
-    const sceneId = scope === "scene" ? activeScene : undefined;
+    const sceneId = scope === "scene" ? previewingSceneId : undefined;
     if (scope === "scene" && !sceneId) { toast.show("Select a scene first", "error"); return; }
 
     setApplyingBrand(true);
@@ -3848,7 +3867,7 @@ export default function EditorV2() {
     } finally {
       setApplyingBrand(false);
     }
-  }, [selectedBrandId, reelId, activeScene, scenes, toast]);
+  }, [selectedBrandId, reelId, previewingSceneId, scenes, toast]);
 
   const handleSetScenes = useCallback((updater) => {
     // One snapshot for the whole batch of scene+clip changes below,
@@ -4867,8 +4886,8 @@ export default function EditorV2() {
                       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 2 }}>
                         <button
                           onClick={() => applyBrandToScenes("scene")}
-                          disabled={applyingBrand || !activeScene}
-                          title={!activeScene ? "Select a scene in the timeline first" : ""}
+                          disabled={applyingBrand || !previewingSceneId}
+                          title={!previewingSceneId ? "Select a scene in the timeline first" : ""}
                           style={{
                             padding: "9px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700,
                             background: "rgba(77,208,255,0.12)", border: "1px solid rgba(77,208,255,0.35)",
@@ -4911,7 +4930,7 @@ export default function EditorV2() {
                     <StylesPanel
                       scenes={scenes}
                       setScenes={setScenes}
-                      activeScene={activeScene}
+                      activeScene={previewingSceneId}
                       forcedTab={brandTab}
                       brand={brand}
                       onSave={saveNow}
