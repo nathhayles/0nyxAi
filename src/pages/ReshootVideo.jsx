@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getAuthHeaders } from '../utils/auth.js';
 
 // "Reshoot": video-editing mode built on fal.ai's Kling O1/O3 Pro
@@ -30,9 +31,11 @@ export default function ReshootVideo() {
   const [statusText, setStatusText] = useState('');
   const [error, setError] = useState('');
   const [resultUrl, setResultUrl] = useState(null);
+  const [reelId, setReelId] = useState(null);
   const [dragging, setDragging] = useState(false);
 
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => () => { if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl); }, [videoPreviewUrl]);
 
@@ -78,7 +81,7 @@ export default function ReshootVideo() {
 
   async function handleSubmit() {
     if (!canSubmit) return;
-    setEditing(true); setError(''); setResultUrl(null);
+    setEditing(true); setError(''); setResultUrl(null); setReelId(null);
     setStatusText('Starting edit…');
     try {
       const h = await getAuthHeaders(); h['Content-Type'] = 'application/json';
@@ -122,6 +125,12 @@ export default function ReshootVideo() {
       if (!result) throw new Error('Timed out waiting for the edited video');
 
       setResultUrl(result.videoUrl);
+      // reelId only appears once the backend has wrapped this completed edit
+      // in a real reel (routes/kling.js's createReelFromEditJob) -- before
+      // that fix, a Reshoot edit only ever existed on this page and never
+      // showed up in "Your Projects" on the Dashboard. Falls back to null
+      // gracefully on an older backend that hasn't deployed the fix yet.
+      setReelId(result.reelId || null);
     } catch (e) {
       console.error('[Reshoot] edit failed:', e);
       setError(e.message || 'Edit failed');
@@ -238,6 +247,15 @@ export default function ReshootVideo() {
               <video src={resultUrl} controls style={{ width: '100%', borderRadius: 10 }} />
             </div>
           </div>
+          {reelId && (
+            <button
+              onClick={() => navigate(`/editor-v2?reelId=${reelId}`)}
+              className="btn-teal"
+              style={{ width: '100%', marginTop: 16 }}
+            >
+              Open in Editor / Your Projects
+            </button>
+          )}
         </div>
       )}
     </div>
