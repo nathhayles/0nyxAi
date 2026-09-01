@@ -54,6 +54,7 @@ const WebcamRecorder = lazy(() => import("./pages/WebcamRecorder.jsx"));
 const ViralHooks = lazy(() => import("./pages/ViralHooks.jsx"));
 const ContentPlan = lazy(() => import("./pages/ContentPlan.jsx"));
 const VideoToReel = lazy(() => import("./pages/VideoToReel.jsx"));
+const ReshootVideo = lazy(() => import("./pages/ReshootVideo.jsx"));
 const Reframe360 = lazy(() => import("./pages/Reframe360.jsx"));
 const ProjectsPage = lazy(() => import("./pages/ProjectsPage.jsx"));
 const Support = lazy(() => import("./pages/Support.jsx"));
@@ -412,6 +413,7 @@ export default function App() {
         <Route path="/viral-hooks" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ViralHooks /></ProtectedRoute>} />
         <Route path="/content-plan" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ContentPlan /></ProtectedRoute>} />
         <Route path="/video-to-reel" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><VideoToReel /></ProtectedRoute>} />
+        <Route path="/reshoot" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ReshootVideo /></ProtectedRoute>} />
         <Route path="/reframe360" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Reframe360 /></ProtectedRoute>} />
         <Route path="/projects" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ProjectsPage /></ProtectedRoute>} />
         <Route path="/characters" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Characters /></ProtectedRoute>} />

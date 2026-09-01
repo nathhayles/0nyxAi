@@ -442,6 +442,17 @@ export default function CreatePage() {
               <div style={{ fontSize: 11, color: 'var(--onyx-text-faint)', fontWeight: 400 }}>Podcast / voiceover → reel</div>
             </div>
           </Link>
+          <Link to="/reshoot" style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px',
+            borderRadius: 12, border: '1px solid rgba(236,72,153,0.3)',
+            background: 'rgba(236,72,153,0.06)', textDecoration: 'none',
+            color: '#f9a8d4', fontWeight: 600, fontSize: 14,
+          }}>
+            <div>
+              <div>Reshoot</div>
+              <div style={{ fontSize: 11, color: 'var(--onyx-text-faint)', fontWeight: 400 }}>Edit an existing clip with a prompt</div>
+            </div>
+          </Link>
         </div>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
