@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAuthHeaders } from '../utils/auth.js';
+import CharacterTagTextarea from '../components/CharacterTagTextarea.jsx';
 
 // "Reshoot": video-editing mode built on fal.ai's Kling O1/O3 Pro
 // video-to-video edit endpoints (backend/routes/kling.js POST /api/kling/edit).
@@ -16,6 +17,7 @@ const MODELS = [
 ];
 
 const MAX_FILE_BYTES = 200 * 1024 * 1024; // 200 MB — matches fal's real edit-endpoint limit
+const MAX_REFERENCE_IMAGES = 4; // Phase 2 scope cap -- not a fal.ai schema limit, a deliberate UI bound
 
 export default function ReshootVideo() {
   const [videoFile, setVideoFile] = useState(null);
@@ -26,6 +28,19 @@ export default function ReshootVideo() {
   const [prompt, setPrompt] = useState('');
   const [keepAudio, setKeepAudio] = useState(false);
   const [model, setModel] = useState(MODELS[0].id);
+
+  // Plain reference-image uploads (Phase 2) -- separate from the @Tag
+  // Character Library path, which never needs a file upload at all: typing
+  // "@Name" in the prompt (via CharacterTagTextarea below) already resolves
+  // server-side into elements[] with zero UI work here, same mechanism the
+  // generation flow already uses. This array is only for images that AREN'T
+  // an existing Character Library entry -- each entry becomes a plain URL
+  // in image_urls, not an elements[] entry.
+  const [referenceImages, setReferenceImages] = useState([]); // [{ file, previewUrl, url, uploading }]
+  const [characters, setCharacters] = useState([]);
+  const referenceInputRef = useRef(null);
+  const referenceImagesRef = useRef(referenceImages);
+  referenceImagesRef.current = referenceImages;
 
   const [editing, setEditing] = useState(false);
   const [statusText, setStatusText] = useState('');
@@ -38,6 +53,27 @@ export default function ReshootVideo() {
   const navigate = useNavigate();
 
   useEffect(() => () => { if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl); }, [videoPreviewUrl]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch('/api/characters', { headers });
+        const data = await res.json();
+        setCharacters(data.characters || []);
+      } catch (e) {
+        console.error('[Reshoot] failed to load characters:', e);
+      }
+    })();
+  }, []);
+
+  useEffect(() => () => {
+    // referenceImagesRef, not referenceImages directly -- this cleanup only
+    // runs once, on unmount, so a plain closure over referenceImages would
+    // freeze on its empty initial-mount value and never revoke anything
+    // added afterward. The ref always reads the current array at unmount time.
+    referenceImagesRef.current.forEach((r) => { if (r.previewUrl) URL.revokeObjectURL(r.previewUrl); });
+  }, []);
 
   async function handleFileSelect(file) {
     if (!file) return;
@@ -77,7 +113,40 @@ export default function ReshootVideo() {
     handleFileSelect(e.dataTransfer.files?.[0]);
   }
 
-  const canSubmit = !!videoUrl && !!prompt.trim() && !editing && !uploading;
+  async function handleReferenceImageSelect(files) {
+    const list = Array.from(files || []).slice(0, MAX_REFERENCE_IMAGES - referenceImages.length);
+    if (!list.length) return;
+    setError('');
+
+    const pending = list.map((file) => ({ file, previewUrl: URL.createObjectURL(file), url: null, uploading: true }));
+    setReferenceImages((prev) => [...prev, ...pending]);
+
+    for (const entry of pending) {
+      try {
+        const headers = await getAuthHeaders();
+        const form = new FormData();
+        form.append('files', entry.file);
+        form.append('assetType', 'image');
+        const res = await fetch('/api/media/upload', { method: 'POST', headers, body: form });
+        const data = await res.json();
+        const uploaded = data?.files?.[0];
+        if (!uploaded?.url) throw new Error(data?.error || 'Upload failed');
+        setReferenceImages((prev) => prev.map((r) => (r === entry ? { ...r, url: uploaded.url, uploading: false } : r)));
+      } catch (e) {
+        console.error('[Reshoot] reference image upload failed:', e);
+        setError(e.message || 'Reference image upload failed');
+        setReferenceImages((prev) => prev.filter((r) => r !== entry));
+      }
+    }
+  }
+
+  function removeReferenceImage(entry) {
+    if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+    setReferenceImages((prev) => prev.filter((r) => r !== entry));
+  }
+
+  const referenceImagesReady = referenceImages.every((r) => r.url && !r.uploading);
+  const canSubmit = !!videoUrl && !!prompt.trim() && !editing && !uploading && referenceImagesReady;
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -93,6 +162,7 @@ export default function ReshootVideo() {
           video_url: videoUrl,
           keep_audio: keepAudio,
           model,
+          image_urls: referenceImages.map((r) => r.url).filter(Boolean),
         }),
       });
       const submitData = await submitRes.json();
@@ -177,19 +247,64 @@ export default function ReshootVideo() {
       {uploading && <p style={{ fontSize: 12, color: 'var(--onyx-text-faint)', marginTop: -16, marginBottom: 20 }}>Uploading…</p>}
 
       {/* Prompt */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 12, color: 'var(--onyx-text-faint)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>What do you want to change?</div>
-        <textarea
+        <CharacterTagTextarea
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="e.g. Change the background to a rainy city street at night, keep the subject and camera movement exactly the same"
+          onChange={setPrompt}
+          placeholder="e.g. Change the background to a rainy city street at night, keep the subject and camera movement exactly the same. Type @ to reference a Character Library element."
           rows={4}
+          characters={characters}
           style={{
             width: '100%', padding: '12px 14px', borderRadius: 10, boxSizing: 'border-box',
             border: '1px solid var(--onyx-hairline-strong)', background: 'var(--onyx-surface)',
             color: 'var(--onyx-text)', fontSize: 14, resize: 'vertical',
           }}
         />
+      </div>
+
+      {/* Reference images (Phase 2) — plain uploads only; a Character Library
+          element is attached by typing "@Name" above instead, not here. */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontSize: 12, color: 'var(--onyx-text-faint)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+          Reference images (optional, up to {MAX_REFERENCE_IMAGES})
+        </div>
+        <p style={{ color: 'var(--onyx-text-faint)', fontSize: 12, margin: '0 0 10px' }}>
+          Upload a plain reference image, or reference a saved Character Library element by typing <strong>@Name</strong> in the prompt above. Reference images must match the source clip's aspect ratio.
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {referenceImages.map((r) => (
+            <div key={r.previewUrl} style={{ position: 'relative', width: 84, height: 84 }}>
+              <img src={r.previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10, opacity: r.uploading ? 0.5 : 1, border: '1px solid var(--onyx-hairline-strong)' }} />
+              {r.uploading && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--onyx-text-faint)' }}>Uploading…</div>
+              )}
+              <button
+                onClick={() => removeReferenceImage(r)}
+                style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: 12, cursor: 'pointer', lineHeight: '20px' }}
+                aria-label="Remove reference image"
+              >×</button>
+            </div>
+          ))}
+          {referenceImages.length < MAX_REFERENCE_IMAGES && (
+            <button
+              onClick={() => referenceInputRef.current?.click()}
+              style={{
+                width: 84, height: 84, borderRadius: 10, cursor: 'pointer',
+                border: '1px dashed var(--onyx-surface-2)', background: 'var(--onyx-surface)',
+                color: 'var(--onyx-text-faint)', fontSize: 24,
+              }}
+            >+</button>
+          )}
+          <input
+            ref={referenceInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            style={{ display: 'none' }}
+            onChange={(e) => { handleReferenceImageSelect(e.target.files); e.target.value = ''; }}
+          />
+        </div>
       </div>
 
       {/* Model + audio */}
