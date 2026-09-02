@@ -46,14 +46,22 @@ export default function CharacterTagTextarea({ value, onChange, placeholder, onC
 
   const selectCharacter = (name) => {
     if (triggerPos == null) return;
+    // The inserted tag must be whitespace-free -- resolveTaggedEntities.js's
+    // TAG_RE (/@([A-Za-z0-9_]+)/g) stops matching at the first space, so a
+    // multi-word name like "Onyx Guide" inserted verbatim as "@Onyx Guide"
+    // only ever captures "@Onyx" and silently fails to resolve. normalize()
+    // strips whitespace before comparing, so stripping it here too (case is
+    // irrelevant, normalize() lowercases both sides at resolve time) is
+    // sufficient to match "Onyx Guide" via "@OnyxGuide".
+    const tagName = name.replace(/\s+/g, "");
     const before = value.slice(0, triggerPos);
     const after = value.slice(triggerPos + 1 + query.length);
-    const next = `${before}@${name} ${after}`;
+    const next = `${before}@${tagName} ${after}`;
     onChange(next);
     setOpen(false);
     requestAnimationFrame(() => {
       if (taRef.current) {
-        const pos = before.length + name.length + 2;
+        const pos = before.length + tagName.length + 2;
         taRef.current.focus();
         taRef.current.setSelectionRange(pos, pos);
       }
