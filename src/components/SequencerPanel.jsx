@@ -17,6 +17,7 @@ import {
 } from "../reducers/timelineReducer.js";
 import { AUDIO_CEILING_MULTIPLIERS } from "@shared/audioConstants.js";
 import { TRANSITION_CATALOG, normalizeTransition } from "../utils/transitions.js";
+import { STYLE_PRESETS } from "../config/stylePresets.js";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const TRACK_H       = 48;   // px per track row
@@ -1650,6 +1651,63 @@ function SequencerPanelBase({
                         onClick={() => (scenes || []).forEach(s => updateScene(s.id, gradeVals))}
                         style={{ width: "100%", marginTop: 4, padding: "5px 0", background: "rgba(77,208,255,0.08)", border: "0.5px solid rgba(77,208,255,0.25)", borderRadius: 6, cursor: "pointer", color: "rgba(77,208,255,0.8)", fontSize: 10, fontFamily: "inherit", letterSpacing: "0.05em" }}
                       >Apply to all scenes</button>
+                    );
+                  })()}
+
+                  {/* Trend-Informed Style System v1 -- lives in the same
+                      popover as the manual brightness/contrast/saturation
+                      grade above (reuses the existing "Apply to all scenes"
+                      pattern) rather than a new modal, since both are
+                      per-scene visual-look controls with the same shape of
+                      interaction. */}
+                  {onUpdateActiveScene && (() => {
+                    const activeSceneObj = (scenes || []).find(s => s.id === activeScene);
+                    const activePresetId = activeSceneObj?.stylePresetId || null;
+                    const activeOptions = activeSceneObj?.stylePresetOptions || {};
+                    return (
+                      <div style={{ marginTop: 12, paddingTop: 10, borderTop: "0.5px solid rgba(255,255,255,0.1)" }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: "var(--onyx-text-faint)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>Style</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: activePresetId === "vhs-analog" ? 6 : 0 }}>
+                          {STYLE_PRESETS.map((preset) => {
+                            const active = activePresetId === preset.id;
+                            return (
+                              <button
+                                key={preset.id}
+                                title={preset.description}
+                                onClick={() => onUpdateActiveScene(active
+                                  ? { stylePresetId: null, stylePresetOptions: null }
+                                  : { stylePresetId: preset.id, stylePresetOptions: preset.defaultOptions || {} }
+                                )}
+                                style={{ padding: "4px 10px", borderRadius: 14, border: `0.5px solid ${active ? "rgba(77,208,255,0.5)" : "var(--onyx-hairline-strong)"}`, background: active ? "rgba(77,208,255,0.14)" : "var(--chip-bg)", color: active ? "#4dd0ff" : "var(--onyx-text-dim)", cursor: "pointer", fontSize: 10, fontWeight: 600, fontFamily: "inherit" }}
+                              >
+                                {preset.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {activePresetId === "vhs-analog" && (
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {(STYLE_PRESETS.find(p => p.id === "vhs-analog")?.decadeOptions || []).map((decade) => {
+                              const active = (activeOptions.decade || "90s") === decade;
+                              return (
+                                <button
+                                  key={decade}
+                                  onClick={() => onUpdateActiveScene({ stylePresetOptions: { ...activeOptions, decade } })}
+                                  style={{ padding: "3px 8px", borderRadius: 10, border: `0.5px solid ${active ? "rgba(77,208,255,0.5)" : "var(--onyx-hairline-strong)"}`, background: active ? "rgba(77,208,255,0.1)" : "transparent", color: active ? "#4dd0ff" : "var(--onyx-text-faint)", cursor: "pointer", fontSize: 9, fontFamily: "inherit" }}
+                                >
+                                  {decade}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {updateScene && activePresetId && (
+                          <button
+                            onClick={() => (scenes || []).forEach(s => updateScene(s.id, { stylePresetId: activePresetId, stylePresetOptions: activeOptions }))}
+                            style={{ width: "100%", marginTop: 8, padding: "5px 0", background: "rgba(77,208,255,0.08)", border: "0.5px solid rgba(77,208,255,0.25)", borderRadius: 6, cursor: "pointer", color: "rgba(77,208,255,0.8)", fontSize: 10, fontFamily: "inherit", letterSpacing: "0.05em" }}
+                          >Apply to all scenes</button>
+                        )}
+                      </div>
                     );
                   })()}
                 </div>,

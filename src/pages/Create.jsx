@@ -11,6 +11,7 @@ import { TEMPLATES } from "../data/templates.js";
 import { useSpeechInput } from "../hooks/useSpeechInput.js";
 import { useCredits } from "../state/CreditsContext.jsx";
 import { generateReelTitle } from "../utils/autoTitle.js";
+import { STYLE_CHIPS, appendChipModifier } from "../config/styleChips.js";
 
 const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 
@@ -785,9 +786,35 @@ export default function CreatePage() {
                 resize: "vertical",
                 fontSize: 15,
                 lineHeight: 1.6,
-                marginBottom: 20
+                marginBottom: 12
               }}
             />
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+              {STYLE_CHIPS.map((chip) => {
+                const active = script.includes(chip.modifier);
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    onClick={() => setScript((prev) => appendChipModifier(prev, chip))}
+                    title={chip.modifier}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: 20,
+                      border: `1px solid ${active ? "rgba(77,208,255,0.5)" : "var(--onyx-hairline-strong)"}`,
+                      background: active ? "rgba(77,208,255,0.12)" : "var(--onyx-surface)",
+                      color: active ? "#4dd0ff" : "var(--onyx-text-dim)",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
+            </div>
 
             {error ? (
               <div style={{ color: "#ff5c5c", marginBottom: 12 }}>{error}</div>

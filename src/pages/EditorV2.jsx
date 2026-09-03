@@ -1709,6 +1709,11 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       brightness:        scene.brightness ?? 50,
       contrast:          scene.contrast   ?? 50,
       saturation:        scene.saturation ?? 50,
+      // Trend-Informed Style System v1 (config/stylePresets.js, backend and
+      // frontend) -- set via the Colour grade popover's Style section in
+      // SequencerPanel.jsx, read by render.js's Step 5b (applyStylePreset).
+      stylePresetId:      scene.stylePresetId || null,
+      stylePresetOptions: scene.stylePresetOptions || null,
       fxItems: (fxTrack?.clips || [])
         .filter(fx => {
           const fxS = fx.startTime || 0;
