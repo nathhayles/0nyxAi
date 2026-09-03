@@ -220,10 +220,14 @@ function OnyxMark() {
 }
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
-function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, onExport, onShare, onPublish, onSave, onAddScene, toast }) {
+function Toolbar({ title, onTitleChange, description, onDescriptionChange, tags, onTagsChange, saved, theme, onThemeToggle, onExport, onShare, onPublish, onSave, onAddScene, toast }) {
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [tagsInput, setTagsInput] = useState((tags || []).join(", "));
   const uploadInputRef = useRef(null);
+
+  useEffect(() => { setTagsInput((tags || []).join(", ")); }, [tags]);
 
   const handleUploadPicked = async (files) => {
     if (!files || files.length === 0) return;
@@ -271,6 +275,37 @@ function Toolbar({ title, onTitleChange, saved, theme, onThemeToggle, onExport, 
         : <span onClick={() => setEditing(true)} style={{ fontSize: 13, fontWeight: 600, cursor: "text", color: "var(--onyx-text,#f1f5fb)" }}>{title}</span>
       }
       {saved && <span style={{ fontSize: 12, fontWeight: 600, color: saved.startsWith("✗") ? "#ff6b6b" : saved.startsWith("✓") || saved === "Saved" ? "#4dd0ff" : "var(--onyx-text-dim)", background: "rgba(255,255,255,0.06)", border: "0.5px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "3px 9px", whiteSpace: "nowrap" }}>{saved}</span>}
+
+      {/* GEO-Ready Output Package Step 1 -- description/tags entry, lives in
+          the Create/export flow (this toolbar) rather than a separate page,
+          same reasoning as the title editor right next to it. */}
+      <div style={{ position: "relative" }}>
+        <button
+          onClick={() => setDetailsOpen(p => !p)}
+          title="Description & tags"
+          style={{ background: detailsOpen ? "rgba(77,208,255,0.12)" : "var(--chip-bg, rgba(255,255,255,0.06))", border: `0.5px solid ${detailsOpen ? "rgba(77,208,255,0.4)" : "var(--onyx-hairline-strong,rgba(255,255,255,0.14))"}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", color: detailsOpen ? "#4dd0ff" : "var(--onyx-text-dim)", fontSize: 11, fontFamily: "inherit" }}
+        >Details</button>
+        {detailsOpen && (
+          <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 6, width: 280, background: "rgba(10,14,22,0.97)", border: "0.5px solid rgba(255,255,255,0.14)", borderRadius: 10, padding: 14, boxShadow: "0 8px 32px rgba(0,0,0,0.5)", zIndex: 9999 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "var(--onyx-text-faint)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Description</div>
+            <textarea
+              value={description || ""}
+              onChange={(e) => onDescriptionChange(e.target.value)}
+              placeholder="What's this reel about? (used for GEO/export metadata)"
+              rows={3}
+              style={{ width: "100%", resize: "vertical", background: "var(--onyx-bg-2)", border: "0.5px solid var(--onyx-hairline-strong)", borderRadius: 6, padding: 8, fontSize: 12, color: "var(--onyx-text)", fontFamily: "inherit", marginBottom: 10 }}
+            />
+            <div style={{ fontSize: 10, fontWeight: 600, color: "var(--onyx-text-faint)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>Tags (comma-separated)</div>
+            <input
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              onBlur={() => onTagsChange(tagsInput.split(",").map(t => t.trim()).filter(Boolean))}
+              placeholder="e.g. tutorial, onyx, editing-tips"
+              style={{ width: "100%", background: "var(--onyx-bg-2)", border: "0.5px solid var(--onyx-hairline-strong)", borderRadius: 6, padding: 8, fontSize: 12, color: "var(--onyx-text)", fontFamily: "inherit" }}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Add Scene -- secondary with a cyan accent so it still reads as
           "the create action" without competing with Export's primary
@@ -1915,6 +1950,9 @@ export default function EditorV2() {
   const toast = useToast();
   const [activeScene,      setActiveScene]      = useState(null);
   const [title,            setTitle]            = useState("Untitled Reel");
+  // GEO-Ready Output Package Step 1.
+  const [reelDescription,  setReelDescription]  = useState("");
+  const [reelTags,         setReelTags]         = useState([]);
   const [ratio,            setRatio]            = useState("9:16");
   const [reelId,           setReelId]           = useState(() => new URLSearchParams(window.location.search).get("reelId"));
   // Synchronous mirror of reelId (state updates are async, so two near-
@@ -2275,6 +2313,8 @@ export default function EditorV2() {
               setReelBrandId(null);
             }
             if (d?.title) setTitle(d.title);
+            if (d?.description !== undefined) setReelDescription(d.description || "");
+            if (d?.tags !== undefined) setReelTags(Array.isArray(d.tags) ? d.tags : []);
             if (d?.ratio) setRatio(d.ratio);
             const rawScenes = Array.isArray(d?.scenes) ? d.scenes : [];
             const norm = rawScenes.map((sc, i) => ({
@@ -2324,6 +2364,8 @@ export default function EditorV2() {
           const d = JSON.parse(saved);
           localStorage.removeItem("onyx_editor_autosave_v2");
           if (d?.title) setTitle(d.title);
+          if (d?.description !== undefined) setReelDescription(d.description || "");
+          if (d?.tags !== undefined) setReelTags(Array.isArray(d.tags) ? d.tags : []);
           if (d?.ratio) setRatio(d.ratio);
           const raw = Array.isArray(d?.scenes) ? d.scenes : [];
           const norm = raw.map((sc, i) => ({
@@ -2370,6 +2412,8 @@ export default function EditorV2() {
         lastKnownUpdatedAtRef.current = d?.updated_at || null;
         setReelBrandId(d?.brand_id ?? null);
         if (d?.title) setTitle(d.title);
+        if (d?.description !== undefined) setReelDescription(d.description || "");
+        if (d?.tags !== undefined) setReelTags(Array.isArray(d.tags) ? d.tags : []);
         if (d?.ratio) setRatio(d.ratio);
         const raw = Array.isArray(d?.scenes) ? d.scenes : [];
         const norm = raw.map((sc, i) => ({
@@ -2520,7 +2564,7 @@ export default function EditorV2() {
       const cleanedTimeline = { ...timelineState, tracks: cleanedTracks };
       const normalizedScenes = scenesRef.current.map(s => ({ ...s, mediaUrl: s.mediaUrl || s.url || s.src || "" }));
       const thumbnailUrl = pickReelThumbnail(normalizedScenes);
-      const bodyObj = { title, scenes: normalizedScenes, timeline: cleanedTimeline, ratio, status: "draft", globalMusicUrl, globalMusicName, thumbnail_url: thumbnailUrl, brand_id: selectedBrandId };
+      const bodyObj = { title, description: reelDescription, tags: reelTags, scenes: normalizedScenes, timeline: cleanedTimeline, ratio, status: "draft", globalMusicUrl, globalMusicName, thumbnail_url: thumbnailUrl, brand_id: selectedBrandId };
       // createReelOnce's POST doesn't need expected_updated_at -- there's
       // nothing on the server yet for a brand-new reel to conflict with.
       const body = JSON.stringify(bodyObj);
@@ -4507,7 +4551,10 @@ export default function EditorV2() {
 
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", height: "100%" }}>
         <Toolbar
-          title={title} onTitleChange={setTitle} saved={savedMsg}
+          title={title} onTitleChange={setTitle}
+          description={reelDescription} onDescriptionChange={setReelDescription}
+          tags={reelTags} onTagsChange={setReelTags}
+          saved={savedMsg}
           theme={theme} onThemeToggle={() => setTheme(t => t==="onyx"?"opal":"onyx")}
           onSave={saveNow}
           toast={toast}
