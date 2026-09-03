@@ -21,6 +21,27 @@ export const STYLE_PRESETS = [
     decadeOptions: null,
     defaultOptions: {},
   },
+  {
+    id: "grunge-scrapbook",
+    name: "Grunge/Scrapbook",
+    description: "Distressed collage look: torn-paper texture, halftone dots.",
+    decadeOptions: null,
+    defaultOptions: {},
+  },
+  {
+    id: "maximalist",
+    name: "Maximalist",
+    description: "Saturated, layered, dense composition, bold color.",
+    decadeOptions: null,
+    defaultOptions: {},
+  },
+  {
+    id: "cyber-goth",
+    name: "Cyber Goth",
+    description: "Chrome sheen, neon color-push, digital noise.",
+    decadeOptions: null,
+    defaultOptions: {},
+  },
 ];
 
 export function getStylePreset(id) {
