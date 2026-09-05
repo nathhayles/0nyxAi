@@ -19,7 +19,7 @@
 - **No new database table or migration.** New fields ride on the existing `scenes.timeline` JSON blob, on the A-roll clip object, exactly like B-Roll's existing `brollXPct`/`brollYPct`/`brollSizePct` fields.
 - **No new backend upload route.** Reuse the existing `POST /api/media/upload` endpoint (multipart `files` field + `assetType`), same as `StoryboardPanel.jsx`'s Start Image upload.
 - **No automated test suite exists for either repo's frontend or this rendering path** (`backend/package.json`'s `test` script is a stub). Every task's verification step is manual: build, then live-verify in a real browser against the deployed app with a disposable test account, per this session's established discipline. Delete the disposable account when a task's verification is done, unless the next task needs the same account/reel (note this explicitly when it applies).
-- **Live site**: `https://onyx-reelz.com`. Frontend build: `npm run build` in `/srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend` (nginx serves `dist/` directly, no separate deploy step). Backend changes to `render.js` take effect on the next `POST /render` call — check whether the backend process needs a restart (`pm2 list` / `pm2 restart <name>`) as part of verifying Task 5.
+- **Live site**: `https://onyx-reelz.com`. Frontend build: `npm run build` in `/srv/onyx/frontend/onyx-frontend/frontend` (nginx serves `dist/` directly, no separate deploy step). Backend changes to `render.js` take effect on the next `POST /render` call — check whether the backend process needs a restart (`pm2 list` / `pm2 restart <name>`) as part of verifying Task 5.
 - **Disposable test accounts**: signup via `/signup` with an email like `paint-tool-verify-<step>@onyx-test.local`, password `TempVerify6chars`; delete afterward via Supabase Admin API (`DELETE {SUPABASE_URL}/auth/v1/admin/users/{userId}` with the service-role key from `backend/.env`) — never touch Nathan's real account.
 
 ---
@@ -53,7 +53,7 @@ In `SIDEBAR_TABS` (currently ends at line 146 with the `avatar` entry), add one 
 - [ ] **Step 3: Build and verify no errors**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend && npm run build
+cd /srv/onyx/frontend/onyx-frontend/frontend && npm run build
 ```
 Expected: build completes cleanly (same as every other successful build this session — ends with "Done: 25 static routes prerendered.").
 
@@ -64,7 +64,7 @@ Sign up a disposable test account, open the editor (`/studio` → Blank Editor),
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git add src/pages/EditorV2.jsx
 git commit -m "feat(paint-tool): add Paint icon + sidebar tab entry"
 ```
@@ -176,7 +176,7 @@ Immediately after `PreviewCanvas`'s existing `useEffect`s (there are several alr
 - [ ] **Step 5: Build and manually verify drawing works**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend && npm run build
+cd /srv/onyx/frontend/onyx-frontend/frontend && npm run build
 ```
 
 Sign up a disposable test account, open the editor, add a scene with real video content (a direct-URL paste is fastest — reuse `https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/reframe360/53bdb062-790f-4289-85be-d9ef39a3a67d_scene0.mp4` if a fresh test video isn't otherwise available), click the new Paint tab, and drag across the preview frame with the mouse. Confirm a red freehand stroke follows the cursor in real time. No save/persistence exists yet — refreshing the page is expected to lose the drawing at this point in the plan.
@@ -184,7 +184,7 @@ Sign up a disposable test account, open the editor, add a scene with real video 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git add src/pages/EditorV2.jsx
 git commit -m "feat(paint-tool): add live drawing canvas overlay on preview"
 ```
@@ -371,7 +371,7 @@ In the `activeMenu` switch block, immediately after the `activeMenu==="avatar"` 
 - [ ] **Step 3: Build and verify no errors**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend && npm run build
+cd /srv/onyx/frontend/onyx-frontend/frontend && npm run build
 ```
 
 - [ ] **Step 4: Live-verify save persists**
@@ -386,7 +386,7 @@ Delete the test account after — this task's own verification is self-contained
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git add src/components/PaintMaskPanel.jsx src/pages/EditorV2.jsx
 git commit -m "feat(paint-tool): add PaintMaskPanel controls, flatten+upload+save"
 ```
@@ -473,7 +473,7 @@ At line 2794-2795, `const brollClip = findActive("broll"); const videoClip = fin
 - [ ] **Step 6: Build and verify no errors**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend && npm run build
+cd /srv/onyx/frontend/onyx-frontend/frontend && npm run build
 ```
 
 - [ ] **Step 7: Live-verify preview playback**
@@ -489,7 +489,7 @@ Delete the test account after.
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git add src/pages/EditorV2.jsx
 git commit -m "feat(paint-tool): add live playback preview for saved paint masks"
 ```
@@ -562,7 +562,7 @@ In `backend/routes/render.js`, right after line 2201 (`}` closing the B-Roll `if
 - [ ] **Step 3: Build the frontend, restart the backend if needed**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend && npm run build
+cd /srv/onyx/frontend/onyx-frontend/frontend && npm run build
 ```
 
 Check how the backend process is actually run (`pm2 list`, or check for a running `node`/`nodemon` process against `backend/`) and restart it so the `render.js` change takes effect — do not assume a bare edit is picked up live without checking.
@@ -581,7 +581,7 @@ Delete the test account after.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git add src/pages/EditorV2.jsx
 git commit -m "feat(paint-tool): forward paint mask fields into the render request"
 
@@ -604,7 +604,7 @@ git commit -m "feat(paint-tool): composite paint mask overlay into ffmpeg export
 - [ ] **Step 1: Push `main`, then cherry-pick onto the divergence branch**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git push origin main
 git fetch origin frontend-divergence-cleanup-20260710
 git checkout -B frontend-divergence-cleanup-20260710 origin/frontend-divergence-cleanup-20260710

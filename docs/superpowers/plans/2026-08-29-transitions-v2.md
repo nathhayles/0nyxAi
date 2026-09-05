@@ -349,7 +349,7 @@ git commit -m "fix: rewrite transition rendering to use catalog, drop dead stren
 ### Task 3: Frontend transition catalog + normalization (mirrors Task 1)
 
 **Files:**
-- Create: `/srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend/src/utils/transitions.js`
+- Create: `/srv/onyx/frontend/onyx-frontend/frontend/src/utils/transitions.js`
 
 **Interfaces:**
 - Produces: `TRANSITION_CATALOG` (same 12 keys as backend, plus a `previewAnim` field per entry naming a CSS keyframe for the sidebar panel's swatch preview and the live-preview simulation), `normalizeTransition(transitionToNext, transitionDirection)` (identical logic to backend Task 1 — duplicated, not imported, since frontend and backend are separate deployables with no shared package in this repo).
@@ -357,7 +357,7 @@ git commit -m "fix: rewrite transition rendering to use catalog, drop dead stren
 - [ ] **Step 1: Create the file**
 
 ```js
-// /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend/src/utils/transitions.js
+// /srv/onyx/frontend/onyx-frontend/frontend/src/utils/transitions.js
 //
 // Mirrors /srv/onyx/backend/utils/transitions.js's TRANSITION_CATALOG
 // and normalizeTransition() exactly (type strings, directional flags,
@@ -416,7 +416,7 @@ export function normalizeTransition(transitionToNext, transitionDirection) {
 
 Run the dev server if not already running:
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 npm run dev &
 ```
 In the browser devtools console on the running page, paste:
@@ -433,7 +433,7 @@ Expected: the four `console.log` lines match the comments.
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git add src/utils/transitions.js
 git commit -m "feat: add frontend transition catalog + legacy normalization"
 ```
@@ -443,7 +443,7 @@ git commit -m "feat: add frontend transition catalog + legacy normalization"
 ### Task 4: EditorV2.jsx — preview simulation, state, and panel wiring
 
 **Files:**
-- Modify: `/srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend/src/pages/EditorV2.jsx:357-441` (`applyTransition()` preview function)
+- Modify: `/srv/onyx/frontend/onyx-frontend/frontend/src/pages/EditorV2.jsx:357-441` (`applyTransition()` preview function)
 - Modify: same file, line 2789 (scrub-path fallback + missing duration/direction args)
 - Modify: same file, lines 3151-3153, 3173 (playback-path fallback + missing duration/direction args)
 - Modify: same file, near line 1800 (new state)
@@ -723,7 +723,7 @@ Find the line `updateScene={updateScene}` inside the `<SequencerPanel ...>` prop
 - [ ] **Step 8: Verify manually**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 npm run build
 ```
 Expected: build succeeds with no syntax/type errors (this project has no separate typecheck step beyond the Vite build itself). Full behavioral verification (does clicking a boundary actually open the panel) happens in Task 7 once Tasks 5-6 exist — this task alone only needs to compile clean, since `TransitionsPanel` and `SequencerPanel`'s new props aren't consumed yet.
@@ -731,7 +731,7 @@ Expected: build succeeds with no syntax/type errors (this project has no separat
 - [ ] **Step 9: Commit**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git add src/pages/EditorV2.jsx
 git commit -m "feat: extend preview transition simulation to full catalog, add boundary-selection state"
 ```
@@ -741,7 +741,7 @@ git commit -m "feat: extend preview transition simulation to full catalog, add b
 ### Task 5: SequencerPanel.jsx — pip click-to-open, delete redundant context-menu block
 
 **Files:**
-- Modify: `/srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend/src/components/SequencerPanel.jsx:427-472` (`TransitionHandle`)
+- Modify: `/srv/onyx/frontend/onyx-frontend/frontend/src/components/SequencerPanel.jsx:427-472` (`TransitionHandle`)
 - Modify: same file, lines 693-727 (clip body drop zone)
 - Modify: same file, lines 1073-1206 (`ClipContextMenu`) — delete the transition block
 - Modify: same file, lines 134-145 (`TRANSITION_TYPES` — delete, now unused) and the `TRANSITION_PIP` map (update keys to canonical catalog values)
@@ -872,7 +872,7 @@ Leave the `isVideo`/`isBRoll`/`isFX` booleans right above it intact if anything 
 - [ ] **Step 8: Verify manually**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 npm run build
 grep -n "TRANSITION_TYPES" src/components/SequencerPanel.jsx  # expect: no output
 grep -n "__onyxDraggedTransition" src/components/SequencerPanel.jsx  # expect: no output (all drag-drop consumers removed)
@@ -882,7 +882,7 @@ Expected: build succeeds, both greps return nothing.
 - [ ] **Step 9: Commit**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git add src/components/SequencerPanel.jsx
 git commit -m "refactor: replace transition drag-drop + right-click menu with click-to-open sidebar panel"
 ```
@@ -892,7 +892,7 @@ git commit -m "refactor: replace transition drag-drop + right-click menu with cl
 ### Task 6: TransitionsPanel.jsx — rewrite as the real control panel
 
 **Files:**
-- Modify: `/srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend/src/components/TransitionsPanel.jsx` (full rewrite, same filename)
+- Modify: `/srv/onyx/frontend/onyx-frontend/frontend/src/components/TransitionsPanel.jsx` (full rewrite, same filename)
 
 **Interfaces:**
 - Consumes: `TRANSITION_CATALOG`, `normalizeTransition` from Task 3; `scenes`, `selectedBoundarySceneId`, `onUpdateScene` props from Task 4 (`EditorV2.jsx` Step 7).
@@ -1056,7 +1056,7 @@ Expected: all 7 checks pass with no console errors.
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git add src/components/TransitionsPanel.jsx
 git commit -m "feat: rewrite TransitionsPanel as the real per-boundary control panel"
 ```
@@ -1066,15 +1066,15 @@ git commit -m "feat: rewrite TransitionsPanel as the real per-boundary control p
 ### Task 7: Cleanup, scene defaults, cross-branch ship, and full live-export verification
 
 **Files:**
-- Delete: `/srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend/src/components/SceneStrip.jsx`
-- Delete: `/srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend/src/components/TransitionMenu.jsx`
-- Modify: `/srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend/src/lib/sceneEngine.js:43,91` (new-scene defaults)
+- Delete: `/srv/onyx/frontend/onyx-frontend/frontend/src/components/SceneStrip.jsx`
+- Delete: `/srv/onyx/frontend/onyx-frontend/frontend/src/components/TransitionMenu.jsx`
+- Modify: `/srv/onyx/frontend/onyx-frontend/frontend/src/lib/sceneEngine.js:43,91` (new-scene defaults)
 - Modify: `/srv/onyx/backend/TASKS.md` (log the shipped work)
 
 - [ ] **Step 1: Confirm both files are truly unreferenced before deleting**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 grep -rn "SceneStrip\|TransitionMenu" src/ --include="*.jsx" --include="*.js" | grep -v "src/components/SceneStrip.jsx:" | grep -v "src/components/TransitionMenu.jsx:"
 ```
 Expected: no output (both are confirmed dead per the design doc's investigation; this re-confirms nothing changed that assumption during Tasks 1-6).
@@ -1113,7 +1113,7 @@ Delete the disposable test account afterward per this project's established disc
 
 This repo's convention (established during the AI Rapper and B-Roll work) is to push every frontend commit to both `main` and `frontend-divergence-cleanup-20260710`. From the frontend repo root:
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git push origin main
 git push origin main:frontend-divergence-cleanup-20260710
 ```
@@ -1126,7 +1126,7 @@ Append an entry to `/srv/onyx/backend/TASKS.md` documenting: what shipped (unifi
 - [ ] **Step 7: Final commit**
 
 ```bash
-cd /srv/onyx/frontend/scheduler-dashboard-v3_STABLE_RECOVERY_1343/frontend
+cd /srv/onyx/frontend/onyx-frontend/frontend
 git add src/lib/sceneEngine.js
 git commit -m "chore: add transitionDirection default, remove dead SceneStrip/TransitionMenu components"
 cd /srv/onyx/backend
