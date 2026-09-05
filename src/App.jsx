@@ -13,6 +13,7 @@ const Signup = lazy(() => import("./pages/Signup"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Create = lazy(() => import("./pages/Create"));
+const ComparePage = lazy(() => import("./pages/ComparePage"));
 const EditorV2 = lazy(() => import("./pages/EditorV2"));
 const PricingPage = lazy(() => import("./pages/PricingPage"));
 const Earn = lazy(() => import("./pages/Earn"));
@@ -405,6 +406,7 @@ export default function App() {
         <Route path="/url-to-video" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><UrlToVideo /></ProtectedRoute>} />
         <Route path="/ppt-to-video" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><PptToVideo /></ProtectedRoute>} />
         <Route path="/audio-to-video" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><AudioToVideo /></ProtectedRoute>} />
+        <Route path="/compare" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ComparePage /></ProtectedRoute>} />
         <Route path="/publish" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Publish /></ProtectedRoute>} />
         <Route path="/scheduler" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Publish /></ProtectedRoute>} />
         <Route path="/planner" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Planner /></ProtectedRoute>} />
