@@ -23,6 +23,38 @@ export default function LearnPageLayout({ seo, children }) {
           "var(--onyx-bg)",
       }}
     >
+      {/* Full-bleed hero: the header IS the image, with a bottom-up gradient
+          so the title reads clearly over any photo. Replaces the old
+          flat-icon-illustration-in-a-small-box treatment (see git history on
+          this file) -- Nathan's direct feedback 2026-09-04: pages read as
+          "black page, bland, AI-obvious" and needed the hero photography to
+          BE the vibrant color statement at the top of the page, not a small
+          inset thumbnail below a plain white heading. */}
+      {seo?.ogImage && (
+        <div style={{ position: "relative", width: "100%", aspectRatio: "21/9", overflow: "hidden" }}>
+          <img
+            src={seo.ogImage}
+            alt={seo.imageAlt || ""}
+            width={1920}
+            height={823}
+            loading="eager"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+          <div style={{
+            position: "absolute", inset: 0,
+            background: "linear-gradient(180deg, rgba(6,9,15,0.15) 0%, rgba(6,9,15,0.55) 55%, rgba(6,9,15,0.96) 100%)",
+          }} />
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "0 24px 32px", maxWidth: 848, margin: "0 auto" }}>
+            {seo?.path !== "/learn" && (
+              <Link to="/learn" style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", textDecoration: "none", display: "inline-block", marginBottom: 14 }}>&larr; Back to Learn</Link>
+            )}
+            <h1 style={{
+              fontSize: "clamp(28px, 5vw, 44px)", fontWeight: 800, margin: 0,
+              color: "#fff", textShadow: "0 2px 24px rgba(0,0,0,0.5)", letterSpacing: "-0.01em",
+            }}>{seo?.title}</h1>
+          </div>
+        </div>
+      )}
     <div
       className="page"
       style={{
@@ -35,21 +67,13 @@ export default function LearnPageLayout({ seo, children }) {
       }}
     >
       <SEO ogType="article" schemaType="Article" {...seo} />
-      {seo?.path !== "/learn" && (
-        <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
-      )}
-      <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>{seo?.title}</h1>
-      {seo?.ogImage && (
-        <div style={{ width: "100%", aspectRatio: "16/9", overflow: "hidden", borderRadius: 12, marginBottom: 24 }}>
-          <img
-            src={seo.ogImage}
-            alt={seo.imageAlt || ""}
-            width={1280}
-            height={720}
-            loading="eager"
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          />
-        </div>
+      {!seo?.ogImage && (
+        <>
+          {seo?.path !== "/learn" && (
+            <Link to="/learn" style={{ fontSize: 13, color: "var(--onyx-text-faint)", textDecoration: "none", display: "inline-block", marginBottom: 16 }}>&larr; Back to Learn</Link>
+          )}
+          <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 8 }}>{seo?.title}</h1>
+        </>
       )}
       {children}
     </div>
