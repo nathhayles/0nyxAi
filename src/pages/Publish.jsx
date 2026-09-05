@@ -34,6 +34,9 @@ export default function Publish() {
   const [msg, setMsg]                             = useState({ text: "", type: "" });
   const [aiPrompt, setAiPrompt]                   = useState('');
   const [hashtagRules, setHashtagRules]           = useState({});
+  const [captionRules, setCaptionRules]           = useState({});
+  const [variants, setVariants]                   = useState({}); // { [platform]: { caption, hashtags, hookFirst, tone, warning } }
+  const [generatingVariants, setGeneratingVariants] = useState(false);
   const [generatingCaption, setGeneratingCaption] = useState(false);
   const [trialStatus, setTrialStatus]             = useState({ is_trial: false, trial_expired: false, days_remaining: null, has_paid_plan: false });
   const [tiktokInfo, setTiktokInfo]               = useState(null);
@@ -71,9 +74,16 @@ export default function Publish() {
     if (!session) return;
     fetch("/api/publish/hashtag-rules", { headers: { Authorization: `Bearer ${session.access_token}` } })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.rules) setHashtagRules(d.rules); })
+      .then(d => { if (d?.rules) setHashtagRules(d.rules); if (d?.captionRules) setCaptionRules(d.captionRules); })
       .catch(() => {});
   }, [session]);
+
+  // Base caption/hashtags changed -- any previously generated per-platform
+  // variants are now stale (they were adapted from the old text), so drop
+  // them rather than silently publishing outdated variant text.
+  useEffect(() => {
+    setVariants({});
+  }, [caption, hashtags]);
 
   useEffect(() => {
     if (!session || !selectedPlatforms.includes("tiktok") || !accounts.tiktok) {
@@ -229,9 +239,10 @@ export default function Publish() {
           brand_organic_toggle: tiktokBrandOrganic,
           brand_content_toggle: tiktokBrandContent,
         } : {};
+        const v = variants[platform];
         const res = await fetch("/api/publish/now", {
           method: "POST", headers,
-          body: JSON.stringify({ platform, video_url: videoUrl, caption, hashtags, title: selectedProject.title, brand_id: selectedBrandId, ...tiktokFields }),
+          body: JSON.stringify({ platform, video_url: videoUrl, caption: v?.caption ?? caption, hashtags: v?.hashtags ?? hashtags, title: selectedProject.title, brand_id: selectedBrandId, ...tiktokFields }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Publish failed");
@@ -245,7 +256,7 @@ export default function Publish() {
     }
     const allOk = results.every(r => !r.startsWith("FAIL:"));
     setMsg({ text: results.join(" · "), type: allOk ? "success" : "error" });
-    if (allOk) { setCaption(""); setHashtags(""); }
+    if (allOk) { setCaption(""); setHashtags(""); setVariants({}); }
     setSubmitting(false);
   }
 
@@ -262,9 +273,10 @@ export default function Publish() {
     for (const platform of selectedPlatforms) {
       try {
         const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` };
+        const v = variants[platform];
         const res = await fetch("/api/publish/schedule", {
           method: "POST", headers,
-          body: JSON.stringify({ platform, video_url: selectedProject.output_url || selectedProject.render_url, caption, hashtags, title: selectedProject.title, post_at: new Date(scheduleAt).toISOString(), brand_id: selectedBrandId }),
+          body: JSON.stringify({ platform, video_url: selectedProject.output_url || selectedProject.render_url, caption: v?.caption ?? caption, hashtags: v?.hashtags ?? hashtags, title: selectedProject.title, post_at: new Date(scheduleAt).toISOString(), brand_id: selectedBrandId }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Schedule failed");
@@ -275,8 +287,33 @@ export default function Publish() {
     }
     const allOk = results.every(r => !r.startsWith("FAIL:"));
     setMsg({ text: `${results.join(" · ")} · ${new Date(scheduleAt).toLocaleString()}`, type: allOk ? "success" : "error" });
-    if (allOk) { setCaption(""); setHashtags(""); setScheduleAt(""); }
+    if (allOk) { setCaption(""); setHashtags(""); setScheduleAt(""); setVariants({}); }
     setSubmitting(false);
+  }
+
+  async function generateVariants() {
+    if (!caption.trim() || selectedPlatforms.length === 0) return;
+    setGeneratingVariants(true);
+    try {
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` };
+      const res = await fetch("/api/publish/variants", {
+        method: "POST", headers,
+        body: JSON.stringify({ caption, hashtags, platforms: selectedPlatforms }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Variant generation failed");
+      setVariants(v => ({ ...v, ...data.variants }));
+      if (data.errors) {
+        setMsg({ text: `Couldn't generate for: ${Object.keys(data.errors).join(", ")}`, type: "error" });
+      }
+    } catch (err) {
+      setMsg({ text: err.message, type: "error" });
+    }
+    setGeneratingVariants(false);
+  }
+
+  function updateVariant(platform, field, value) {
+    setVariants(v => ({ ...v, [platform]: { ...v[platform], [field]: value } }));
   }
 
   async function generateCaption() {
@@ -593,6 +630,49 @@ export default function Publish() {
                 );
               })()}
             </div>
+            {selectedPlatforms.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <label style={{ fontSize: 12, color: "#94a3b8" }}>Per-platform variants</label>
+                  <button onClick={generateVariants} disabled={generatingVariants || !caption.trim()} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid var(--onyx-hairline-strong)", background: "transparent", color: (generatingVariants || !caption.trim()) ? "#475569" : "#7de0ff", fontWeight: 600, fontSize: 11, cursor: (generatingVariants || !caption.trim()) ? "not-allowed" : "pointer" }}>
+                    {generatingVariants ? "Optimizing..." : (Object.keys(variants).length ? "Regenerate for each platform" : "Optimize for each platform")}
+                  </button>
+                </div>
+                <div style={{ fontSize: 11, color: "#64748b", marginBottom: 10 }}>
+                  By default every platform gets the caption/hashtags above unchanged. Generate distinct, platform-tuned versions here (hook-first opener, tone, hashtag count) — each is editable before you publish.
+                </div>
+                {selectedPlatforms.map(p => {
+                  const v = variants[p];
+                  const rule = captionRules[p];
+                  const label = PLATFORMS.find(pl => pl.id === p)?.label || p;
+                  return (
+                    <div key={p} style={{ border: "1px solid var(--onyx-hairline-strong)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: PLATFORMS.find(pl => pl.id === p)?.color || "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</span>
+                        {rule && <span style={{ fontSize: 10, color: "#64748b" }}>{rule.hookFirst ? "hook-first" : "plain opener"} · {rule.tone}</span>}
+                      </div>
+                      {v ? (
+                        <>
+                          <textarea
+                            style={{ ...inputS, marginTop: 0, minHeight: 60, resize: "vertical", fontSize: 12 }}
+                            value={v.caption}
+                            onChange={e => updateVariant(p, "caption", e.target.value)}
+                          />
+                          <input
+                            style={{ ...inputS, marginTop: 6, fontSize: 12 }}
+                            value={v.hashtags}
+                            onChange={e => updateVariant(p, "hashtags", e.target.value)}
+                          />
+                          {v.warning && <div style={{ fontSize: 10, color: "#fbbf24", marginTop: 4 }}>{v.warning}</div>}
+                        </>
+                      ) : (
+                        <div style={{ fontSize: 11, color: "#475569", fontStyle: "italic" }}>Using the shared caption/hashtags above — not yet optimized for {label}.</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 12, color: "#94a3b8" }}>Schedule time (leave blank to publish now)</label>
               <input type="datetime-local" style={inputS} value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
