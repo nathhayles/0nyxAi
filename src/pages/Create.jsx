@@ -6,6 +6,7 @@ import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
 import TemplateSelectorPill from "../components/TemplateSelectorPill.jsx";
 import QuickCreatePanel from "../components/QuickCreatePanel.jsx";
+import ModelComparePanel from "../components/ModelComparePanel.jsx";
 import ThemeSelectorPill from "../components/ThemeSelectorPill.jsx";
 import { TEMPLATES } from "../data/templates.js";
 import { useSpeechInput } from "../hooks/useSpeechInput.js";
@@ -460,6 +461,7 @@ export default function CreatePage() {
           {[
             { id: "storyboard", label: "Storyboard" },
             { id: "quick", label: "Quick Create" },
+            { id: "compare", label: "Model Compare" },
           ].map((t) => (
             <button
               key={t.id}
@@ -497,6 +499,10 @@ export default function CreatePage() {
             videoModelOptions={VIDEO_MODEL_OPTIONS}
             onCreated={(reelId) => navigate(`/editor-v2?reelId=${reelId}`)}
           />
+        )}
+
+        {pageMode === "compare" && (
+          <ModelComparePanel brand={brand} />
         )}
 
         {pageMode === "storyboard" && (
