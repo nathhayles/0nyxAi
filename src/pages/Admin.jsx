@@ -11,6 +11,7 @@ const TABS = [
   { key: 'generations', label: 'Generations' },
   { key: 'users', label: 'Users' },
   { key: 'model-usage', label: 'Model Usage' },
+  { key: 'spend-breakdown', label: 'Spend Breakdown' },
   { key: 'flagged-uploads', label: 'Flagged Uploads' },
   { key: 'api-keys', label: 'API Keys' },
 ];
@@ -128,6 +129,7 @@ export default function AdminPanel() {
       {activeTab === 'generations' && <GenerationsPanel />}
       {activeTab === 'users' && <UsersPanel users={users} onGrant={grantCredits} grantingCredits={grantingCredits} />}
       {activeTab === 'model-usage' && <ModelUsagePanel />}
+      {activeTab === 'spend-breakdown' && <SpendBreakdownPanel />}
       {activeTab === 'flagged-uploads' && <FlaggedUploadsPanel />}
       {activeTab === 'api-keys' && <ApiKeysPanel users={users} />}
     </div>
@@ -138,9 +140,14 @@ const MODEL_LABELS = {
   'wan-2.5': 'Wan 2.5',
   'wan-2.7': 'Wan 2.7',
   'kling-2.6-pro': 'Kling 3 Pro',
+  'kling-o1-edit': 'Reshoot (Kling O1)',
+  'kling-o3-pro-edit': 'Reshoot (Kling O3 Pro)',
   'veo-3': 'Veo 3.1',
   'seedance-1-pro': 'Seedance 1 Pro',
+  'seedance-2-standard': 'Seedance 2.0',
+  'seedance-2.5': 'Seedance 2.5',
   'vidu-q3-pro': 'Vidu Q3 Pro',
+  'vidu-q3-turbo': 'Vidu Q3 Turbo',
 };
 
 const PLAN_COLORS = {
@@ -288,6 +295,145 @@ function ModelUsagePanel() {
               </table>
             </div>
           </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Built 2026-09-08 to inform the fal.ai volume-commitment negotiation with
+// real $ (credits) spend, not job counts -- a cheap Wan job and an expensive
+// Kling job both count as "1" in Model Usage above, which can badly
+// misrepresent which model actually drives cost. Backed by
+// GET /api/admin/analytics/spend-breakdown, built from credit_transactions
+// (the only table with real amounts, not just job rows) -- see that route's
+// own comment for the important data-reliability caveat (real data only
+// from 2026-07-30 onward) and the Model Compare detection heuristic
+// (inferred, not a clean tag -- flagged here too, not just in the API).
+function SpendBreakdownPanel() {
+  const [windowKey, setWindowKey] = useState('30');
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`/api/admin/analytics/spend-breakdown?window=${windowKey}`, { headers });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Failed to load');
+        if (!cancelled) setData(d);
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [windowKey]);
+
+  const byFeature = data?.by_feature || {};
+  const byModel = data?.by_model || {};
+  const featureKeys = Object.keys(byFeature).sort((a, b) => byFeature[b].credits - byFeature[a].credits);
+  const modelKeys = Object.keys(byModel).sort((a, b) => byModel[b].credits - byModel[a].credits);
+  const maxModelCredits = Math.max(1, ...modelKeys.map(k => byModel[k].credits));
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h3 style={{ color: '#4dd0ff', fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
+          Credit Spend by Feature &amp; Model
+        </h3>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {USAGE_WINDOWS.map(w => (
+            <button
+              key={w.key}
+              onClick={() => setWindowKey(w.key)}
+              style={{
+                ...s.grantBtn,
+                background: windowKey === w.key ? '#4dd0ff44' : 'transparent',
+                borderColor: windowKey === w.key ? '#4dd0ff' : 'var(--onyx-hairline-strong)',
+                color: windowKey === w.key ? '#7de0ff' : 'var(--onyx-text-faint)',
+                fontSize: 11,
+                padding: '4px 10px',
+              }}
+            >
+              {w.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {data && (
+        <p style={{ fontSize: 11, color: 'var(--onyx-text-faint)', margin: '0 0 14px' }}>
+          {data.total_credits_spent.toLocaleString()} credits across {data.total_transactions.toLocaleString()} transactions.
+          Real data only from {data.data_reliable_since} onward (credit logging was silently broken before that — see route comment).
+          Model Compare ({data.model_compare.credits.toLocaleString()} credits, {data.model_compare.count} runs) is inferred from a heuristic, not a dedicated tag — treat as directional.
+        </p>
+      )}
+
+      <div style={{ background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)', borderRadius: 10, padding: 20, marginBottom: 20 }}>
+        <h4 style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 14px' }}>By Model (all features combined)</h4>
+        {loading ? (
+          <p style={{ color: '#4dd0ff', fontSize: 13, margin: 0 }}>Loading...</p>
+        ) : error ? (
+          <p style={{ color: '#f87171', fontSize: 13, margin: 0 }}>Failed to load: {error}</p>
+        ) : modelKeys.length === 0 ? (
+          <p style={{ color: 'var(--onyx-text-faint)', fontSize: 13, margin: 0 }}>No model-attributed spend recorded for this window.</p>
+        ) : (
+          <table style={s.table}>
+            <thead>
+              <tr>
+                <th style={s.th}>Model</th>
+                <th style={{ ...s.th, textAlign: 'right' }}>Credits</th>
+                <th style={{ ...s.th, textAlign: 'right' }}>Runs</th>
+                <th style={{ ...s.th, textAlign: 'right' }}>Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {modelKeys.map(model => (
+                <tr key={model} style={s.row}>
+                  <td style={s.td}>{MODEL_LABELS[model] || model}</td>
+                  <td style={{ ...s.td, textAlign: 'right', fontWeight: 700, color: '#fbbf24' }}>{byModel[model].credits.toLocaleString()}</td>
+                  <td style={{ ...s.td, textAlign: 'right' }}>{byModel[model].count.toLocaleString()}</td>
+                  <td style={{ ...s.td, textAlign: 'right', color: 'var(--onyx-text-faint)' }}>{((byModel[model].credits / maxModelCredits) * 100).toFixed(0)}% of top</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div style={{ background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)', borderRadius: 10, padding: 20 }}>
+        <h4 style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 14px' }}>By Feature</h4>
+        {!loading && !error && featureKeys.length > 0 && (
+          <table style={s.table}>
+            <thead>
+              <tr>
+                <th style={s.th}>Feature</th>
+                <th style={{ ...s.th, textAlign: 'right' }}>Credits</th>
+                <th style={{ ...s.th, textAlign: 'right' }}>Runs</th>
+                <th style={s.th}>Top model</th>
+              </tr>
+            </thead>
+            <tbody>
+              {featureKeys.map(key => {
+                const feature = byFeature[key];
+                const topModel = Object.entries(feature.by_model || {}).sort((a, b) => b[1].credits - a[1].credits)[0];
+                return (
+                  <tr key={key} style={s.row}>
+                    <td style={s.td}>{feature.label}</td>
+                    <td style={{ ...s.td, textAlign: 'right', fontWeight: 700, color: '#fbbf24' }}>{feature.credits.toLocaleString()}</td>
+                    <td style={{ ...s.td, textAlign: 'right' }}>{feature.count.toLocaleString()}</td>
+                    <td style={{ ...s.td, color: 'var(--onyx-text-faint)' }}>{topModel ? `${MODEL_LABELS[topModel[0]] || topModel[0]} (${topModel[1].credits.toLocaleString()})` : '—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
