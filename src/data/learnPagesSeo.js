@@ -93,6 +93,28 @@ export const learnPages = [
     imageAlt: "Seedance 2.0 prompting guide illustration — violet film camera with a cyan light beam and amber audio waveform bars, Onyx Reelz",
   },
   {
+    title: "Seedance 2.5 Prompting Guide",
+    description: "How to get the best results from Seedance 2.5, our token-priced flagship AI video model for physically complex motion, on Onyx Reelz.",
+    path: "/learn/seedance-2-5-prompting",
+    // TEMP hero: a real still from this page's own featured generation
+    // (breakdancer headspin, letterboxed to 21:9), not yet a commissioned
+    // icon-style illustration matching the other pages' bespoke PNGs --
+    // flagged for a real asset pass before this is considered finished, see
+    // TASKS.md 2026-09-07.
+    ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/uploads/d7c733c8-31dd-49b2-bffa-655b7d13ce11/image/ef66854ca95609c0b4376f11938372c1__seedance_hero.jpg",
+    imageAlt: "Real Seedance 2.5 generation still — a breakdancer mid-spin, backlit by golden hour sunlight on an outdoor court, Onyx Reelz",
+  },
+  {
+    title: "Reshoot: Editing an Existing Clip",
+    description: "How Reshoot's Kling O1/O3 Pro video-to-video editing works, and when to use it instead of generating a new clip, on Onyx Reelz.",
+    path: "/learn/reshoot-editing",
+    // TEMP hero, same caveat as the Seedance 2.5 entry above: a real
+    // before/after still from this page's own featured Reshoot edit, not a
+    // commissioned illustration yet.
+    ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/uploads/d7c733c8-31dd-49b2-bffa-655b7d13ce11/image/d631e0976a78ee5784ed2ea69f9aa377__reshoot_hero2.jpg",
+    imageAlt: "Real Reshoot before/after — the same golden retriever puppy in a sunny meadow, then edited into a snowy dusk field, Onyx Reelz",
+  },
+  {
     title: "Veo 3.1 Prompting Guide",
     description: "How to get the best results from Google's Veo 3.1, our highest-fidelity AI video model on Onyx Reelz.",
     path: "/learn/veo-prompting",

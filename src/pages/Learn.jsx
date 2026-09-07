@@ -27,6 +27,16 @@ const GUIDES = [
     to: "/learn/seedance-prompting",
   },
   {
+    title: "Seedance 2.5 Prompting Guide",
+    description: "How to get the best results from Seedance 2.5, our token-priced flagship model for physically complex motion.",
+    to: "/learn/seedance-2-5-prompting",
+  },
+  {
+    title: "Reshoot: Editing an Existing Clip",
+    description: "How Reshoot's Kling O1/O3 Pro video-to-video editing works, and when to use it instead of generating a new clip.",
+    to: "/learn/reshoot-editing",
+  },
+  {
     title: "Wan Prompting Guide",
     description: "How to write prompts for Wan, our fast and affordable AI video model.",
     to: "/learn/wan-prompting",

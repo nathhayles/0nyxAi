@@ -23,6 +23,8 @@ const Blog = lazy(() => import("./pages/Blog"));
 const BlogAiVideoMarketingBudget = lazy(() => import("./pages/BlogAiVideoMarketingBudget"));
 const LearnKlingPrompting = lazy(() => import("./pages/LearnKlingPrompting"));
 const LearnSeedancePrompting = lazy(() => import("./pages/LearnSeedancePrompting"));
+const LearnSeedance25Prompting = lazy(() => import("./pages/LearnSeedance25Prompting"));
+const LearnReshootEditing = lazy(() => import("./pages/LearnReshootEditing"));
 const LearnWanPrompting = lazy(() => import("./pages/LearnWanPrompting"));
 const LearnVeoPrompting = lazy(() => import("./pages/LearnVeoPrompting"));
 const LearnChoosingAModel = lazy(() => import("./pages/LearnChoosingAModel"));
@@ -349,6 +351,8 @@ export default function App() {
         <Route path="/learn" element={<Learn />} />
         <Route path="/learn/kling-prompting" element={<LearnKlingPrompting />} />
         <Route path="/learn/seedance-prompting" element={<LearnSeedancePrompting />} />
+        <Route path="/learn/seedance-2-5-prompting" element={<LearnSeedance25Prompting />} />
+        <Route path="/learn/reshoot-editing" element={<LearnReshootEditing />} />
         <Route path="/learn/wan-prompting" element={<LearnWanPrompting />} />
         <Route path="/learn/veo-prompting" element={<LearnVeoPrompting />} />
         <Route path="/learn/choosing-a-model" element={<LearnChoosingAModel />} />
