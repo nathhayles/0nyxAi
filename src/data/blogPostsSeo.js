@@ -20,6 +20,14 @@ export const blogHub = {
 
 export const blogPosts = [
   {
+    title: "What's New: Edit an Existing Clip, and Two New Ways to Shape How Your Footage Looks",
+    description: "Two features just shipped on Onyx Reelz — Reshoot, for editing a clip you already have instead of regenerating it, and the Style System, for shaping how your generated footage actually looks.",
+    path: "/blog/reshoot-and-style-system-launch",
+    ogType: "article",
+    schemaType: "Article",
+    relatedLearnPath: "/learn/reshoot-editing",
+  },
+  {
     title: "How to Create AI-Generated Videos for Marketing Without Breaking the Budget",
     description: "A real, model-by-model breakdown of what AI video generation for marketing actually costs — with real examples across budget and premium models, not vague pricing advice.",
     path: "/blog/ai-video-marketing-budget",

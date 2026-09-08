@@ -21,6 +21,7 @@ const TermsPage = lazy(() => import("./pages/TermsPage"));
 const Learn = lazy(() => import("./pages/Learn"));
 const Blog = lazy(() => import("./pages/Blog"));
 const BlogAiVideoMarketingBudget = lazy(() => import("./pages/BlogAiVideoMarketingBudget"));
+const BlogReshootAndStyleSystemLaunch = lazy(() => import("./pages/BlogReshootAndStyleSystemLaunch"));
 const LearnKlingPrompting = lazy(() => import("./pages/LearnKlingPrompting"));
 const LearnSeedancePrompting = lazy(() => import("./pages/LearnSeedancePrompting"));
 const LearnSeedance25Prompting = lazy(() => import("./pages/LearnSeedance25Prompting"));
@@ -369,6 +370,7 @@ export default function App() {
         <Route path="/learn/eu-ai-act-disclosure" element={<LearnEuAiActDisclosure />} />
         <Route path="/blog" element={<Blog />} />
         <Route path="/blog/ai-video-marketing-budget" element={<BlogAiVideoMarketingBudget />} />
+        <Route path="/blog/reshoot-and-style-system-launch" element={<BlogReshootAndStyleSystemLaunch />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/account" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Account /></ProtectedRoute>} />
         <Route path="/branding" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><BrandingPanel onApply={(brand) => navigate("/projects", { state: { applyBrandId: brand.id } })} /></ProtectedRoute>} />
