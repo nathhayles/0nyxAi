@@ -6,6 +6,7 @@ import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
 import TemplateSelectorPill from "../components/TemplateSelectorPill.jsx";
 import QuickCreatePanel from "../components/QuickCreatePanel.jsx";
+import AutoModelRoutingPreview from "../components/AutoModelRoutingPreview.jsx";
 import ThemeSelectorPill from "../components/ThemeSelectorPill.jsx";
 import { TEMPLATES } from "../data/templates.js";
 import { useSpeechInput } from "../hooks/useSpeechInput.js";
@@ -53,6 +54,19 @@ const VIDEO_MODEL_OPTIONS = [
   // generate from this flow. It's reachable via StoryboardPanel.jsx, which
   // has the required Start Image/End Frame fields.
 ];
+
+// Auto-Model-Routing's picker tile -- only ever shown when autoRoutingEnabled
+// (see the capabilities check above) is true. Kept separate from
+// VIDEO_MODEL_OPTIONS itself (rather than appended unconditionally) so the
+// default single-model flow's option list is completely unaffected while
+// the flag is off.
+const AUTO_MODEL_OPTION = {
+  id: "auto",
+  label: "✨ Auto",
+  description: "Best model per scene, picked automatically — you review before generating",
+  credits: null,
+  creditsLabel: "Cost varies per scene, shown in a review step before you generate",
+};
 
 const THEMES = [
   { value: "cinematic", label: "Cinematic" },
@@ -124,6 +138,27 @@ export default function CreatePage() {
   const [characterLock, setCharacterLock] = useState(false);
   const [motionRefUrl, setMotionRefUrl] = useState("");
   const [videoModel, setVideoModel] = useState("kling-2.6-pro");
+  // Auto-Model-Routing (docs/margin-and-feature-scoping-2026-09-08.md Task
+  // 2) -- opt-in, flag-gated per Nathan's explicit call not to make this the
+  // default path. GET /api/models/capabilities only includes a synthetic
+  // {id:"auto", isAutoRouter:true} entry when AUTO_MODEL_ROUTING_ENABLED is
+  // true server-side (routes/models.js), so this stays false (and the "Auto"
+  // picker tile stays hidden) until Nathan flips that flag.
+  const [autoRoutingEnabled, setAutoRoutingEnabled] = useState(false);
+  const [autoModelPreview, setAutoModelPreview] = useState(null); // { scenes, totalCost } | null while the review modal is open
+  const [autoModelDecision, setAutoModelDecision] = useState(null); // resolver fn for the pending confirm/cancel Promise
+  useEffect(() => {
+    if (!session?.access_token) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/models/capabilities", { headers: { Authorization: `Bearer ${session.access_token}` } });
+        const data = await res.json();
+        setAutoRoutingEnabled(Array.isArray(data) && data.some(m => m.isAutoRouter));
+      } catch (e) {
+        console.error("[Create] failed to check auto-routing availability:", e);
+      }
+    })();
+  }, [session?.access_token]);
 
   // "Storyboard" is the original script/multi-scene flow (untouched below);
   // "quick" is the Style Presets one-click flow (see
@@ -168,13 +203,23 @@ export default function CreatePage() {
 
   const selectedTemplate = TEMPLATES.find(t => t.id === selectedTemplateId) || null;
 
+  // Auto (when enabled) isn't in VIDEO_MODEL_OPTIONS -- see AUTO_MODEL_OPTION
+  // above and the picker render below, which renders from this combined list.
+  const pickerOptions = autoRoutingEnabled ? [AUTO_MODEL_OPTION, ...VIDEO_MODEL_OPTIONS] : VIDEO_MODEL_OPTIONS;
   const wordCount = script.trim() ? script.trim().split(/\s+/).length : 0;
   const estimatedScenes = Math.max(1, Math.ceil(wordCount / 22));
-  const selectedModelOption = VIDEO_MODEL_OPTIONS.find(m => m.id === videoModel) || VIDEO_MODEL_OPTIONS[1];
-  const estimatedCredits = mode === "ai" ? estimatedScenes * selectedModelOption.credits : 0;
+  const selectedModelOption = pickerOptions.find(m => m.id === videoModel) || VIDEO_MODEL_OPTIONS[1];
+  const isAutoModel = videoModel === "auto";
+  // Auto's real per-scene cost isn't known client-side until the pre-flight
+  // review step below actually calls /api/kling/preview-auto-model (which
+  // needs a real /api/analyse result first) -- so this naive
+  // scenes-times-flat-credits pre-check is skipped for Auto specifically;
+  // the review screen shows the REAL total before any credits are spent,
+  // and the server still enforces the real balance check regardless.
+  const estimatedCredits = mode === "ai" && !isAutoModel ? estimatedScenes * selectedModelOption.credits : 0;
 
   // Only block if credits have loaded and are genuinely insufficient
-  const insufficientCredits = mode === "ai" && credits !== null && estimatedCredits > credits;
+  const insufficientCredits = mode === "ai" && !isAutoModel && credits !== null && estimatedCredits > credits;
 
   const canGenerate = useMemo(() => {
     if (!script.trim()) return false;
@@ -240,12 +285,48 @@ export default function CreatePage() {
         });
         const analysis = analyseRes.ok ? await analyseRes.json() : null;
 
+        // Auto-Model-Routing's pre-flight review step -- inserted here,
+        // between the analyse call above and the real pipeline submission
+        // below, per the design doc's exact sequencing (the review needs
+        // analysis.scenes' mood/pacing/visual_direction/speakers fields to
+        // compute picks, and must resolve BEFORE any credits are spent).
+        // sceneModelOverrides carries the user's edits from the review
+        // screen through to the real submission -- see routes/kling.js's
+        // pipeline route, which honors an override for a scene over the
+        // auto pick for that scene specifically.
+        let sceneModelOverrides = null;
+        if (videoModel === "auto" && analysis?.scenes?.length) {
+          setProgressStep("Reviewing auto-picked models...");
+          const previewRes = await fetch("/api/kling/preview-auto-model", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ scenes: analysis.scenes, aspect_ratio: ratio }),
+          });
+          const previewData = await previewRes.json().catch(() => null);
+          if (!previewRes.ok || !previewData?.scenes) {
+            throw new Error(previewData?.error || "Couldn't compute auto model picks — try a specific model instead.");
+          }
+          const decision = await new Promise((resolve) => {
+            setAutoModelPreview(previewData);
+            setAutoModelDecision(() => resolve);
+          });
+          setAutoModelPreview(null);
+          setAutoModelDecision(null);
+          if (!decision.confirmed) {
+            setLoading(false);
+            setProgressStep("");
+            return;
+          }
+          sceneModelOverrides = decision.overrides;
+        }
+
         const effectiveTheme = selectedTemplate
           ? `${selectedTemplate.id} ${selectedTemplate.promptPrefix}`
           : theme;
         const klingBody = { prompt: script, theme: effectiveTheme, analysis, aspect_ratio: ratio, model: videoModel, brand_id: brand || null, content_mode: contentMode };
         if (characterLock) klingBody.character_lock = true;
         if (motionRefUrl.trim()) klingBody.motion_ref_url = motionRefUrl.trim();
+        if (sceneModelOverrides && Object.keys(sceneModelOverrides).length) klingBody.sceneModelOverrides = sceneModelOverrides;
 
         const res = await fetch("/api/kling/", {
           method: "POST",
@@ -618,7 +699,7 @@ export default function CreatePage() {
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Video model</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {VIDEO_MODEL_OPTIONS.map(opt => (
+                    {pickerOptions.map(opt => (
                       <label key={opt.id} style={{
                         display: "flex", alignItems: "flex-start", gap: 10,
                         cursor: opt.disabled ? "not-allowed" : "pointer",
@@ -729,7 +810,7 @@ export default function CreatePage() {
               <div style={{ color: "var(--onyx-text-faint)" }}>Scenes: {estimatedScenes}</div>
               {mode === "ai" && <div style={{ color: "var(--onyx-text-faint)" }}>{selectedModelOption.creditsLabel ? `${selectedModelOption.creditsLabel} (${estimatedScenes} scenes)` : `${selectedModelOption.credits} credits × ${estimatedScenes} scenes`}</div>}
               <div style={{ color: insufficientCredits ? "#ff5c5c" : "var(--onyx-text)" }}>
-                AI Credits Needed: {estimatedCredits}
+                {mode === "ai" && isAutoModel ? "AI Credits Needed: shown in the review step before you generate" : `AI Credits Needed: ${estimatedCredits}`}
               </div>
             </div>
           </div>
@@ -927,6 +1008,15 @@ export default function CreatePage() {
             </div>
           </div>
         ) : null}
+
+        {autoModelPreview && (
+          <AutoModelRoutingPreview
+            preview={autoModelPreview}
+            modelOptions={pickerOptions}
+            onCancel={() => autoModelDecision?.({ confirmed: false })}
+            onConfirm={(overrides) => autoModelDecision?.({ confirmed: true, overrides })}
+          />
+        )}
       </div>
     </div>
   );
