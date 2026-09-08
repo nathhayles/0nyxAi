@@ -25,6 +25,7 @@ import ElementsPanel    from "../components/ElementsPanel.jsx";
 import TransitionsPanel from "../components/TransitionsPanel.jsx";
 import YouTubePublishModal from "../components/YouTubePublishModal.jsx";
 import ExportUpgradeModal from "../components/ExportUpgradeModal.jsx";
+import MagicResizeModal from "../components/MagicResizeModal.jsx";
 import AudioPanel from "../components/AudioPanelBoundary.jsx";
 import VoiceOverPanel from "../components/VoiceOverPanel.jsx";
 import SfxPanel from "../components/SfxPanel.jsx";
@@ -220,7 +221,7 @@ function OnyxMark() {
 }
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
-function Toolbar({ title, onTitleChange, description, onDescriptionChange, tags, onTagsChange, saved, theme, onThemeToggle, onExport, onShare, onPublish, onSave, onAddScene, toast }) {
+function Toolbar({ title, onTitleChange, description, onDescriptionChange, tags, onTagsChange, saved, theme, onThemeToggle, onExport, onMagicResize, onShare, onPublish, onSave, onAddScene, toast }) {
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -349,6 +350,13 @@ function Toolbar({ title, onTitleChange, description, onDescriptionChange, tags,
       {/* Publish */}
       <button onClick={onPublish} className="btn-secondary" style={{ padding: "6px 13px", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
         <Glyph name="upload" size={13} color="var(--onyx-cyan,#4dd0ff)"/> Publish
+      </button>
+
+      {/* Magic Resize v1 -- batch multi-format export of the already-rendered
+          reel, secondary to the main Export action (which is what actually
+          produces the reel content in the first place). */}
+      <button onClick={onMagicResize} className="btn-secondary" style={{ padding: "6px 13px", fontWeight: 600, fontSize: 12.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }} title="Export this reel at other aspect ratios (no new AI generation)">
+        <Glyph name="download" size={13} color="var(--onyx-cyan,#4dd0ff)"/> Other formats
       </button>
 
       {/* Export -- the one true primary action in this toolbar: the actual
@@ -1563,7 +1571,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
 // ── V2 render serializer ─────────────────────────────────────────────────────
 function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMusicName,
   musicVolume, voiceoverVolume, sfxVolume, ratio, brand, reelId, canvasH = 500, canvasW = 300,
-  captionsVisible = true }) {
+  captionsVisible = true, focalPoints = null }) {
   const videoTrack = timelineState.tracks.find(t => t.key === "video");
   const voiceTrack = timelineState.tracks.find(t => t.key === "voiceover");
   const musicTrack = timelineState.tracks.find(t => t.key === "music");
@@ -1663,6 +1671,14 @@ function buildV2RenderRequest({ timelineState, scenes, globalMusicUrl, globalMus
       // fitMode explicitly) cover the frame edge-to-edge instead of
       // pillarboxing; "fit" only applies when a scene explicitly opts in.
       fitMode:           scene.fitMode === "fit" ? "fit" : "fill",
+      // Magic Resize v1: manual per-scene focal point (0-1 x/y), only
+      // meaningful under fitMode "fill". `focalPoints` is an optional
+      // sceneId-keyed override map passed in from the Magic Resize modal for
+      // THIS specific export ratio; falls back to a persisted per-scene
+      // default (scene.focalPoint) when no override was set for this ratio,
+      // then to null (render.js defaults null to dead-center — today's
+      // exact pre-existing crop behavior).
+      focalPoint:        focalPoints?.[scene.id || clip.sceneId] || scene.focalPoint || null,
       paintMaskUrl:         clip.paintMaskUrl || null,
       paintMaskMode:        clip.paintMaskMode || null,
       paintMaskXPct:        clip.paintMaskXPct,
@@ -2076,6 +2092,7 @@ export default function EditorV2() {
   const [savedMsg,         setSavedMsg]         = useState("–");
   const [ytModalOpen,      setYtModalOpen]      = useState(false);
   const [exportUpgrade,    setExportUpgrade]    = useState(null); // { requiredCredits } | null
+  const [magicResizeOpen,  setMagicResizeOpen]  = useState(false);
   const [generatingScenes, setGeneratingScenes] = useState({});
   const [regenModel, setRegenModel] = useState("kling-2.6-pro");
   // Fetched once from the backend's capability matrix (GET /api/models/capabilities,
@@ -4559,6 +4576,7 @@ export default function EditorV2() {
           onSave={saveNow}
           toast={toast}
           onAddScene={() => window.dispatchEvent(new CustomEvent('onyx-add-scene'))}
+          onMagicResize={() => setMagicResizeOpen(true)}
           onExport={async () => {
               if (exportInFlightRef.current) return;
               exportInFlightRef.current = true;
@@ -5136,6 +5154,27 @@ export default function EditorV2() {
 
       {ytModalOpen && <YouTubePublishModal onClose={() => setYtModalOpen(false)} scenes={scenes} title={title}/>}
       {exportUpgrade && <ExportUpgradeModal requiredCredits={exportUpgrade.requiredCredits} onClose={() => setExportUpgrade(null)} />}
+      {magicResizeOpen && (
+        <MagicResizeModal
+          currentRatio={ratio}
+          scenes={scenes}
+          timelineState={timelineState}
+          title={title}
+          toast={(msg) => toast.show(msg, "success")}
+          onClose={() => setMagicResizeOpen(false)}
+          buildRenderRequest={({ ratio: targetRatio, focalPoints }) => {
+            const _previewFrame = document.getElementById('onyx-preview-frame');
+            const _previewRect = _previewFrame?.getBoundingClientRect();
+            return buildV2RenderRequest({
+              timelineState, scenes, globalMusicUrl, globalMusicName,
+              musicVolume, voiceoverVolume, sfxVolume, ratio: targetRatio, brand, reelId,
+              canvasH: _previewRect?.height || 500,
+              canvasW: _previewRect?.width || 300,
+              captionsVisible, focalPoints,
+            });
+          }}
+        />
+      )}
       <ChatBot />
       <Toast toast={toast.toast} />
     </div>
