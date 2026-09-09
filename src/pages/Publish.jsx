@@ -338,7 +338,14 @@ export default function Publish() {
   async function connectPlatform(platformId) {
     if (!canAutopost) { window.location.href = "/account"; return; }
     const headers = await getHeaders();
-    const qs = selectedBrandId ? `?brand_id=${selectedBrandId}` : "";
+    const params = new URLSearchParams();
+    if (selectedBrandId) params.set("brand_id", selectedBrandId);
+    // Carries the in-progress project through the OAuth round trip so the
+    // callback can send the user back here (instead of /account) with the
+    // same project still selected, rather than forcing a manual re-pick.
+    params.set("origin", "publish");
+    if (selectedProject?.id) params.set("reelId", selectedProject.id);
+    const qs = params.toString() ? `?${params.toString()}` : "";
     const res = await fetch(`/api/social/${platformId}/auth${qs}`, { headers });
     const data = await res.json();
     if (data.authUrl) window.location.href = data.authUrl;
