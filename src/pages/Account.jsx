@@ -8,7 +8,6 @@ import { describeTransaction } from "../utils/creditTransactionLabels.js";
 const SOCIAL = [
   { id: "instagram", label: "Instagram",      icon: "IG", color: "#E1306C", status: "connect" },
   { id: "tiktok",    label: "TikTok",         icon: "TT", color: "#69C9D0", status: "connect" },
-  { id: "facebook",  label: "Facebook Pages",  icon: "f",  color: "#1877F2", status: "connect" },
   { id: "twitter",   label: "X (Twitter)",    icon: "𝕏",  color: "var(--onyx-text)", status: "coming"  },
   { id: "linkedin",  label: "LinkedIn",       icon: "in", color: "#0A66C2", status: "connect" },
 ];
@@ -185,9 +184,6 @@ export default function Account() {
   const [disconnecting, setDisconnecting]     = useState(null);
   const [loading, setLoading]         = useState(true);
   const [ytToken, setYtToken]         = useState('');
-  const [fbPendingPages, setFbPendingPages]     = useState([]);
-  const [fbPageSelectBrandId, setFbPageSelectBrandId] = useState(null);
-  const [fbSelectingSaving, setFbSelectingSaving] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -235,26 +231,12 @@ export default function Account() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const platforms = ["instagram", "tiktok", "linkedin", "facebook"];
+    const platforms = ["instagram", "tiktok", "linkedin"];
     if (platforms.some(p => params.get(p) === "connected")) {
       loadSocialAccounts();
       window.history.replaceState({}, "", window.location.pathname);
     }
-    if (params.get("facebook") === "select_page") {
-      setFbPageSelectBrandId(params.get("brand_id") || "");
-      window.history.replaceState({}, "", window.location.pathname);
-    }
   }, []);
-
-  useEffect(() => {
-    if (!user || fbPageSelectBrandId === null) return;
-    (async () => {
-      const headers = await getAuthHeaders();
-      const qs = fbPageSelectBrandId ? `?brand_id=${fbPageSelectBrandId}` : "";
-      const res = await fetch(`/api/social/facebook/pending-pages${qs}`, { headers });
-      if (res.ok) { const d = await res.json(); setFbPendingPages(d.pages || []); }
-    })();
-  }, [user, fbPageSelectBrandId]);
 
   async function loadSocialAccounts() {
     setLoadingSocial(true);
@@ -291,26 +273,6 @@ export default function Account() {
     await fetch(`/api/social/${platformId}/disconnect${qs}`, { method: "DELETE", headers });
     await loadSocialAccounts();
     setDisconnecting(null);
-  }
-
-  async function handleFbPageSelect(pageId) {
-    setFbSelectingSaving(true);
-    const headers = await getAuthHeaders();
-    headers["Content-Type"] = "application/json";
-    const res = await fetch("/api/social/facebook/select-page", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ page_id: pageId, brand_id: fbPageSelectBrandId || null }),
-    });
-    if (res.ok) {
-      setFbPendingPages([]);
-      setFbPageSelectBrandId(null);
-      await loadSocialAccounts();
-    } else {
-      const d = await res.json();
-      alert(d.error || "Failed to connect page. Please try again.");
-    }
-    setFbSelectingSaving(false);
   }
 
   if (loading) return <div style={{ padding: 40, color: "var(--onyx-text-faint)", textAlign: "center", fontSize: 14 }}>Loading account...</div>;
@@ -448,31 +410,6 @@ export default function Account() {
               }
             </div>
             <div style={{ fontSize: 11, color: "var(--onyx-text-dim)", marginTop: 8 }}>{brands.length} / {brandLimit === Infinity ? "∞" : brandLimit} brands on {planLabel} plan</div>
-          </div>
-        )}
-
-        {fbPendingPages.length > 0 && (
-          <div style={{ marginBottom: 20, padding: "16px 20px", borderRadius: 10, background: "linear-gradient(135deg, rgba(24,119,242,0.12), rgba(29,78,216,0.08))", border: "1px solid rgba(24,119,242,0.35)" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--onyx-text)", marginBottom: 4 }}>Select a Facebook Page to connect</div>
-            <div style={{ fontSize: 12, color: "var(--onyx-text-faint)", marginBottom: 12 }}>Your account manages {fbPendingPages.length} pages. Choose one to use for auto-posting.</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {fbPendingPages.map(p => (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 8, background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)" }}>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--onyx-text)" }}>{p.name}</div>
-                    {p.category && <div style={{ fontSize: 11, color: "#64748b" }}>{p.category}</div>}
-                  </div>
-                  <button
-                    onClick={() => handleFbPageSelect(p.id)}
-                    disabled={fbSelectingSaving}
-                    style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #1877F240", background: "rgba(24,119,242,0.15)", color: "#60a5fa", fontSize: 12, fontWeight: 700, cursor: fbSelectingSaving ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}
-                  >
-                    {fbSelectingSaving ? "Connecting..." : "Connect"}
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 10, fontSize: 11, color: "var(--onyx-text-dim)" }}>You can change this later by disconnecting and reconnecting.</div>
           </div>
         )}
 
