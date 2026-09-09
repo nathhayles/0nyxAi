@@ -26,6 +26,11 @@ export const blogPosts = [
     ogType: "article",
     schemaType: "Article",
     relatedLearnPath: "/learn/reshoot-editing",
+    // Reuses the linked Learn page's own hero image rather than storing a
+    // second copy of the same artwork — same real Reshoot before/after
+    // still this post's own embedded video shows, not a stock illustration.
+    ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/uploads/d7c733c8-31dd-49b2-bffa-655b7d13ce11/image/d631e0976a78ee5784ed2ea69f9aa377__reshoot_hero2.jpg",
+    imageAlt: "Real Reshoot before/after — the same golden retriever puppy in a sunny meadow, then edited into a snowy dusk field, Onyx Reelz",
   },
   {
     title: "How to Create AI-Generated Videos for Marketing Without Breaking the Budget",
@@ -34,5 +39,7 @@ export const blogPosts = [
     ogType: "article",
     schemaType: "Article",
     relatedLearnPath: "/learn/ai-video-pricing",
+    ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/ai-video-pricing-breakdown-illustration.png",
+    imageAlt: "AI video pricing breakdown illustration — cyan price tag with a glowing amber dollar sign beside a stack of violet coins, Onyx Reelz",
   },
 ];

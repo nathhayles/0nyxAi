@@ -45,13 +45,20 @@ export default function Blog() {
               key={post.path}
               to={post.path}
               style={{
-                display: "block", padding: "18px 20px", borderRadius: 10,
+                display: "flex", gap: 16, padding: 14, borderRadius: 10,
                 border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-surface)",
-                textDecoration: "none", color: "inherit",
+                textDecoration: "none", color: "inherit", alignItems: "center",
               }}
             >
-              <div style={{ fontSize: 17, fontWeight: 600, color: "var(--onyx-text)", marginBottom: 6 }}>{post.title}</div>
-              <div style={{ fontSize: 14, color: "var(--onyx-text-faint)" }}>{post.description}</div>
+              {post.ogImage && (
+                <div style={{ flex: "0 0 120px", width: 120, aspectRatio: "16/9", borderRadius: 8, overflow: "hidden" }}>
+                  <img src={post.ogImage} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                </div>
+              )}
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 600, color: "var(--onyx-text)", marginBottom: 6 }}>{post.title}</div>
+                <div style={{ fontSize: 14, color: "var(--onyx-text-faint)" }}>{post.description}</div>
+              </div>
             </Link>
           ))}
         </div>
