@@ -51,6 +51,19 @@ export default function Publish() {
   const [tiktokBrandContent, setTiktokBrandContent] = useState(false);
   const [tiktokPrivacyAutoSwitchNotice, setTiktokPrivacyAutoSwitchNotice] = useState("");
   const [tiktokPublishStatus, setTiktokPublishStatus] = useState(null);
+  // Set once from the initial URL and never touched again -- this is "did the
+  // user arrive already knowing which reel they want" (from a reel's own
+  // Publish action, or bounced back here via the OAuth-connect redirect),
+  // as opposed to landing on Publish generically from nav with no reel in
+  // mind. Drives whether the project-picker list is shown at all (see below).
+  const [arrivedWithReelId] = useState(() => !!new URLSearchParams(window.location.search).get("reelId"));
+  // Bumped to force-remount the schedule <input> after the user leaves it
+  // half-filled (see the onBlur handler below) -- a native datetime-local
+  // input's mid-edit per-segment display (e.g. "dd/09/yyyy, 15:37") is part
+  // of the widget's own internal editing buffer, not just our `value` prop,
+  // so React re-rendering with the same value="" doesn't clear a stale
+  // half-typed display. Remounting is the only reliable way to reset it.
+  const [scheduleInputKey, setScheduleInputKey] = useState(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -214,6 +227,8 @@ export default function Publish() {
     // invented "unknown" state.
   }
 
+  // Deliberately never reads/validates scheduleAt -- "Publish Now" must work
+  // regardless of whatever state the (unrelated) schedule field is in.
   async function handlePublishNow() {
     if (trialStatus.trial_expired) return setMsg({ text: "Your trial has expired. Upgrade to publish.", type: "error" });
     if (!selectedProject) return setMsg({ text: "Select a project first", type: "error" });
@@ -553,6 +568,12 @@ export default function Publish() {
           </div>
         )}
 
+        {/* Skip the picker entirely once we already know which reel the user means
+            (arrived via ?reelId= -- either straight from that reel's own Publish
+            action, or bounced back here through an OAuth-connect detour) and it
+            actually resolved to a real project below. Falls back to showing the
+            list if that reel wasn't found (e.g. deleted), so the user isn't stuck. */}
+        {!(arrivedWithReelId && selectedProject) && (
         <div style={card}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "1px", marginBottom: 14 }}>Select Project</div>
           {projects.length === 0
@@ -574,6 +595,7 @@ export default function Publish() {
               </div>
           }
         </div>
+        )}
 
         {selectedProject && (
           <div style={card}>
@@ -682,7 +704,21 @@ export default function Publish() {
             )}
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 12, color: "#94a3b8" }}>Schedule time (leave blank to publish now)</label>
-              <input type="datetime-local" style={inputS} value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
+              <input
+                key={scheduleInputKey}
+                type="datetime-local"
+                style={inputS}
+                value={scheduleAt}
+                onChange={e => setScheduleAt(e.target.value)}
+                onBlur={() => {
+                  // scheduleAt only ever updates via onChange once the picker
+                  // reports a complete, valid value -- so if it's still ""
+                  // here, whatever the user typed never became valid. Force a
+                  // fresh widget so it doesn't keep showing their half-typed
+                  // segments after they've moved on.
+                  if (!scheduleAt) setScheduleInputKey(k => k + 1);
+                }}
+              />
             </div>
             {msg.text && (
               <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14, fontSize: 13, fontWeight: 600, background: msg.type === "success" ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`, color: msg.type === "success" ? "#4ade80" : "#f87171" }}>{msg.text}</div>
