@@ -1239,14 +1239,13 @@ export default function Music() {
                         setResolvedStems(null);
                         setSentConfirm(null);
                         try {
-                          const token = session?.access_token;
                           const form = new FormData();
                           if (fadrFile) { form.append("file", fadrFile); }
                           else { form.append("url", fadrFileUrl.trim()); }
                           if (fadrDuration != null) form.append("durationSeconds", String(fadrDuration));
                           const res = await fetch(`/api/music/fadr/${op}`, {
                             method: "POST",
-                            headers: token ? { Authorization: `Bearer ${token}` } : {},
+                            headers: await getAuthHeaders(),
                             body: form,
                           });
                           const data = await res.json();
