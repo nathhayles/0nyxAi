@@ -4,6 +4,31 @@ import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import HelpTooltip from "../components/HelpTooltip.jsx";
 
+// Fetches the file as a blob and saves it directly, instead of relying on
+// the anchor `download` attribute -- R2-hosted track URLs are cross-origin
+// (pub-*.r2.dev, not onyx-reelz.com), and browsers ignore `download` for
+// cross-origin links, so a plain <a download> just navigates to the file in
+// a new tab instead of saving it. Falls back to opening the URL if the fetch
+// itself fails (e.g. R2 CORS misconfigured for a given file).
+async function downloadFile(url, filename) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Download failed (${res.status})`);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (err) {
+    console.error("DOWNLOAD ERROR:", err);
+    window.open(url, "_blank", "noopener");
+  }
+}
+
 // ===========================
 // CONSTANTS
 // ===========================
@@ -224,10 +249,10 @@ function TrackCard({ track, onApply, onSave, onExtend, onRename, onUseInTools, a
             {saved ? "✓ Saved" : saving ? "..." : "💾 Save"}
           </button>
         )}
-        <a href={track.url} download={`${track.name || "track"}.mp3`} target="_blank" rel="noreferrer"
-          style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-dim)", textDecoration: "none", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <button onClick={() => downloadFile(track.url, `${track.name || "track"}.mp3`)}
+          style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-dim)", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
           ⬇ Download
-        </a>
+        </button>
         {onExtend && (
           <button onClick={() => onExtend(track)} disabled={extending}
             style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: extending ? "not-allowed" : "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)" }}>
