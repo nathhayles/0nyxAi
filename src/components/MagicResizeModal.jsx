@@ -38,6 +38,12 @@ export default function MagicResizeModal({
   const [status, setStatus] = useState({}); // { [ratio]: "idle"|"rendering"|"done"|"error" }
   const [running, setRunning] = useState(false);
   const boxRefs = useRef({});
+  // Magic Resize v2 prototype: AI auto-crop, additive to v1's manual focal
+  // point (does not replace or alter it -- just prefills the same
+  // focalPoints state a manual click would set, for the active ratio tab).
+  // See /api/magic-resize/auto-focal-points (lib/autoCropDetection.js) --
+  // validated against real off-center clips 2026-09-10.
+  const [autoCropStatus, setAutoCropStatus] = useState(null); // null|"running"|"done"|"error"
 
   const videoTrack = timelineState.tracks.find(t => t.key === "video");
   const orderedScenes = (videoTrack?.clips || [])
@@ -59,6 +65,27 @@ export default function MagicResizeModal({
       ...prev,
       [ratio]: { ...(prev[ratio] || {}), [sceneId]: { x, y } },
     }));
+  }
+
+  async function handleAutoCrop() {
+    if (!activeTab || autoCropStatus === "running") return;
+    setAutoCropStatus("running");
+    try {
+      const h = await getAuthHeaders();
+      h["Content-Type"] = "application/json";
+      const payload = {
+        scenes: orderedScenes.map(s => ({ id: s.id, url: s.url || s.mediaUrl || sceneThumb(s) })).filter(s => s.url),
+      };
+      const res = await fetch("/api/magic-resize/auto-focal-points", { method: "POST", headers: h, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok || !data.focalPoints) throw new Error(data.error || "Auto-crop failed");
+      setFocalPoints(prev => ({ ...prev, [activeTab]: { ...(prev[activeTab] || {}), ...data.focalPoints } }));
+      setAutoCropStatus("done");
+      toast?.("Auto-crop: focal points set from AI subject detection");
+    } catch (err) {
+      console.error("[MagicResize] auto-crop failed", err);
+      setAutoCropStatus("error");
+    }
   }
 
   function handleBoxClick(e, sceneId) {
@@ -88,6 +115,12 @@ export default function MagicResizeModal({
     setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
   }
 
+  // Returns true/false so handleExportAll can report an accurate result --
+  // previously this had no return value at all, so the caller had no way to
+  // know which (if any) ratios actually succeeded. See its own toast for
+  // why that mattered in practice (a real 404'd source file on one reel's
+  // scene 2 produced a visible "✗ Failed" status row right next to a toast
+  // claiming success).
   async function exportOneRatio(ratio) {
     setStatus(prev => ({ ...prev, [ratio]: "rendering" }));
     try {
@@ -98,11 +131,11 @@ export default function MagicResizeModal({
       const startData = await startRes.json();
       if (startRes.status === 402 && startData.code === "INSUFFICIENT_CREDITS") {
         setStatus(prev => ({ ...prev, [ratio]: "insufficient_credits" }));
-        return;
+        return false;
       }
       if (!startData.jobId) {
         setStatus(prev => ({ ...prev, [ratio]: "error" }));
-        return;
+        return false;
       }
       const deadline = Date.now() + 3600000;
       while (Date.now() < deadline) {
@@ -113,17 +146,19 @@ export default function MagicResizeModal({
           const dlUrl = poll.url.startsWith("http") ? poll.url : window.location.origin + poll.url;
           await downloadRendered(dlUrl, ratio);
           setStatus(prev => ({ ...prev, [ratio]: "done" }));
-          return;
+          return true;
         }
         if (poll.status === "failed") {
           setStatus(prev => ({ ...prev, [ratio]: "error" }));
-          return;
+          return false;
         }
       }
       setStatus(prev => ({ ...prev, [ratio]: "error" }));
+      return false;
     } catch (err) {
       console.error("[MagicResize] export failed for", ratio, err);
       setStatus(prev => ({ ...prev, [ratio]: "error" }));
+      return false;
     }
   }
 
@@ -133,11 +168,23 @@ export default function MagicResizeModal({
     // Sequential, not parallel -- each render is a real ffmpeg job on the
     // same backend; running N of them at once for one user's batch export
     // has no real UX benefit and just contends for server render capacity.
+    // Results collected locally (not read back from `status` state) so the
+    // toast below reflects exactly what each export actually returned, with
+    // no dependency on React state-update timing.
+    const results = [];
     for (const ratio of selected) {
-      await exportOneRatio(ratio);
+      results.push(await exportOneRatio(ratio));
     }
     setRunning(false);
-    toast?.(`Magic Resize: ${selected.size} format${selected.size === 1 ? "" : "s"} exported`);
+    const succeeded = results.filter(Boolean).length;
+    const failed = results.length - succeeded;
+    if (failed === 0) {
+      toast?.(`Magic Resize: ${succeeded} format${succeeded === 1 ? "" : "s"} exported`);
+    } else if (succeeded === 0) {
+      toast?.(`Magic Resize: ${failed} format${failed === 1 ? "" : "s"} failed -- see status above`, "error");
+    } else {
+      toast?.(`Magic Resize: ${succeeded} format${succeeded === 1 ? "" : "s"} exported, ${failed} failed -- see status above`, "error");
+    }
   }
 
   const statusLabel = {
@@ -194,6 +241,17 @@ export default function MagicResizeModal({
                 Optional: click a scene below to set where the crop centers for <strong>{activeTab}</strong>.
                 Leave untouched for the existing center-crop default.
               </p>
+              <div className="magic-resize-autocrop-row">
+                <button
+                  type="button"
+                  className="magic-resize-autocrop-btn"
+                  onClick={handleAutoCrop}
+                  disabled={running || autoCropStatus === "running"}
+                >
+                  {autoCropStatus === "running" ? "Detecting subjects…" : "✨ Auto-crop with AI (beta)"}
+                </button>
+                {autoCropStatus === "error" && <span className="magic-resize-status magic-resize-status--error">Auto-crop failed, set manually below</span>}
+              </div>
               <div className="magic-resize-scenes">
                 {orderedScenes.map((scene, i) => {
                   const thumb = sceneThumb(scene);
@@ -264,6 +322,14 @@ export default function MagicResizeModal({
           border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
         }
         .magic-resize-tab.active { background: #4dd0ff; color: #06121b; border-color: #4dd0ff; font-weight: 700; }
+        .magic-resize-autocrop-row { display: flex; align-items: center; gap: 10px; }
+        .magic-resize-autocrop-btn {
+          background: #23303a; border: 1px solid #3a5266; color: #7de0ff;
+          border-radius: 8px; padding: 7px 12px; font-size: 12.5px; font-weight: 700;
+          cursor: pointer;
+        }
+        .magic-resize-autocrop-btn:hover:not(:disabled) { background: #2b3c48; }
+        .magic-resize-autocrop-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .magic-resize-scenes { display: flex; flex-wrap: wrap; gap: 8px; }
         .magic-resize-scene-box {
           position: relative; width: 84px; height: 84px; border-radius: 8px;

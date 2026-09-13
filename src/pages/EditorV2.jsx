@@ -5160,7 +5160,7 @@ export default function EditorV2() {
           scenes={scenes}
           timelineState={timelineState}
           title={title}
-          toast={(msg) => toast.show(msg, "success")}
+          toast={(msg, type = "success") => toast.show(msg, type)}
           onClose={() => setMagicResizeOpen(false)}
           buildRenderRequest={({ ratio: targetRatio, focalPoints }) => {
             const _previewFrame = document.getElementById('onyx-preview-frame');
