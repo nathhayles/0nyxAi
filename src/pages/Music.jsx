@@ -165,7 +165,7 @@ function AudioPreview({ src, volume = 70 }) {
 // TRACK CARD COMPONENT
 // ===========================
 
-function TrackCard({ track, onApply, onSave, onExtend, onRename, onUseInTools, appliedId, savedIds = [], saving = false, extending = false, extendStatus = "" }) {
+function TrackCard({ track, onApply, onSave, onExtend, onRename, onUseInTools, onMusicVideo, appliedId, savedIds = [], saving = false, extending = false, extendStatus = "" }) {
   const applied = appliedId === (track.id || track.url);
   const saved = savedIds.includes(track.id);
   const [editing, setEditing] = useState(false);
@@ -245,6 +245,12 @@ function TrackCard({ track, onApply, onSave, onExtend, onRename, onUseInTools, a
           </button>
         )}
       </div>
+      {onMusicVideo && (track.lyrics || track.lyrics_prompt) && (
+        <button onClick={() => onMusicVideo(track)}
+          style={{ width: "100%", padding: "7px 8px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: "linear-gradient(90deg, rgba(236,72,153,0.15), rgba(77,208,255,0.15))", border: "1px solid rgba(236,72,153,0.35)", color: "#f472b6" }}>
+          🎬 Turn into Music Video
+        </button>
+      )}
       {extendStatus && <div style={{ marginTop: 6, fontSize: 11, color: "#60a5fa" }}>{extendStatus}</div>}
     </div>
   );
@@ -307,6 +313,14 @@ export default function Music() {
   const [savedLoading, setSavedLoading] = useState(false);
   const [savedIds, setSavedIds] = useState([]);
   const [savingId, setSavingId] = useState(null);
+
+  // ── Music Video (lyrics → scenes → Kling pipeline → editable reel) ────────
+  const [mvTrack, setMvTrack] = useState(null);
+  const [mvScenes, setMvScenes] = useState(null);
+  const [mvScenesLoading, setMvScenesLoading] = useState(false);
+  const [mvGenerating, setMvGenerating] = useState(false);
+  const [mvProgress, setMvProgress] = useState("");
+  const [mvError, setMvError] = useState("");
 
   // Applied
   const [appliedId, setAppliedId] = useState(null);
@@ -479,6 +493,7 @@ export default function Music() {
           url: track.url,
           image_url: track.image_url || null,
           song_id: track.song_id || null,
+          lyrics: track.lyrics_prompt || track.lyrics || null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -494,6 +509,70 @@ export default function Music() {
       setGenError(`Save error: ${err.message}`);
     }
     setSavingId(null);
+  };
+
+  // ── Music Video handlers ────────────────────────────────────────────────────
+  // Step 1 (scenes) is a cheap LLM call, previewed before Step 2 matches each
+  // scene to stock footage -- both steps are effectively free; there's no
+  // paid generation in this flow anymore (see generateMusicVideo below).
+  const openMusicVideoFlow = async (track) => {
+    setMvTrack(track);
+    setMvScenes(null);
+    setMvError("");
+    setMvProgress("");
+    setMvScenesLoading(true);
+    try {
+      const res = await fetch(`/api/music-video/${track.id}/scenes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...await getAuthHeaders() },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      setMvScenes(data.scenes);
+    } catch (err) {
+      setMvError(err.message || "Couldn't split this song into scenes");
+    }
+    setMvScenesLoading(false);
+  };
+
+  const closeMusicVideoFlow = () => {
+    if (mvGenerating) return;
+    setMvTrack(null);
+    setMvScenes(null);
+    setMvError("");
+  };
+
+  // First pass matches every scene to stock footage server-side, synchronously
+  // (same near-zero-cost approach as the URL-to-Video/Audio-to-Video pipelines)
+  // -- the reel that comes back is already a complete, normal, editable reel,
+  // so there's no job queue to poll here. Upgrading any one scene to real
+  // AI-generated video afterward is the existing per-scene regen flow in
+  // EditorV2/StoryboardPanel (REGEN_MODEL_OPTIONS) -- it works unmodified on
+  // this reel like any other, so it isn't wired up here.
+  const generateMusicVideo = async () => {
+    if (!mvTrack || !mvScenes?.length || mvGenerating) return;
+    setMvGenerating(true);
+    setMvError("");
+    try {
+      const headers = { "Content-Type": "application/json", ...await getAuthHeaders() };
+      setMvProgress("Matching scenes to stock footage...");
+      const genRes = await fetch(`/api/music-video/${mvTrack.id}/generate`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ scenes: mvScenes, aspect_ratio: "9:16" }),
+      });
+      const genData = await genRes.json().catch(() => ({}));
+      if (!genRes.ok) throw new Error(genData?.error || `HTTP ${genRes.status}`);
+      const { reel } = genData;
+
+      setMvGenerating(false);
+      setMvTrack(null);
+      setMvScenes(null);
+      navigate(`/editor-v2?reelId=${reel.id}`);
+    } catch (err) {
+      setMvError(err.message || "Music video generation failed");
+      setMvGenerating(false);
+    }
   };
 
   // ── AI Rapper handlers ──────────────────────────────────────────────────────
@@ -573,6 +652,48 @@ export default function Music() {
     setAppliedReelId(null);
     loadReels();
     setShowReelPicker(true);
+  }
+
+  // Lets a stem/track start a fresh project directly from the export flow
+  // instead of forcing the user to land it in an existing reel first (the
+  // only option before this) -- creates a bare reel via the same POST /api/reels
+  // route EditorV2's createReelOnce uses, then reuses the existing
+  // apply/assign path with the new reel's id.
+  const [creatingProject, setCreatingProject] = useState(false);
+  async function createNewReel(title) {
+    const res = await fetch('/api/reels', {
+      method: 'POST',
+      headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: title || 'Untitled Reel' }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function handleCreateNewProjectForTrack() {
+    if (creatingProject) return;
+    setCreatingProject(true);
+    try {
+      const reel = await createNewReel(pendingApplyTrack?.name || pendingApplyTrack?.title);
+      await confirmApplyToReel(reel);
+    } catch (e) {
+      alert(`Failed to create new project: ${e.message}`);
+    } finally {
+      setCreatingProject(false);
+    }
+  }
+
+  async function handleCreateNewProjectForStems() {
+    if (creatingProject) return;
+    setCreatingProject(true);
+    try {
+      const reel = await createNewReel('Untitled Reel');
+      await handleAssignToReel(reel.id, reel.title || 'Untitled Reel');
+    } catch (e) {
+      alert(`Failed to create new project: ${e.message}`);
+    } finally {
+      setCreatingProject(false);
+    }
   }
 
   async function handleAssignStemsToReel(reel) {
@@ -1159,7 +1280,8 @@ export default function Music() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
               {savedTracks.map(track => (
                 <TrackCard key={track.id} track={track} onApply={applyTrack} appliedId={appliedId} savedIds={savedIds} onRename={renameTrack}
-                  onUseInTools={t => { const rawUrl = t.url || t.remoteUrl || ""; const absUrl = rawUrl.startsWith("http") ? rawUrl : window.location.origin + rawUrl; setFadrFileUrl(absUrl); setFadrFile(null); setFadrResult(null); setFadrError(""); setResolvedStems(null); setSentConfirm(null); setTab("tools"); }} />
+                  onUseInTools={t => { const rawUrl = t.url || t.remoteUrl || ""; const absUrl = rawUrl.startsWith("http") ? rawUrl : window.location.origin + rawUrl; setFadrFileUrl(absUrl); setFadrFile(null); setFadrResult(null); setFadrError(""); setResolvedStems(null); setSentConfirm(null); setTab("tools"); }}
+                  onMusicVideo={openMusicVideoFlow} />
               ))}
             </div>
           </div>
@@ -1389,8 +1511,12 @@ export default function Music() {
             </div>
             <div style={{ overflowY: "auto", flex: 1, padding: "12px 20px" }}>
               <input value={reelSearch} onChange={e => setReelSearch(e.target.value)} placeholder="Search reels..." style={{ width: "100%", padding: "8px 12px", background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 8, color: "var(--onyx-text)", fontSize: 13, marginBottom: 12, boxSizing: "border-box" }} />
+              <button onClick={handleCreateNewProjectForTrack} disabled={creatingProject || !!appliedReelId}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: 10, marginBottom: 12, border: "1px dashed rgba(77,208,255,0.4)", borderRadius: 10, background: "rgba(77,208,255,0.08)", color: "#7de0ff", cursor: (creatingProject || appliedReelId) ? "default" : "pointer", fontSize: 13, fontWeight: 600 }}>
+                <span style={{ fontSize: 16 }}>＋</span> {creatingProject ? "Creating project…" : "Create New Project"}
+              </button>
               {reels.length === 0 && (
-                <div style={{ textAlign: "center", padding: "32px 0", color: "var(--onyx-text-faint)", fontSize: 13 }}>No reels found. Create a reel in the Editor first.</div>
+                <div style={{ textAlign: "center", padding: "32px 0", color: "var(--onyx-text-faint)", fontSize: 13 }}>No existing reels. Create a new project above, or create a reel in the Editor first.</div>
               )}
               <div style={{ display: "grid", gap: 8 }}>
                 {reels.filter(r => (r.title || '').toLowerCase().includes(reelSearch.toLowerCase())).map(reel => {
@@ -1451,12 +1577,26 @@ export default function Music() {
               This will add {resolvedStems?.length} stem tracks to the reel&apos;s sequencer.
             </p>
 
+            <div
+              onClick={() => !stemSending && !creatingProject && handleCreateNewProjectForStems()}
+              style={{
+                padding: '13px 16px', borderRadius: 8, marginBottom: 12,
+                background: 'rgba(77,208,255,0.08)',
+                border: '1px dashed rgba(77,208,255,0.4)',
+                cursor: (stemSending || creatingProject) ? 'wait' : 'pointer',
+                display: 'flex', alignItems: 'center', gap: 10,
+                color: '#7de0ff', fontWeight: 600, fontSize: 13,
+              }}
+            >
+              <span style={{ fontSize: 16 }}>＋</span> {creatingProject ? 'Creating project…' : 'Create New Project'}
+            </div>
+
             {loadingReels && (
               <p style={{ color: '#4a6a8a', textAlign: 'center' }}>Loading your reels…</p>
             )}
 
             {!loadingReels && reels.length === 0 && (
-              <p style={{ color: 'var(--onyx-text-faint)', textAlign: 'center' }}>No reels found. Create one first.</p>
+              <p style={{ color: 'var(--onyx-text-faint)', textAlign: 'center' }}>No existing reels. Create a new project above, or create one in the Editor first.</p>
             )}
 
             {reels.map(reel => (
@@ -1494,6 +1634,48 @@ export default function Music() {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {mvTrack && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
+          <div style={{ background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 14, padding: 24, maxWidth: 560, width: "100%", maxHeight: "85vh", overflowY: "auto" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>🎬 Turn "{mvTrack.name || mvTrack.title}" into a Music Video</div>
+            <div style={{ fontSize: 12, color: "var(--onyx-text-faint)", marginBottom: 16 }}>
+              Scenes are generated from this song's lyrics, evenly spaced across its full length, with the song itself as the video's audio track.
+            </div>
+
+            {mvScenesLoading && <div style={{ textAlign: "center", padding: 30, color: "var(--onyx-text-dim)" }}>Splitting lyrics into scenes...</div>}
+
+            {mvError && <div style={{ color: "#f87171", fontSize: 13, marginBottom: 12 }}>{mvError}</div>}
+
+            {!mvScenesLoading && mvScenes && !mvGenerating && (
+              <>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                  {mvScenes.map((s, i) => (
+                    <div key={s.id ?? i} style={{ background: "var(--onyx-bg)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 8, padding: "8px 10px" }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#f472b6", marginBottom: 2 }}>Scene {i + 1}</div>
+                      <div style={{ fontSize: 12, color: "var(--onyx-text)", marginBottom: 2 }}>{s.narration}</div>
+                      <div style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>{s.action}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={closeMusicVideoFlow} style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "transparent", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-faint)", cursor: "pointer", fontSize: 13 }}>Cancel</button>
+                  <button onClick={generateMusicVideo} style={{ flex: 2, padding: "10px 0", borderRadius: 8, background: "linear-gradient(90deg, #ec4899, #4dd0ff)", border: "none", color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+                    Generate Music Video ({mvScenes.length} scenes)
+                  </button>
+                </div>
+              </>
+            )}
+
+            {mvGenerating && (
+              <div style={{ textAlign: "center", padding: 30, color: "var(--onyx-text-dim)" }}>
+                <div style={{ marginBottom: 8 }}>{mvProgress || "Working..."}</div>
+                <div style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>This can take a few minutes — you'll be taken to the editor when it's ready.</div>
+              </div>
+            )}
           </div>
         </div>
       )}
