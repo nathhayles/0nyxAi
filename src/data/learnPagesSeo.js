@@ -86,6 +86,13 @@ export const learnPages = [
     imageAlt: "AI video for musicians and music promotion illustration — cyan camera merged with an amber musical note beside a dark violet vinyl record, Onyx Reelz",
   },
   {
+    title: "Turn a Song Into a Music Video",
+    description: "How to generate a song and automatically turn it into a complete music video with Onyx Reelz's Turn into Music Video feature.",
+    path: "/learn/music-video",
+    ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/music-video-ai-generated-illustration.png",
+    imageAlt: "Turn a song into a music video illustration — a home studio desk at night with a laptop showing a video editing timeline, a microphone, headphones, and a lyrics notebook lit by warm amber and cyan light, Onyx Reelz",
+  },
+  {
     title: "Seedance 2.0 Prompting Guide",
     description: "How to get the best results from Seedance 2.0, our premium AI video model with native audio generation, on Onyx Reelz.",
     path: "/learn/seedance-prompting",

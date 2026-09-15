@@ -37,6 +37,7 @@ const LearnHistoricalCinematic = lazy(() => import("./pages/LearnHistoricalCinem
 const LearnMarketingBranding = lazy(() => import("./pages/LearnMarketingBranding"));
 const LearnInfluencerContent = lazy(() => import("./pages/LearnInfluencerContent"));
 const LearnMusicPromotion = lazy(() => import("./pages/LearnMusicPromotion"));
+const LearnMusicVideo = lazy(() => import("./pages/LearnMusicVideo"));
 const LearnVideoPricing = lazy(() => import("./pages/LearnVideoPricing"));
 const LearnModelComparison = lazy(() => import("./pages/LearnModelComparison"));
 const LearnEuAiActDisclosure = lazy(() => import("./pages/LearnEuAiActDisclosure"));
@@ -365,6 +366,7 @@ export default function App() {
         <Route path="/learn/marketing-branding" element={<LearnMarketingBranding />} />
         <Route path="/learn/influencer-content" element={<LearnInfluencerContent />} />
         <Route path="/learn/music-promotion" element={<LearnMusicPromotion />} />
+        <Route path="/learn/music-video" element={<LearnMusicVideo />} />
         <Route path="/learn/ai-video-pricing" element={<LearnVideoPricing />} />
         <Route path="/learn/model-comparison" element={<LearnModelComparison />} />
         <Route path="/learn/eu-ai-act-disclosure" element={<LearnEuAiActDisclosure />} />

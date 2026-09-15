@@ -87,6 +87,11 @@ const GUIDES = [
     to: "/learn/music-promotion",
   },
   {
+    title: "Turn a Song Into a Music Video",
+    description: "How to generate a song and automatically turn it into a complete music video with Onyx Reelz.",
+    to: "/learn/music-video",
+  },
+  {
     title: "How Much Does AI Video Generation Really Cost? (2026 Breakdown)",
     description: "A real breakdown of what AI video generation actually costs — what drives the price up or down, and what to watch out for.",
     to: "/learn/ai-video-pricing",

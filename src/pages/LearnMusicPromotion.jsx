@@ -19,7 +19,13 @@ export default function LearnMusicPromotion() {
         Onyx Reelz's AI Rapper feature generates an instrumental beat and
         matching lyrics, then performs them in your chosen voice — a complete
         original track built from a single prompt, without needing a
-        producer, a studio session, or a separate vocalist.
+        producer, a studio session, or a separate vocalist. Once you have a
+        track with real lyrics, Turn into Music Video builds a complete,
+        synced video from it automatically — see our{" "}
+        <Link to="/learn/music-video" style={{ color: "var(--onyx-cyan)" }}>
+          Turn a Song Into a Music Video guide
+        </Link>{" "}
+        for the full walkthrough.
       </p>
 
       <h2 style={h2Style}>Turn an existing song into a promo video</h2>
