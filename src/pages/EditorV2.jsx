@@ -4312,6 +4312,30 @@ export default function EditorV2() {
     setActiveMenu("visuals");
   }, [scenes]);
 
+  // Real duration of a freshly-generated clip, probed client-side the same
+  // way the voiceover-duration fix above probes audio (new Audio() /
+  // onloadedmetadata) -- fixed-duration AI models (Kling etc.) don't always
+  // produce exactly the slot length a scene was assigned upstream (e.g. a
+  // music-video scene's slot is track-duration / scene-count, unrelated to
+  // whatever length the model actually generates), so the scene's declared
+  // duration must be corrected to the real thing rather than trusted.
+  // Resolves null (not a fallback guess) on any load error so callers can
+  // leave the existing duration alone instead of corrupting it with a bad
+  // value.
+  function probeVideoDuration(url) {
+    return new Promise((resolve) => {
+      const v = document.createElement("video");
+      v.preload = "metadata";
+      v.muted = true;
+      v.onloadedmetadata = () => {
+        const d = v.duration;
+        resolve(Number.isFinite(d) && d > 0 ? d : null);
+      };
+      v.onerror = () => resolve(null);
+      v.src = url;
+    });
+  }
+
   const regenerateScene = useCallback(async (id) => {
     setGeneratingScenes(p => ({ ...p, [id]: { status: "submitting" } }));
     try {
@@ -4429,7 +4453,19 @@ export default function EditorV2() {
           // sending it as image_url. Now a second regenerate on a scene
           // that's already been generated once correctly falls back to
           // text-to-video instead of feeding a video into an image field.
-          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, mediaType: "video", thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade, generationPending: false, jobId: null });
+          // Probe the real length of what actually came back -- a scene's
+          // pre-existing `duration` (e.g. a music-video slot computed as
+          // track-duration / scene-count) has no relationship to how long
+          // this particular regenerated clip actually is. Only overrides
+          // duration/sourceDuration when the probe succeeds; on failure the
+          // scene keeps whatever duration it already had rather than being
+          // corrupted with a bad value. updateScene (see updateSceneRef)
+          // already reflows every later clip via RESIZE_CLIP_REFLOW whenever
+          // `duration` is included and actually changes, so this alone keeps
+          // the whole timeline contiguous, no separate repack call needed.
+          const realDuration = await probeVideoDuration(poll.videoUrl);
+          const durationChanges = realDuration != null ? { duration: realDuration, sourceDuration: realDuration } : {};
+          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, mediaType: "video", thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade, generationPending: false, jobId: null, ...durationChanges });
           return;
         }
         if (poll.status === "failed") throw new Error(poll.error || "Generation failed");
