@@ -698,6 +698,34 @@ export default function StoryboardPanel({
               </div>
             )}
 
+            {/* durationShortfall: set by Create.jsx's bulk-generation poll
+                loop and EditorV2.jsx's regenerateScene when the model's real
+                delivered clip comes back meaningfully shorter than the
+                scene's narration actually needs (see both call sites' own
+                comments). render.js's addVoiceover() will freeze-pad that
+                gap to protect the narration -- correct behavior, but this
+                makes sure it's never silent. Purely informational: doesn't
+                block Save/Export, matches this panel's existing
+                notice-only style (see the Veo note just above) rather than
+                a hard error state. */}
+            {sc.durationShortfall && (
+              <div
+                style={{
+                  display: "flex", alignItems: "center", gap: 6, fontSize: 11,
+                  color: "#f0b429", background: "rgba(240,180,41,0.12)",
+                  border: "1px solid rgba(240,180,41,0.3)", borderRadius: 6,
+                  padding: "5px 8px", marginTop: -4, marginBottom: 8,
+                }}
+                onClick={(e) => e.stopPropagation()}
+                title="The AI model delivered a shorter clip than this scene's narration needs. The extra time will be filled with a frozen last frame during export."
+              >
+                <span>⚠️</span>
+                <span>
+                  Clip came back short ({Number(sc.durationShortfallDelivered).toFixed(1)}s vs {Number(sc.durationShortfallExpected).toFixed(1)}s needed) — the gap will freeze the last frame. Try regenerating.
+                </span>
+              </div>
+            )}
+
             {/* ── 1080p upgrade (wan-2.7 only) ── */}
             {/* Real user choice, not a per-model force like wan-2.5's 480p --
                 default stays 720p ($0.10/s); checking this sends

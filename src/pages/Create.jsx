@@ -383,7 +383,40 @@ export default function CreatePage() {
               return;
             }
             if (d.status === "completed" && d.videoUrl) {
-              results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaUrl: d.videoUrl, thumbnail: d.thumbnailUrl || null, mediaType: "video", isAiGenerated: true, generatedAt: new Date().toISOString(), mode: "ai", needsBleedFade: !!d.needsBleedFade };
+              // duration: real ffprobed length of the delivered clip
+              // (routes/kling.js's pollAndStore, same fix pattern as
+              // EditorV2.jsx's regenerateScene probe) -- previously this
+              // field was never set here at all, so every bulk-generated
+              // scene fell through to normalizeGeneratedScene's flat `|| 5`
+              // fallback regardless of the real clip's actual length. That
+              // mismatch is what fed importFromScenes' `rawDur` for any
+              // narrated scene, causing render.js's addVoiceover() to
+              // freeze-pad a gap that should never have existed (confirmed
+              // live 2026-09-16: 0.0 frame-diff, ~9.3s). Falls back to
+              // undefined (not a guessed number) when the probe failed
+              // server-side, same "don't corrupt with a bad value" rule
+              // regenerateScene's own probe follows.
+              const durationChanges = d.deliveredDuration ? { duration: d.deliveredDuration } : {};
+              // durationShortfall: even with the real request now informed
+              // by the scene's own narration length (routes/kling.js's
+              // duration_estimate threading), a model still won't always
+              // hit its target exactly. When the REAL delivered clip comes
+              // back meaningfully short of what the scene's narration
+              // actually needs, render.js's addVoiceover() will still
+              // freeze-pad the gap to protect the narration -- correct
+              // behavior, but it should never happen silently. Flag it
+              // instead so EditorV2 can surface a visible warning. Relative
+              // (<=75% of expected) + absolute (>1s gap) thresholds together
+              // avoid flagging trivial rounding differences on an otherwise
+              // fine generation.
+              const expectedDuration = analysis?.scenes?.[i]?.duration_estimate;
+              const shortfall = d.deliveredDuration && Number.isFinite(expectedDuration) && expectedDuration > 0
+                && d.deliveredDuration <= expectedDuration * 0.75
+                && (expectedDuration - d.deliveredDuration) > 1;
+              const shortfallChanges = shortfall
+                ? { durationShortfall: true, durationShortfallExpected: expectedDuration, durationShortfallDelivered: d.deliveredDuration }
+                : {};
+              results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaUrl: d.videoUrl, thumbnail: d.thumbnailUrl || null, mediaType: "video", isAiGenerated: true, generatedAt: new Date().toISOString(), mode: "ai", needsBleedFade: !!d.needsBleedFade, ...durationChanges, ...shortfallChanges };
               pending.delete(i);
             } else if (d.status === "failed") {
               results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai" };

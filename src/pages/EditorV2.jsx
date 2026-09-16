@@ -4465,7 +4465,19 @@ export default function EditorV2() {
           // the whole timeline contiguous, no separate repack call needed.
           const realDuration = await probeVideoDuration(poll.videoUrl);
           const durationChanges = realDuration != null ? { duration: realDuration, sourceDuration: realDuration } : {};
-          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, mediaType: "video", thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade, generationPending: false, jobId: null, ...durationChanges });
+          // Same shortfall signal as the bulk pipeline (Create.jsx) -- if
+          // this scene already has a real voiceover, that's the actual
+          // length the video needs to cover; a regenerated clip landing
+          // meaningfully short of it means render.js's addVoiceover() will
+          // freeze-pad the gap. Flag it instead of leaving that silent.
+          const expectedDuration = scene.voiceoverDuration;
+          const shortfall = realDuration != null && Number.isFinite(expectedDuration) && expectedDuration > 0
+            && realDuration <= expectedDuration * 0.75
+            && (expectedDuration - realDuration) > 1;
+          const shortfallChanges = shortfall
+            ? { durationShortfall: true, durationShortfallExpected: expectedDuration, durationShortfallDelivered: realDuration }
+            : { durationShortfall: false };
+          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, mediaType: "video", thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade, generationPending: false, jobId: null, ...durationChanges, ...shortfallChanges });
           return;
         }
         if (poll.status === "failed") throw new Error(poll.error || "Generation failed");
