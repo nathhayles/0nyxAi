@@ -271,7 +271,7 @@ export default function Review() {
   }
 
   if (loading) {
-    return <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--onyx-text-faint)" }}>Loading…</div>;
+    return <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--onyx-text-faint)" }}>Loading...</div>;
   }
   if (loadError) {
     return (

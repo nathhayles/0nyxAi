@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getAuthHeaders } from '../utils/auth';
+import DesktopOnlyGate from '../components/DesktopOnlyGate.jsx';
 
 // Tab restructure (2026-08-13): previously all 4 sections below the stats
 // header rendered stacked on one long page. TABS drives both the nav bar
@@ -96,6 +97,21 @@ export default function AdminPanel() {
     setData(fresh);
     setGrantingCredits(g => ({ ...g, [userId]: false }));
   };
+
+  // Dense data tables (user/generation lists, 5-column stat grids) -- the
+  // existing overflowX:auto wrappers keep it from literally breaking on a
+  // phone, but reading/managing real user data through a horizontal-scroll
+  // table isn't a good experience for the one person who actually uses this
+  // page. Checked before the loading/access-denied states below so a slow
+  // /api/admin/users response doesn't show a flash of "Loading..." first.
+  if (typeof window !== "undefined" && window.innerWidth < 1024) {
+    return (
+      <DesktopOnlyGate
+        featureName="The admin dashboard"
+        explanation="User lists, generation logs, and credit management are dense data tables -- readable on a laptop, not on a phone screen. Open this from a desktop."
+      />
+    );
+  }
 
   if (loading) return <div style={s.page}><p style={{ color: '#4dd0ff' }}>Loading...</p></div>;
   if (!data) return <div style={s.page}><p style={{ color: '#f87171' }}>Access denied or error.</p></div>;

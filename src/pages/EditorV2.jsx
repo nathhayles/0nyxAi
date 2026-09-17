@@ -39,6 +39,7 @@ import { useToast } from "../state/useToast.jsx";
 import { bucketFilesByAssetType } from "../utils/mediaType.js";
 import SafeZoneOverlay from "../components/SafeZoneOverlay.jsx";
 import { PLATFORM_SAFE_ZONES } from "../data/platformSafeZones.js";
+import DesktopOnlyGate from "../components/DesktopOnlyGate.jsx";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -4571,13 +4572,19 @@ export default function EditorV2() {
   // checked too now, not just UA, so any viewport too narrow for the editor
   // gets this clean screen instead of the broken one.
   if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent) || window.innerWidth < 1024) {
+    // Phase 3 polish -- was a bare "Back to Dashboard" dead end with no way
+    // to pick this exact reel back up on desktop later, and no explanation
+    // of what specifically needs the bigger screen (multi-track timeline
+    // dragging/resizing, Magic Resize's manual focal-point clicking -- both
+    // genuinely need a mouse and real screen space, not just "desktop is
+    // nicer"). window.location.href at this point already includes
+    // ?reelId=... exactly as navigated here, so the copy/email link takes
+    // the user straight back to this reel, not just the editor in general.
     return (
-      <div style={{ width: "100vw", height: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, background: "#0b0f17", color: "#f1f5fb", fontFamily: "-apple-system,system-ui,sans-serif", textAlign: "center", padding: 32 }}>
-        <div style={{ fontSize: 48 }}>🖥️</div>
-        <div style={{ fontSize: 20, fontWeight: 700 }}>Editor requires a desktop browser</div>
-        <div style={{ fontSize: 14, color: "rgba(241,245,251,0.5)", maxWidth: 300 }}>The Onyx Reelz editor needs a screen at least 1024px wide. Please open it on a laptop or desktop.</div>
-        <a href="/dashboard" style={{ marginTop: 8, padding: "10px 24px", borderRadius: 8, background: "#4dd0ff", color: "#0b0f17", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>Back to Dashboard</a>
-      </div>
+      <DesktopOnlyGate
+        featureName="The editor"
+        explanation="The full timeline -- dragging and resizing clips, Magic Resize's manual focal-point picking, multi-track editing -- needs real mouse precision and screen space that a phone can't give it. Your reel is saved; pick up editing from a laptop or desktop whenever you're ready."
+      />
     );
   }
 
