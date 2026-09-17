@@ -290,6 +290,18 @@ export default function Music() {
   const [session, setSession] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [tab, setTab] = useState("generate");
+  // Fixes a real mobile-web overflow bug (not part of the PWA project --
+  // affects any narrow-viewport browser today, PWA or not): the Generate
+  // and AI Rapper tabs' right-hand panel used a hardcoded 380px grid
+  // column with no mobile fallback, guaranteed to overflow any viewport
+  // under 380px wide (e.g. a 375px iPhone). Same isMobile pattern already
+  // used in Create.jsx (320px sidebar -> "1fr" below 768px).
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 
   // Generate state
   const [prompt, setPrompt] = useState("");
@@ -1014,7 +1026,7 @@ export default function Music() {
 
         {/* ======================== GENERATE TAB ======================== */}
         {tab === "generate" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 380px", gap: 24, alignItems: "start" }}>
 
             {/* Left — controls */}
             <div>
@@ -1169,7 +1181,7 @@ export default function Music() {
 
         {/* ======================== AI RAPPER TAB ======================== */}
         {tab === "rapper" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 380px", gap: 24, alignItems: "start" }}>
             <div>
               <div style={{ fontSize: 12, color: "var(--onyx-text-faint)", lineHeight: 1.5, marginBottom: 4 }}>
                 Vocals and instrumental generated together in one pass (MiniMax Music 2.0) — write lyrics for free first, then generate the track once you're happy with them.
