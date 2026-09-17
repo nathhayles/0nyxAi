@@ -21,6 +21,18 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
     <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png">
     <link rel="apple-touch-icon" href="/onyx-app-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#06080d">
+    <!-- iOS has no manifest support for standalone-mode metadata -- these
+         three tags are the real iOS-specific equivalent (confirmed current
+         Apple convention): mobile-web-app-capable enables standalone mode
+         from the home screen, status-bar-style keeps the status bar dark to
+         match the app's own dark theme, apple-mobile-web-app-title is the
+         home-screen label (kept short, matches manifest short_name). -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Onyx Reelz">
   </head>
   <body>
     <div id="root"></div>

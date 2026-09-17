@@ -1,0 +1,16 @@
+{
+  "name": "Onyx Reelz",
+  "short_name": "Onyx Reelz",
+  "description": "AI video editor and maker — generate, edit, and publish video content with AI voiceover, captions, and auto-posting to Instagram, YouTube & LinkedIn.",
+  "start_url": "/dashboard",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#06080d",
+  "theme_color": "#06080d",
+  "icons": [
+    { "src": "/favicon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/favicon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
