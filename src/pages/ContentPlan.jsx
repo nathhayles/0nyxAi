@@ -195,11 +195,28 @@ function getCalendarGridRange(monthDate) {
   return { gridStart, gridEnd };
 }
 
-function CalendarView({ viewedMonth, plan, items, onItemClick }) {
+function CalendarView({ viewedMonth, plan, items, onItemClick, onItemMove }) {
   // plan is optional here — used only for the inRange visual shading of
   // which days belong to an official plan window, not for the rendered range.
   const planStart = plan ? new Date(plan.start_date + "T00:00:00") : null;
   const planEnd = plan ? new Date(plan.end_date + "T00:00:00") : null;
+
+  // The 7-column month grid survives on a phone (no horizontal overflow --
+  // confirmed live) but each cell is too narrow to show anything beyond a
+  // day number; item cards become unreadable and drag-to-reschedule doesn't
+  // work well with a thumb on a target that small. Below 768px, swap to a
+  // vertical agenda: one row per day that actually has items (today always
+  // shown even if empty, as an orientation anchor), each item still opens
+  // the same DetailModal via onItemClick, and reschedule becomes a native
+  // date input (same pattern as Planner.jsx's reschedule input) since
+  // dnd-kit drag-and-drop isn't how a finger naturally interacts with a
+  // single-column list.
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 
   const { gridStart: calStart, gridEnd: calEnd } = getCalendarGridRange(viewedMonth);
 
@@ -223,6 +240,61 @@ function CalendarView({ viewedMonth, plan, items, onItemClick }) {
   });
 
   const today = new Date().toISOString().slice(0, 10);
+
+  if (isMobile) {
+    // Only days within the viewed month, not the leading/trailing padding
+    // days the desktop grid needs to fill out full weeks -- an agenda list
+    // has no reason to show them. A day renders if it has items, or if it's
+    // today (kept as a "you are here" anchor even when nothing's scheduled).
+    const monthDays = weeks.flat().filter(d => d.getMonth() === viewedMonth.getMonth());
+    const agendaDays = monthDays.filter(d => {
+      const iso = d.toISOString().slice(0, 10);
+      return (itemsByDate[iso] && itemsByDate[iso].length > 0) || iso === today;
+    });
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        {agendaDays.length === 0 && (
+          <div style={{ padding: 20, fontSize: 13, color: "var(--onyx-text-faint)", textAlign: "center" }}>
+            Nothing planned this month.
+          </div>
+        )}
+        {agendaDays.map(day => {
+          const iso = day.toISOString().slice(0, 10);
+          const inRange = planStart && planEnd && day >= planStart && day <= planEnd;
+          const isToday = iso === today;
+          const dayItems = itemsByDate[iso] || [];
+          return (
+            <div key={iso} style={{ padding: "10px 12px", borderBottom: "0.5px solid var(--onyx-hairline)" }}>
+              <div style={{
+                fontSize: 13, fontWeight: 700, marginBottom: dayItems.length ? 8 : 0,
+                color: isToday ? "var(--onyx-cyan)" : inRange ? "var(--onyx-text-dim)" : "var(--onyx-text-mute)",
+              }}>
+                {day.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
+                {isToday && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, opacity: 0.8 }}>Today</span>}
+              </div>
+              {dayItems.length === 0 && (
+                <div style={{ fontSize: 12, color: "var(--onyx-text-faint)" }}>Nothing planned</div>
+              )}
+              {dayItems.map(item => (
+                <div key={item.id} style={{ marginBottom: 8 }}>
+                  <ItemCard item={item} onClick={() => onItemClick(item)} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, paddingLeft: 4 }}>
+                    <label style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>Move to:</label>
+                    <input
+                      type="date"
+                      defaultValue={iso}
+                      onChange={e => e.target.value && onItemMove?.(item.id, e.target.value)}
+                      style={{ fontSize: 12, padding: "6px 8px", minHeight: 36, borderRadius: 6, border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-bg-2)", color: "var(--onyx-text-dim)" }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div style={{ overflowX: "auto" }}>
@@ -1371,6 +1443,25 @@ export default function ContentPlan() {
     setActiveItem(item || null);
   }
 
+  // Pulled out of handleDragEnd's cal- branch so the mobile agenda view's
+  // native date-input reschedule (no drag-and-drop there — see CalendarView)
+  // can share the exact same update + optimistic-rollback logic as desktop
+  // drag-to-reschedule, rather than a second copy that could drift from it.
+  async function moveItemToDate(itemId, newDate) {
+    const item = monthItems.find(i => i.id === itemId);
+    if (!item || item.target_date === newDate) return;
+    setMonthItems(prev => prev.map(i => i.id === itemId ? { ...i, target_date: newDate } : i));
+    try {
+      await apiFetch(`/api/content-plans/items/${itemId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ target_date: newDate }),
+      });
+    } catch (err) {
+      // Roll back
+      setMonthItems(prev => prev.map(i => i.id === itemId ? { ...i, target_date: item.target_date } : i));
+    }
+  }
+
   async function handleDragEnd(event) {
     setActiveItem(null);
     const { active, over } = event;
@@ -1383,18 +1474,7 @@ export default function ContentPlan() {
       // Calendar drop — update target_date. Sourced from monthItems (the
       // decoupled month-wide fetch), not the plan-scoped items array.
       const newDate = dest.replace("cal-", "");
-      const item = monthItems.find(i => i.id === itemId);
-      if (!item || item.target_date === newDate) return;
-      setMonthItems(prev => prev.map(i => i.id === itemId ? { ...i, target_date: newDate } : i));
-      try {
-        await apiFetch(`/api/content-plans/items/${itemId}`, {
-          method: "PATCH",
-          body: JSON.stringify({ target_date: newDate }),
-        });
-      } catch (err) {
-        // Roll back
-        setMonthItems(prev => prev.map(i => i.id === itemId ? { ...i, target_date: item.target_date } : i));
-      }
+      await moveItemToDate(itemId, newDate);
     } else if (dest.startsWith("kanban-")) {
       // Kanban drop — update status
       const newStatus = dest.replace("kanban-", "");
@@ -1639,6 +1719,7 @@ export default function ContentPlan() {
                     plan={plan}
                     items={monthItems}
                     onItemClick={handleItemClick}
+                    onItemMove={moveItemToDate}
                   />
                 ) : (
                   <div style={{ padding: "14px" }}>

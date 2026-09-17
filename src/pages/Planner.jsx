@@ -44,6 +44,23 @@ export default function Planner() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [reschedulingId, setReschedulingId] = useState(null);
   const [err, setErr]           = useState("");
+  // The 7-column repeat(7,1fr) grid survives on a phone (no horizontal
+  // overflow -- confirmed live) but squeezes each day into ~50px, too
+  // cramped to read a post's title/status/reschedule controls. Below 768px,
+  // swap to a single selected day at a time with a horizontally-scrollable
+  // day-picker strip above it, rather than just shrinking the same 7-column
+  // grid further. Same isMobile/resize-listener pattern as Create.jsx.
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  const [activeDayIdx, setActiveDayIdx] = useState(() => {
+    const today = dateKey(new Date());
+    const idx = Array.from({ length: 7 }, (_, i) => { const d = startOfWeek(new Date()); d.setDate(d.getDate() + i); return dateKey(d); }).indexOf(today);
+    return idx === -1 ? 0 : idx;
+  });
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -171,55 +188,64 @@ export default function Planner() {
 
         {err && <div style={{ ...card, marginBottom: 16, color: "#f87171" }}>{err}</div>}
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 10 }}>
-          {days.map(day => {
+        {(() => {
+          // Shared per-day card body -- `compact` (desktop grid: small text,
+          // tight spacing to fit 7 columns) vs the mobile single-day view
+          // (real font sizes, real 44px-tall touch targets for reschedule
+          // input + Cancel button, since there's a full-width column to work
+          // with instead of a 1/7th-width squeeze).
+          const renderDay = (day, { compact }) => {
             const key = dateKey(day);
             const byPlatform = postsByDay[key] || {};
             const totalCount = Object.values(byPlatform).reduce((sum, arr) => sum + arr.length, 0);
             return (
-              <div key={key} style={{ ...card, padding: 10, background: isToday(day) ? "rgba(77,208,255,0.06)" : "var(--onyx-bg-2)", border: isToday(day) ? "1px solid rgba(77,208,255,0.35)" : "1px solid var(--onyx-hairline-strong)", minHeight: 220 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: isToday(day) ? "var(--onyx-cyan)" : "var(--onyx-text-faint)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 2 }}>
-                  {day.toLocaleDateString(undefined, { weekday: "short" })}
-                </div>
-                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>{day.getDate()}</div>
+              <div key={key} style={{ ...card, padding: compact ? 10 : 16, background: isToday(day) ? "rgba(77,208,255,0.06)" : "var(--onyx-bg-2)", border: isToday(day) ? "1px solid rgba(77,208,255,0.35)" : "1px solid var(--onyx-hairline-strong)", minHeight: compact ? 220 : undefined }}>
+                {compact && (
+                  <>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: isToday(day) ? "var(--onyx-cyan)" : "var(--onyx-text-faint)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 2 }}>
+                      {day.toLocaleDateString(undefined, { weekday: "short" })}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>{day.getDate()}</div>
+                  </>
+                )}
 
-                {totalCount === 0 && <div style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>Nothing scheduled</div>}
+                {totalCount === 0 && <div style={{ fontSize: compact ? 11 : 14, color: "var(--onyx-text-faint)" }}>Nothing scheduled</div>}
 
                 {Object.entries(byPlatform).map(([platformId, platformPosts]) => {
                   const plat = PLATFORMS.find(p => p.id === platformId);
                   return (
-                    <div key={platformId} style={{ marginBottom: 10 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: plat?.color || "var(--onyx-text-faint)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
+                    <div key={platformId} style={{ marginBottom: compact ? 10 : 16 }}>
+                      <div style={{ fontSize: compact ? 10 : 12, fontWeight: 700, color: plat?.color || "var(--onyx-text-faint)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>
                         {plat?.icon || ""} {plat?.label || platformId}
                       </div>
                       {platformPosts.map(post => {
                         const st = STATUS_STYLES[post.status] || STATUS_STYLES.scheduled;
                         return (
-                          <div key={post.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "8px", borderRadius: 8, background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)", marginBottom: 6 }}>
+                          <div key={post.id} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: compact ? "8px" : "12px", borderRadius: 8, background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)", marginBottom: 6 }}>
                             {post.thumbnail_url
-                              ? <img src={post.thumbnail_url} alt="" style={{ width: 32, height: 32, borderRadius: 5, objectFit: "cover", flexShrink: 0 }} onError={e => { e.target.style.display = "none"; }} />
-                              : <div style={{ width: 32, height: 32, borderRadius: 5, background: "var(--onyx-surface-2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>▶</div>
+                              ? <img src={post.thumbnail_url} alt="" style={{ width: compact ? 32 : 44, height: compact ? 32 : 44, borderRadius: 5, objectFit: "cover", flexShrink: 0 }} onError={e => { e.target.style.display = "none"; }} />
+                              : <div style={{ width: compact ? 32 : 44, height: compact ? 32 : 44, borderRadius: 5, background: "var(--onyx-surface-2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: compact ? 13 : 18, flexShrink: 0 }}>▶</div>
                             }
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--onyx-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={post.title || post.caption || ""}>
+                              <div style={{ fontSize: compact ? 11 : 14, fontWeight: 600, color: "var(--onyx-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={post.title || post.caption || ""}>
                                 {post.title || post.caption?.slice(0, 40) || "Untitled"}
                               </div>
                               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-                                <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: st.bg, color: st.color }}>{post.status}</span>
-                                <span style={{ fontSize: 10, color: "var(--onyx-text-faint)" }}>
+                                <span style={{ fontSize: compact ? 9 : 11, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: st.bg, color: st.color }}>{post.status}</span>
+                                <span style={{ fontSize: compact ? 10 : 12, color: "var(--onyx-text-faint)" }}>
                                   {new Date(post.post_at).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                                 </span>
                               </div>
                               {post.status === "scheduled" && (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
+                                <div style={{ display: "flex", flexDirection: compact ? "column" : "row", gap: 6, marginTop: 8 }}>
                                   <input
                                     type="datetime-local"
                                     defaultValue={toDatetimeLocalValue(post.post_at)}
                                     disabled={reschedulingId === post.id}
                                     onChange={e => handleReschedule(post, e.target.value)}
-                                    style={{ fontSize: 10, padding: "3px 5px", borderRadius: 5, border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-bg-2)", color: "var(--onyx-text-dim)", width: "100%", boxSizing: "border-box" }}
+                                    style={{ fontSize: compact ? 10 : 13, padding: compact ? "3px 5px" : "9px 10px", minHeight: compact ? undefined : 40, borderRadius: 6, border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-bg-2)", color: "var(--onyx-text-dim)", width: compact ? "100%" : undefined, flex: compact ? undefined : 1, boxSizing: "border-box" }}
                                   />
-                                  <button onClick={() => handleCancel(post)} style={{ padding: "3px 8px", borderRadius: 5, border: "1px solid var(--onyx-hairline-strong)", background: "transparent", color: "#ef4444", fontSize: 10, fontWeight: 600, cursor: "pointer", alignSelf: "flex-start" }}>
+                                  <button onClick={() => handleCancel(post)} style={{ padding: compact ? "3px 8px" : "9px 14px", minHeight: compact ? undefined : 40, borderRadius: 6, border: "1px solid var(--onyx-hairline-strong)", background: "transparent", color: "#ef4444", fontSize: compact ? 10 : 13, fontWeight: 600, cursor: "pointer", alignSelf: compact ? "flex-start" : "stretch" }}>
                                     Cancel
                                   </button>
                                 </div>
@@ -233,8 +259,49 @@ export default function Planner() {
                 })}
               </div>
             );
-          })}
-        </div>
+          };
+
+          if (!isMobile) {
+            return (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", gap: 10 }}>
+                {days.map(day => renderDay(day, { compact: true }))}
+              </div>
+            );
+          }
+
+          const activeDay = days[activeDayIdx] || days[0];
+          return (
+            <>
+              <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, marginBottom: 12, WebkitOverflowScrolling: "touch" }}>
+                {days.map((day, i) => {
+                  const key = dateKey(day);
+                  const count = Object.values(postsByDay[key] || {}).reduce((sum, arr) => sum + arr.length, 0);
+                  const active = i === activeDayIdx;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setActiveDayIdx(i)}
+                      style={{
+                        flex: "0 0 auto", minWidth: 52, minHeight: 56, padding: "6px 4px", borderRadius: 10,
+                        border: active ? "1.5px solid var(--onyx-cyan)" : "1px solid var(--onyx-hairline-strong)",
+                        background: active ? "rgba(77,208,255,0.12)" : (isToday(day) ? "rgba(77,208,255,0.06)" : "var(--onyx-bg-2)"),
+                        color: active ? "var(--onyx-cyan)" : "var(--onyx-text-dim)",
+                        display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer",
+                      }}
+                    >
+                      <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        {day.toLocaleDateString(undefined, { weekday: "short" })}
+                      </span>
+                      <span style={{ fontSize: 15, fontWeight: 700 }}>{day.getDate()}</span>
+                      {count > 0 && <span style={{ fontSize: 9, opacity: 0.8 }}>{count}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              {renderDay(activeDay, { compact: false })}
+            </>
+          );
+        })()}
       </div>
     </div>
   );
