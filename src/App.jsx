@@ -15,6 +15,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Create = lazy(() => import("./pages/Create"));
 const ComparePage = lazy(() => import("./pages/ComparePage"));
 const EditorV2 = lazy(() => import("./pages/EditorV2"));
+const Review = lazy(() => import("./pages/Review"));
 const PricingPage = lazy(() => import("./pages/PricingPage"));
 const Earn = lazy(() => import("./pages/Earn"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
@@ -247,7 +248,10 @@ function AppFooter() {
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
-  const isEditor = location.pathname.startsWith("/editor") || location.pathname.startsWith("/preview");
+  // /review included here too -- same reasoning as /editor: it's a focused,
+  // full-screen flow, and MobileBanner's "best on desktop" nag would be a
+  // direct contradiction of the mobile flow the user is actually using.
+  const isEditor = location.pathname.startsWith("/editor") || location.pathname.startsWith("/preview") || location.pathname.startsWith("/review");
   const [session, setSession] = useState(() => getLocalSessionSync());
   const [sessionLoading, setSessionLoading] = useState(true);
 
@@ -343,6 +347,18 @@ export default function App() {
           element={
             <ProtectedRoute session={session} sessionLoading={sessionLoading}>
               <EditorV2 key={location.key} />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/review"
+          element={
+            <ProtectedRoute session={session} sessionLoading={sessionLoading}>
+              {/* Same key={location.key} remount-on-navigation need as /editor
+                  above -- Review.jsx reads reelId once via the same lazy
+                  useState(() => new URLSearchParams(...)) pattern. */}
+              <Review key={location.key} />
             </ProtectedRoute>
           }
         />

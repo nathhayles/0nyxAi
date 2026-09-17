@@ -8,6 +8,14 @@ const isMobileDevice = () =>
   window.innerWidth < 1024 ||
   /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
 
+// EditorV2 hard-gates itself below 1024px ("Editor requires a desktop
+// browser") -- before Phase 2, tapping a reel on mobile was a dead end.
+// Same isMobileDevice() check EditorV2 itself uses, routed to the new
+// lightweight review/trim/caption/publish flow instead.
+const openReel = (id) => {
+  window.location.href = isMobileDevice() ? `/review?reelId=${id}` : `/editor?reelId=${id}`;
+};
+
 const ADMIN_UUIDS = ["d7c733c8-31dd-49b2-bffa-655b7d13ce11"];
 
 export default function Dashboard() {
@@ -169,7 +177,7 @@ export default function Dashboard() {
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:20}}>
         {visibleReels.map(r => (
           <div key={r.id} style={{background:"var(--onyx-surface)",borderRadius:12,border:"1px solid var(--onyx-hairline-strong)",position:"relative"}} onClick={e=>e.stopPropagation()}>
-            <div onClick={() => window.location.href=`/editor?reelId=${r.id}`} style={{cursor:"pointer"}}>
+            <div onClick={() => openReel(r.id)} style={{cursor:"pointer"}}>
               <div style={{height:120,background:"var(--input-bg)",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:"12px 12px 0 0",overflow:"hidden"}}>
                 {r.thumbnail_url ? <img src={r.thumbnail_url} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";e.target.nextSibling&&(e.target.nextSibling.style.display="flex");}} /> : <span style={{color:"var(--onyx-text-faint)",fontSize:12}}>No preview</span>}
               </div>
@@ -199,7 +207,7 @@ export default function Dashboard() {
             </div>
             {menuOpen===r.id && (
               <div style={{position:"absolute",bottom:"44px",right:"10px",background:"var(--onyx-surface)",border:"1px solid var(--onyx-hairline-strong)",borderRadius:8,zIndex:999,minWidth:170,boxShadow:"0 4px 20px rgba(0,0,0,0.15)"}}>
-                <div onClick={()=>window.location.href=`/editor?reelId=${r.id}`} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>✏️ Edit</div>
+                <div onClick={()=>openReel(r.id)} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>✏️ Edit</div>
                 <div onClick={()=>{setRenaming(r.id);setRenameVal(r.title||"");setMenuOpen(null);}} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>🔤 Rename</div>
                 <div onClick={()=>setMovingReel(r.id)} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>📁 Move to Folder</div>
                 <div onClick={async ()=>{ setMenuOpen(null); const headers = await getHeaders(); const reelRes = await fetch(`/api/reels/${r.id}`, { headers }); const reel = await reelRes.json(); if (!reel.scenes || !reel.scenes.length) { alert("No scenes in this reel yet."); return; } const renderRes = await fetch("/api/render", { method: "POST", headers: { ...(await getHeaders()), "Content-Type": "application/json" }, body: JSON.stringify({ scenes: reel.scenes.filter(s=>s.url||s.mediaUrl).map(s=>({ type: s.mediaType||"video", url: s.url||s.mediaUrl, duration: s.duration||3, voiceoverUrl: s.voiceoverUrl||null })), renderMode: "share" }) }); const data = await renderRes.json(); if (data.url) { const rawUrl = data.url.startsWith("http") ? data.url : window.location.origin + data.url; const encoded = btoa(rawUrl).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, ''); const shareUrl = `${window.location.origin}/preview/${encoded}?ref=nathhayles`; await navigator.clipboard.writeText(shareUrl); alert("Share link copied to clipboard"); window.open(shareUrl, "_blank"); } else { alert("Share failed: " + (data.error||"unknown")); }}} style={{padding:"10px 16px",cursor:"pointer",fontSize:13,color:"var(--onyx-text)"}}>🔗 Copy Share Link</div>
