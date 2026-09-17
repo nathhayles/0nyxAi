@@ -1,9 +1,33 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const NAV_LINKS = [
+  { label: "Dashboard",    to: "/dashboard" },
+  { label: "Studio",       to: "/studio" },
+  { label: "Content Plan", to: "/content-plan" },
+  { label: "Planner",      to: "/planner" },
+  { label: "Characters",   to: "/characters" },
+  { label: "Learn",        to: "/learn" },
+  { label: "Pricing",      to: "/pricing" },
+];
 
 export default function Navbar({ session }) {
   const navigate = useNavigate();
   const [burgerOpen, setBurgerOpen] = useState(false);
+  // Below 768px .onyx-nav__links (7 links, ~600px+ unwrapped) is replaced by
+  // this single hamburger -- confirmed via live viewport testing that the
+  // links row has zero mobile collapse today and overflows every phone
+  // width. Same isMobile/resize-listener pattern as Create.jsx/Music.jsx.
+  // On mobile this one button also absorbs the old session-only account
+  // burger below (Account/Earn/Brands/Logout) rather than showing two
+  // separate hamburger icons.
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
   const [theme, setTheme] = useState(
     () => document.documentElement.getAttribute('data-theme') || 'onyx'
   );
@@ -147,6 +171,14 @@ export default function Navbar({ session }) {
           font-size: 13px;
           transition: background 0.12s;
         }
+        .onyx-nav__dropdown--mobile {
+          width: min(240px, calc(100vw - 24px));
+        }
+        .onyx-nav__dropdown--mobile .onyx-nav__dropdown-item,
+        .onyx-nav__dropdown--mobile .onyx-nav__logout {
+          min-height: 44px;
+          font-size: 14px;
+        }
         .onyx-nav__dropdown-item:hover {
           background: var(--chip-bg);
         }
@@ -212,19 +244,13 @@ export default function Navbar({ session }) {
             <span className="onyx-nav__wordmark">ONYX</span>
           </Link>
 
-          <div className="onyx-nav__links">
-            {[
-              { label: "Dashboard",    to: "/dashboard" },
-              { label: "Studio",       to: "/studio" },
-              { label: "Content Plan", to: "/content-plan" },
-              { label: "Planner",      to: "/planner" },
-              { label: "Characters",   to: "/characters" },
-              { label: "Learn",        to: "/learn" },
-              { label: "Pricing",      to: "/pricing" },
-            ].map(({ label, to }) => (
-              <Link key={to} to={to} className="onyx-nav__link">{label}</Link>
-            ))}
-          </div>
+          {!isMobile && (
+            <div className="onyx-nav__links">
+              {NAV_LINKS.map(({ label, to }) => (
+                <Link key={to} to={to} className="onyx-nav__link">{label}</Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right — theme toggle + burger or login */}
@@ -255,7 +281,76 @@ export default function Navbar({ session }) {
             )}
           </button>
 
-          {session ? (
+          {isMobile ? (
+            <>
+              <button
+                className="onyx-nav__icon-btn"
+                onClick={() => setMobileMenuOpen(o => !o)}
+                style={{ flexDirection: "column", gap: 4, width: 40, height: 40 }}
+                aria-label="Menu"
+              >
+                <span className="onyx-nav__burger-bar"/>
+                <span className="onyx-nav__burger-bar"/>
+                <span className="onyx-nav__burger-bar"/>
+              </button>
+
+              {mobileMenuOpen && (
+                <>
+                  <div onClick={() => setMobileMenuOpen(false)}
+                    style={{ position: "fixed", inset: 0, zIndex: 299 }}/>
+                  <div className="onyx-nav__dropdown onyx-nav__dropdown--mobile">
+                    {session && (
+                      <div className="onyx-nav__dropdown-header">
+                        <div className="onyx-nav__dropdown-label">Signed in as</div>
+                        <div className="onyx-nav__dropdown-email">{session.user?.email || "—"}</div>
+                      </div>
+                    )}
+                    {NAV_LINKS.map(({ label, to }) => (
+                      <Link key={to} to={to}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="onyx-nav__dropdown-item"
+                      >
+                        {label}
+                      </Link>
+                    ))}
+                    {session ? (
+                      <>
+                        <div className="onyx-nav__dropdown-divider"/>
+                        {[
+                          { label: "Account",  to: "/account",  icon: "👤" },
+                          { label: "Earn",     to: "/earn",     icon: "💰" },
+                          { label: "Brands",   to: "/branding", icon: "🎨" },
+                        ].map(({ label, to, icon }) => (
+                          <Link key={to} to={to}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="onyx-nav__dropdown-item"
+                          >
+                            <span style={{ fontSize: 14 }}>{icon}</span>
+                            {label}
+                          </Link>
+                        ))}
+                        <div className="onyx-nav__dropdown-divider"/>
+                        <button className="onyx-nav__logout" onClick={handleLogout}>
+                          <span style={{ fontSize: 14 }}>🚪</span>
+                          Logout
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="onyx-nav__dropdown-divider"/>
+                        <Link to="/login"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="onyx-nav__dropdown-item"
+                        >
+                          Sign in
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          ) : session ? (
             <>
               <button
                 className="onyx-nav__icon-btn"
