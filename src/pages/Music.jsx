@@ -245,27 +245,27 @@ function TrackCard({ track, onApply, onSave, onExtend, onRename, onUseInTools, o
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {onSave && (
           <button onClick={() => onSave(track)} disabled={saved || saving}
-            style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: saved ? "default" : "pointer", background: saved ? "rgba(34,197,94,0.1)" : "#1f2937", border: saved ? "1px solid #22c55e" : "1px solid var(--onyx-hairline-strong)", color: saved ? "#4ade80" : "#94a3b8" }}>
+            style={{ flex: 1, padding: "6px 8px", minHeight: 36, borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: saved ? "default" : "pointer", background: saved ? "rgba(34,197,94,0.1)" : "#1f2937", border: saved ? "1px solid #22c55e" : "1px solid var(--onyx-hairline-strong)", color: saved ? "#4ade80" : "#94a3b8" }}>
             {saved ? "✓ Saved" : saving ? "..." : "💾 Save"}
           </button>
         )}
         <button onClick={() => downloadFile(track.url, `${track.name || "track"}.mp3`)}
-          style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-dim)", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          style={{ flex: 1, padding: "6px 8px", minHeight: 36, borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-dim)", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
           ⬇ Download
         </button>
         {onExtend && (
           <button onClick={() => onExtend(track)} disabled={extending}
-            style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: extending ? "not-allowed" : "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)" }}>
+            style={{ flex: 1, padding: "6px 8px", minHeight: 36, borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: extending ? "not-allowed" : "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)" }}>
             {extending ? "⏳" : "🔁 Extend"}
           </button>
         )}
         <button onClick={() => onApply(track)}
-          style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: applied ? "rgba(77,208,255,0.2)" : "var(--onyx-surface-2)", border: applied ? "1px solid var(--onyx-cyan)" : "1px solid var(--onyx-hairline-strong)", color: applied ? "var(--onyx-cyan)" : "var(--onyx-text)" }}>
+          style={{ flex: 1, padding: "6px 8px", minHeight: 36, borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: applied ? "rgba(77,208,255,0.2)" : "var(--onyx-surface-2)", border: applied ? "1px solid var(--onyx-cyan)" : "1px solid var(--onyx-hairline-strong)", color: applied ? "var(--onyx-cyan)" : "var(--onyx-text)" }}>
           {applied ? "✓ Applied" : "Apply"}
         </button>
         {onUseInTools && (
           <button onClick={() => onUseInTools(track)}
-            style={{ flex: 1, padding: "6px 8px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)" }}>
+            style={{ flex: 1, padding: "6px 8px", minHeight: 36, borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer", background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)" }}>
             🎛️ Tools
           </button>
         )}
@@ -1166,7 +1166,7 @@ export default function Music() {
                 <div style={{ marginTop: 24 }}>
                   <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
                     <span>My Saved Music</span>
-                    <button onClick={() => setTab("saved")} style={{ background: "none", border: "none", color: "#4dd0ff", fontSize: 11, cursor: "pointer" }}>View all →</button>
+                    <button onClick={() => setTab("saved")} style={{ background: "none", border: "none", color: "#4dd0ff", fontSize: 11, cursor: "pointer", minHeight: 36, padding: "8px 0" }}>View all →</button>
                   </div>
                   <div style={{ display: "grid", gap: 8 }}>
                     {savedTracks.slice(0, 3).map(track => (

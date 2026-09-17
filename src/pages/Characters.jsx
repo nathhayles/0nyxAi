@@ -429,13 +429,13 @@ export default function Characters() {
                   <div style={{ display: "flex", gap: 8, marginTop: "auto", paddingTop: 8 }}>
                     <button
                       onClick={() => openEditForm(c)}
-                      style={{ flex: 1, padding: "6px 10px", fontSize: 11, background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-faint)", borderRadius: 4, cursor: "pointer" }}
+                      style={{ flex: 1, padding: "6px 10px", minHeight: 36, fontSize: 12, background: "var(--onyx-surface-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-faint)", borderRadius: 4, cursor: "pointer" }}
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDelete(c)}
-                      style={{ flex: 1, padding: "6px 10px", fontSize: 11, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171", borderRadius: 4, cursor: "pointer" }}
+                      style={{ flex: 1, padding: "6px 10px", minHeight: 36, fontSize: 12, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#f87171", borderRadius: 4, cursor: "pointer" }}
                     >
                       Delete
                     </button>

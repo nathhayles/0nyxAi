@@ -1609,7 +1609,7 @@ export default function ContentPlan() {
                 onClick={() => setShowEdit(true)}
                 title="Edit plan"
                 style={{
-                  padding: "7px 10px", borderRadius: 8, fontSize: 13,
+                  padding: "7px 10px", minWidth: 36, minHeight: 36, borderRadius: 8, fontSize: 13,
                   background: "var(--chip-bg)", border: "0.5px solid var(--onyx-hairline-strong)",
                   color: "var(--onyx-text-faint)", cursor: "pointer",
                 }}
@@ -1623,7 +1623,7 @@ export default function ContentPlan() {
                 onClick={() => setShowDelete(true)}
                 title="Delete plan"
                 style={{
-                  padding: "7px 10px", borderRadius: 8, fontSize: 13,
+                  padding: "7px 10px", minWidth: 36, minHeight: 36, borderRadius: 8, fontSize: 13,
                   background: "var(--chip-bg)", border: "0.5px solid var(--onyx-hairline-strong)",
                   color: "var(--onyx-text-faint)", cursor: "pointer",
                 }}
@@ -1649,7 +1649,7 @@ export default function ContentPlan() {
                   key={v}
                   onClick={() => setView(v)}
                   style={{
-                    padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    padding: "5px 12px", minHeight: 36, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
                     background: view === v ? "var(--onyx-surface-2)" : "transparent",
                     border: view === v ? "0.5px solid var(--onyx-hairline-strong)" : "none",
                     color: view === v ? "var(--onyx-text)" : "var(--onyx-text-faint)",
@@ -1781,7 +1781,7 @@ const pageWrap = {
 };
 
 const navBtnStyle = {
-  width: 26, height: 26, borderRadius: 7, fontSize: 15, lineHeight: 1, cursor: "pointer",
+  width: 36, height: 36, borderRadius: 7, fontSize: 15, lineHeight: 1, cursor: "pointer",
   background: "var(--chip-bg)", border: "0.5px solid var(--onyx-hairline-strong)",
   color: "var(--onyx-text-dim)", display: "flex", alignItems: "center", justifyContent: "center",
 };

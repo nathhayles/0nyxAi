@@ -143,7 +143,7 @@ function MobileBanner() {
 
   return (
     <div style={{ background: "linear-gradient(135deg, #1a0a2e, #0f2040)", borderBottom: "2px solid rgba(251,191,36,0.4)", padding: "14px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, fontSize: 13, color: "#e2e8f0", textAlign: "center", position: "relative" }}>
-      <button onClick={dismiss} style={{ position: "absolute", top: 10, right: 14, background: "none", border: "none", color: "#94a3b8", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>×</button>
+      <button onClick={dismiss} style={{ position: "absolute", top: 4, right: 4, width: 40, height: 40, background: "none", border: "none", color: "#94a3b8", fontSize: 18, cursor: "pointer", lineHeight: 1 }}>×</button>
       <span style={{ fontSize: 20 }}>💻</span>
       <p style={{ margin: 0, lineHeight: 1.5 }}>
         <strong style={{ color: "#fbbf24" }}>Best on desktop.</strong> This app is optimised for larger screens — some features may be limited on mobile. You can still sign up and access your account here.
@@ -152,13 +152,13 @@ function MobileBanner() {
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
           <button
             onClick={() => setShowEmailForm(true)}
-            style={{ padding: "7px 16px", borderRadius: 6, border: "1px solid #fbbf24", background: "rgba(251,191,36,0.15)", color: "#fbbf24", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+            style={{ padding: "10px 16px", minHeight: 40, borderRadius: 6, border: "1px solid #fbbf24", background: "rgba(251,191,36,0.15)", color: "#fbbf24", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
           >
             Notify me when mobile launches
           </button>
           <button
             onClick={dismiss}
-            style={{ padding: "7px 16px", borderRadius: 6, border: "1px solid rgba(148,163,184,0.4)", background: "transparent", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}
+            style={{ padding: "10px 16px", minHeight: 40, borderRadius: 6, border: "1px solid rgba(148,163,184,0.4)", background: "transparent", color: "#94a3b8", fontSize: 12, cursor: "pointer" }}
           >
             Continue anyway
           </button>

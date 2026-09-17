@@ -156,13 +156,13 @@ export default function Dashboard() {
 
       {/* Folder tabs */}
       <div style={{display:"flex",gap:8,marginBottom:24,flexWrap:"wrap",alignItems:"center"}}>
-        <button onClick={() => setActiveFolder(null)} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--onyx-hairline-strong)",background:!activeFolder?"linear-gradient(180deg,#5edcff,#2db8ee)":"transparent",color:!activeFolder?"var(--btn-primary-text)":"var(--onyx-text-dim)",cursor:"pointer",fontSize:13}}>All Reels</button>
+        <button onClick={() => setActiveFolder(null)} style={{padding:"6px 14px",minHeight:36,borderRadius:20,border:"1px solid var(--onyx-hairline-strong)",background:!activeFolder?"linear-gradient(180deg,#5edcff,#2db8ee)":"transparent",color:!activeFolder?"var(--btn-primary-text)":"var(--onyx-text-dim)",cursor:"pointer",fontSize:13}}>All Reels</button>
         {folders.map(f => (
-          <button key={f.id} onClick={() => setActiveFolder(f.id)} style={{padding:"6px 14px",borderRadius:20,border:"1px solid var(--onyx-hairline-strong)",background:activeFolder===f.id?"linear-gradient(180deg,#5edcff,#2db8ee)":"transparent",color:activeFolder===f.id?"var(--btn-primary-text)":"var(--onyx-text-dim)",cursor:"pointer",fontSize:13}}>📁 {f.name}</button>
+          <button key={f.id} onClick={() => setActiveFolder(f.id)} style={{padding:"6px 14px",minHeight:36,borderRadius:20,border:"1px solid var(--onyx-hairline-strong)",background:activeFolder===f.id?"linear-gradient(180deg,#5edcff,#2db8ee)":"transparent",color:activeFolder===f.id?"var(--btn-primary-text)":"var(--onyx-text-dim)",cursor:"pointer",fontSize:13}}>📁 {f.name}</button>
         ))}
         {showNewFolder
           ? <span style={{display:"flex",gap:6}}><input autoFocus value={newFolderName} onChange={e=>setNewFolderName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&createFolder()} placeholder="Folder name" style={{background:"var(--input-bg)",color:"var(--onyx-text)",border:"1px solid var(--onyx-hairline-strong)",borderRadius:6,padding:"4px 10px",fontSize:13}} /><button onClick={createFolder} style={{background:"linear-gradient(180deg,#5edcff,#2db8ee)",color:"var(--btn-primary-text)",border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:13}}>Add</button></span>
-          : <button onClick={() => setShowNewFolder(true)} style={{padding:"6px 14px",borderRadius:20,border:"1px dashed var(--onyx-hairline-strong)",background:"transparent",color:"var(--onyx-text-faint)",cursor:"pointer",fontSize:13}}>+ New Folder</button>}
+          : <button onClick={() => setShowNewFolder(true)} style={{padding:"6px 14px",minHeight:36,borderRadius:20,border:"1px dashed var(--onyx-hairline-strong)",background:"transparent",color:"var(--onyx-text-faint)",cursor:"pointer",fontSize:13}}>+ New Folder</button>}
       </div>
 
       {/* Reels grid */}
@@ -195,7 +195,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div style={{padding:"4px 14px 12px",display:"flex",justifyContent:"flex-end"}}>
-              <button onClick={e=>{e.stopPropagation();setMenuOpen(menuOpen===r.id?null:r.id);}} style={{background:"none",border:"none",color:"var(--onyx-text-dim)",cursor:"pointer",fontSize:18,padding:"2px 6px"}}>⋯</button>
+              <button onClick={e=>{e.stopPropagation();setMenuOpen(menuOpen===r.id?null:r.id);}} style={{background:"none",border:"none",color:"var(--onyx-text-dim)",cursor:"pointer",fontSize:18,width:36,height:36,padding:0}}>⋯</button>
             </div>
             {menuOpen===r.id && (
               <div style={{position:"absolute",bottom:"44px",right:"10px",background:"var(--onyx-surface)",border:"1px solid var(--onyx-hairline-strong)",borderRadius:8,zIndex:999,minWidth:170,boxShadow:"0 4px 20px rgba(0,0,0,0.15)"}}>
