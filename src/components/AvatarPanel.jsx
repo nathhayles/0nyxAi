@@ -60,6 +60,7 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
   const [avatarIV, setAvatarIV] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoDragging, setPhotoDragging] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [targetLang, setTargetLang] = useState("es");
@@ -85,12 +86,12 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
     a.avatar_name?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handlePhotoSelect = (e) => {
-    const file = e.target.files?.[0];
+  const applyPhotoFile = (file) => {
     if (!file) return;
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
   };
+  const handlePhotoSelect = (e) => applyPhotoFile(e.target.files?.[0]);
 
   const handleGenerate = async () => {
     if (!activeSceneObj?.narration) {
@@ -276,7 +277,12 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
               </button>
             </div>
           ) : (
-            <label style={{ display: "block", textAlign: "center", padding: 16, border: "2px dashed #2b3442", borderRadius: 6, cursor: "pointer", fontSize: 12, color: "#94a3b8" }}>
+            <label
+              onDragOver={(e) => { e.preventDefault(); setPhotoDragging(true); }}
+              onDragLeave={() => setPhotoDragging(false)}
+              onDrop={(e) => { e.preventDefault(); setPhotoDragging(false); applyPhotoFile(e.dataTransfer.files?.[0]); }}
+              style={{ display: "block", textAlign: "center", padding: 16, border: `2px dashed ${photoDragging ? "#4dd0ff" : "#2b3442"}`, borderRadius: 6, cursor: "pointer", fontSize: 12, color: "#94a3b8", background: photoDragging ? "rgba(77,208,255,0.08)" : "transparent" }}
+            >
               📷 Upload a photo of yourself
               <br />
               <span style={{ fontSize: 10, color: "#94a3b8" }}>Clear front-facing photo works best</span>

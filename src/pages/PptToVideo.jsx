@@ -12,6 +12,7 @@ export default function PptToVideo() {
   const [brandId, setBrandId] = useState("");
   const [applyingColors, setApplyingColors] = useState(false);
   const [colorsApplied, setColorsApplied] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const fileRef = useRef();
 
   async function handleUpload() {
@@ -94,7 +95,10 @@ export default function PptToVideo() {
 
         <div
           onClick={() => fileRef.current?.click()}
-          style={{ border: "2px dashed #2b3442", borderRadius: 12, padding: 40, textAlign: "center", cursor: "pointer", marginBottom: 16, background: file ? "rgba(77,208,255,0.05)" : "transparent" }}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) setFile(f); }}
+          style={{ border: `2px dashed ${dragging ? "#4dd0ff" : "#2b3442"}`, borderRadius: 12, padding: 40, textAlign: "center", cursor: "pointer", marginBottom: 16, background: dragging ? "rgba(77,208,255,0.08)" : file ? "rgba(77,208,255,0.05)" : "transparent" }}
         >
           {file ? (
             <div>

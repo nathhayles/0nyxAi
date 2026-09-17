@@ -353,6 +353,7 @@ export default function Music() {
 
   // Fadr Tools state
   const [fadrFile, setFadrFile] = useState(null);
+  const [fadrDragging, setFadrDragging] = useState(false);
   const [fadrFileUrl, setFadrFileUrl] = useState("");
   const [fadrDuration, setFadrDuration] = useState(null); // seconds, null = unknown
   const [fadrOp, setFadrOp] = useState(null); // "analyse" | "stems" | "instrumental"
@@ -365,6 +366,15 @@ export default function Music() {
   const [sentConfirm, setSentConfirm] = useState(null); // { reelId, reelName }
   const [resolvedStems, setResolvedStems] = useState(null);
   const [loadingReels, setLoadingReels] = useState(false);
+
+  function applyFadrFile(f) {
+    if (!f) return;
+    setFadrFile(f); setFadrResult(null); setFadrError(""); setFadrDuration(null); setResolvedStems(null); setSentConfirm(null);
+    const audio = new Audio();
+    const url = URL.createObjectURL(f);
+    audio.addEventListener("loadedmetadata", () => { setFadrDuration(audio.duration); URL.revokeObjectURL(url); });
+    audio.src = url;
+  }
 
   useEffect(() => {
     if (fadrResult?.op !== 'stems') return;
@@ -1324,17 +1334,14 @@ export default function Music() {
 
             {/* File drop zone */}
             <div style={{ marginBottom: 20 }}>
-              <label style={{ display: "block", padding: "28px 20px", borderRadius: 12, border: `2px dashed ${fadrFile ? "#4dd0ff" : "#1f2937"}`, background: fadrFile ? "rgba(77,208,255,0.06)" : "var(--onyx-bg-2)", cursor: "pointer", textAlign: "center" }}>
+              <label
+                onDragOver={e => { e.preventDefault(); setFadrDragging(true); }}
+                onDragLeave={() => setFadrDragging(false)}
+                onDrop={e => { e.preventDefault(); setFadrDragging(false); applyFadrFile(e.dataTransfer.files?.[0]); }}
+                style={{ display: "block", padding: "28px 20px", borderRadius: 12, border: `2px dashed ${fadrDragging ? "#4dd0ff" : fadrFile ? "#4dd0ff" : "#1f2937"}`, background: fadrDragging ? "rgba(77,208,255,0.1)" : fadrFile ? "rgba(77,208,255,0.06)" : "var(--onyx-bg-2)", cursor: "pointer", textAlign: "center" }}
+              >
                 <input type="file" accept="audio/*" style={{ display: "none" }}
-                  onChange={e => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    setFadrFile(f); setFadrResult(null); setFadrError(""); setFadrDuration(null); setResolvedStems(null); setSentConfirm(null);
-                    const audio = new Audio();
-                    const url = URL.createObjectURL(f);
-                    audio.addEventListener("loadedmetadata", () => { setFadrDuration(audio.duration); URL.revokeObjectURL(url); });
-                    audio.src = url;
-                  }} />
+                  onChange={e => applyFadrFile(e.target.files?.[0])} />
                 {fadrFile
                   ? <><div style={{ fontSize: 13, fontWeight: 600, color: "#7de0ff" }}>{fadrFile.name}</div><div style={{ fontSize: 11, color: "var(--onyx-text-faint)", marginTop: 4 }}>{(fadrFile.size / 1024 / 1024).toFixed(1)} MB — click to change</div></>
                   : <><div style={{ fontSize: 28, marginBottom: 6 }}>📂</div><div style={{ fontSize: 13, color: "var(--onyx-text-faint)" }}>Click to upload an audio file</div><div style={{ fontSize: 11, color: "var(--onyx-text-faint)", marginTop: 4 }}>MP3 · WAV · M4A · OGG</div></>}

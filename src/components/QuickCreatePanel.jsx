@@ -18,6 +18,7 @@ export default function QuickCreatePanel({ brand, videoModelOptions, onCreated }
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
   const [photoUrl, setPhotoUrl] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoDragging, setPhotoDragging] = useState(false);
 
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
   const [duration, setDuration] = useState(5);
@@ -196,9 +197,12 @@ export default function QuickCreatePanel({ brand, videoModelOptions, onCreated }
         />
         <div
           onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setPhotoDragging(true); }}
+          onDragLeave={() => setPhotoDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setPhotoDragging(false); handlePhotoSelect(e.dataTransfer.files?.[0]); }}
           style={{
             width: "100%", aspectRatio: "1/1", borderRadius: 12, cursor: "pointer",
-            border: "1px dashed var(--onyx-hairline-strong)", background: "var(--onyx-bg-2)",
+            border: `1px dashed ${photoDragging ? "#4dd0ff" : "var(--onyx-hairline-strong)"}`, background: photoDragging ? "rgba(77,208,255,0.08)" : "var(--onyx-bg-2)",
             display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 8,
           }}
         >

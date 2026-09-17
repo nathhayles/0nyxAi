@@ -224,6 +224,7 @@ function OnyxMark() {
 function Toolbar({ title, onTitleChange, description, onDescriptionChange, tags, onTagsChange, saved, theme, onThemeToggle, onExport, onMagicResize, onShare, onPublish, onSave, onAddScene, toast }) {
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadDragging, setUploadDragging] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [tagsInput, setTagsInput] = useState((tags || []).join(", "));
   const uploadInputRef = useRef(null);
@@ -325,7 +326,15 @@ function Toolbar({ title, onTitleChange, description, onDescriptionChange, tags,
         style={{ display: "none" }}
         onChange={(e) => handleUploadPicked(e.target.files)}
       />
-      <button onClick={() => uploadInputRef.current?.click()} disabled={uploading} className="btn-secondary" style={{ padding: "5px 11px", fontWeight: 600, fontSize: 11.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5 }}>
+      <button
+        onClick={() => uploadInputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setUploadDragging(true); }}
+        onDragLeave={() => setUploadDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setUploadDragging(false); handleUploadPicked(e.dataTransfer.files); }}
+        disabled={uploading}
+        className="btn-secondary"
+        style={{ padding: "5px 11px", fontWeight: 600, fontSize: 11.5, fontFamily: "inherit", display: "flex", alignItems: "center", gap: 5, outline: uploadDragging ? "2px solid #4dd0ff" : "none", outlineOffset: 1 }}
+      >
         {uploading ? "Uploading…" : "Upload"}
       </button>
 

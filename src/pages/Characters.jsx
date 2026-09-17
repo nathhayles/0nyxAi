@@ -56,6 +56,7 @@ export default function Characters() {
   const [brandId, setBrandId] = useState(null);
   const [draftFiles, setDraftFiles] = useState(emptyDraftFiles());
   const [primaryIndex, setPrimaryIndex] = useState(0);
+  const [refImagesDragging, setRefImagesDragging] = useState(false);
   const [formError, setFormError] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -202,11 +203,15 @@ export default function Characters() {
     resetForm();
   }
 
-  function handleFilesSelected(e) {
-    const files = Array.from(e.target.files || []);
+  function addDraftFiles(fileList) {
+    const files = Array.from(fileList || []);
     if (files.length === 0) return;
     const additions = files.map((file) => ({ file, angle: "", localUrl: URL.createObjectURL(file) }));
     setDraftFiles((prev) => [...prev, ...additions]);
+  }
+
+  function handleFilesSelected(e) {
+    addDraftFiles(e.target.files);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -659,14 +664,25 @@ export default function Characters() {
                 For best results, upload {MIN_RECOMMENDED}-{MAX_RECOMMENDED} reference images (front, side, 3/4, etc).
               </div>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFilesSelected}
-                style={{ fontSize: 12, color: "var(--onyx-text)", marginBottom: 10 }}
-              />
+              <div
+                onDragOver={(e) => { e.preventDefault(); setRefImagesDragging(true); }}
+                onDragLeave={() => setRefImagesDragging(false)}
+                onDrop={(e) => { e.preventDefault(); setRefImagesDragging(false); addDraftFiles(e.dataTransfer.files); }}
+                style={{
+                  padding: 12, borderRadius: 8, marginBottom: 10,
+                  border: `1.5px dashed ${refImagesDragging ? "var(--onyx-cyan)" : "var(--onyx-hairline-strong)"}`,
+                  background: refImagesDragging ? "rgba(77,208,255,0.06)" : "transparent",
+                }}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFilesSelected}
+                  style={{ fontSize: 12, color: "var(--onyx-text)" }}
+                />
+              </div>
 
               {draftFiles.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

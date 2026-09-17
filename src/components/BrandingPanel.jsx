@@ -150,6 +150,7 @@ export default function BrandingPanel({ onApply }) {
   const [fontSearch, setFontSearch]       = useState("");
   const [showFontPicker, setShowFontPicker] = useState(false);
   const [paletteLoading, setPaletteLoading] = useState(false);
+  const [logoDragging, setLogoDragging] = useState(false);
 
   const logoInputRef = useRef();
 
@@ -588,7 +589,12 @@ export default function BrandingPanel({ onApply }) {
                   <div style={{ marginBottom: 24 }}>
                     <input style={{ ...inp, marginBottom: 8 }} value={brand.logo_url} placeholder="https://... or upload below"
                       onChange={e => setBrand(b => ({ ...b, logo_url: e.target.value }))} />
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "var(--input-bg)", border: "2px dashed var(--onyx-hairline-strong)", borderRadius: 8, cursor: "pointer", fontSize: 12, color: "var(--onyx-text-faint)", marginBottom: 8 }}>
+                    <label
+                      onDragOver={e => { e.preventDefault(); setLogoDragging(true); }}
+                      onDragLeave={() => setLogoDragging(false)}
+                      onDrop={e => { e.preventDefault(); setLogoDragging(false); const f = e.dataTransfer.files?.[0]; if (f) uploadLogo(f); }}
+                      style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: logoDragging ? "rgba(77,208,255,0.08)" : "var(--input-bg)", border: `2px dashed ${logoDragging ? "#4dd0ff" : "var(--onyx-hairline-strong)"}`, borderRadius: 8, cursor: "pointer", fontSize: 12, color: "var(--onyx-text-faint)", marginBottom: 8 }}
+                    >
                       Upload logo image
                       <input ref={logoInputRef} type="file" accept="image/*" style={{ display: "none" }}
                         onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />

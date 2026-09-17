@@ -95,6 +95,7 @@ export default function SfxPanel({
   clearAllSfx,
 }) {
   const [uploads, setUploads] = useState([]);
+  const [uploadDragging, setUploadDragging] = useState(false);
   const fileInputRef = useRef(null);
   const [uploadStatus, setUploadStatus] = useState("");
 
@@ -204,7 +205,12 @@ export default function SfxPanel({
         {tab === "uploads" && (
           <div style={{ marginTop: 12 }}>
             <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--onyx-bg-2)", border: "2px dashed var(--onyx-hairline-strong)", borderRadius: 8, cursor: "pointer", fontSize: 13, color: "var(--onyx-text-faint)" }}>
+              <label
+                onDragOver={(e) => { e.preventDefault(); setUploadDragging(true); }}
+                onDragLeave={() => setUploadDragging(false)}
+                onDrop={(e) => { e.preventDefault(); setUploadDragging(false); handleUploadPicked(e.dataTransfer.files); }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: uploadDragging ? "rgba(77,208,255,0.08)" : "var(--onyx-bg-2)", border: `2px dashed ${uploadDragging ? "#4dd0ff" : "var(--onyx-hairline-strong)"}`, borderRadius: 8, cursor: "pointer", fontSize: 13, color: "var(--onyx-text-faint)" }}
+              >
                 <span style={{ fontSize: 18 }}>🔊</span>
                 <span>Click to upload sound effects</span>
                 <input ref={fileInputRef} type="file" accept="audio/*" multiple onChange={(e) => handleUploadPicked(e.target.files)} style={{ display: "none" }} />
