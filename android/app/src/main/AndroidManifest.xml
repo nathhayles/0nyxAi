@@ -18,6 +18,19 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Custom URL scheme for the OAuth/Stripe deep-link return,
+                 see src/capacitor.js's listenForDeepLinks. Capacitor's
+                 `cap add` only generates the custom_url_scheme string in
+                 strings.xml below; it does NOT add this intent-filter on
+                 its own (confirmed by reading this file before assuming
+                 otherwise). Without it, com.onyxreelz.app:// links have
+                 nothing registered to catch them. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="@string/custom_url_scheme" />
+            </intent-filter>
         </activity>
 
         <provider
@@ -32,4 +45,11 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- WebcamRecorder.jsx (and the webcam-overlay/mic portions of
+         ScreenRecorder.jsx) use plain getUserMedia. Android's WebView
+         bridge (Capacitor handles WebChromeClient.onPermissionRequest) still
+         needs these declared here, or the OS denies the stream before the
+         WebView permission prompt can even show. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 </manifest>

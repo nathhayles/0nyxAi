@@ -11,6 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/browser": "^7.0.5",
     "@capacitor/core": "^7.6.9",
     "@capacitor/splash-screen": "^7.0.5",
     "@capacitor/status-bar": "^7.0.6",

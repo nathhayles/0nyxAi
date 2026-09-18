@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { supabase } from "../supabaseClient.js";
 import SEO from "../components/SEO";
 import { staticPages } from "../data/staticPagesSeo";
+import { isNative, openExternal } from "../capacitor.js";
 
 const EASE_OUT = [0.23, 1, 0.32, 1];
 const fadeUp = {
@@ -37,12 +38,20 @@ async function startCheckout(priceKey, setBusy) {
     const res = await fetch("/api/stripe/create-checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ priceId, mode }),
+      // See routes/stripe.js's create-checkout -- redirects to the app's
+      // custom URL scheme instead of the website when client:"capacitor",
+      // since Browser.open() below leaves the embedded WebView entirely.
+      body: JSON.stringify({ priceId, mode, ...(isNative() ? { client: "capacitor" } : {}) }),
     });
     const data = await res.json();
     if (data.url) {
+      // Set regardless of native/web -- harmless either way, and CreditsContext
+      // also has a window-focus-triggered balance refresh as a fallback
+      // (confirmed this covers the native case, where returning from a
+      // system browser tab via Browser.open() doesn't share this tab's
+      // sessionStorage with the tab that set this flag).
       sessionStorage.setItem("returning_from_checkout", "1");
-      window.location.href = data.url;
+      openExternal(data.url);
     } else {
       alert("Something went wrong. Please try again.");
     }

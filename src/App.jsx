@@ -8,6 +8,7 @@ import LandingPage from "./pages/LandingPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import { getAuthHeaders } from "./utils/auth";
+import { listenForDeepLinks } from "./capacitor.js";
 
 const Signup = lazy(() => import("./pages/Signup"));
 const Admin = lazy(() => import("./pages/Admin"));
@@ -254,6 +255,17 @@ export default function App() {
   const isEditor = location.pathname.startsWith("/editor") || location.pathname.startsWith("/preview") || location.pathname.startsWith("/review");
   const [session, setSession] = useState(() => getLocalSessionSync());
   const [sessionLoading, setSessionLoading] = useState(true);
+
+  // No-op on web (see src/capacitor.js) -- catches the app being reopened
+  // via its custom URL scheme after an OAuth connect or Stripe checkout
+  // finishes in the system browser tab (see openExternal, used by
+  // Publish.jsx/Account.jsx/PricingPage.jsx), and routes to the same
+  // in-app page the backend would otherwise have redirected a browser tab
+  // to. Registered once at the App root, not per-page, since the app can
+  // be reopened from any state.
+  useEffect(() => {
+    listenForDeepLinks(navigate);
+  }, [navigate]);
 
   useEffect(() => {
     let unsubscribe;

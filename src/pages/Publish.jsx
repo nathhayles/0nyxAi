@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
+import { isNative, openExternal } from "../capacitor.js";
 
 const PLATFORMS = [
   { id: "instagram", label: "Instagram", icon: "IG", color: "#E1306C" },
@@ -360,10 +361,15 @@ export default function Publish() {
     // same project still selected, rather than forcing a manual re-pick.
     params.set("origin", "publish");
     if (selectedProject?.id) params.set("reelId", selectedProject.id);
+    // Tells the backend (routes/social.js's buildState/buildRedirectUrl) to
+    // redirect the callback to the app's own custom URL scheme instead of
+    // the website -- see src/capacitor.js's openExternal for why this has
+    // to leave the embedded WebView at all inside the native shell.
+    if (isNative()) params.set("client", "capacitor");
     const qs = params.toString() ? `?${params.toString()}` : "";
     const res = await fetch(`/api/social/${platformId}/auth${qs}`, { headers });
     const data = await res.json();
-    if (data.authUrl) window.location.href = data.authUrl;
+    if (data.authUrl) openExternal(data.authUrl);
     else setMsg({ text: data.error || `Failed to connect ${platformId}`, type: "error" });
   }
 

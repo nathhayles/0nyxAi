@@ -3,6 +3,7 @@ import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import YouTubeConnect from "../components/YouTubeConnect.jsx";
 import { useCredits } from "../state/CreditsContext.jsx";
+import { isNative, openExternal } from "../capacitor.js";
 import { describeTransaction } from "../utils/creditTransactionLabels.js";
 
 const SOCIAL = [
@@ -250,19 +251,27 @@ export default function Account() {
   const handleManageBilling = async () => {
     const headers = await getAuthHeaders();
     headers["Content-Type"] = "application/json";
-    const res = await fetch("/api/stripe/create-portal", { method: "POST", headers });
+    const res = await fetch("/api/stripe/create-portal", {
+      method: "POST", headers,
+      body: JSON.stringify(isNative() ? { client: "capacitor" } : {}),
+    });
     const data = await res.json();
-    if (data.url) window.location.href = data.url;
+    if (data.url) openExternal(data.url);
   };
 
   async function handleConnect(platformId) {
     if (!canAutopost) { handleManageBilling(); return; }
     const headers = await getAuthHeaders();
-    const qs = selectedBrandId ? `?brand_id=${selectedBrandId}` : "";
+    const params = new URLSearchParams();
+    if (selectedBrandId) params.set("brand_id", selectedBrandId);
+    // See Publish.jsx's connectPlatform for why -- same client-aware
+    // redirect target, backend side in routes/social.js's buildRedirectUrl.
+    if (isNative()) params.set("client", "capacitor");
+    const qs = params.toString() ? `?${params.toString()}` : "";
     const res = await fetch(`/api/social/${platformId}/auth${qs}`, { headers });
     const data = await res.json();
     if (data.upgrade) handleManageBilling();
-    else if (data.authUrl) window.location.href = data.authUrl;
+    else if (data.authUrl) openExternal(data.authUrl);
     else alert(data.error || `Failed to connect ${platformId}`);
   }
 
