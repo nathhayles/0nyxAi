@@ -204,6 +204,66 @@ export default function Review() {
 
   const captionEditEstimatedCredits = estimateCredits(scenes.reduce((sum, s) => sum + (Number(s.duration) || 3), 0));
 
+  // POST /api/render does NOT take the raw reels.scenes array -- confirmed
+  // by reading EditorV2's real request builder (buildV2RenderRequest): it
+  // expects one object per clip with a `url` field (not `mediaUrl`, which is
+  // what scenes are actually stored with -- confirmed against a real
+  // production reel, caught before this ever ran for real), built from the
+  // full timeline (tracks, transitions, SFX, broll, per-clip trim). This
+  // mobile screen has no timeline to draw from, only the reel's scenes
+  // array -- same situation Dashboard.jsx's existing Share/Download menu
+  // items are already in, and they solve it the same simplified way: map
+  // scenes directly, one clip each, no transitions/SFX/broll/global music
+  // layered on top. A caption fix from this screen re-renders THIS
+  // simplified version, not a byte-identical copy of whatever the desktop
+  // editor's timeline would produce -- consistent with the same tradeoff
+  // Dashboard's quick-render already makes today, not a new gap.
+  function scenesToRenderPayload() {
+    return scenes
+      .filter(s => s.url || s.mediaUrl)
+      .map(s => ({
+        type: s.mediaType || "video",
+        url: s.url || s.mediaUrl,
+        duration: s.duration || 3,
+        // Caught during the real live smoke test: routes/render.js's video
+        // scenes need explicit trimStart/trimEnd to know how much of the
+        // SOURCE file to use -- with neither set, it uses the entire source
+        // clip untouched. Real production reels store trimStart/trimEnd on
+        // the timeline's per-clip data, never on the top-level scenes[]
+        // array this screen actually has access to, so they're reliably
+        // absent here. scene.duration (the intended clip length, always
+        // present) is the correct fallback for trimEnd -- confirmed by
+        // triggering a real re-render without this fix first: a reel whose
+        // 4 scenes were meant to total 42s came back as 60.37s, exactly
+        // matching the SUM OF THE FULL UNTRIMMED SOURCE CLIPS' real
+        // durations (21.3+18.5+9.0+11.6s, verified via ffprobe against the
+        // actual Pexels source files) -- not a rounding/estimate mismatch,
+        // the pipeline was using entire untrimmed stock clips.
+        trimStart: s.trimStart ?? 0,
+        trimEnd: s.trimEnd ?? s.duration ?? null,
+        voiceoverUrl: s.voiceoverUrl || null,
+        narration: s.narration || null,
+        // captionsEnabled defaults true whenever there's narration text to
+        // burn, rather than trusting the stored flag alone -- confirmed
+        // against real production reels during the live smoke test that
+        // captionsEnabled is often ABSENT from stored scenes even on reels
+        // with visibly burned-in captions (its persistence elsewhere in the
+        // save pipeline -- e.g. EditorV2's own save path -- is unreliable,
+        // a pre-existing issue not introduced here and out of scope for
+        // this screen to fix at the source). Narration presence is what's
+        // actually reliable, so it's the real signal this maps against.
+        captionsEnabled: s.captionsEnabled ?? !!s.narration,
+        caption_style: s.caption_style || "normal",
+        word_timestamps: s.word_timestamps || null,
+        caption_font_size: s.caption_font_size,
+        caption_size: s.caption_size,
+        caption_position: s.caption_position,
+        caption_color: s.caption_color,
+        caption_highlight_color: s.caption_highlight_color,
+        caption_bg_color: s.caption_bg_color,
+      }));
+  }
+
   async function applyCaptionEdits() {
     setApplyingCaptions(true);
     setCaptionError("");
@@ -215,11 +275,20 @@ export default function Review() {
       });
       if (!putRes.ok) { const d = await putRes.json().catch(() => ({})); throw new Error(d.error || "Failed to save caption edits"); }
 
+      // reel.global_music_url -- a music-video reel's background track lives
+      // here, separate from the scenes array entirely. Missing this was
+      // caught during the real live smoke test against an actual music-video
+      // reel: without it, this re-render would have silently come back with
+      // no music at all. musicVolume deliberately omitted -- POST /render
+      // already defaults it to 60 when absent, matching what this reel's own
+      // timeline music clip is set to, so there's no real value stored
+      // anywhere else worth threading through for this simplified path.
       const renderRes = await fetch("/api/render", {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify({
-          scenes, reelId, aspectRatio: reel?.ratio || "9:16", renderMode: "download",
+          scenes: scenesToRenderPayload(), reelId, aspectRatio: reel?.ratio || "9:16", renderMode: "download",
+          musicUrl: reel?.global_music_url || "",
         }),
       });
       const renderData = await renderRes.json();
@@ -408,13 +477,18 @@ export default function Review() {
 
         {step === "captions" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {scenes.filter(s => s.captionsEnabled).length === 0 && (
+            {/* Same captionsEnabled-unreliable reasoning as
+                scenesToRenderPayload above -- a scene with narration text is
+                treated as caption-editable even when the stored flag itself
+                is missing, since that's what actually determines whether
+                anything burns at render time in practice. */}
+            {scenes.filter(s => s.captionsEnabled ?? !!s.narration).length === 0 && (
               <div style={{ ...card, color: "var(--onyx-text-faint)", fontSize: 13, textAlign: "center" }}>
                 No captions on this reel to edit.
               </div>
             )}
             {scenes.map((s, idx) => {
-              if (!s.captionsEnabled) return null;
+              if (!(s.captionsEnabled ?? !!s.narration)) return null;
               return (
                 <div key={idx} style={card}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: "var(--onyx-text-faint)", marginBottom: 8 }}>SCENE {idx + 1}</div>
