@@ -106,6 +106,16 @@ const GUIDES = [
     description: "What the EU AI Act's Article 50 actually requires for AI-generated video, who it applies to, and how Onyx Reelz helps you stay compliant.",
     to: "/learn/eu-ai-act-disclosure",
   },
+  {
+    title: "Magic Resize: Export a Reel in Every Format",
+    description: "How to re-export a finished reel at other aspect ratios with Magic Resize, including the Auto-crop with AI (beta) focal-point feature.",
+    to: "/learn/magic-resize",
+  },
+  {
+    title: "Audio to Video: Turn a Recording Into a Reel",
+    description: "How to turn a voice recording, podcast clip, or any audio file into a video reel with Onyx Reelz's Audio to Video tool.",
+    to: "/learn/audio-to-video",
+  },
 ];
 
 export default function Learn() {
