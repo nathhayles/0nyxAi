@@ -64,12 +64,16 @@ export default function LearnCharacterConsistency() {
       <h2 style={h2Style}>Tagging a character in your prompt</h2>
       <p style={pStyle}>
         Once a Character exists in your library, you can tag them directly
-        inside a scene's prompt text. On Kling, this uses the @Element1 (or
-        @Element2 for a second reference) tagging system — the tag binds to
-        the actual reference photo, and Kling never renders the tag itself as
-        visible text. You don't need to re-describe the character's
-        appearance in every scene; the tag does that work for you,
-        consistently.
+        inside a scene's prompt text by typing <strong style={{ color: "var(--onyx-text)" }}>@</strong> followed
+        by the character's name — an autocomplete list of your saved
+        Characters pops up as you type. Selecting one inserts a tag like{" "}
+        <code style={{ color: "var(--onyx-cyan)" }}>@Riley</code> (multi-word
+        names have their spaces stripped, so "Onyx Guide" becomes{" "}
+        <code style={{ color: "var(--onyx-cyan)" }}>@OnyxGuide</code>). The tag
+        binds to that Character's reference photos behind the scenes and is
+        never rendered as visible text in the output. You don't need to
+        re-describe the character's appearance in every scene; the tag does
+        that work for you, consistently.
       </p>
 
       <h2 style={h2Style}>Character Lock for multi-scene reels</h2>

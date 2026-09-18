@@ -143,23 +143,23 @@ export default function LearnKlingPrompting() {
         the story forward.
       </p>
 
-      <h2 style={h2Style}>Reference tags: @Element1, @Element2</h2>
+      <h2 style={h2Style}>Reference tags: @CharacterName</h2>
       <svg viewBox="0 0 400 140" role="img" aria-labelledby="kling-element-tag-title" style={{ width: "100%", maxWidth: 400, margin: "24px auto", display: "block" }}>
-        <title id="kling-element-tag-title">How Kling's @Element1 reference tag binds to an uploaded character reference photo</title>
+        <title id="kling-element-tag-title">How an @CharacterName reference tag binds to an uploaded character reference photo</title>
         <rect x="20" y="30" width="90" height="70" rx="6" fill="var(--onyx-text-dim)" />
         <text x="65" y="115" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="10">Reference photo</text>
         <line x1="115" y1="65" x2="220" y2="65" stroke="var(--onyx-cyan)" strokeWidth="1.5" />
         <rect x="225" y="35" width="150" height="55" rx="6" fill="none" stroke="var(--onyx-hairline-strong)" />
-        <text x="300" y="58" textAnchor="middle" fill="var(--onyx-text)" fontSize="11" fontFamily="monospace">@Element1</text>
+        <text x="300" y="58" textAnchor="middle" fill="var(--onyx-text)" fontSize="11" fontFamily="monospace">@Riley</text>
         <text x="300" y="75" textAnchor="middle" fill="var(--onyx-text-faint)" fontSize="9">in your prompt</text>
       </svg>
       <p style={pStyle}>
-        When you tag a Character from your library directly in a prompt —
-        @Element1 — Kling doesn't render that text on screen. Instead, it binds
-        the tag to the actual reference photo or video you've attached, using
-        it to anchor appearance or motion. If you're combining a character
-        reference with a separate motion reference clip, they get separate tags
-        (@Element1, @Element2), each pointing to its own source material.
+        When you tag a Character from your library directly in a prompt — type
+        @ and pick a name from the autocomplete list, e.g. @Riley — Kling
+        doesn't render that text on screen. Instead, it binds the tag to that
+        Character's actual reference photos, using them to anchor appearance.
+        A multi-word name has its spaces stripped in the tag itself, so a
+        Character called "Onyx Guide" is tagged as @OnyxGuide.
       </p>
       <p style={pStyle}>
         This is a fundamentally different mechanism from typing a physical
@@ -167,6 +167,12 @@ export default function LearnKlingPrompting() {
         hair" gets reinterpreted by the model on every single generation —
         subtly different each time. A tagged reference photo gives Kling
         something concrete and consistent to work from.
+      </p>
+      <p style={pStyle}>
+        Motion is separate from character tagging: Kling 2.6 Pro has its own
+        Motion Reference field (a pasted video URL, not a @tag) for carrying a
+        specific movement or camera style across scenes — it only takes effect
+        from scene 2 onward and only with Character Lock turned on.
       </p>
 
       <h2 style={h2Style}>Character consistency across scenes</h2>

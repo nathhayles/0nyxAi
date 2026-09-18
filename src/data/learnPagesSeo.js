@@ -157,4 +157,14 @@ export const learnPages = [
     ogImage: "https://pub-31e667ae894f4cddbf03ae6a7578eff1.r2.dev/learn-hero-images/eu-ai-act-disclosure-illustration.png",
     imageAlt: "EU AI Act disclosure guide illustration — cyan shield with a glowing amber checkmark inside a violet ring of stars, Onyx Reelz",
   },
+  {
+    title: "Magic Resize: Export a Reel in Every Format",
+    description: "How to re-export a finished reel at other aspect ratios with Magic Resize, including the Auto-crop with AI (beta) focal-point feature.",
+    path: "/learn/magic-resize",
+  },
+  {
+    title: "Audio to Video: Turn a Recording Into a Reel",
+    description: "How to turn a voice recording, podcast clip, or any audio file into a video reel with Onyx Reelz's Audio to Video tool.",
+    path: "/learn/audio-to-video",
+  },
 ];

@@ -152,6 +152,15 @@ export default function LearnModelComparison() {
         <Link to="/learn/choosing-a-model" style={{ color: "var(--onyx-cyan)" }}>model comparison guide</Link>{" "}
         for how to pick the right one for a given shot.
       </p>
+      <p style={pStyle}>
+        Where enabled, you don't have to make that comparison yourself at all
+        — an opt-in <strong style={{ color: "var(--onyx-text)" }}>✨ Auto</strong> option
+        on the Create page picks a model per scene based on that scene's own
+        content, then shows you a pre-flight review of every pick, its reason,
+        and its real cost before anything generates. See{" "}
+        <Link to="/learn/choosing-a-model" style={{ color: "var(--onyx-cyan)" }}>our model guide</Link>{" "}
+        for how Auto's picks compare to choosing manually.
+      </p>
 
       <p style={{ ...pStyle, marginBottom: 0 }}>
         Ready to try it yourself? Onyx Reelz gives you access to today's

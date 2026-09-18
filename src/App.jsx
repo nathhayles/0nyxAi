@@ -43,6 +43,8 @@ const LearnMusicVideo = lazy(() => import("./pages/LearnMusicVideo"));
 const LearnVideoPricing = lazy(() => import("./pages/LearnVideoPricing"));
 const LearnModelComparison = lazy(() => import("./pages/LearnModelComparison"));
 const LearnEuAiActDisclosure = lazy(() => import("./pages/LearnEuAiActDisclosure"));
+const LearnMagicResize = lazy(() => import("./pages/LearnMagicResize"));
+const LearnAudioToVideo = lazy(() => import("./pages/LearnAudioToVideo"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const Account = lazy(() => import("./pages/Account"));
 const Preview = lazy(() => import("./pages/Preview"));
@@ -398,6 +400,8 @@ export default function App() {
         <Route path="/learn/ai-video-pricing" element={<LearnVideoPricing />} />
         <Route path="/learn/model-comparison" element={<LearnModelComparison />} />
         <Route path="/learn/eu-ai-act-disclosure" element={<LearnEuAiActDisclosure />} />
+        <Route path="/learn/magic-resize" element={<LearnMagicResize />} />
+        <Route path="/learn/audio-to-video" element={<LearnAudioToVideo />} />
         <Route path="/blog" element={<Blog />} />
         <Route path="/blog/ai-video-marketing-budget" element={<BlogAiVideoMarketingBudget />} />
         <Route path="/blog/reshoot-and-style-system-launch" element={<BlogReshootAndStyleSystemLaunch />} />
