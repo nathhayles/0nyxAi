@@ -99,7 +99,7 @@ export default function LearnSeedancePrompting() {
       <p style={pStyle}>
         Seedance 2.0 sits above Kling in both cost and typical output quality,
         particularly for motion-heavy content. It doesn't currently support the
-        character-reference tagging system Kling uses (@Element1), so it's not
+        character-reference @Name tagging system Kling uses, so it's not
         the right choice for a scene that depends on a specific recurring
         character's appearance — use Kling with Character Lock for that, and
         reach for Seedance when the scene's own motion or audio is what matters

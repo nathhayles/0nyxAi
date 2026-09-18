@@ -74,7 +74,7 @@ export default function LearnSeedance25Prompting() {
         Seedance 2.5 supports its own reference system for keeping a subject
         consistent across scenes — larger limits than Seedance 2.0's, with
         room for more reference images and reference videos per generation.
-        It does not use Kling's <code>@Element1</code>-style character-tagging
+        It does not use Kling's <code>@Name</code>-style character-tagging
         syntax directly — if a scene depends on a specific recurring
         character's exact appearance and you want the Character Library's
         <code>@Name</code> tagging workflow, Kling with Character Lock is

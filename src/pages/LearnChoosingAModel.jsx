@@ -156,8 +156,26 @@ export default function LearnChoosingAModel() {
         need to look or sound exceptional.
       </p>
 
+      <h2 style={h2Style}>Or let Auto pick for you</h2>
+      <p style={pStyle}>
+        Where enabled, an{" "}
+        <strong style={{ color: "var(--onyx-text)" }}>✨ Auto</strong> option
+        appears alongside the four models on the Create page. Instead of
+        choosing one model for the whole reel, Auto looks at each scene's own
+        content — character references, dialogue, motion, audio — and picks
+        the best-fit model for that specific scene.
+      </p>
+      <p style={pStyle}>
+        Auto never generates blind: before anything is submitted, you land on
+        a review screen listing every scene, the model it picked, a one-line
+        reason why, and that scene's real cost. You can override any scene to
+        a different model right there, or cancel back to editing, before a
+        single credit is spent — the total you see on that screen is the
+        actual charge, not an estimate.
+      </p>
+
       <p style={{ ...pStyle, marginBottom: 0 }}>
-        Ready to start? Head to <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Create</Link> and pick a model per scene as you build.
+        Ready to start? Head to <Link to="/create" style={{ color: "var(--onyx-cyan)" }}>Create</Link> and pick a model per scene as you build — or turn on Auto and review its picks before generating.
       </p>
     </LearnPageLayout>
   );
