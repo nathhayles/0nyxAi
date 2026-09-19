@@ -4,10 +4,19 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-// /srv/onyx/shared — constants shared with the backend (see audioConstants.js).
-// Lives outside this project's own root, so Vite needs an explicit fs.allow
-// entry plus an alias to resolve imports into it.
-const sharedDir = path.resolve(__dirname, '../../../shared')
+// shared/ — constants also used by the backend (backend/routes/render.js
+// imports the same file at shared/audioConstants.js relative to its own
+// repo root). Vendored INTO this repo (see shared/audioConstants.js) rather
+// than resolved from an external sibling directory -- it used to point at
+// /srv/onyx/shared via '../../../shared', a folder that was never committed
+// to any repo and only existed by hand on one server, so every fresh clone
+// (confirmed: this exact error on the Mac Mini setting up Capacitor, and on
+// this server the night before) failed to resolve it. The two copies (here
+// and backend/shared/audioConstants.js) must be kept in sync by hand since
+// there's no real monorepo linking them -- small, rarely-changed file, so
+// this is an acceptable tradeoff against the previous silent external
+// dependency.
+const sharedDir = path.resolve(__dirname, './shared')
 
 export default defineConfig({
   plugins: [react()],
@@ -19,7 +28,6 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     allowedHosts: ['onyx-reelz.com', 'www.onyx-reelz.com'],
-    fs: { allow: ['.', sharedDir] },
     hmr: {
       protocol: 'wss',
       host: 'onyx-reelz.com',
