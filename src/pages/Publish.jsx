@@ -231,7 +231,6 @@ export default function Publish() {
   // Deliberately never reads/validates scheduleAt -- "Publish Now" must work
   // regardless of whatever state the (unrelated) schedule field is in.
   async function handlePublishNow() {
-    if (trialStatus.trial_expired) return setMsg({ text: "Your trial has expired. Upgrade to publish.", type: "error" });
     if (!selectedProject) return setMsg({ text: "Select a project first", type: "error" });
     if (selectedPlatforms.length === 0) return setMsg({ text: "Select at least one platform", type: "error" });
     if (!canAutopost) return setMsg({ text: "Auto-posting requires an upgrade.", type: "error" });
@@ -277,7 +276,6 @@ export default function Publish() {
   }
 
   async function handleSchedule() {
-    if (trialStatus.trial_expired) return setMsg({ text: "Your trial has expired. Upgrade to schedule posts.", type: "error" });
     if (!selectedProject) return setMsg({ text: "Select a project", type: "error" });
     if (!scheduleAt) return setMsg({ text: "Pick a schedule time", type: "error" });
     if (selectedPlatforms.length === 0) return setMsg({ text: "Select at least one platform", type: "error" });
@@ -394,16 +392,6 @@ export default function Publish() {
         <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Publish & Schedule</h1>
         <p style={{ color: "#64748b", fontSize: 14, marginBottom: 28 }}>Post your rendered reels directly to social media or schedule for later.</p>
 
-        {trialStatus.trial_expired && (
-          <div style={{ ...card, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#f87171", marginBottom: 4 }}>Trial Expired</div>
-              <div style={{ fontSize: 12, color: "#94a3b8" }}>Your 14-day free trial has ended. Upgrade to keep publishing.</div>
-            </div>
-            <button onClick={() => window.location.href = "/pricing"} style={{ padding: "9px 18px", borderRadius: 8, border: "none", whiteSpace: "nowrap", background: "#ef4444", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Upgrade →</button>
-          </div>
-        )}
-
         {trialStatus.is_trial && trialStatus.days_remaining != null && (
           <div style={{ ...card, background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", marginBottom: 20 }}>
             <div style={{ fontSize: 13, color: "#fbbf24" }}>
@@ -417,7 +405,7 @@ export default function Publish() {
           <div style={{ ...card, background: "linear-gradient(135deg, rgba(77,208,255,0.1), rgba(29,78,216,0.1))", border: "1px solid rgba(77,208,255,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", marginBottom: 4 }}>Auto-posting not active</div>
-              <div style={{ fontSize: 12, color: "#94a3b8" }}>{plan === "starter" || plan === "creator" ? "Add the $15/mo Auto-posting add-on, or upgrade to Pro/Agency." : "Upgrade to Pro or Agency to unlock auto-publishing."}</div>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>Add the $15/mo Auto-posting add-on to unlock auto-publishing.</div>
             </div>
             <button onClick={() => window.location.href = "/account"} style={{ padding: "9px 18px", borderRadius: 8, border: "none", whiteSpace: "nowrap", background: "var(--btn-primary-grad)", color: "var(--btn-primary-text)", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Upgrade →</button>
           </div>
