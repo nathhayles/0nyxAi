@@ -257,6 +257,7 @@ export default function Account() {
     });
     const data = await res.json();
     if (data.url) openExternal(data.url);
+    else alert(data.error || "Unable to open billing portal.");
   };
 
   async function handleConnect(platformId) {
