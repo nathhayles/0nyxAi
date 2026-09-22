@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
-import PaywallModal from "../components/PaywallModal.jsx";
 import HelpTooltip from "../components/HelpTooltip.jsx";
 
 const isMobileDevice = () =>
@@ -32,22 +31,12 @@ export default function Dashboard() {
   const [activeFolder, setActiveFolder] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [loadError, setLoadError] = useState("");
-  const [showPaywall, setShowPaywall] = useState(false);
   const [publishHistory, setPublishHistory] = useState({});
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       const user = data?.user ?? null;
       setCurrentUser(user);
-      if (!user || ADMIN_UUIDS.includes(user.id)) return;
-      getHeaders().then(headers => {
-        fetch("/api/user/me", { headers })
-          .then(r => r.json())
-          .then(data => {
-            if (!data.has_paid_plan && !data.is_trial) setShowPaywall(true);
-          })
-          .catch(() => {});
-      });
     });
   }, []);
 
@@ -228,7 +217,6 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
-      {showPaywall && <PaywallModal />}
     </div>
   );
 }
