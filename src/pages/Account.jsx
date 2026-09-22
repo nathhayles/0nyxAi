@@ -286,12 +286,8 @@ export default function Account() {
 
   if (loading) return <div style={{ padding: 40, color: "var(--onyx-text-faint)", textAlign: "center", fontSize: 14 }}>Loading account...</div>;
 
-  const planLabel = isTrial
-    ? (daysRemaining > 0 ? `Free Trial — ${daysRemaining} day${daysRemaining !== 1 ? "s" : ""} left` : "Free Trial")
-    : trialExpired
-    ? "Trial Expired"
-    : plan.charAt(0).toUpperCase() + plan.slice(1);
-  const planColor = isTrial ? "#4dd0ff" : trialExpired ? "#ef4444" : PLAN_COLORS[plan] || "#475569";
+  const planLabel = plan === "free" ? "Free" : plan.charAt(0).toUpperCase() + plan.slice(1);
+  const planColor = PLAN_COLORS[plan] || "#475569";
   const selectedBrand = brands.find(b => b.id === selectedBrandId);
   const atLimit = brands.length >= brandLimit;
 
@@ -314,26 +310,10 @@ export default function Account() {
         </div>
       </div>
 
-      {(isTrial || trialExpired) && (
-        <div style={{ marginBottom: 20, padding: "14px 20px", borderRadius: 10, background: isTrial ? "linear-gradient(135deg, rgba(77,208,255,0.12), rgba(99,102,241,0.08))" : "linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.08))", border: `1px solid ${isTrial ? "rgba(77,208,255,0.3)" : "rgba(239,68,68,0.3)"}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--onyx-text)", marginBottom: 4 }}>
-              {isTrial ? `Free Trial — ${daysRemaining} day${daysRemaining !== 1 ? "s" : ""} remaining` : "Your free trial has expired"}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--onyx-text-faint)" }}>
-              {isTrial ? "Full access to all features during your trial. No credit card required." : "Upgrade to a paid plan to continue creating and publishing reels."}
-            </div>
-          </div>
-          <button onClick={() => window.location.href = "/pricing"} style={{ padding: "9px 18px", borderRadius: 8, border: "none", whiteSpace: "nowrap", background: "var(--btn-primary-grad)", color: "var(--btn-primary-text)", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0 }}>
-            {isTrial ? "Upgrade Now →" : "Choose a Plan →"}
-          </button>
-        </div>
-      )}
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
         <StatCard title="AI Credits" value={(credits ?? 0).toLocaleString()} sub="Used for avatars, AI video & premium voices" icon="✦" accent="#f59e0b" />
         <StatCard title="Reels Created" value={reelCount} sub="Total projects in your library" icon="▶" accent="#4dd0ff" />
-        <StatCard title="Plan" value={planLabel} sub={isTrial || trialExpired ? "14-day free trial" : "Click Manage Billing to upgrade"} icon="✦" accent={planColor} />
+        <StatCard title="Plan" value={planLabel} sub="Free, pay-per-use" icon="✦" accent={planColor} />
       </div>
 
       <div style={{ background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, padding: 24, marginBottom: 24 }}>
@@ -395,11 +375,11 @@ export default function Account() {
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--onyx-text)", marginBottom: 4 }}>Unlock Auto-Posting</div>
               <div style={{ fontSize: 12, color: "var(--onyx-text-faint)" }}>
-                {plan === "starter" || plan === "creator" ? "Add the $15/mo Auto-posting add-on to connect social accounts and publish reels automatically." : "Upgrade to Pro or Agency for auto-posting included."}
+                Add the $15/mo Auto-posting add-on to connect social accounts and publish reels automatically.
               </div>
             </div>
             <button onClick={handleManageBilling} style={{ padding: "9px 18px", borderRadius: 8, border: "none", whiteSpace: "nowrap", background: "var(--btn-primary-grad)", color: "var(--btn-primary-text)", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0 }}>
-              {plan === "starter" || plan === "creator" ? "Add $15/mo →" : "Upgrade Plan →"}
+              Add $15/mo →
             </button>
           </div>
         )}
