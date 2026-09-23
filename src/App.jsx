@@ -47,6 +47,7 @@ const LearnMagicResize = lazy(() => import("./pages/LearnMagicResize"));
 const LearnAudioToVideo = lazy(() => import("./pages/LearnAudioToVideo"));
 const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 const Account = lazy(() => import("./pages/Account"));
+const AccountDeletionPending = lazy(() => import("./pages/AccountDeletionPending"));
 const Preview = lazy(() => import("./pages/Preview"));
 const Studio = lazy(() => import("./pages/Studio"));
 const Campaign = lazy(() => import("./pages/Campaign"));
@@ -255,6 +256,11 @@ export default function App() {
   // full-screen flow, and MobileBanner's "best on desktop" nag would be a
   // direct contradiction of the mobile flow the user is actually using.
   const isEditor = location.pathname.startsWith("/editor") || location.pathname.startsWith("/preview") || location.pathname.startsWith("/review");
+  // Hidden here too -- not a workspace page like isEditor's routes, but a
+  // locked-account state page where nav links would just walk the user
+  // into other pages that independently 403 against the deletion-pending
+  // middleware (see investigation, this session).
+  const hideNavbar = isEditor || location.pathname === "/account-deletion-pending";
   const [session, setSession] = useState(() => getLocalSessionSync());
   const [sessionLoading, setSessionLoading] = useState(true);
 
@@ -311,7 +317,7 @@ export default function App() {
 
   return (
     <div>
-      {!isEditor && location.pathname !== "/" && <Navbar session={session} />}
+      {!hideNavbar && location.pathname !== "/" && <Navbar session={session} />}
       {!isEditor && location.pathname !== "/" && <MobileBanner />}
 
       <Suspense fallback={null}>
@@ -407,6 +413,7 @@ export default function App() {
         <Route path="/blog/reshoot-and-style-system-launch" element={<BlogReshootAndStyleSystemLaunch />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/account" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Account /></ProtectedRoute>} />
+        <Route path="/account-deletion-pending" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><AccountDeletionPending /></ProtectedRoute>} />
         <Route path="/branding" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><BrandingPanel onApply={(brand) => navigate("/projects", { state: { applyBrandId: brand.id } })} /></ProtectedRoute>} />
         <Route path="/brand-setup" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><BrandSetupWizard /></ProtectedRoute>} />
 

@@ -19,7 +19,7 @@ export default function Login({ goHome }) {
 
     setMsg("Logging in...");
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -30,6 +30,31 @@ export default function Login({ goHome }) {
     }
 
     setMsg("Success. Redirecting...");
+
+    // Check for a pending account deletion before landing on /dashboard --
+    // deletion-pending users still get a valid Supabase session (the ban is
+    // enforced by middleware/auth.js on backend API calls, not by Supabase
+    // Auth itself), so without this check they'd land on /dashboard and
+    // only discover something's wrong once its own API calls start 403ing.
+    // Fails open to the normal /dashboard navigate if this call itself
+    // fails -- this is a UX nicety, not a security boundary (the backend
+    // enforces the real block on every request regardless).
+    try {
+      const token = data?.session?.access_token;
+      const res = await fetch("/api/account/delete/status", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const statusData = await res.json();
+        if (statusData.pending) {
+          navigate("/account-deletion-pending");
+          return;
+        }
+      }
+    } catch {
+      // fall through to normal navigate below
+    }
+
     navigate("/dashboard");
   };
 

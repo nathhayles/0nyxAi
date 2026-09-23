@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import YouTubeConnect from "../components/YouTubeConnect.jsx";
 import { useCredits } from "../state/CreditsContext.jsx";
 import { isNative, openExternal } from "../capacitor.js";
 import { describeTransaction } from "../utils/creditTransactionLabels.js";
+
+// Must match routes/account.js's own CONFIRMATION_TEXT constant exactly --
+// that route rejects any /delete call whose body.confirmation isn't this
+// literal string. If one side changes, the other must change with it.
+const DELETE_CONFIRMATION_TEXT = "DELETE";
 
 const SOCIAL = [
   { id: "instagram", label: "Instagram",      icon: "IG", color: "#E1306C", status: "connect" },
@@ -166,6 +172,107 @@ function CreditActivitySection() {
   );
 }
 
+// Self-contained, same pattern as CreditActivitySection -- owns its own
+// form state and submit call rather than lifting it into Account()'s
+// already-large load effect.
+function DeleteAccountModal({ onClose }) {
+  const navigate = useNavigate();
+  const [password, setPassword] = useState("");
+  const [confirmText, setConfirmText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const canSubmit = password && confirmText === DELETE_CONFIRMATION_TEXT && !submitting;
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      const headers = await getAuthHeaders();
+      headers["Content-Type"] = "application/json";
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ password, confirmation: confirmText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to request account deletion.");
+      if (data.requested || data.alreadyPending) {
+        setSuccess(data.alreadyPending ? "A deletion request is already pending on this account." : "Deletion requested.");
+        navigate("/account-deletion-pending");
+        return;
+      }
+      throw new Error("Unexpected response from server.");
+    } catch (err) {
+      setError(err.message);
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 24 }} onClick={onClose}>
+      <div style={{ background: "var(--onyx-bg-2)", border: "1px solid #7f1d1d", borderRadius: 12, padding: 28, maxWidth: 440, width: "100%" }} onClick={(e) => e.stopPropagation()}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px", color: "#f87171" }}>Delete Account</h2>
+        <p style={{ fontSize: 13, color: "var(--onyx-text-faint)", lineHeight: 1.6, margin: "0 0 20px" }}>
+          This permanently deletes your reels, uploaded media, brands, and connected social accounts. Your subscription will be cancelled.
+          This cannot be undone once processing completes, but you can cancel the request any time before then.
+        </p>
+
+        <form onSubmit={handleSubmit}>
+          <label style={{ display: "block", fontSize: 12, color: "var(--onyx-text-faint)", marginBottom: 6 }}>Current password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-surface)", color: "var(--onyx-text)", fontSize: 13, marginBottom: 16, boxSizing: "border-box" }}
+          />
+
+          <label style={{ display: "block", fontSize: 12, color: "var(--onyx-text-faint)", marginBottom: 6 }}>
+            Type <strong style={{ color: "var(--onyx-text)" }}>{DELETE_CONFIRMATION_TEXT}</strong> to confirm
+          </label>
+          <input
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-surface)", color: "var(--onyx-text)", fontSize: 13, marginBottom: 20, boxSizing: "border-box" }}
+          />
+
+          {error && (
+            <div style={{ fontSize: 13, color: "#f87171", padding: "10px 14px", borderRadius: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", marginBottom: 16 }}>
+              {error}
+            </div>
+          )}
+          {success && (
+            <div style={{ fontSize: 13, color: "#4ade80", padding: "10px 14px", borderRadius: 8, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", marginBottom: 16 }}>
+              {success}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "1px solid var(--onyx-hairline-strong)", background: "transparent", color: "var(--onyx-text)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "none", background: "#dc2626", color: "#fff", fontSize: 13, fontWeight: 700, cursor: canSubmit ? "pointer" : "not-allowed", opacity: canSubmit ? 1 : 0.5 }}
+            >
+              {submitting ? "Submitting..." : "Delete My Account"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function Account() {
   const [user, setUser]               = useState(null);
   const { balance: credits, refreshCredits } = useCredits();
@@ -185,6 +292,7 @@ export default function Account() {
   const [disconnecting, setDisconnecting]     = useState(null);
   const [loading, setLoading]         = useState(true);
   const [ytToken, setYtToken]         = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -293,6 +401,7 @@ export default function Account() {
   const atLimit = brands.length >= brandLimit;
 
   return (
+    <>
     <div style={{ minHeight: "100vh",
       background:
         "radial-gradient(ellipse 50% 40% at 15% 0%, rgba(77,208,255,0.10), transparent 60%)," +
@@ -485,7 +594,22 @@ export default function Account() {
         </div>
       </div>
 
+      <div style={{ background: "rgba(220,38,38,0.06)", border: "1px solid #7f1d1d", borderRadius: 12, padding: 24, marginTop: 24 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 4px", color: "#f87171" }}>Danger Zone</h2>
+        <div style={{ fontSize: 12, color: "var(--onyx-text-faint)", marginBottom: 16 }}>
+          Permanently delete your account, reels, uploaded media, and connections.
+        </div>
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #dc2626", background: "transparent", color: "#f87171", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+        >
+          Delete Account
+        </button>
+      </div>
+
     </div>
     </div>
+    {showDeleteModal && <DeleteAccountModal onClose={() => setShowDeleteModal(false)} />}
+    </>
   );
 }
