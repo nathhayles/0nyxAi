@@ -5,6 +5,7 @@
 // of collapsible per-type sections, plus bulk select/move/delete -- none of
 // which the sidebar panel has room or need for.
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { getAuthHeaders } from "../utils/auth.js";
 
 const TYPE_OPTIONS = [
@@ -169,7 +170,7 @@ export default function FileManagerModal({ onClose }) {
 
   const selectStyle = { background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)", borderRadius: 6, padding: "7px 10px", fontSize: 12 };
 
-  return (
+  return createPortal(
     <div
       onClick={(e) => e.target === e.currentTarget && onClose()}
       style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
@@ -320,6 +321,7 @@ export default function FileManagerModal({ onClose }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
