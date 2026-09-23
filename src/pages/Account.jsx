@@ -218,6 +218,7 @@ function DeleteAccountModal({ onClose }) {
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px", color: "#f87171" }}>Delete Account</h2>
         <p style={{ fontSize: 13, color: "var(--onyx-text-faint)", lineHeight: 1.6, margin: "0 0 20px" }}>
           This permanently deletes your reels, uploaded media, brands, and connected social accounts. Your subscription will be cancelled.
+          Remaining AI credits are forfeited and cannot be refunded.
           This cannot be undone once processing completes, but you can cancel the request any time before then.
         </p>
 
