@@ -58,7 +58,6 @@ const AudioToVideo = lazy(() => import("./pages/AudioToVideo"));
 const Publish = lazy(() => import("./pages/Publish"));
 const Planner = lazy(() => import("./pages/Planner"));
 const BrandingPanel = lazy(() => import("./components/BrandingPanel"));
-const BrandSetupWizard = lazy(() => import("./pages/BrandSetupWizard"));
 const ScreenRecorder = lazy(() => import("./pages/ScreenRecorder.jsx"));
 const WebcamRecorder = lazy(() => import("./pages/WebcamRecorder.jsx"));
 const ViralHooks = lazy(() => import("./pages/ViralHooks.jsx"));
@@ -415,7 +414,6 @@ export default function App() {
         <Route path="/account" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Account /></ProtectedRoute>} />
         <Route path="/account-deletion-pending" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><AccountDeletionPending /></ProtectedRoute>} />
         <Route path="/branding" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><BrandingPanel onApply={(brand) => navigate("/projects", { state: { applyBrandId: brand.id } })} /></ProtectedRoute>} />
-        <Route path="/brand-setup" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><BrandSetupWizard /></ProtectedRoute>} />
 
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />

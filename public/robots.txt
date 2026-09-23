@@ -5,7 +5,6 @@ Disallow: /editor
 Disallow: /editor-v2
 Disallow: /account
 Disallow: /branding
-Disallow: /brand-setup
 Disallow: /studio
 Disallow: /campaign
 Disallow: /music
