@@ -4,6 +4,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useVoiceoverEngine, STANDARD_VOICES, GOOGLE_LANGUAGES, normalizeNarrationText, isNarrationFullyTagged } from "../hooks/useVoiceoverEngine.js";
 import { getAuthHeaders } from "../utils/auth.js";
+import HelpTooltip from "./HelpTooltip.jsx";
 
 // Voice names that get a "Popular" badge (Premium tab)
 const POPULAR_VOICE_NAMES = new Set(["Natasha", "Aaron"]);
@@ -304,6 +305,7 @@ export default function VoiceOverPanel({
             }}>
             ★ Favourites
           </button>
+          <HelpTooltip topic="voiceover" />
           {/* Collapsed state: show filter icon to re-expand */}
           {!headerExpanded && (
             <button type="button" onClick={() => { setHeaderExpanded(true); if (scrollContentRef.current) scrollContentRef.current.scrollTop = 0; }}

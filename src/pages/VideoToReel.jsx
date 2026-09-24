@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getAuthHeaders } from '../utils/auth.js';
 import TemplateSelectorPill from '../components/TemplateSelectorPill.jsx';
 import ThemeSelectorPill from '../components/ThemeSelectorPill.jsx';
+import HelpTooltip from '../components/HelpTooltip.jsx';
 
 const THEMES = [
   { id: 'cinematic', label: 'Cinematic', desc: 'Dark, dramatic, film-like' },
@@ -99,7 +100,10 @@ export default function VideoToReel() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--onyx-bg)', color: 'var(--onyx-text)', padding: '40px 24px', maxWidth: 800, margin: '0 auto' }}>
       <div style={{ marginBottom: 32 }}>
-        <h1 className="page-title">Video to Reel</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h1 className="page-title">Video to Reel</h1>
+          <HelpTooltip topic="videoToReel" />
+        </div>
         <p style={{ color: '#64748b', fontSize: 15, margin: 0 }}>Upload your clips and we'll edit them into a ready-to-post social media reel.</p>
       </div>
 

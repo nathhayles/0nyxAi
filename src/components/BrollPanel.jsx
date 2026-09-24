@@ -1,4 +1,5 @@
 import React from "react";
+import HelpTooltip from "./HelpTooltip.jsx";
 
 const btn = { padding: "6px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer", border: "0.5px solid var(--onyx-hairline-strong)", background: "var(--chip-bg)", color: "var(--onyx-text-dim)" };
 const label = { fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.2px", marginBottom: 4 };
@@ -29,7 +30,10 @@ export default function BrollPanel({ dispatch, selectedClip }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
       <div style={{ padding: "12px 12px 8px", borderBottom: "0.5px solid var(--onyx-hairline)" }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.5px" }}>B-Roll</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "1.5px" }}>B-Roll</div>
+          <HelpTooltip topic="broll" />
+        </div>
       </div>
 
       {selectedClip ? (

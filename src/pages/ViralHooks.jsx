@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
 import { useSpeechInput } from "../hooks/useSpeechInput.js";
+import HelpTooltip from "../components/HelpTooltip.jsx";
 
 const PLATFORMS = ["tiktok", "instagram", "youtube", "linkedin", "twitter"];
 const TONES = ["bold", "educational", "funny", "inspirational", "professional"];
@@ -154,7 +155,10 @@ export default function ViralHooks() {
         <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 13, marginBottom: 24, padding: 0 }}>← Back to Studio</button>
 
         <div style={{ marginBottom: 28 }}>
-          <h1 className="page-title">Viral Hooks Generator</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h1 className="page-title">Viral Hooks Generator</h1>
+            <HelpTooltip topic="viralHooks" />
+          </div>
           <p style={{ color: "#64748b", fontSize: 15 }}>Generate 10 scroll-stopping opening lines for your reels using proven viral frameworks. Then turn any hook into a full reel in one click.</p>
         </div>
 

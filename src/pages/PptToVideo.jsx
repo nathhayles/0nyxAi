@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
+import HelpTooltip from "../components/HelpTooltip.jsx";
 
 export default function PptToVideo() {
   const navigate = useNavigate();
@@ -88,7 +89,10 @@ export default function PptToVideo() {
         <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, marginBottom: 24, padding: 0 }}>
           ← Back to Studio
         </button>
-        <h1 className="page-title">PPT to Video</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <h1 className="page-title">PPT to Video</h1>
+          <HelpTooltip topic="pptToVideo" />
+        </div>
         <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 32 }}>
           Upload a PowerPoint presentation and we'll convert each slide into a video scene with AI voiceover.
         </p>

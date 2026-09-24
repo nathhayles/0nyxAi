@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
+import HelpTooltip from "../components/HelpTooltip.jsx";
 
 export default function AudioToVideo() {
   const navigate = useNavigate();
@@ -62,7 +63,10 @@ export default function AudioToVideo() {
         <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, marginBottom: 24, padding: 0 }}>
           ← Back to Studio
         </button>
-        <h1 className="page-title">Audio to Video</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <h1 className="page-title">Audio to Video</h1>
+          <HelpTooltip topic="audioToVideo" />
+        </div>
         <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 32 }}>
           Upload a voice recording or audio file. We'll transcribe it and turn it into a full video reel with matching visuals.
         </p>
