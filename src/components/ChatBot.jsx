@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import FeedbackButton from "./FeedbackButton.jsx";
 
 const WELCOME = "Hi! I'm Onyx Support. Ask me anything about creating reels, credits, voiceovers, or your account.";
 
@@ -114,14 +115,17 @@ export default function ChatBot() {
         </div>
       )}
 
-      <button onClick={() => setOpen(o => !o)} style={{
-        width: 52, height: 52, borderRadius: "50%", background: "#3b6eff",
-        border: "none", cursor: "pointer", display: "flex", alignItems: "center",
-        justifyContent: "center", boxShadow: "0 4px 16px rgba(59,110,255,0.4)",
-        fontSize: 22, color: "#fff", marginLeft: "auto"
-      }}>
-        {open ? "✕" : "💬"}
-      </button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10 }}>
+        <FeedbackButton />
+        <button onClick={() => setOpen(o => !o)} style={{
+          width: 52, height: 52, borderRadius: "50%", background: "#3b6eff",
+          border: "none", cursor: "pointer", display: "flex", alignItems: "center",
+          justifyContent: "center", boxShadow: "0 4px 16px rgba(59,110,255,0.4)",
+          fontSize: 22, color: "#fff"
+        }}>
+          {open ? "✕" : "💬"}
+        </button>
+      </div>
     </div>
   );
 }
