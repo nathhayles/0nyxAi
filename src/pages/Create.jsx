@@ -732,7 +732,7 @@ export default function CreatePage() {
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, fontSize: 14, marginBottom: 6 }}>
                     Video model
-                    {autoRoutingEnabled && <HelpTooltip topic="autoRouting" />}
+                    {isAutoModel && <HelpTooltip topic="autoRouting" />}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {pickerOptions.map(opt => (
