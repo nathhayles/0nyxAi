@@ -6,6 +6,7 @@ const DEFAULT_COVER_COLOR = "#ff3b30";
 const DEFAULT_CUTOUT_COLOR = "#000000";
 
 export default function PaintMaskPanel({
+  brandId,
   paintMode, setPaintMode,
   paintBrushSize, setPaintBrushSize,
   paintColor, setPaintColor,
@@ -126,6 +127,7 @@ export default function PaintMaskPanel({
       const form = new FormData();
       form.append("files", flattened.blob, "paint-mask.png");
       form.append("assetType", "image");
+      if (brandId) form.append("brandId", brandId);
       const res = await fetch("/api/media/upload", { method: "POST", headers, body: form });
       const data = await res.json();
       const uploaded = data?.files?.[0];

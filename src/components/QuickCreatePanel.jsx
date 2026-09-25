@@ -72,6 +72,7 @@ export default function QuickCreatePanel({ brand, videoModelOptions, onCreated }
       const form = new FormData();
       form.append("files", file);
       form.append("assetType", "image");
+      if (brand) form.append("brandId", brand);
       const res = await fetch("/api/media/upload", { method: "POST", headers, body: form });
       const data = await res.json();
       const uploaded = data?.files?.[0];

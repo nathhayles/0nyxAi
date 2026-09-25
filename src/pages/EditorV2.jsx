@@ -222,7 +222,7 @@ function OnyxMark() {
 }
 
 // ── Toolbar ───────────────────────────────────────────────────────────────────
-function Toolbar({ title, onTitleChange, description, onDescriptionChange, tags, onTagsChange, saved, theme, onThemeToggle, onExport, onMagicResize, onShare, onPublish, onSave, onAddScene, toast }) {
+function Toolbar({ title, onTitleChange, description, onDescriptionChange, tags, onTagsChange, saved, theme, onThemeToggle, onExport, onMagicResize, onShare, onPublish, onSave, onAddScene, toast, brandId }) {
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadDragging, setUploadDragging] = useState(false);
@@ -242,6 +242,7 @@ function Toolbar({ title, onTitleChange, description, onDescriptionChange, tags,
         const form = new FormData();
         for (const file of group) form.append("files", file);
         form.append("assetType", assetType);
+        if (brandId) form.append("brandId", brandId);
 
         const res = await fetch("/api/media/upload", { method: "POST", headers, body: form });
         const json = await res.json().catch(() => ({}));
@@ -4632,6 +4633,7 @@ export default function EditorV2() {
 
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", height: "100%" }}>
         <Toolbar
+          brandId={selectedBrandId}
           title={title} onTitleChange={setTitle}
           description={reelDescription} onDescriptionChange={setReelDescription}
           tags={reelTags} onTagsChange={setReelTags}
@@ -4886,7 +4888,7 @@ export default function EditorV2() {
         <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
           {/* Sidebar */}
           <Sidebar open={sidebarOpen} activeTab={activeMenu} setActiveTab={setActiveMenu}>
-            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage} durationSpec={durationSpec} supports1080pUpgrade={supports1080pUpgrade} resolutionOptions={resolutionOptions} aspectRatio={ratio} onUpscaleScene={upscaleScene} upscalingScenes={upscalingScenes} upscaleCapabilities={upscaleCapabilities} onReorder={moveScene} timelineState={timelineState} dispatch={dispatchWithHistory}/></Safe>}
+            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel brandId={selectedBrandId} scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage} durationSpec={durationSpec} supports1080pUpgrade={supports1080pUpgrade} resolutionOptions={resolutionOptions} aspectRatio={ratio} onUpscaleScene={upscaleScene} upscalingScenes={upscalingScenes} upscaleCapabilities={upscaleCapabilities} onReorder={moveScene} timelineState={timelineState} dispatch={dispatchWithHistory}/></Safe>}
             {activeMenu==="visuals"    && <Safe name="VisualsPanel"><VisualsPanel
               tab={visualsTab} setTab={setVisualsTab}
               scenes={scenes} activeScene={activeScene}
@@ -4931,6 +4933,7 @@ export default function EditorV2() {
               onSave={saveNow}
             /></Safe>}
             {activeMenu==="sfx"        && <Safe name="SfxPanel"><SfxPanel
+              brandId={selectedBrandId}
               tab={sfxTab} setTab={setSfxTab}
               activeScene={activeScene}
               activeSceneNumber={scenes.findIndex(s => s.id === activeScene) + 1}
@@ -5081,6 +5084,7 @@ export default function EditorV2() {
               reelId={reelId}
             /></Safe>}
             {activeMenu==="paint" && <Safe name="PaintMaskPanel"><PaintMaskPanel
+              brandId={selectedBrandId}
               paintMode={paintMode} setPaintMode={setPaintMode}
               paintBrushSize={paintBrushSize} setPaintBrushSize={setPaintBrushSize}
               paintColor={paintColor} setPaintColor={setPaintColor}
