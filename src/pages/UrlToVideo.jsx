@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
+import HelpTooltip from "../components/HelpTooltip.jsx";
 
 export default function UrlToVideo() {
   const navigate = useNavigate();
@@ -62,7 +63,10 @@ export default function UrlToVideo() {
         <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: 13, marginBottom: 24, padding: 0 }}>
           ← Back to Studio
         </button>
-        <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>🔗 URL to Video</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "0.67em 0 8px", fontSize: 28 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>🔗 URL to Video</h1>
+          <HelpTooltip topic="urlToVideo" />
+        </div>
         <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 32 }}>
           Paste any webpage URL and we'll turn its content into a ready-to-edit video reel.
         </p>

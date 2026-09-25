@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { getAuthHeaders } from "../utils/auth.js";
 import BrandSelector from "../components/BrandSelector.jsx";
+import HelpTooltip from "../components/HelpTooltip.jsx";
 
 const MIN_RECOMMENDED = 2;
 const MAX_RECOMMENDED = 4;
@@ -366,7 +367,10 @@ export default function Characters() {
     <div style={{ padding: "24px 28px", maxWidth: 1100, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", margin: 0 }}>Character Library</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", margin: 0 }}>Character Library</h1>
+            <HelpTooltip topic="characters" />
+          </div>
           <p style={{ fontSize: 13, color: "var(--onyx-text-faint)", margin: "4px 0 0" }}>
             Reusable characters with reference images for consistent AI generation.
           </p>

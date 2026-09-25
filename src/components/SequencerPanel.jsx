@@ -1622,6 +1622,10 @@ function SequencerPanelBase({
               >◑</button>
               {colorGradeOpen && colorGradePos && createPortal(
                 <div ref={colorGradePopoverRef} style={{ position: "fixed", bottom: colorGradePos.bottom, right: colorGradePos.right, width: 200, background: "rgba(10,14,22,0.97)", border: "0.5px solid rgba(255,255,255,0.14)", borderRadius: 10, padding: "12px 14px", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", zIndex: 9999 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--onyx-text-dim)", textTransform: "uppercase", letterSpacing: "0.07em" }}>Colour grade</span>
+                    <HelpTooltip topic="colorGrade" />
+                  </div>
                   {[["Brightness","brightness"],["Contrast","contrast"],["Saturation","saturation"]].map(([label, key]) => {
                     const activeSceneObj = (scenes || []).find(s => s.id === activeScene);
                     const val = activeSceneObj?.[key] ?? 50;
@@ -1726,6 +1730,7 @@ function SequencerPanelBase({
               title="Toggle captions preview"
               style={{ background: captionsVisible ? "rgba(77,208,255,0.12)" : "var(--chip-bg)", border: `0.5px solid ${captionsVisible ? "rgba(77,208,255,0.4)" : "var(--onyx-hairline-strong)"}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", color: captionsVisible ? "#4dd0ff" : "var(--onyx-text-faint)", fontSize: 11, fontWeight: 700, fontFamily: "inherit" }}
             >CC</button>
+            <HelpTooltip topic="captions" />
           </>
         )}
 

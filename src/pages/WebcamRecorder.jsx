@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
+import HelpTooltip from "../components/HelpTooltip.jsx";
 
 export default function WebcamRecorder() {
   const navigate = useNavigate();
@@ -139,7 +140,10 @@ export default function WebcamRecorder() {
     <div style={dark}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 13, marginBottom: 24, padding: 0 }}>← Back to Studio</button>
-        <h1 className="page-title">📷 Webcam Recording</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <h1 className="page-title">📷 Webcam Recording</h1>
+          <HelpTooltip topic="webcamRecorder" />
+        </div>
         <p style={{ color: "#64748b", fontSize: 15, marginBottom: 28 }}>Record yourself to camera and turn it into a polished reel with AI captions and music.</p>
 
         {error && <div style={{ padding: "12px 16px", borderRadius: 8, marginBottom: 16, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", fontSize: 14 }}>{error}</div>}

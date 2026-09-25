@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import { useSpeechInput } from "../hooks/useSpeechInput.js";
 import { useCredits } from "../state/CreditsContext.jsx";
+import HelpTooltip from "../components/HelpTooltip.jsx";
 
 const TONES = ["Professional", "Energetic", "Inspirational", "Humorous", "Urgent", "Conversational", "Luxury", "Educational"];
 const PLATFORMS = ["Instagram Reels", "TikTok", "YouTube Shorts", "Facebook", "LinkedIn"];
@@ -160,7 +161,10 @@ export default function Campaign() {
           <button onClick={() => navigate("/studio")} style={{ background: "none", border: "none", color: "var(--onyx-text-dim)", cursor: "pointer", fontSize: 13, marginBottom: 16, padding: 0 }}>
             ← Back to Studio
           </button>
-          <h1 className="page-title">Campaign Generator</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h1 className="page-title">Campaign Generator</h1>
+            <HelpTooltip topic="campaign" />
+          </div>
           <p style={{ color: "var(--onyx-text-dim)", margin: 0 }}>Generate {reelCount} unique reels from one campaign brief</p>
           {credits !== null && (
             <div style={{ marginTop: 10, fontSize: 13, color: credits >= estimatedCredits ? "#22c55e" : "#ef4444" }}>
