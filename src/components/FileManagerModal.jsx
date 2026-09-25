@@ -35,8 +35,15 @@ function detectMediaKind(item) {
 
 function Thumb({ item, size }) {
   const kind = detectMediaKind(item);
+  // Reset per item so a row reused for a different asset retries its own
+  // thumbnail instead of inheriting the previous row's load failure.
+  const [thumbFailed, setThumbFailed] = useState(false);
+  useEffect(() => { setThumbFailed(false); }, [item.thumbnail_url]);
   const box = { width: size, height: size, borderRadius: 6, flexShrink: 0, background: "var(--onyx-surface-3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" };
   if (kind === "image") return <img src={item.url} alt="" style={{ ...box, objectFit: "cover" }} />;
+  if (kind === "video" && item.thumbnail_url && !thumbFailed) {
+    return <img src={item.thumbnail_url} alt="" onError={() => setThumbFailed(true)} style={{ ...box, objectFit: "cover" }} />;
+  }
   if (kind === "video") return <div style={{ ...box, fontSize: size > 60 ? 24 : 14 }}>🎬</div>;
   return <div style={{ ...box, fontSize: size > 60 ? 24 : 14 }}>🔊</div>;
 }
@@ -185,6 +192,9 @@ export default function FileManagerModal({ onClose }) {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, padding: "14px 20px", borderBottom: "1px solid var(--onyx-hairline-strong)", alignItems: "center" }}>
           <select value={brandId} onChange={(e) => setBrandId(e.target.value)} style={selectStyle}>
             <option value="">All brands</option>
+            {/* Assets with no brand (every upload before brands were
+                recorded) -- brand_id=none on the API. */}
+            <option value="none">Unassigned</option>
             {brands.map((b) => (
               <option key={b.id} value={b.id}>{b.brand_label || "Untitled brand"}</option>
             ))}

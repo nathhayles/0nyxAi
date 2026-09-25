@@ -83,6 +83,7 @@ function normalizeUploadItem(file) {
 const LICENSE_LABELS = { "CC0": "CC0 (Public Domain)", "CC-BY": "CC-BY (Attribution)" };
 
 export default function SfxPanel({
+  brandId,
   tab,
   setTab,
   activeScene,
@@ -123,6 +124,7 @@ export default function SfxPanel({
     const form = new FormData();
     for (const file of list) form.append("files", file);
     form.append("assetType", "sfx");
+    if (brandId) form.append("brandId", brandId);
     try {
       const res = await fetch("/api/media/upload", { method: "POST", headers: await getAuthHeaders(), body: form });
       const json = await res.json().catch(() => ({}));

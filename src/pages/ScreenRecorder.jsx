@@ -317,6 +317,7 @@ export default function ScreenRecorder() {
       const form = new FormData();
       form.append("files", recordedBlob, `screen_recording_${Date.now()}.webm`);
       form.append("assetType", "video");
+      if (brandId) form.append("brandId", brandId);
       const res = await fetch("/api/media/upload", {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },

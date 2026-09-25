@@ -588,6 +588,8 @@ export default function AssetsLibraryPanel({ onApplyMusic, onApplySfx, onApplyMe
             style={{ width: "100%", background: "var(--onyx-surface)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)", borderRadius: 6, padding: "7px 10px", fontSize: 12 }}
           >
             <option value="">All brands</option>
+            {/* Assets with no brand -- brand_id=none on the API. */}
+            <option value="none">Unassigned</option>
             {brands.map((b) => (
               <option key={b.id} value={b.id}>{b.brand_label || "Untitled brand"}</option>
             ))}

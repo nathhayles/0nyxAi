@@ -70,6 +70,7 @@ const REGEN_MODEL_OPTIONS = [
 ];
 
 export default function StoryboardPanel({
+  brandId,
   scenes,
   activeScene,
   setActiveScene,
@@ -255,6 +256,7 @@ export default function StoryboardPanel({
       const form = new FormData();
       form.append("files", file);
       form.append("assetType", file.type.startsWith("video/") ? "video" : "image");
+      if (brandId) form.append("brandId", brandId);
       const res = await fetch("/api/media/upload", { method: "POST", headers, body: form });
       const data = await res.json();
       const uploaded = data?.files?.[0];
@@ -288,6 +290,7 @@ export default function StoryboardPanel({
       const form = new FormData();
       form.append("files", file);
       form.append("assetType", "image");
+      if (brandId) form.append("brandId", brandId);
       const res = await fetch("/api/media/upload", { method: "POST", headers, body: form });
       const data = await res.json();
       const uploaded = data?.files?.[0];

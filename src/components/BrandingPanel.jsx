@@ -170,6 +170,7 @@ export default function BrandingPanel({ onApply }) {
       const form = new FormData();
       form.append("files", file);
       form.append("assetType", "logo");
+      if (activeBrandId) form.append("brandId", activeBrandId);
       const res = await fetch("/api/media/upload", { method: "POST", headers, body: form });
       const data = await res.json();
       const uploaded = data?.files?.[0] || data?.uploaded?.[0] || data?.[0];
