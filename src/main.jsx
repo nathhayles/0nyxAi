@@ -6,6 +6,8 @@ import { Capacitor } from "@capacitor/core";
 import App from "./App";
 import { CreditsProvider } from "./state/CreditsContext.jsx";
 import { registerServiceWorker, captureInstallPrompt } from "./pwa.js";
+import { installStaleChunkRecovery } from "./staleChunkRecovery.js";
+import AppErrorBoundary from "./components/AppErrorBoundary.jsx";
 import { initNativeShell, hideSplashScreen } from "./capacitor.js";
 
 // PWA-specific wiring only makes sense in an actual browser tab -- a
@@ -19,15 +21,21 @@ if (!Capacitor.isNativePlatform()) {
   captureInstallPrompt();
 }
 
+// A tab left open across a deploy requests chunks the new build deleted --
+// reload once to pick up the new build. See src/staleChunkRecovery.js.
+installStaleChunkRecovery();
+
 // Native-only: status bar styling. See src/capacitor.js -- no-op on web.
 initNativeShell();
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <BrowserRouter>
-    <CreditsProvider>
-      <App />
-    </CreditsProvider>
-  </BrowserRouter>
+  <AppErrorBoundary>
+    <BrowserRouter>
+      <CreditsProvider>
+        <App />
+      </CreditsProvider>
+    </BrowserRouter>
+  </AppErrorBoundary>
 );
 
 // Hands off from the native splash screen (capacitor.config.ts:

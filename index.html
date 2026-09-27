@@ -3,6 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Stale-build guard for the entry chunk. If this page references
+         /assets files a deploy has deleted (or a load lands mid-deploy),
+         the app's own JS never runs, so nothing else can recover: reload
+         once, guarded by the same sessionStorage key/window as
+         src/staleChunkRecovery.js (which takes over once the app boots),
+         and show a Reload screen instead of a black page if that fails. -->
+    <script>(function(){var K='onyx-chunk-reload-at',W=60000,done=false;function fallback(){var r=document.getElementById('root');if(!r||r.childNodes.length)return;r.innerHTML='<div role="alert" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;text-align:center;background:#06080d;color:#f1f5fb;font-family:system-ui,-apple-system,sans-serif"><div><h1 style="font-size:22px;margin:0 0 8px">Something went wrong</h1><p style="margin:0 0 20px;color:rgba(241,245,251,.72)">Reload the page to continue.</p><button type="button" onclick="location.reload()" style="padding:10px 22px;border-radius:8px;border:none;cursor:pointer;font-size:15px;font-weight:600;background:#00d2ff;color:#06080d">Reload</button></div></div>';}window.addEventListener('error',function(e){var t=e.target;if(done||window.__onyxBooted||!t||(t.tagName!=='SCRIPT'&&t.tagName!=='LINK'))return;if((t.src||t.href||'').indexOf('/assets/')<0)return;done=true;try{var l=+sessionStorage.getItem(K);if(!(l&&Date.now()-l<W)){sessionStorage.setItem(K,String(Date.now()));location.reload();return;}}catch(x){}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fallback);else fallback();},true);})();</script>
     <title>AI Video Editor & Maker | Onyx Reelz</title>
     <meta name="description" content="Onyx Reelz is an AI video editor and AI video maker with multi-track editing, AI voiceover, captions, and auto-posting to Instagram, YouTube & LinkedIn." />
     <meta property="og:title" content="AI Video Editor & Maker | Onyx Reelz" />
