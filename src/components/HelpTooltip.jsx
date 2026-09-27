@@ -29,7 +29,7 @@ const CONTENT = {
       },
       {
         heading: "Cost",
-        body: "Each AI scene costs 18–150 credits depending on the model. Regenerating a scene in the editor with narration attached also lip-syncs it, which adds a surcharge."
+        body: "Each AI scene costs 18–150 credits depending on the model. Regenerating a scene that has a voiceover also lip-syncs it, which adds a surcharge (about 86 credits for 5s, 171 for 10s). To lip-sync without regenerating, use the scene's Lip-sync button."
       }
     ]
   },
@@ -86,6 +86,7 @@ const CONTENT = {
       { heading: "Standard voices (free)", body: "A mix of OpenAI and Google voices across many languages. No credits required." },
       { heading: "Premium voices (credits)", body: "ElevenLabs and Google Chirp3-HD voices, with a wide range of accents, emotions and styles. Costs 3 credits per scene." },
       { heading: "How to apply", items: ["Select a voice with the ▶ preview button", "Click Apply to generate voiceover for the active scene", "The clip appears on the VOICE track in the sequencer", "Re-apply after editing the narration text to regenerate", "Use ★ Favourites to show only the voices you've starred"] },
+      { heading: "Character voices", items: ["A scene that tags one character uses that character's linked voice — the scene row shows \"Using Opal's voice\"", "For several speakers, start each line with @Name: (with the colon)", "Tags are never spoken or shown in captions", "Changed the narration or a character's voice? Click Apply again"] },
     ],
   },
   broll: {
@@ -216,7 +217,16 @@ const CONTENT = {
       { heading: "What it's for", body: "Save a reusable character — name, optional details (build, age, hair, eyes, wardrobe and more) and 2–4 reference images — so they look the same across every generation." },
       { heading: "Using a character", body: "Type @CharacterName in a scene's Action or Background field. Autocomplete shows your saved characters." },
       { heading: "Reference mode", items: ["Character Consistency — anchors to the reference photo; best for a recognisable recurring character", "Scene Accuracy — follows the prompt text, prioritising action, setting and camera over an exact face match", "Each character has a default mode, overridable per scene"] },
+      { heading: "Character voices", items: ["Edit → Linked voice: pick a voice from the list, or paste an ElevenLabs voice ID from your ElevenLabs library", "One character in a scene: tag them (e.g. @Opal) in Action or the narration and their voice is used automatically", "Several characters: start each spoken line with @Name: — e.g. @Opal: Welcome… then @Max: Thanks…", "Tags are never spoken or shown in captions", "Lip-sync: single-speaker scenes only — apply the voiceover, then use the scene's Lip-sync button"] },
       { heading: "Good to know", items: ["A brief fade (under 1 second) at the start of a Character Consistency clip is expected, not a bug", "Characters flagged as a real person get an automatic AI-disclosure clip at the start of the export (EU AI Act)"] },
+    ],
+  },
+  // Shown next to the narration box in the editor's Scenes panel.
+  narration: {
+    title: "Character voices in narration",
+    sections: [
+      { heading: "One character", body: "Tag them in the Action box or here, e.g. @Opal. Their linked voice is used automatically, and the Voice Over panel shows \"Using Opal's voice\"." },
+      { heading: "Several characters", body: "Start each spoken line with @Name: — with the colon:\n\n@Opal: Welcome to the show.\n@Max: Thanks for having me." },
     ],
   },
   autoRouting: {

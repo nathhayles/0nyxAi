@@ -857,6 +857,12 @@ export default function StoryboardPanel({
                 with which video model is selected. Gating this on
                 supportsRefs would wrongly disable narration tagging
                 whenever a non-refs model (e.g. Wan 2.5) is picked. */}
+            <div
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--onyx-text-dim)", marginBottom: 4 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              Narration <HelpTooltip topic="narration" />
+            </div>
             {parseLeadingSpeakerTag(sc.narration).length > 0 && (
               <div
                 style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}

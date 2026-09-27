@@ -56,10 +56,12 @@ export const SECTIONS = [
   {
     title: "AI Lip-Sync",
     items: [
-      { q: "How do I make my AI-generated character speak the narration?", a: "Attach narration/voiceover to a scene, then click Regenerate on that scene in the editor. Lip-sync runs automatically as part of generation — the character's mouth movement is synced to the voiceover audio. There's no separate toggle; it happens whenever the scene being regenerated has a voiceover track attached." },
-      { q: "Does lip-sync cost extra credits?", a: "Yes. When a scene has narration attached at the time you regenerate it, a lip-sync surcharge is added on top of the base video-generation cost, reflecting the real processing cost of the lip-sync pass." },
-      { q: "What happens if lip-sync fails?", a: "The scene still generates successfully as a silent clip, with your narration playing as its own audio track exactly as before. Lip-sync failing never blocks or fails the scene generation as a whole." },
-      { q: "Does lip-sync work when generating a full storyboard from a script on the Create page?", a: "Not yet — lip-sync is currently only available when regenerating a single scene in the editor. If you generate a full reel from a script, add narration to a scene afterwards and click Regenerate on that scene in the editor to lip-sync it." },
+      { q: "How do I make my AI-generated character speak the narration?", a: "Apply the voiceover to the scene first (Voice Over panel → Apply). Then either click the scene's Lip-sync button to sync the existing video, or regenerate the scene in the editor, which lip-syncs it as part of generation. Lip-sync works for single-speaker scenes only." },
+      { q: "Does lip-sync cost extra credits?", a: "Yes. The Lip-sync button costs about 86 credits for a 5-second clip and 171 for 10 seconds, based on the video's real length. Regenerating a scene with narration attached adds the same surcharge on top of the generation cost. If lip-sync fails, those credits are refunded." },
+      { q: "Why is the Lip-sync button greyed out?", a: "Hover it to see why. It needs a video and a voiceover on the scene, and the voiceover must be single-speaker (no @Name: lines for several characters). If you've edited the narration, apply the voiceover again first. The narration also has to fit within the video's length." },
+      { q: "I changed the voiceover after lip-syncing — what now?", a: "Run Lip-sync again. A new voiceover no longer matches the mouth movement, so the scene goes back to playing the new voiceover over the video until you re-sync it." },
+      { q: "What happens if lip-sync fails?", a: "The scene keeps its existing video and your narration plays as its own audio track. Lip-sync credits are refunded." },
+      { q: "Does lip-sync work when generating a full storyboard from a script on the Create page?", a: "Not during the initial generation. Once the reel is in the editor, apply voiceovers and use each scene's Lip-sync button." },
     ]
   },
   {
@@ -111,12 +113,23 @@ export const SECTIONS = [
     items: [
       { q: "What is the difference between Standard and Premium voices?", a: "Standard voices are fast and cost-effective — ideal for most reels. Premium voices offer richer, more expressive audio with broader multilingual coverage. Switch between tiers using the Standard / Premium toggle at the top of the Voice Over panel." },
       { q: "How do I find the right voice?", a: "Use the filter controls (gender, accent, language) to narrow the catalog, or type in the search box. Click any voice card to hear a short preview before committing." },
-      { q: "Can I apply a voice to just one scene or all scenes?", a: "Both. After selecting a voice and entering your narration, click 'Apply to this scene' for the current scene only, or 'Apply to all scenes' to regenerate voiceover for every scene in the reel with the same voice." },
+      { q: "Can I apply a voice to just one scene or all scenes?", a: "Both. After selecting a voice and entering your narration, click 'Apply to scene' for the current scene only, or 'Apply to all' to regenerate voiceover for every scene in the reel with the same voice. Scenes voiced by a tagged character keep that character's voice (see Character voices)." },
       { q: "How do I control voiceover speed?", a: "Use the Speed slider in the Voice Over panel (range 0.5×–2.0×). Adjust before generating — the speed is baked into the audio at generation time." },
       { q: "Are multilingual voices available?", a: "Yes. Standard tier includes multilingual voices that speak any language, plus regional voices for a chosen language (select from the Language dropdown). Premium tier voices automatically handle 29+ languages; you can also select a language to get additional regional Premium voices." },
       { q: "Where are my favourite voices?", a: "Star any voice in the Voice Over panel (mic icon in the editor rail) — Standard or Premium tab. Click the Favourites toggle to filter to starred voices only. Favourites persist across sessions." },
       { q: "I see \"Popular\" badges on some voices — what does that mean?", a: "Voices marked Popular are community-cited favourites. Currently Natasha and Aaron in the Premium tab carry this badge." },
       { q: "What do \"Standard+\", \"Premium HD\" mean on voice badges?", a: "These are tier labels indicating voice quality level. Standard+ (formerly WaveNet) is high quality; Premium HD (formerly Chirp3-HD) is the highest quality tier." },
+    ]
+  },
+  {
+    title: "Character voices",
+    items: [
+      { q: "How do I give a character their own voice?", a: "Go to Characters, click Edit on the character, and set Linked voice. Pick a voice from the list, or paste an ElevenLabs voice ID from your ElevenLabs library." },
+      { q: "How do I use a character's voice in a scene?", a: "If the scene has one character, tag them (for example @Opal) in the Action box or the narration. Their linked voice is used automatically, and the Voice Over panel shows \"Using Opal's voice\" on that scene." },
+      { q: "What about a scene where several characters speak?", a: "Start each spoken line with @Name: including the colon, for example \"@Opal: Welcome to the show.\" then \"@Max: Thanks for having me.\" Each line is spoken in that character's voice." },
+      { q: "Will the @tags be read out or shown in captions?", a: "No. @Name: labels are removed before the voiceover and captions are made, and an @mention inside a sentence is read as just the name (\"Welcome @Opal!\" is spoken as \"Welcome Opal!\")." },
+      { q: "I edited the narration or changed a voice — why does it sound the same?", a: "The voiceover isn't regenerated automatically. Open the Voice Over panel and click Apply to scene (or Apply to all) to make a new one." },
+      { q: "Can I lip-sync a character's voice?", a: "Yes, for single-speaker scenes. Apply the voiceover first, then use the scene's Lip-sync button (about 86 credits for 5 seconds, 171 for 10). The narration must fit within the video's length. If you change the voiceover afterwards, run Lip-sync again." },
     ]
   },
   {
