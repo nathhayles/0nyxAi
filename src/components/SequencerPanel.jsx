@@ -18,6 +18,7 @@ import {
 import { AUDIO_CEILING_MULTIPLIERS } from "@shared/audioConstants.js";
 import { TRANSITION_CATALOG, normalizeTransition } from "../utils/transitions.js";
 import { STYLE_PRESETS } from "../config/stylePresets.js";
+import { voiceIsInVideo } from "../utils/lipSyncState.js";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const TRACK_H       = 48;   // px per track row
@@ -671,7 +672,7 @@ function VolumeEnvelope({ clip, w, dispatch, trackKey, trackVolume }) {
 // ─── Clip block ───────────────────────────────────────────────────────────────
 function ClipBlock({ clip, zoom, selected, onSelect, onTrimStart, onTrimEnd, onDragMove,
                      trackColor, trackDimColor, trackKey, trackVolume, timelineRef, onDeleteScene, dispatch,
-                     onContextMenu, transitionToNext, updateScene, onOpenTransitionPanel }) {
+                     onContextMenu, transitionToNext, updateScene, onOpenTransitionPanel, voiceInVideo = false }) {
   const x     = clip.startTime * zoom;
   const w     = Math.max(4, (clip.trimEnd - clip.trimStart) * zoom);
   const isAudio = clip.type === "audio";
@@ -688,10 +689,14 @@ function ClipBlock({ clip, zoom, selected, onSelect, onTrimStart, onTrimEnd, onD
     <div
       onMouseDown={onMouseDownBody}
       onContextMenu={onContextMenu}
+      title={voiceInVideo ? "Voice is in the video: this scene is lip-synced, so this voiceover isn't played separately in the preview or the export." : undefined}
       style={{
         position: "absolute",
         left: x, width: w, top: 3, bottom: 3,
         borderRadius: 5,
+        // Lip-synced scene's voiceover: kept on the track (the scene still
+        // owns it, and changing it re-syncs), but silent -- shown dimmed.
+        opacity: voiceInVideo ? 0.45 : 1,
         background: selected
           ? `linear-gradient(180deg, ${trackColor}cc, ${trackColor}88)`
           : `linear-gradient(180deg, ${trackDimColor}, rgba(0,0,0,0.25))`,
@@ -734,7 +739,7 @@ function ClipBlock({ clip, zoom, selected, onSelect, onTrimStart, onTrimEnd, onD
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             letterSpacing: "0.02em",
           }}>
-            {clip.label || clip.narration?.slice(0, 20) || "Clip"}
+            {voiceInVideo ? "Voice is in the video" : (clip.label || clip.narration?.slice(0, 20) || "Clip")}
           </span>
         )}
         {isAudio && w > 80 && (
@@ -1012,6 +1017,7 @@ function TrackRowBase({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
               transitionToNext={transitionToNext}
               updateScene={updateScene}
               onOpenTransitionPanel={onOpenTransitionPanel}
+              voiceInVideo={track.key === "voiceover" && voiceIsInVideo(scene)}
               onContextMenu={setCtxMenu ? e => {
                 e.preventDefault();
                 e.stopPropagation();

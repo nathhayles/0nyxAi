@@ -30,3 +30,18 @@ export function resyncedChanges(scene) {
     ...(scene.autoMutedForVoiceover ? { sourceAudioMuted: false } : {}),
   };
 }
+
+// A lip-synced scene's voice is already in its video's own audio track, so
+// its voiceover must never also play from the timeline's Voice track (the
+// editor preview skips it; render.js skips muxing it for lipSynced scenes).
+// Once the voiceover is changed, voiceoverReplacedChanges clears lipSynced,
+// and the new voiceover plays over the (muted) clip as normal.
+export function voiceIsInVideo(scene) {
+  return !!scene?.lipSynced;
+}
+
+// String ids of the scenes whose voice is in the video -- what the preview's
+// audio loop checks each Voice-track clip's sceneId against.
+export function voiceInVideoSceneIds(scenes) {
+  return new Set((scenes || []).filter(voiceIsInVideo).map((s) => String(s.id)));
+}

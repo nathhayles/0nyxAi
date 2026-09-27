@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useVoiceoverEngine, STANDARD_VOICES, GOOGLE_LANGUAGES, normalizeNarrationText, isSceneFullyCharacterVoiced, sceneCharacterVoiceNames } from "../hooks/useVoiceoverEngine.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import HelpTooltip from "./HelpTooltip.jsx";
+import { voiceIsInVideo } from "../utils/lipSyncState.js";
 
 // Voice names that get a "Popular" badge (Premium tab)
 const POPULAR_VOICE_NAMES = new Set(["Natasha", "Aaron"]);
@@ -598,6 +599,14 @@ export default function VoiceOverPanel({
                     Using {characterVoiceNames.map((name) => `${name}'s`).join(" and ")} voice{characterVoiceNames.length > 1 ? "s" : ""}
                   </div>
                 )}
+                {/* Lip-synced (Lip-sync button or Talking presenter): the
+                    voice is baked into the video, so the voiceover isn't
+                    played separately (utils/lipSyncState.js). */}
+                {voiceIsInVideo(scene) && (
+                  <div style={{ fontSize: 10, lineHeight: 1.35, color: "var(--onyx-text-faint)" }}>
+                    🎬 Voice is in the video
+                  </div>
+                )}
               </button>
             );
           })}
@@ -625,6 +634,12 @@ export default function VoiceOverPanel({
         {!selectedSceneFullyTagged && fullyTaggedNarratedCount > 0 && (
           <div style={{ fontSize: 10, color: "var(--onyx-text-faint)", marginBottom: 6, lineHeight: 1.4 }}>
             {fullyTaggedNarratedCount} scene{fullyTaggedNarratedCount > 1 ? "s are" : " is"} fully voiced by tagged characters and won't use your selection if applied to all.
+          </div>
+        )}
+
+        {voiceIsInVideo(selectedScene) && (
+          <div style={{ fontSize: 10, color: "var(--onyx-amber)", marginBottom: 6, lineHeight: 1.4 }}>
+            This scene's voice is in its lip-synced video. Applying a new voiceover mutes the video's own audio until you regenerate to re-sync.
           </div>
         )}
 
