@@ -428,6 +428,11 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
             voiceoverVoiceName,
             voiceoverTier: tier,
             voiceoverSegments: match.segments || null,
+            // A new voiceover no longer matches the audio an earlier
+            // lip-sync baked into the video. Clearing the flag makes the
+            // export mux this voiceover again (render.js skips muxing for
+            // lip-synced scenes) and brings the Lip-sync button back.
+            lipSynced: false,
             duration: clipDuration,
             trimEnd: clipDuration,
           };
