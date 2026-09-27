@@ -2,7 +2,7 @@
 // Per-scene voiceover panel with full browsable voice catalog, filters, and preview.
 // Keeps the scene list + apply-to-scene/apply-to-all actions from the original panel.
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useVoiceoverEngine, STANDARD_VOICES, GOOGLE_LANGUAGES, normalizeNarrationText, isNarrationFullyTagged } from "../hooks/useVoiceoverEngine.js";
+import { useVoiceoverEngine, STANDARD_VOICES, GOOGLE_LANGUAGES, normalizeNarrationText, isSceneFullyCharacterVoiced, sceneCharacterVoiceNames } from "../hooks/useVoiceoverEngine.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import HelpTooltip from "./HelpTooltip.jsx";
 
@@ -85,8 +85,8 @@ export default function VoiceOverPanel({
   const [favorites, setFavorites] = useState(new Set()); // Set of "provider:voice_id"
   const [showFavOnly, setShowFavOnly] = useState(false);
 
-  // Fetched purely to compute isNarrationFullyTagged's proactive "your
-  // selection won't apply here" note below (Option 1, 2026-08-12) --
+  // Fetched to compute the per-row "Using [Name]'s voice" labels and the
+  // proactive "your selection won't apply here" note below --
   // same fetch StoryboardPanel.jsx already does independently for its own
   // @tag autocomplete/chip display, not shared state between the two panels.
   const [characters, setCharacters] = useState([]);
@@ -248,11 +248,12 @@ export default function VoiceOverPanel({
   // Proactive "your selection won't apply here" note (Option 1, 2026-08-12)
   // -- computed BEFORE the user clicks Apply, from the same characters data
   // routes/tts.mjs's generate-batch will resolve turns against server-side.
-  // See isNarrationFullyTagged's own comment for exactly what "fully
-  // tagged" means.
-  const selectedSceneFullyTagged = !!selectedScene && isNarrationFullyTagged(selectedScene.narration, characters);
+  // See isSceneFullyCharacterVoiced's own comment for exactly what "fully
+  // character-voiced" means (explicit "@Name:" turns plus the
+  // single-character rule).
+  const selectedSceneFullyTagged = !!selectedScene && isSceneFullyCharacterVoiced(selectedScene, characters);
   const fullyTaggedNarratedCount = useMemo(() =>
-    safeScenes.filter((s) => isNarrationFullyTagged(s?.narration, characters)).length,
+    safeScenes.filter((s) => isSceneFullyCharacterVoiced(s, characters)).length,
     [safeScenes, characters]
   );
 
@@ -543,6 +544,7 @@ export default function VoiceOverPanel({
             const narration = normalizeNarrationText(scene?.narration || "");
             const isSelected = index === selectedSceneIndex;
             const isGenerating = !!generatingVoiceoverScenes?.has(index);
+            const characterVoiceNames = narration ? sceneCharacterVoiceNames(scene, characters) : [];
             return (
               <button
                 key={scene?.id ?? index}
@@ -575,6 +577,11 @@ export default function VoiceOverPanel({
                 <div style={{ fontSize: 11, color: "var(--onyx-text-dim)", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                   {narration || <span style={{ opacity: 0.4 }}>No narration</span>}
                 </div>
+                {characterVoiceNames.length > 0 && (
+                  <div style={{ fontSize: 10, color: "var(--onyx-cyan,#4dd0ff)" }}>
+                    Using {characterVoiceNames.map((name) => `${name}'s`).join(" and ")} voice{characterVoiceNames.length > 1 ? "s" : ""}
+                  </div>
+                )}
               </button>
             );
           })}
@@ -592,12 +599,12 @@ export default function VoiceOverPanel({
             would read as a bug once the user noticed nothing changed. */}
         {selectedSceneFullyTagged && (
           <div style={{ fontSize: 10, color: "var(--onyx-amber)", marginBottom: 6, lineHeight: 1.4 }}>
-            This scene's narration is fully speaker-tagged — Apply to scene will use each character's own voice; your selection has no effect here.
+            This scene is fully voiced by its tagged characters — Apply to scene will use each character's own voice; your selection has no effect here.
           </div>
         )}
         {!selectedSceneFullyTagged && fullyTaggedNarratedCount > 0 && (
           <div style={{ fontSize: 10, color: "var(--onyx-text-faint)", marginBottom: 6, lineHeight: 1.4 }}>
-            {fullyTaggedNarratedCount} scene{fullyTaggedNarratedCount > 1 ? "s are" : " is"} fully speaker-tagged and won't use your selection if applied to all.
+            {fullyTaggedNarratedCount} scene{fullyTaggedNarratedCount > 1 ? "s are" : " is"} fully voiced by tagged characters and won't use your selection if applied to all.
           </div>
         )}
 
