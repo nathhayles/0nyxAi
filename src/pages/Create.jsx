@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Navigate, Link, useNavigate } from "react-router-dom";
 import HelpTooltip from "../components/HelpTooltip.jsx";
 import { generateStoryboardFromScript } from "../lib/createStoryboard";
@@ -7,6 +7,7 @@ import BrandSelector from "../components/BrandSelector.jsx";
 import TemplateSelectorPill from "../components/TemplateSelectorPill.jsx";
 import QuickCreatePanel from "../components/QuickCreatePanel.jsx";
 import AutoModelRoutingPreview from "../components/AutoModelRoutingPreview.jsx";
+import TalkingPresenterReview from "../components/TalkingPresenterReview.jsx";
 import ThemeSelectorPill from "../components/ThemeSelectorPill.jsx";
 import { TEMPLATES } from "../data/templates.js";
 import { useSpeechInput } from "../hooks/useSpeechInput.js";
@@ -111,6 +112,23 @@ function normalizeGeneratedScene(scene, index) {
   };
 }
 
+// The voiceover the pipeline made for a scene (a Talking presenter scene, or
+// one that stayed on the video model, e.g. too long), in the scene fields
+// the editor uses -- so the reel keeps it instead of making another.
+function jobVoiceover(job) {
+  if (!job?.voiceover?.url) return {};
+  return {
+    voiceoverUrl: job.voiceover.url,
+    voiceoverDuration: job.voiceover.duration ?? null,
+    voiceoverProvider: job.voiceover.provider || null,
+    voiceoverVoice: job.voiceover.voice || null,
+    voiceoverVoiceId: job.voiceover.voice || null,
+    voiceoverVoiceName: job.character ? `${job.character}'s voice` : null,
+    voiceoverSourceText: job.narration || "",
+    voiceoverStale: false,
+  };
+}
+
 function isMobileDevice() {
   return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent) || window.innerWidth < 768;
 }
@@ -146,6 +164,14 @@ export default function CreatePage() {
   // scene that tags a Character consistency character (see the backend's
   // lib/startFrame.js). Credits match START_FRAME_MODELS there.
   const [startFrameModel, setStartFrameModel] = useState("seedream-4.5");
+  // Talking presenter (backend routes/presenter.js via the pipeline): scenes
+  // that tag one character with photos and a linked voice are generated as
+  // that character speaking to camera, lip-synced. On by default -- the
+  // review step shows every scene's mode and exact cost before any charge.
+  const [talkingPresenter, setTalkingPresenter] = useState(true);
+  const [presenterResolution, setPresenterResolution] = useState("768P");
+  const [presenterReview, setPresenterReview] = useState(null); // { data, loading } while the review modal is open
+  const presenterReviewRef = useRef(null); // { resolve, toggle } for the pending review Promise
   const [motionRefUrl, setMotionRefUrl] = useState("");
   const [videoModel, setVideoModel] = useState("kling-2.6-pro");
   // Auto-Model-Routing (docs/margin-and-feature-scoping-2026-09-08.md Task
@@ -235,9 +261,14 @@ export default function CreatePage() {
   const startFrameEligibleModel = videoModel === "kling-2.6-pro" || isAutoModel;
   const startFrameCreditsEach = START_FRAME_OPTIONS.find(o => o.id === startFrameModel)?.credits || 6;
   const showStartFrameEstimate = mode === "ai" && startFrameEligibleModel && /@[A-Za-z0-9_]/.test(script);
+  // Not with Auto model routing in this version (its own review screen).
+  const presenterAvailable = mode === "ai" && !isAutoModel;
+  const usePresenter = presenterAvailable && talkingPresenter;
 
-  // Only block if credits have loaded and are genuinely insufficient
-  const insufficientCredits = mode === "ai" && !isAutoModel && credits !== null && estimatedCredits > credits;
+  // Only block if credits have loaded and are genuinely insufficient. With
+  // Talking presenter the rough word-count estimate overstates the cost, so
+  // the review screen (exact total, Generate disabled when short) decides.
+  const insufficientCredits = mode === "ai" && !isAutoModel && !usePresenter && credits !== null && estimatedCredits > credits;
 
   const canGenerate = useMemo(() => {
     if (!script.trim()) return false;
@@ -347,6 +378,53 @@ export default function CreatePage() {
         if (motionRefUrl.trim()) klingBody.motion_ref_url = motionRefUrl.trim();
         if (sceneModelOverrides && Object.keys(sceneModelOverrides).length) klingBody.sceneModelOverrides = sceneModelOverrides;
 
+        // Talking presenter review: POST /api/kling/review-pipeline prices
+        // the exact plan the pipeline will charge (and makes the presenter
+        // voiceovers, reusing any already made for the same text and voice).
+        // Each per-scene switch asks again. The pipeline is sent the reviewed
+        // total and never charges more than it.
+        if (usePresenter && analysis?.scenes?.length) {
+          klingBody.talking_presenter = { enabled: true, resolution: presenterResolution };
+          let videoModelScenes = [];
+          const fetchReview = async () => {
+            const r = await fetch("/api/kling/review-pipeline", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ ...klingBody, video_model_scenes: videoModelScenes }),
+            });
+            const d = await r.json().catch(() => null);
+            if (!r.ok || !d?.scenes) throw new Error(d?.error || "Couldn't work out this reel's cost — please try again.");
+            return d;
+          };
+          setProgressStep("Preparing voiceovers and working out the cost...");
+          const first = await fetchReview();
+          const decision = await new Promise((resolve) => {
+            presenterReviewRef.current = {
+              resolve,
+              toggle: async (sceneIndex, useVideo) => {
+                videoModelScenes = useVideo ? [...new Set([...videoModelScenes, sceneIndex])] : videoModelScenes.filter((i) => i !== sceneIndex);
+                setPresenterReview((prev) => ({ ...prev, loading: true }));
+                try {
+                  setPresenterReview({ data: await fetchReview(), loading: false });
+                } catch (err) {
+                  setPresenterReview((prev) => ({ ...prev, loading: false }));
+                  setError(err.message);
+                }
+              },
+            };
+            setPresenterReview({ data: first, loading: false });
+          });
+          setPresenterReview(null);
+          presenterReviewRef.current = null;
+          if (!decision.confirmed) {
+            setLoading(false);
+            setProgressStep("");
+            return;
+          }
+          klingBody.video_model_scenes = videoModelScenes;
+          klingBody.expected_total = decision.totalCost;
+        }
+
         const res = await fetch("/api/kling/", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -390,7 +468,9 @@ export default function CreatePage() {
             try {
               const { data: { session: pollSession } } = await supabase.auth.getSession();
               const pollToken = pollSession?.access_token || token;
-              const r = await fetch(`/api/kling/status/${job.jobId}`, { headers: pollToken ? { Authorization: `Bearer ${pollToken}` } : {} });
+              // Talking presenter scenes run as their own jobs.
+              const statusPath = job.kind === "presenter" ? `/api/presenter/status/${job.jobId}` : `/api/kling/status/${job.jobId}`;
+              const r = await fetch(statusPath, { headers: pollToken ? { Authorization: `Bearer ${pollToken}` } : {} });
               d = await r.json();
             } catch (pollErr) {
               // Transient failure for this one scene (offline, DNS, a gateway
@@ -435,10 +515,14 @@ export default function CreatePage() {
               const shortfallChanges = shortfall
                 ? { durationShortfall: true, durationShortfallExpected: expectedDuration, durationShortfallDelivered: d.deliveredDuration }
                 : {};
-              results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaUrl: d.videoUrl, thumbnail: d.thumbnailUrl || null, mediaType: "video", isAiGenerated: true, generatedAt: new Date().toISOString(), mode: "ai", needsBleedFade: !!d.needsBleedFade, ...durationChanges, ...shortfallChanges };
+              // A presenter scene's video carries its voice (lipSynced), and
+              // its length is the voiceover's, so no shortfall check applies.
+              results[i] = job.kind === "presenter"
+                ? { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaUrl: d.videoUrl, thumbnail: d.thumbnailUrl || null, mediaType: "video", isAiGenerated: true, generatedAt: new Date().toISOString(), mode: "ai", lipSynced: true, ...durationChanges, ...jobVoiceover(job) }
+                : { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaUrl: d.videoUrl, thumbnail: d.thumbnailUrl || null, mediaType: "video", isAiGenerated: true, generatedAt: new Date().toISOString(), mode: "ai", needsBleedFade: !!d.needsBleedFade, ...durationChanges, ...shortfallChanges, ...jobVoiceover(job) };
               pending.delete(i);
             } else if (d.status === "failed") {
-              results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai" };
+              results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai", ...jobVoiceover(job) };
               pending.delete(i);
             }
           }));
@@ -450,7 +534,9 @@ export default function CreatePage() {
         // which made it look like that scene was never generated at all.
         for (const i of pending) {
           const job = jobs[i];
-          results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai", generationPending: true, jobId: job.jobId };
+          // presenterJobId (not jobId) for a presenter scene: the editor's
+          // reconcilePendingScenes polls /api/presenter/status for those.
+          results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai", generationPending: true, ...(job.kind === "presenter" ? { presenterJobId: job.jobId } : { jobId: job.jobId }), ...jobVoiceover(job) };
         }
         scenes = results.filter(Boolean);
       }
@@ -851,6 +937,56 @@ export default function CreatePage() {
                   </div>
                 )}
 
+                {/* Talking presenter: single-character speaking scenes become
+                    that character talking to camera, lip-synced (backend
+                    routes/presenter.js). The review step shows each scene's
+                    mode and exact cost, with a per-scene switch back to the
+                    video model, before anything is charged. */}
+                {mode === "ai" && (
+                  <div style={{
+                    padding: "10px 14px", borderRadius: 10, marginBottom: 10,
+                    background: "var(--onyx-bg-2)", border: `1px solid ${usePresenter ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                    opacity: presenterAvailable ? 1 : 0.5,
+                  }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: presenterAvailable ? "pointer" : "not-allowed" }}>
+                      <input
+                        type="checkbox"
+                        checked={usePresenter}
+                        disabled={!presenterAvailable}
+                        onChange={(e) => setTalkingPresenter(e.target.checked)}
+                        style={{ width: 16, height: 16, accentColor: "#00d2ff", cursor: "inherit" }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>🎙 Talking presenter for single-character scenes</div>
+                        <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>
+                          {presenterAvailable
+                            ? "A scene that tags one character with photos and a linked voice becomes that character speaking to camera, lip-synced — much cheaper than a video model plus lip-sync. You'll see every scene's mode and exact cost before anything is charged."
+                            : "Not available with Auto model routing yet — pick a specific model to use it."}
+                        </div>
+                      </div>
+                    </label>
+                    {usePresenter && (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, paddingLeft: 26 }}>
+                        {[{ id: "768P", label: "768p", rate: 11 }, { id: "480P", label: "480p (cheaper)", rate: 7 }].map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setPresenterResolution(opt.id)}
+                            style={{
+                              padding: "6px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer",
+                              background: presenterResolution === opt.id ? "rgba(0,210,255,0.15)" : "var(--onyx-bg)",
+                              border: `1px solid ${presenterResolution === opt.id ? "rgba(0,210,255,0.5)" : "rgba(255,255,255,0.12)"}`,
+                              color: presenterResolution === opt.id ? "#00d2ff" : "var(--onyx-text)",
+                            }}
+                          >
+                            {opt.label} · about {opt.rate} cr/second
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Motion Reference URL -- Kling-only: submitSceneJob only ever
                     attaches this for models with supportsRefs (currently just
                     kling-2.6-pro); for every other model it was already a
@@ -906,8 +1042,17 @@ export default function CreatePage() {
                     : `+ ${startFrameCreditsEach} credits per scene that tags a character (start frames)`}
                 </div>
               )}
+              {usePresenter && (
+                <div style={{ color: "var(--onyx-text-faint)" }}>
+                  Talking presenter scenes instead: about {presenterResolution === "480P" ? 7 : 11} credits per second of narration + a start frame
+                </div>
+              )}
               <div style={{ color: insufficientCredits ? "#ff5c5c" : "var(--onyx-text)" }}>
-                {mode === "ai" && isAutoModel ? "AI Credits Needed: shown in the review step before you generate" : `AI Credits Needed: ${estimatedCredits}${showStartFrameEstimate ? " + start frames" : ""}`}
+                {mode === "ai" && isAutoModel
+                  ? "AI Credits Needed: shown in the review step before you generate"
+                  : usePresenter
+                  ? `AI Credits Needed: up to about ${estimatedCredits}${showStartFrameEstimate ? " + start frames" : ""} — the exact total is shown on the review screen before you generate`
+                  : `AI Credits Needed: ${estimatedCredits}${showStartFrameEstimate ? " + start frames" : ""}`}
               </div>
             </div>
           </div>
@@ -1105,6 +1250,18 @@ export default function CreatePage() {
             </div>
           </div>
         ) : null}
+
+        {presenterReview && (
+          <TalkingPresenterReview
+            review={presenterReview.data}
+            loading={presenterReview.loading}
+            videoModelLabel={selectedModelOption.label}
+            credits={credits}
+            onToggle={(sceneIndex, useVideo) => presenterReviewRef.current?.toggle(sceneIndex, useVideo)}
+            onCancel={() => presenterReviewRef.current?.resolve({ confirmed: false })}
+            onConfirm={() => presenterReviewRef.current?.resolve({ confirmed: true, totalCost: presenterReview.data?.totalCost })}
+          />
+        )}
 
         {autoModelPreview && (
           <AutoModelRoutingPreview

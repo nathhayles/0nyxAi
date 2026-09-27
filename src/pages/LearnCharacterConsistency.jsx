@@ -177,7 +177,10 @@ export default function LearnCharacterConsistency() {
         video model and lip-sync for these shots, at a fraction of the cost:
         about 11 credits a second at 768p (7 at 480p) plus 6 for the start
         frame. The voiceover can be up to 15 seconds; split longer narration
-        across two scenes.
+        across two scenes. On the Create page it's on by default: after your
+        script is analysed you'll see each scene's mode and exact cost, and
+        can switch any presenter scene back to the video model before
+        anything is charged.
       </p>
 
       <h2 style={h2Style}>What this doesn't do</h2>
