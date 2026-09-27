@@ -42,7 +42,7 @@ import { PLATFORM_SAFE_ZONES } from "../data/platformSafeZones.js";
 import DesktopOnlyGate from "../components/DesktopOnlyGate.jsx";
 import { stripNarrationTags } from "../utils/narrationTags.js";
 import { TALKING_PRESENTER, PRESENTER_CAPABILITIES, presenterSceneBody } from "../utils/talkingPresenter.js";
-import { voiceoverReplacedChanges, resyncedChanges } from "../utils/lipSyncState.js";
+import { voiceoverReplacedChanges, resyncedChanges, voiceInVideoSceneIds } from "../utils/lipSyncState.js";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -3692,11 +3692,21 @@ export default function EditorV2() {
         { key: "sfx",       volRef: musicVolumeRef },
         ...stemAudioTracks,
       ];
+      // A lip-synced scene's voice is already in its video's own audio, so
+      // its Voice-track clip is never played on top of it (same rule as
+      // render.js's export). Checked per tick, so it follows lipSynced as
+      // soon as a lip-sync lands or a new voiceover clears it.
+      const voiceInVideoIds = voiceInVideoSceneIds(scenesRef.current);
       AUDIO_TRACKS.forEach(({ key, volRef }) => {
         const track = tracksRef.current.find(t => t.key === key);
         if (!track) return;
         track.clips.forEach(clip => {
           if (!clip.src) return;
+          if (key === "voiceover" && clip.sceneId != null && voiceInVideoIds.has(String(clip.sceneId))) {
+            const silenced = audioElementsRef.current.get(clip.id);
+            if (silenced && !silenced.paused) silenced.pause();
+            return;
+          }
           const clipDur = clip.trimEnd - clip.trimStart;
           const inRange = newPH >= clip.startTime && newPH < clip.startTime + clipDur;
           let el = audioElementsRef.current.get(clip.id);
