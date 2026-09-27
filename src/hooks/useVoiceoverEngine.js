@@ -6,6 +6,7 @@
 import { useMemo, useRef, useState } from "react";
 import { getAuthHeaders } from "../utils/auth.js";
 import { stripNarrationTags } from "../utils/narrationTags.js";
+import { voiceoverReplacedChanges } from "../utils/lipSyncState.js";
 
 // OpenAI gpt-4o-mini-tts voices — all multilingual (language = input text language)
 export const STANDARD_VOICES = [
@@ -431,8 +432,11 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
             // A new voiceover no longer matches the audio an earlier
             // lip-sync baked into the video. Clearing the flag makes the
             // export mux this voiceover again (render.js skips muxing for
-            // lip-synced scenes) and brings the Lip-sync button back.
+            // lip-synced scenes) and brings the Lip-sync button back; on a
+            // lip-synced scene the clip's own (old) audio is muted too and
+            // the card says to regenerate (utils/lipSyncState.js).
             lipSynced: false,
+            ...voiceoverReplacedChanges(scene, match.url),
             duration: clipDuration,
             trimEnd: clipDuration,
           };

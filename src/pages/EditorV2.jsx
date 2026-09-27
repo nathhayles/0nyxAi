@@ -41,6 +41,8 @@ import SafeZoneOverlay from "../components/SafeZoneOverlay.jsx";
 import { PLATFORM_SAFE_ZONES } from "../data/platformSafeZones.js";
 import DesktopOnlyGate from "../components/DesktopOnlyGate.jsx";
 import { stripNarrationTags } from "../utils/narrationTags.js";
+import { TALKING_PRESENTER, PRESENTER_CAPABILITIES, presenterSceneBody } from "../utils/talkingPresenter.js";
+import { voiceoverReplacedChanges, resyncedChanges } from "../utils/lipSyncState.js";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -2113,13 +2115,15 @@ export default function EditorV2() {
   // sourced from VIDEO_MODELS in kling.js) rather than duplicating a hardcoded
   // list here -- keeps StoryboardPanel's ref-gated controls in sync with the
   // same source of truth the backend uses to decide whether to honor refs.
-  const [modelCapabilities, setModelCapabilities] = useState({});
+  // Talking presenter isn't a VIDEO_MODELS entry (it has its own route,
+  // routes/presenter.js), so its row is added here and kept on refetch.
+  const [modelCapabilities, setModelCapabilities] = useState({ [TALKING_PRESENTER]: PRESENTER_CAPABILITIES });
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/models/capabilities", { headers: await getAuthHeaders() });
         const data = await res.json();
-        setModelCapabilities(Object.fromEntries((data || []).map((m) => [m.id, m])));
+        setModelCapabilities({ ...Object.fromEntries((data || []).map((m) => [m.id, m])), [TALKING_PRESENTER]: PRESENTER_CAPABILITIES });
       } catch (e) {
         console.error("[EditorV2] failed to load model capabilities:", e);
       }
@@ -3818,6 +3822,7 @@ export default function EditorV2() {
   // switched back" self-heal without a support ticket or manual DB lookup.
   const reconcilingJobsRef = useRef(new Set());
   const applyLipSyncResultRef = useRef(() => {});
+  const applyPresenterResultRef = useRef(async () => {});
   const reconcilePendingScenes = useCallback(async () => {
     const list = scenesRef.current || [];
     // Lip-sync jobs (see lipSyncScene below) leave the same kind of trail:
@@ -3834,6 +3839,23 @@ export default function EditorV2() {
         console.warn("[EditorV2] reconcile lip-sync failed:", sc.id, e);
       } finally {
         reconcilingJobsRef.current.delete(sc.lipSyncJobId);
+      }
+    }
+
+    // Talking presenter jobs (generatePresenterScene) keep presenterJobId on
+    // the scene until their result is applied.
+    for (const sc of list.filter(sc => sc.presenterJobId && !reconcilingJobsRef.current.has(sc.presenterJobId))) {
+      reconcilingJobsRef.current.add(sc.presenterJobId);
+      try {
+        const ph = await getAuthHeaders();
+        const res = await fetch(`/api/presenter/status/${sc.presenterJobId}`, { headers: ph });
+        const poll = await res.json().catch(() => ({}));
+        if (poll.status === "completed" && poll.videoUrl) await applyPresenterResultRef.current(sc.id, poll);
+        else if (poll.status === "failed" || res.status === 404) updateSceneRef.current(sc.id, { presenterJobId: null, generationPending: false });
+      } catch (e) {
+        console.warn("[EditorV2] reconcile presenter job failed:", sc.id, e);
+      } finally {
+        reconcilingJobsRef.current.delete(sc.presenterJobId);
       }
     }
 
@@ -3855,6 +3877,7 @@ export default function EditorV2() {
             thumbnail: poll.thumbnailUrl || poll.videoUrl,
             lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade,
             generationPending: false, jobId: null,
+            ...resyncedChanges(sc),
           });
         } else if (poll.status === "failed") {
           updateSceneRef.current(sc.id, { generationPending: false });
@@ -3951,7 +3974,7 @@ export default function EditorV2() {
         }
         // Same rule as useVoiceoverEngine: a new voiceover invalidates an
         // earlier lip-sync (the backend clears it too, see brandApply.js).
-        if (updated.voiceoverUrl && updated.voiceoverUrl !== original.voiceoverUrl) changes.lipSynced = false;
+        Object.assign(changes, voiceoverReplacedChanges(original, updated.voiceoverUrl));
         updateSceneRef.current(original.id, changes);
       });
 
@@ -4372,7 +4395,9 @@ export default function EditorV2() {
     });
   }
 
+  const generatePresenterSceneRef = useRef(() => {});
   const regenerateScene = useCallback(async (id) => {
+    if (regenModel === TALKING_PRESENTER) return generatePresenterSceneRef.current(id);
     setGeneratingScenes(p => ({ ...p, [id]: { status: "submitting" } }));
     try {
       const scene = scenes.find(s => s.id === id); if (!scene) return;
@@ -4522,7 +4547,8 @@ export default function EditorV2() {
           const shortfallChanges = shortfall
             ? { durationShortfall: true, durationShortfallExpected: expectedDuration, durationShortfallDelivered: realDuration }
             : { durationShortfall: false };
-          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, mediaType: "video", thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade, generationPending: false, jobId: null, ...durationChanges, ...shortfallChanges });
+          const current = (scenesRef.current || []).find(s => s.id === id) || scene;
+          updateSceneRef.current(id, { mediaUrl: poll.videoUrl, url: poll.videoUrl, mediaType: "video", thumbnail: poll.thumbnailUrl || poll.videoUrl, lipSynced: !!poll.lipSynced, needsBleedFade: !!poll.needsBleedFade, generationPending: false, jobId: null, ...durationChanges, ...shortfallChanges, ...resyncedChanges(current) });
           return;
         }
         if (poll.status === "failed") throw new Error(poll.error || "Generation failed");
@@ -4535,6 +4561,97 @@ export default function EditorV2() {
     }
     finally { setGeneratingScenes(p => ({ ...p, [id]: false })); }
   }, [scenes, ratio, regenModel, toast, supportsRefs, supportsEndFrame, supportsStartImage, requiresStartAndEnd, modelCapabilities, supports1080pUpgrade, aspectRatioSupported, aspectRatioSpec]);
+
+  // Talking presenter (routes/presenter.js): one call makes the voiceover if
+  // the scene has none, the start frame, and the lip-synced video. The
+  // backend charges up front and refunds everything if the job fails.
+  // presenterJobId stays on the scene until a result lands, so
+  // reconcilePendingScenes can finish the job after a reload.
+  const applyPresenterResult = useCallback(async (id, poll) => {
+    const scene = (scenesRef.current || []).find(s => s.id === id);
+    if (!scene) return;
+    const probed = poll.deliveredDuration ?? await probeVideoDuration(poll.videoUrl);
+    updateSceneRef.current(id, {
+      mediaUrl: poll.videoUrl, url: poll.videoUrl, mediaType: "video",
+      thumbnail: poll.thumbnailUrl || poll.videoUrl,
+      // The video carries the voiceover in its own audio track, so render
+      // must not add it again (render.js skips muxing lipSynced scenes).
+      lipSynced: true, needsBleedFade: false,
+      generationPending: false, presenterJobId: null,
+      durationShortfall: false,
+      ...(probed ? { duration: probed, sourceDuration: probed } : {}),
+      ...resyncedChanges(scene),
+    });
+  }, []);
+  applyPresenterResultRef.current = applyPresenterResult;
+
+  const generatePresenterScene = useCallback(async (id) => {
+    setGeneratingScenes(p => ({ ...p, [id]: { status: "submitting" } }));
+    let jobId = null;
+    try {
+      const scene = (scenesRef.current || []).find(s => s.id === id); if (!scene) return;
+      const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
+      const { voiceoverDuration, ...body } = presenterSceneBody(scene);
+      const submitRes = await fetch("/api/presenter/generate", {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({ ...body, sceneId: String(id), aspect_ratio: ratio ?? "9:16", brand_id: selectedBrandId }),
+      });
+      const data = await submitRes.json().catch(() => ({}));
+      // Saved even when the request is then refused (e.g. too long), so the
+      // voiceover isn't lost or made twice.
+      if (data.voiceover?.url) {
+        updateSceneRef.current(id, {
+          voiceoverUrl: data.voiceover.url, voiceover: data.voiceover.url,
+          voiceoverDuration: data.voiceover.duration ?? null,
+          voiceoverProvider: data.voiceover.provider || null, voiceoverVoice: data.voiceover.voice || null,
+          voiceoverVoiceId: data.voiceover.voice || null,
+          voiceoverSegments: null, voiceoverStale: false, voiceoverSourceText: scene.narration || "",
+          ...voiceoverReplacedChanges(scene, data.voiceover.url),
+        });
+      }
+      if (!submitRes.ok || !data.jobId) {
+        throw new Error(data.error === "vo_minutes_exceeded"
+          ? "You've used all your voiceover minutes, so this scene's voiceover couldn't be made."
+          : data.error || "Couldn't start Talking presenter");
+      }
+      jobId = data.jobId;
+      updateSceneRef.current(id, { presenterJobId: jobId, generationPending: true });
+      setGeneratingScenes(p => ({ ...p, [id]: { status: "polling" } }));
+
+      const deadline = Date.now() + 20 * 60 * 1000;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 5000));
+        let poll;
+        try {
+          const ph = await getAuthHeaders();
+          poll = await (await fetch(`/api/presenter/status/${jobId}`, { headers: ph })).json();
+        } catch (pollErr) {
+          console.warn("[EditorV2] presenter poll transient failure, retrying:", pollErr);
+          continue;
+        }
+        if (poll.status === "completed" && poll.videoUrl) {
+          await applyPresenterResult(id, poll);
+          toast.show(`Talking presenter scene ready (${data.credits} credits)`, "success");
+          return;
+        }
+        if (poll.status === "failed") {
+          updateSceneRef.current(id, { presenterJobId: null, generationPending: false });
+          throw new Error(poll.error || "Talking presenter failed");
+        }
+      }
+      // Still running server-side: presenterJobId stays, so the result is
+      // picked up on the next reload/focus.
+      toast.show("Talking presenter is taking longer than usual. It will appear here when it's done.", "info");
+    } catch (e) {
+      console.error("[EditorV2] presenter", e);
+      toast.show(e.message || "Talking presenter failed", "error");
+      if (!jobId) updateSceneRef.current(id, { generationPending: false });
+    } finally {
+      setGeneratingScenes(p => ({ ...p, [id]: false }));
+    }
+  }, [ratio, selectedBrandId, toast, applyPresenterResult]);
+  generatePresenterSceneRef.current = generatePresenterScene;
 
   // Upscale button (build brief 2026-08-07). Mirrors regenerateScene's
   // submit-then-poll shape against the same fal.ai/WaveSpeed queue
@@ -4621,6 +4738,7 @@ export default function EditorV2() {
       mediaUrl: videoUrl, url: videoUrl, mediaType: "video",
       lipSynced: true, preLipSyncMediaUrl: currentUrl || null,
       lipSyncJobId: null, lipSyncSourceUrl: null,
+      ...resyncedChanges(scene),
     });
   }, [toast]);
   applyLipSyncResultRef.current = applyLipSyncResult;
