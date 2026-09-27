@@ -3,13 +3,15 @@
 // comes from POST /api/analyse, and with Talking presenter on the review
 // screen shows the exact total before anything is charged.
 //
-// The backend has no fixed rule for "Scene 1:" markers (the analyser is a
-// model prompt, and the pipeline's only raw split is blank lines), so a
-// script that marks its scenes is counted by those markers here; without
-// markers it falls back to the old one-scene-per-22-words guess.
+// A script that marks its scenes is counted by those markers, which the
+// backend's analyser keeps as exactly one scene each; without markers it
+// falls back to the old one-scene-per-22-words guess.
 
-// A line starting "Scene 3:", "SCENE 3 -", "## Scene 3.", "**Scene 3)**"...
-const SCENE_MARKER_RE = /^[ \t]*(?:[#*>_-]+[ \t]*)?scene[ \t]*\d+[ \t]*[*_]*[ \t]*[:.)\-–—]/gim;
+// "Scene N:" at the start of a line (any case, optional leading
+// whitespace) -- the same rule the backend's /api/analyse uses to keep one
+// scene per marker (lib/sceneMarkers.js). "the scene 2 lighting" inside a
+// sentence is not a marker.
+const SCENE_MARKER_RE = /^[ \t]*scene[ \t]*\d+[ \t]*:/gim;
 const WORDS_PER_SCENE_GUESS = 22;
 
 // Same as the backend's (lib/resolveTaggedEntities.js TAG_RE, speaker labels

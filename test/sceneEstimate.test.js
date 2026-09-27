@@ -12,14 +12,15 @@ describe("estimateSceneCount", () => {
     assert.equal(estimateSceneCount(script), 2);
   });
 
-  test("marker styles: case, headings, bold, dashes", () => {
-    const script = "## Scene 1 - Opening\nHello.\nSCENE 2: More.\n**Scene 3:** Still more.\nscene 4) End.";
-    assert.equal(estimateSceneCount(script), 4);
+  test("a marker is \"Scene N:\" at the start of a line: any case, optional leading whitespace", () => {
+    assert.equal(estimateSceneCount("Scene 1: Hello.\n  SCENE 2: More.\n\tscene 3 : End."), 3);
     assert.deepEqual(splitByMarkers("Scene 1: Hi there.\nScene 2: Bye."), ["Hi there.", "Bye."]);
   });
 
-  test("'scene' mid-sentence is not a marker", () => {
-    assert.equal(estimateSceneCount(`The scene 1 more time. ${filler(10)}`), 1);
+  test("\"scene 2\" mid-paragraph, no colon, or a prefix is not a marker (same as the backend)", () => {
+    assert.equal(estimateSceneCount("Scene 1: We keep the scene 2 lighting, and scene 3: the reveal.\nScene 2: Night."), 2);
+    assert.equal(splitByMarkers("Scene 2 lighting is softer tonight.").length, 0);
+    assert.equal(splitByMarkers("## Scene 1: Open\n- Scene 2: More").length, 0);
   });
 
   test("no markers: one scene per 22 words", () => {
