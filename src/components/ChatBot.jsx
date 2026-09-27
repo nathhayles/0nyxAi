@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import FeedbackButton from "./FeedbackButton.jsx";
 import { supabase } from "../supabaseClient.js";
+import { purchasesAllowed } from "../utils/nativeApp.js";
 
 const WELCOME = "Hi! I'm Onyx Support. Ask me anything about creating reels, credits, voiceovers, or your account.";
 
@@ -42,7 +43,9 @@ export default function ChatBot() {
       const res = await fetch("/api/support/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...messages, userMsg] }),
+        // The native apps get an app-aware support prompt with no purchase
+        // talk (backend routes/support.js, src/utils/nativeApp.js).
+        body: JSON.stringify({ messages: [...messages, userMsg], ...(purchasesAllowed() ? {} : { client: "capacitor" }) }),
       });
       const data = await res.json();
       setMessages(prev => [...prev, { role: "assistant", content: data.reply || "Sorry, something went wrong." }]);
