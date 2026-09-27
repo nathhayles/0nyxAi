@@ -15,7 +15,7 @@ import { TRANSITION_CATALOG, normalizeTransition } from "../utils/transitions.js
 import "../styles/editor.css";
 
 import SequencerPanel   from "../components/SequencerPanel.jsx";
-import StoryboardPanel  from "../components/StoryboardPanel.jsx";
+import StoryboardPanel, { previousSceneVideoUrl } from "../components/StoryboardPanel.jsx";
 import VisualsPanel     from "../components/VisualsPanel.jsx";
 import StylesPanel      from "../components/StylesPanel.jsx";
 import PaintMaskPanel   from "../components/PaintMaskPanel.jsx";
@@ -4448,6 +4448,15 @@ export default function EditorV2() {
           // so switching away from wan-2.7 doesn't send a stale 1080p
           // choice to a model that doesn't have this concept at all.
           resolution: supports1080pUpgrade ? (scene.resolution || "720p") : null,
+          // Scene start frames: "Continue from previous scene" starts from
+          // the previous scene's last frame (the backend extracts it); a
+          // Start Image always wins. Otherwise a Kling 3 Pro scene with a
+          // Character consistency character gets a generated start frame,
+          // at the quality picked on the scene card.
+          continue_from_video_url: !sceneImageUrl && scene.continueFromPrevious
+            ? previousSceneVideoUrl(scenes, scenes.findIndex(s => s.id === id))
+            : null,
+          start_frame_model: scene.startFrameModel || null,
         }),
       });
       const { jobId, error: submitErr } = await submitRes.json();

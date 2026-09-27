@@ -90,6 +90,15 @@ function lipSyncCreditEstimate(sc) {
   return Math.ceil((seconds * 0.128 * 1.33) / 0.01);
 }
 
+// The previous scene's generated video, if it has one -- what "Continue
+// from previous scene" starts from (EditorV2's regenerateScene sends it as
+// continue_from_video_url).
+export function previousSceneVideoUrl(scenes, index) {
+  const prev = index > 0 ? scenes[index - 1] : null;
+  if (!prev || prev.mediaType !== "video") return null;
+  return prev.mediaUrl || prev.url || null;
+}
+
 export default function StoryboardPanel({
   brandId,
   scenes,
@@ -178,35 +187,59 @@ export default function StoryboardPanel({
   // generic to whatever model/duration/resolution/aspectRatio are current
   // for the active scene. Debounced (400ms) so dragging the duration
   // slider doesn't fire a request per pixel of drag.
-  const [estimatedCredits, setEstimatedCredits] = useState(null);
+  // Now POST /api/kling/estimate-scenes (scene start frames build), which
+  // also decides whether this scene gets a start frame -- from its text,
+  // reference mode, Start Image and "Continue from previous scene" -- using
+  // the same functions as the real charge.
+  const [estimate, setEstimate] = useState(null); // { videoCredits, startFrameCredits, startFrameApplies, total, startFrameModels }
   const [estimateLoading, setEstimateLoading] = useState(false);
+  const estimatedCredits = estimate?.total ?? null;
 
-  const activeSceneObj = scenes.find((s) => s.id === activeScene);
+  const activeIndex = scenes.findIndex((s) => s.id === activeScene);
+  const activeSceneObj = activeIndex >= 0 ? scenes[activeIndex] : null;
   const activeDuration = activeSceneObj?.duration || durationSpec?.default || 5;
   const activeResolution = activeSceneObj?.resolution || null;
+  const activeText = [activeSceneObj?.stylePromptPrefix, activeSceneObj?.action || activeSceneObj?.narration].filter(Boolean).join(" ");
+  const activeReferenceMode = supportsRefs ? (activeSceneObj?.referenceMode || null) : null;
+  const activeHasStartImage = !!(supportsStartImage && (activeSceneObj?.sourceImageUrl || "").trim());
+  const activeContinues = !!(activeSceneObj?.continueFromPrevious && previousSceneVideoUrl(scenes, activeIndex));
+  const activeStartFrameModel = activeSceneObj?.startFrameModel || null;
   useEffect(() => {
     let cancelled = false;
     setEstimateLoading(true);
     const timer = setTimeout(async () => {
       try {
         const headers = await getAuthHeaders();
-        const params = new URLSearchParams({
-          model: regenModel,
-          duration: String(activeDuration),
-          aspect_ratio: aspectRatio,
+        headers["Content-Type"] = "application/json";
+        const res = await fetch("/api/kling/estimate-scenes", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            scenes: [{
+              text: activeText,
+              model: regenModel,
+              duration: activeDuration,
+              resolution: activeResolution,
+              reference_mode: activeReferenceMode,
+              has_start_image: activeHasStartImage,
+              continue_from_previous: activeContinues,
+            }],
+            aspect_ratio: aspectRatio,
+            brand_id: brandId || null,
+            start_frame_model: activeStartFrameModel,
+          }),
         });
-        if (activeResolution) params.set("resolution", activeResolution);
-        const res = await fetch(`/api/models/estimate-cost?${params}`, { headers });
         const data = await res.json();
-        if (!cancelled) setEstimatedCredits(typeof data.credits === "number" ? data.credits : null);
+        const sc = data?.scenes?.[0];
+        if (!cancelled) setEstimate(res.ok && sc && sc.videoCredits != null ? { ...sc, startFrameModels: data.startFrameModels || [] } : null);
       } catch {
-        if (!cancelled) setEstimatedCredits(null);
+        if (!cancelled) setEstimate(null);
       } finally {
         if (!cancelled) setEstimateLoading(false);
       }
     }, 400);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [regenModel, activeDuration, activeResolution, aspectRatio]);
+  }, [regenModel, activeDuration, activeResolution, aspectRatio, activeText, activeReferenceMode, activeHasStartImage, activeContinues, activeStartFrameModel, brandId]);
 
   useEffect(() => {
     (async () => {
@@ -829,13 +862,18 @@ export default function StoryboardPanel({
                 aspect-ratio pickers never offer "auto" as a value at all
                 (2026-08-08 decision), so whatever's currently selected is
                 already the exact value that would be billed. ── */}
-            {sc.id === activeScene && REGEN_MODEL_OPTIONS.find(o => o.id === regenModel)?.premium && (
-              <div style={{ fontSize: 12, marginBottom: 8, opacity: 0.85, display: "flex", alignItems: "center", gap: 6 }}>
+            {sc.id === activeScene && (REGEN_MODEL_OPTIONS.find(o => o.id === regenModel)?.premium || estimate?.startFrameApplies) && (
+              <div style={{ fontSize: 12, marginBottom: 8, opacity: 0.85, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <span style={{ opacity: 0.6 }}>Estimated cost:</span>
                 {estimateLoading ? (
                   <span style={{ opacity: 0.5 }}>calculating…</span>
                 ) : estimatedCredits != null ? (
-                  <span style={{ fontWeight: 600, color: "#fbbf24" }}>{estimatedCredits} credits</span>
+                  <span style={{ fontWeight: 600, color: "#fbbf24" }}>
+                    {estimatedCredits} credits
+                    {estimate?.startFrameCredits > 0 && (
+                      <span style={{ fontWeight: 400, opacity: 0.8 }}> (incl. {estimate.startFrameCredits} for the start frame)</span>
+                    )}
+                  </span>
                 ) : (
                   <span style={{ opacity: 0.5 }}>unavailable</span>
                 )}
@@ -962,6 +1000,50 @@ export default function StoryboardPanel({
                   characters={characters}
                   autocompleteDisabled={!supportsRefs}
                 />
+
+                {/* Scene start frame (scene start frames build): Kling 3 Pro
+                    scenes with a Character consistency character get a still
+                    of the character in this scene's setting as their opening
+                    frame (routes/kling.js planStartFrames). "Continue from
+                    previous scene" skips it and starts from the previous
+                    scene's last frame instead, for continuity. */}
+                {index > 0 && previousSceneVideoUrl(scenes, index) && (
+                  <label
+                    style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--onyx-text-dim)", margin: "4px 0", cursor: "pointer" }}
+                    onClick={(e) => e.stopPropagation()}
+                    title="Start this scene from the last frame of the previous scene, so the two join up. Turn off to give this scene its own setting."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!sc.continueFromPrevious}
+                      onChange={(e) => updateField(sc.id, "continueFromPrevious", e.target.checked)}
+                    />
+                    Continue from previous scene
+                  </label>
+                )}
+                {sc.id === activeScene && estimate?.startFrameApplies && (
+                  <div style={{ fontSize: 11, color: "var(--onyx-text-dim)", margin: "4px 0 6px" }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ marginBottom: 4, lineHeight: 1.4 }}>
+                      Start frame: a still of your character in this scene's setting opens the video.
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {(estimate.startFrameModels || []).map((m) => {
+                        const selected = (sc.startFrameModel || "seedream-4.5") === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            className="sceneSmallBtn"
+                            onClick={() => updateField(sc.id, "startFrameModel", m.id)}
+                            style={{ borderColor: selected ? "var(--onyx-cyan)" : undefined, color: selected ? "var(--onyx-cyan)" : undefined }}
+                          >
+                            {m.id === "nano-banana-2" ? "High quality" : "Standard"} · {m.credits} cr
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div
                   style={{

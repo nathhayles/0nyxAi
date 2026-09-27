@@ -64,7 +64,7 @@ export default function AutoModelRoutingPreview({ preview, modelOptions, onConfi
                       as if it were precise. The real charge always matches
                       what actually generates, per the total note below. */}
                   <div className="auto-model-scene-cost">
-                    {overrides[s.sceneIndex] ? "cost varies by model" : `${s.cost} cr`}
+                    {overrides[s.sceneIndex] ? "cost varies by model" : `${s.cost} cr${s.startFrameCredits ? ` (incl. ${s.startFrameCredits} start frame)` : ""}`}
                   </div>
                 </div>
               </div>
