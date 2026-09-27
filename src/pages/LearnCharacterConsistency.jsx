@@ -4,6 +4,9 @@ import { learnPages } from "../data/learnPagesSeo";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
+const listStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16, paddingLeft: 20, lineHeight: 1.6 };
+const strong = { color: "var(--onyx-text)" };
+const code = { color: "var(--onyx-cyan)" };
 
 export default function LearnCharacterConsistency() {
   return (
@@ -117,6 +120,51 @@ export default function LearnCharacterConsistency() {
         worthwhile trade. For a character who needs to convincingly inhabit a
         wide range of different scenes, Scene Accuracy is often the better
         starting point.
+      </p>
+
+      <h2 style={h2Style}>Giving your character a voice</h2>
+      <p style={pStyle}>
+        A character can also have its own voice, so every scene they appear
+        in sounds like the same person.
+      </p>
+      <ul style={listStyle}>
+        <li>
+          <strong style={strong}>Link a voice:</strong> in the Character
+          Library, click <strong style={strong}>Edit</strong> on the character
+          and set <strong style={strong}>Linked voice</strong>. Pick one from
+          the list, or paste an ElevenLabs voice ID from your ElevenLabs
+          library.
+        </li>
+        <li>
+          <strong style={strong}>One character in a scene:</strong> tag them
+          (for example <code style={code}>@Opal</code>) in the Action box or
+          the narration. Their voice is used automatically, and the Voice Over
+          panel shows "Using Opal's voice".
+        </li>
+        <li>
+          <strong style={strong}>Several characters in a scene:</strong> start
+          each spoken line with <code style={code}>@Name:</code>, including the
+          colon — for example <code style={code}>@Opal: Welcome to the show.</code>{" "}
+          then <code style={code}>@Max: Thanks for having me.</code>
+        </li>
+        <li>
+          Tags are never spoken or shown in captions.
+        </li>
+        <li>
+          After editing the narration or changing a voice, click{" "}
+          <strong style={strong}>Apply</strong> in the Voice Over panel to
+          regenerate the voiceover.
+        </li>
+      </ul>
+
+      <h2 style={h2Style}>Lip-syncing a character</h2>
+      <p style={pStyle}>
+        Lip-sync matches the character's mouth to their voiceover. It works
+        for single-speaker scenes only. Apply the voiceover first, then use
+        the scene's <strong style={strong}>Lip-sync</strong> button — about
+        86 credits for a 5-second clip, 171 for 10 seconds. The narration must
+        fit within the video's length. If you change the voiceover afterwards,
+        run lip-sync again.
       </p>
 
       <h2 style={h2Style}>What this doesn't do</h2>
