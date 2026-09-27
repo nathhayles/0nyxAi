@@ -117,6 +117,7 @@ const CONTENT = {
       { heading: "How it works", body: "Type what your business does → AI writes a script → generates scenes with voiceover, visuals and music → ready to publish. Under 10 minutes." },
       { heading: "Creation flows", items: ["Create — AI script from scratch", "Video to Reel — upload your own clips", "URL to Video — paste a webpage URL", "Audio to Video — upload a podcast or audio file"] },
       { heading: "Tips", items: ["Be specific in your brief — mention your niche, tone and audience", "Use 3–5 scenes for social media, 8–12 for longer content", "Choose 9:16 for TikTok/Reels/Shorts, 16:9 for YouTube"] },
+      { heading: "Talking presenter", items: ["On by default: a scene that tags one character with photos and a linked voice becomes them speaking to camera, lip-synced", "A review screen shows every scene's mode and exact cost before anything is charged — switch any scene back to the video model there", "Keep a presenter scene's narration to 15 seconds or less", "Not with Auto model routing yet"] },
     ],
   },
   dashboard: {
