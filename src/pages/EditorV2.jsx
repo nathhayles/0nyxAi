@@ -40,6 +40,7 @@ import { bucketFilesByAssetType } from "../utils/mediaType.js";
 import SafeZoneOverlay from "../components/SafeZoneOverlay.jsx";
 import { PLATFORM_SAFE_ZONES } from "../data/platformSafeZones.js";
 import DesktopOnlyGate from "../components/DesktopOnlyGate.jsx";
+import { stripNarrationTags } from "../utils/narrationTags.js";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -1227,7 +1228,9 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
             );
           })()}
           {(() => {
-            if (!captionsVisible || !captionScene?.narration || captionScene?.captionsEnabled === false) return null;
+            // @Name / @Name: tags are never displayed (matches the export's burned-in captions).
+            const captionText = stripNarrationTags(captionScene?.narration);
+            if (!captionsVisible || !captionText || captionScene?.captionsEnabled === false) return null;
             const style = captionScene.caption_style || "normal";
             // Caption shape (style) and caption color are independent choices — brand color
             // is the fallback whenever the scene hasn't set its own explicit color, regardless
@@ -1336,7 +1339,7 @@ function PreviewCanvas({ scenes, activeScene, setActiveScene, isPlaying, livePla
                 <div style={textStyle}>
                   {(() => {
                     const timings = captionScene.word_timestamps;
-                    if (!timings?.length || style !== 'karaoke') return captionScene.narration;
+                    if (!timings?.length || style !== 'karaoke') return captionText;
                     const videoTrack = tracks?.find(t => t.key === "video");
                     const activeClip = videoTrack?.clips?.find(c =>
                       playhead >= c.startTime && playhead < c.startTime + (c.trimEnd - c.trimStart)

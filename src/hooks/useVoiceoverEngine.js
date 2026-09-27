@@ -5,6 +5,7 @@
 // EditorV2's timeline-sync effect, which keys off scene.voiceoverUrl).
 import { useMemo, useRef, useState } from "react";
 import { getAuthHeaders } from "../utils/auth.js";
+import { stripNarrationTags } from "../utils/narrationTags.js";
 
 // OpenAI gpt-4o-mini-tts voices — all multilingual (language = input text language)
 export const STANDARD_VOICES = [
@@ -69,33 +70,69 @@ function normalizeTagName(value) {
   return String(value || "").toLowerCase().replace(/\s+/g, "");
 }
 
-// True only when EVERY speaker turn in this narration resolves to a saved
-// character that has its own linked_voice_id -- the exact case where
-// VoiceOverPanel's manually-picked voice would have NO effect on this scene
-// (see routes/tts.mjs's generate-batch, Option 1: a tagged turn with a
-// linked voice always wins over the manual pick). Used to show a proactive
-// "your selection won't apply here" note BEFORE the user clicks Apply,
-// computed client-side from data the panel already needs to fetch anyway
-// (characters), rather than only finding out after the request comes back.
-// A scene with untagged text, or a tag that doesn't match a saved character
-// with a linked voice, is NOT fully tagged -- the manual pick still applies
-// to at least part of it.
-export function isNarrationFullyTagged(narrationText, characters) {
-  const text = String(narrationText || "").trim();
-  if (!text) return false;
-  const matches = [...text.matchAll(/@([A-Za-z0-9_]+):\s*/g)];
-  if (!matches.length) return false;
+// Client-side mirror of the backend's speaker resolution for one scene
+// (lib/resolveTaggedEntities.js: splitNarrationIntoSpeakerTurns +
+// matchSceneSpeakerTurns), which routes/tts.mjs's generate-batch applies to
+// every item this panel sends. Returns the character (or null) voicing each
+// non-empty speaker turn, in order:
+//   - an "@Name:" turn is voiced by that saved character (null if none)
+//   - single-character rule: if the scene's tags -- in its narration or its
+//     visual fields, with or without a colon -- resolve to EXACTLY ONE saved
+//     character, every untagged turn is voiced by that character too
+// Keep in step with the backend copy; VoiceOverPanel uses this to label each
+// scene row and to warn when the manual pick won't apply.
+const SCENE_TAG_FIELDS = ["narration", "action", "prompt", "visual_direction", "visual_prompt"];
 
-  // Reuses the same leading-segment logic as the backend's
-  // splitNarrationIntoSpeakerTurns: any real (non-whitespace) text before
-  // the first tag is itself an unattributed turn, which alone makes the
-  // scene NOT fully tagged.
-  if (text.slice(0, matches[0].index).trim()) return false;
+export function resolveSceneTurnCharacters(scene, characters) {
+  const list = characters || [];
+  const findCharacter = (name) => list.find((c) => normalizeTagName(c.name) === normalizeTagName(name)) || null;
 
-  return matches.every((m) => {
-    const known = (characters || []).find((c) => normalizeTagName(c.name) === normalizeTagName(m[1]));
-    return !!known?.linked_voice_id;
-  });
+  const text = String(scene?.narration || "");
+  const turns = [];
+  let lastIndex = 0;
+  let lastTagName = null;
+  for (const match of text.matchAll(/@([A-Za-z0-9_]+):\s*/g)) {
+    const segment = text.slice(lastIndex, match.index);
+    if (lastIndex > 0 || segment.trim()) turns.push({ tagName: lastTagName, spokenText: stripNarrationTags(segment) });
+    lastTagName = match[1];
+    lastIndex = match.index + match[0].length;
+  }
+  const finalSegment = text.slice(lastIndex);
+  if (lastIndex > 0 || finalSegment.trim() || !turns.length) {
+    turns.push({ tagName: lastTagName, spokenText: stripNarrationTags(finalSegment) });
+  }
+  const spoken = turns.filter((t) => t.spokenText);
+
+  const sceneCharacters = [];
+  for (const field of SCENE_TAG_FIELDS) {
+    for (const m of String(scene?.[field] || "").matchAll(/@([A-Za-z0-9_]+)/g)) {
+      const character = findCharacter(m[1]);
+      if (character && !sceneCharacters.some((c) => c.id === character.id)) sceneCharacters.push(character);
+    }
+  }
+  const inferred = sceneCharacters.length === 1 ? sceneCharacters[0] : null;
+
+  return spoken.map((t) => (t.tagName ? findCharacter(t.tagName) : inferred));
+}
+
+// Names of the saved characters whose OWN linked voice will speak some of
+// this scene, in turn order -- drives the "Using [Name]'s voice" row label.
+export function sceneCharacterVoiceNames(scene, characters) {
+  const names = [];
+  for (const character of resolveSceneTurnCharacters(scene, characters)) {
+    if (character?.linked_voice_id && !names.includes(character.name)) names.push(character.name);
+  }
+  return names;
+}
+
+// True only when EVERY speaker turn resolves to a saved character that has
+// its own linked_voice_id -- the exact case where the manually-picked voice
+// has NO effect on this scene (generate-batch: a character's linked voice
+// always wins over the manual pick). Used to show a proactive "your
+// selection won't apply here" note BEFORE the user clicks Apply.
+export function isSceneFullyCharacterVoiced(scene, characters) {
+  const turnCharacters = resolveSceneTurnCharacters(scene, characters);
+  return turnCharacters.length > 0 && turnCharacters.every((c) => !!c?.linked_voice_id);
 }
 
 export function normalizePremiumVoice(voice, index = 0) {
@@ -274,7 +311,13 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
       .map((index) => ({
         sceneId: `scene_index_${index}`,
         sceneIndex: index,
-        text: normalizeNarrationText(scenes[index]?.narration || "")
+        text: normalizeNarrationText(scenes[index]?.narration || ""),
+        // Sent so generate-batch can apply the single-character voice rule
+        // to @tags in the scene's visual fields, not just its narration.
+        action: scenes[index]?.action || "",
+        prompt: scenes[index]?.prompt || "",
+        visual_direction: scenes[index]?.visual_direction || "",
+        visual_prompt: scenes[index]?.visual_prompt || ""
       }))
       .filter((item) => item.text);
 
