@@ -96,6 +96,17 @@ export default function Characters() {
   const [linkedVoiceProvider, setLinkedVoiceProvider] = useState(null);
   const [category, setCategory] = useState("");
 
+  // Manual ElevenLabs voice ID entry -- bypasses the dropdown above, which
+  // only lists ElevenLabs' curated ~24 "premade"/"generated" voices
+  // (/api/tts/voices excludes category:"professional", which is where most
+  // voices added to a user's own "My Voices" library land, e.g. voices
+  // pulled in from ElevenLabs' shared Voice Library). There's no backend
+  // endpoint that returns a voice's name by ID (only /api/tts/voice-preview,
+  // which proxies the MP3 itself), so "verified" here means the preview
+  // fetch succeeded, not that we resolved a display name.
+  const [manualVoiceIdInput, setManualVoiceIdInput] = useState("");
+  const [manualVoiceCheckState, setManualVoiceCheckState] = useState("idle"); // 'idle' | 'checking' | 'valid' | 'invalid'
+
   // Voice picker — mirrors BrandingPanel's Voice-tab pattern (the closer
   // analog found in this app; no extractable VoiceSelector component
   // exists to reuse directly). Provider is derived from the tier toggle,
@@ -119,6 +130,26 @@ export default function Characters() {
   }, []);
 
   useEffect(() => { if (showForm) loadVoices(voiceTier); }, [showForm, voiceTier, loadVoices]);
+
+  // Confirms a pasted ElevenLabs voice ID is real by fetching its preview
+  // audio (the only by-ID endpoint that exists -- there's no JSON lookup
+  // that returns a voice's name). A successful fetch is treated as
+  // "verified" even though we can't show the real display name.
+  async function verifyManualVoiceId() {
+    const id = manualVoiceIdInput.trim();
+    if (!id) return;
+    setManualVoiceCheckState("checking");
+    try {
+      const res = await fetch(`/api/tts/voice-preview?voice_id=${encodeURIComponent(id)}`);
+      if (!res.ok) { setManualVoiceCheckState("invalid"); return; }
+      setManualVoiceCheckState("valid");
+      setLinkedVoiceId(id);
+      setLinkedVoiceProvider("elevenlabs");
+      setVoiceTier("premium");
+    } catch {
+      setManualVoiceCheckState("invalid");
+    }
+  }
 
   const fetchCharacters = useCallback(async () => {
     setLoading(true);
@@ -153,6 +184,7 @@ export default function Characters() {
     setMannerisms(""); setRestingExpression(""); setDefaultWardrobe(""); setAccessories("");
     setWardrobeMode("flexible"); setReferenceMode("scene_accuracy"); setLinkedVoiceId(null); setLinkedVoiceProvider(null); setCategory("");
     setVoiceTier("standard");
+    setManualVoiceIdInput(""); setManualVoiceCheckState("idle");
   }
 
   function openCreateForm() {
@@ -195,6 +227,7 @@ export default function Characters() {
     setLinkedVoiceId(character.linked_voice_id || null);
     setLinkedVoiceProvider(character.linked_voice_provider || null);
     setVoiceTier(character.linked_voice_provider === "elevenlabs" ? "premium" : "standard");
+    setManualVoiceIdInput(""); setManualVoiceCheckState("idle");
     setCategory(character.category || "");
     setShowForm(true);
   }
@@ -654,6 +687,71 @@ export default function Characters() {
                       <option key={v.id} value={v.id}>{v.name}{v.gender ? ` · ${v.gender}` : ""}{v.accent ? ` · ${v.accent}` : ""}</option>
                     ))}
                   </select>
+
+                  {/* Custom voice ID -- for ElevenLabs voices in the user's own
+                      library that aren't in the curated dropdown above (e.g.
+                      voices added from ElevenLabs' shared Voice Library). Pins
+                      the character to that exact ID regardless of what the
+                      dropdown's catalog contains. */}
+                  <div style={{ marginTop: 10 }}>
+                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--onyx-text-faint)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                      Or paste an ElevenLabs voice ID
+                    </label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input
+                        value={manualVoiceIdInput}
+                        onChange={(e) => { setManualVoiceIdInput(e.target.value); setManualVoiceCheckState("idle"); }}
+                        placeholder="e.g. 21m00Tcm4TlvDq8ikWAM"
+                        style={{ flex: 1, padding: "10px 12px", borderRadius: 8, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)", fontSize: 14, boxSizing: "border-box" }}
+                      />
+                      <button
+                        type="button"
+                        onClick={verifyManualVoiceId}
+                        disabled={!manualVoiceIdInput.trim() || manualVoiceCheckState === "checking"}
+                        style={{ padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", cursor: manualVoiceCheckState === "checking" ? "wait" : "pointer", background: "var(--chip-bg-strong)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)" }}
+                      >
+                        {manualVoiceCheckState === "checking" ? "Checking…" : "Use this ID"}
+                      </button>
+                    </div>
+                    {manualVoiceCheckState === "invalid" && (
+                      <div style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>
+                        ElevenLabs couldn't find a voice with that ID.
+                      </div>
+                    )}
+                    {manualVoiceCheckState === "valid" && (
+                      <div style={{ fontSize: 11, color: "var(--onyx-success)", marginTop: 4 }}>
+                        Verified — linked voice set to this ID.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Shows when the currently linked voice is an ElevenLabs ID
+                      that isn't in the (curated) dropdown list -- otherwise a
+                      pasted-and-saved voice would look unlinked on reopen since
+                      the <select> above has no matching <option>. */}
+                  {linkedVoiceProvider === "elevenlabs" && linkedVoiceId && !voicesLoading && !voices.some((v) => v.id === linkedVoiceId) && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, padding: "7px 10px", borderRadius: 7, background: "var(--chip-bg-strong)", border: "1px solid var(--onyx-hairline-strong)", fontSize: 11, color: "var(--onyx-text)" }}>
+                      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        Custom voice ID: <strong>{linkedVoiceId}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { const a = new Audio(`/api/tts/voice-preview?voice_id=${encodeURIComponent(linkedVoiceId)}`); a.play().catch(() => {}); }}
+                        title="Preview voice"
+                        style={{ flexShrink: 0, padding: "3px 8px", borderRadius: 5, fontSize: 11, background: "var(--chip-bg)", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text)", cursor: "pointer" }}
+                      >
+                        ▶ Preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setLinkedVoiceId(null); setLinkedVoiceProvider(null); }}
+                        title="Remove linked voice"
+                        style={{ flexShrink: 0, padding: "3px 8px", borderRadius: 5, fontSize: 11, background: "transparent", border: "1px solid var(--onyx-hairline-strong)", color: "var(--onyx-text-dim)", cursor: "pointer" }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <IdentityField label="Category" value={category} onChange={setCategory} placeholder="e.g. protagonist, host, background" />

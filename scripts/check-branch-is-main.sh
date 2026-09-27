@@ -7,6 +7,17 @@
 # separate worktree (see scripts/README or CLAUDE.md), never in this checkout.
 set -euo pipefail
 
+# Cloudflare Workers Builds runs this same npm build on every PR branch, not
+# just main -- this guard was written for the server's canonical checkout
+# (see comment above), not as a CI gate, so it must not block those builds.
+# Detected via CI=true, the convention essentially every build/CI system
+# (Cloudflare Workers Builds included) sets and a manual/cron checkout on
+# the actual server never would -- not a Cloudflare-specific variable,
+# since developers.cloudflare.com wasn't reachable to confirm one.
+if [ "${CI:-}" = "true" ]; then
+  exit 0
+fi
+
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 if [ "$BRANCH" != "main" ]; then
