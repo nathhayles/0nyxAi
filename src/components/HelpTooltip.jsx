@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { purchasesAllowed } from "../utils/nativeApp.js";
 
 // Each entry: { title, sections: [{ heading, body? , items? }], video? }
 // video is optional: { src, poster?, caption? } -- rendered above the
@@ -80,7 +81,7 @@ const CONTENT = {
     title: "Exporting Your Reel",
     sections: [
       { heading: "What Export does", body: "Renders all your scenes, voiceover, music and captions into a single MP4 file and downloads it to your device." },
-      { heading: "Requirements", items: ["A clean, watermark-free download costs 1 credit per minute of video — check your balance on the Account page and top up on Pricing", "Your reel must have at least one scene with a video clip", "Rendering usually takes 1–3 minutes depending on reel length and captions"] },
+      { heading: "Requirements", items: [(purchasesAllowed() ? "A clean, watermark-free download costs 1 credit per minute of video — check your balance on the Account page and top up on Pricing" : "A clean, watermark-free download costs 1 credit per minute of video — check your balance on the Account page"), "Your reel must have at least one scene with a video clip", "Rendering usually takes 1–3 minutes depending on reel length and captions"] },
       { heading: "After export", body: "Share creates a watermarked preview link and never costs credits. Publish posts to your connected Instagram, YouTube, LinkedIn and TikTok accounts." },
     ],
   },

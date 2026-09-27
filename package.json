@@ -8,7 +8,8 @@
     "prebuild": "bash scripts/check-branch-is-main.sh",
     "build": "vite build",
     "postbuild": "node scripts/prerender-seo.js && node scripts/generate-sitemap.js",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@capacitor/app": "^7.1.2",

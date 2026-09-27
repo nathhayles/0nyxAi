@@ -14,6 +14,8 @@ import { useSpeechInput } from "../hooks/useSpeechInput.js";
 import { useCredits } from "../state/CreditsContext.jsx";
 import { generateReelTitle } from "../utils/autoTitle.js";
 import { STYLE_CHIPS, appendChipModifier } from "../config/styleChips.js";
+import { estimateSceneCount, estimateScenes } from "../utils/sceneEstimate.js";
+import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
 
 const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 
@@ -275,7 +277,8 @@ export default function CreatePage() {
   // above and the picker render below, which renders from this combined list.
   const pickerOptions = autoRoutingEnabled ? [AUTO_MODEL_OPTION, ...VIDEO_MODEL_OPTIONS] : VIDEO_MODEL_OPTIONS;
   const wordCount = script.trim() ? script.trim().split(/\s+/).length : 0;
-  const estimatedScenes = Math.max(1, Math.ceil(wordCount / 22));
+  // Explicit "Scene 1:" markers when the script has them, else ~22 words a scene.
+  const estimatedScenes = estimateSceneCount(script);
   const selectedModelOption = pickerOptions.find(m => m.id === videoModel) || VIDEO_MODEL_OPTIONS[1];
   const isAutoModel = videoModel === "auto";
   // Auto's real per-scene cost isn't known client-side until the pre-flight
@@ -284,7 +287,6 @@ export default function CreatePage() {
   // scenes-times-flat-credits pre-check is skipped for Auto specifically;
   // the review screen shows the REAL total before any credits are spent,
   // and the server still enforces the real balance check regardless.
-  const estimatedCredits = mode === "ai" && !isAutoModel ? estimatedScenes * selectedModelOption.credits : 0;
   // Start frames can't be counted before the script is analysed (which
   // scenes tag a Character consistency character isn't known yet), so the
   // Estimator shows the per-scene price separately; the real charge is
@@ -296,6 +298,19 @@ export default function CreatePage() {
   // Not with Auto model routing in this version (its own review screen).
   const presenterAvailable = mode === "ai" && !isAutoModel;
   const usePresenter = presenterAvailable && talkingPresenter;
+  // Per guessed scene: Talking presenter (one tagged character, <=15s of
+  // narration) at its per-second rate plus a start frame, else the model's
+  // per-scene price. Start frames on video scenes are shown separately.
+  const scenePlan = estimateScenes(script, {
+    videoCredits: selectedModelOption.credits,
+    presenter: usePresenter,
+    presenterResolution,
+    startFrameCredits: startFrameCreditsEach,
+  });
+  const presenterScenePlan = scenePlan.filter((s) => s.mode === "presenter");
+  const videoSceneCount = scenePlan.length - presenterScenePlan.length;
+  const presenterEstimateCredits = presenterScenePlan.reduce((a, s) => a + s.credits, 0);
+  const estimatedCredits = mode === "ai" && !isAutoModel ? scenePlan.reduce((a, s) => a + s.credits, 0) : 0;
 
   // Only block if credits have loaded and are genuinely insufficient. With
   // Talking presenter the rough word-count estimate overstates the cost, so
@@ -958,7 +973,7 @@ export default function CreatePage() {
               <div style={{ fontWeight: 600, marginBottom: 10, color: "var(--onyx-text)" }}>Estimator</div>
               <div style={{ color: "var(--onyx-text-faint)" }}>Words: {wordCount}</div>
               <div style={{ color: "var(--onyx-text-faint)" }}>Scenes: {estimatedScenes}</div>
-              {mode === "ai" && <div style={{ color: "var(--onyx-text-faint)" }}>{selectedModelOption.creditsLabel ? `${selectedModelOption.creditsLabel} (${estimatedScenes} scenes)` : `${selectedModelOption.credits} credits × ${estimatedScenes} scenes`}</div>}
+              {mode === "ai" && videoSceneCount > 0 && <div style={{ color: "var(--onyx-text-faint)" }}>{selectedModelOption.creditsLabel ? `${selectedModelOption.creditsLabel} (${videoSceneCount} scene${videoSceneCount === 1 ? "" : "s"})` : `${selectedModelOption.credits} credits × ${videoSceneCount} scene${videoSceneCount === 1 ? "" : "s"}`}</div>}
               {showStartFrameEstimate && (
                 <div style={{ color: "var(--onyx-text-faint)" }}>
                   {characterLock
@@ -968,7 +983,9 @@ export default function CreatePage() {
               )}
               {usePresenter && (
                 <div style={{ color: "var(--onyx-text-faint)" }}>
-                  Talking presenter scenes instead: about {presenterResolution === "480P" ? 7 : 11} credits per second of narration + a start frame
+                  {presenterScenePlan.length
+                    ? `${presenterScenePlan.length} Talking presenter scene${presenterScenePlan.length === 1 ? "" : "s"}: about ${presenterEstimateCredits} credits (about ${presenterResolution === "480P" ? 7 : 11} credits per second of narration + a start frame)`
+                    : `Talking presenter scenes instead: about ${presenterResolution === "480P" ? 7 : 11} credits per second of narration + a start frame`}
                 </div>
               )}
               <div style={{ color: insufficientCredits ? "#ff5c5c" : "var(--onyx-text)" }}>
@@ -1308,10 +1325,17 @@ export default function CreatePage() {
                 border: "1px solid rgba(255,255,255,0.08)"
               }}
             >
-              <h3 style={{ marginTop: 0 }}>Not enough credits</h3>
-              <p style={{ opacity: 0.8 }}>
-                Your AI video request needs {estimatedCredits} credits, but only {displayCredits} are available.
-              </p>
+              {/* Native apps: neutral text only, no upgrade link (src/utils/nativeApp.js). */}
+              {purchasesAllowed() ? (
+                <>
+                  <h3 style={{ marginTop: 0 }}>Not enough credits</h3>
+                  <p style={{ opacity: 0.8 }}>
+                    Your AI video request needs {estimatedCredits} credits, but only {displayCredits} are available.
+                  </p>
+                </>
+              ) : (
+                <p style={{ marginTop: 0 }}>{NO_CREDITS_TEXT}</p>
+              )}
               <div style={{ display: "flex", gap: 12, marginTop: 18 }}>
                 <button
                   onClick={() => setShowUpgradeModal(false)}
@@ -1326,7 +1350,7 @@ export default function CreatePage() {
                 >
                   Close
                 </button>
-                <Link
+                {purchasesAllowed() && <Link
                   to="/billing"
                   style={{
                     flex: 1,
@@ -1340,7 +1364,7 @@ export default function CreatePage() {
                   }}
                 >
                   Upgrade
-                </Link>
+                </Link>}
               </div>
             </div>
           </div>

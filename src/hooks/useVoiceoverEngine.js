@@ -7,6 +7,7 @@ import { useMemo, useRef, useState } from "react";
 import { getAuthHeaders } from "../utils/auth.js";
 import { stripNarrationTags } from "../utils/narrationTags.js";
 import { voiceoverReplacedChanges } from "../utils/lipSyncState.js";
+import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
 
 // OpenAI gpt-4o-mini-tts voices — all multilingual (language = input text language)
 export const STANDARD_VOICES = [
@@ -538,7 +539,7 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
           headers: { "Content-Type": "application/json", ...headers },
           body: JSON.stringify({ charCount: totalChars })
         });
-        if (creditRes.status === 402) { setStatus(`Not enough credits. This voice costs ${creditsNeeded} credits.`); return; }
+        if (creditRes.status === 402) { setStatus(purchasesAllowed() ? `Not enough credits. This voice costs ${creditsNeeded} credits.` : NO_CREDITS_TEXT); return; }
         if (!creditRes.ok) { setStatus("Credit check failed. Please try again."); return; }
       } catch {
         setStatus("Credit check failed. Please try again.");

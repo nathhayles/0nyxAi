@@ -43,6 +43,7 @@ import DesktopOnlyGate from "../components/DesktopOnlyGate.jsx";
 import { stripNarrationTags } from "../utils/narrationTags.js";
 import { TALKING_PRESENTER, PRESENTER_CAPABILITIES, presenterSceneBody } from "../utils/talkingPresenter.js";
 import { voiceoverReplacedChanges, resyncedChanges, voiceInVideoSceneIds } from "../utils/lipSyncState.js";
+import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -4913,7 +4914,7 @@ export default function EditorV2() {
                 const startRes = await fetch("/api/render", { method: "POST", headers: h, body: JSON.stringify(payload) });
                 const startData = await startRes.json();
                 if (startRes.status === 402 && startData.code === "INSUFFICIENT_CREDITS") {
-                  setSavedMsg("Not enough credits");
+                  setSavedMsg(purchasesAllowed() ? "Not enough credits" : NO_CREDITS_TEXT);
                   document.getElementById("v2-render-indicator")?.remove();
                   setExportUpgrade({ requiredCredits: startData.required || null });
                   return;

@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { isNative, openExternal } from "../capacitor.js";
+import { purchasesAllowed, storeSafeMessage } from "../utils/nativeApp.js";
+
+// No purchase wording in the native apps (src/utils/nativeApp.js).
+const AUTOPOST_LOCKED_TEXT = purchasesAllowed() ? "Auto-posting requires an upgrade." : "Auto-posting isn't available on your plan.";
 
 const PLATFORMS = [
   { id: "instagram", label: "Instagram", icon: "IG", color: "#E1306C" },
@@ -233,7 +237,7 @@ export default function Publish() {
   async function handlePublishNow() {
     if (!selectedProject) return setMsg({ text: "Select a project first", type: "error" });
     if (selectedPlatforms.length === 0) return setMsg({ text: "Select at least one platform", type: "error" });
-    if (!canAutopost) return setMsg({ text: "Auto-posting requires an upgrade.", type: "error" });
+    if (!canAutopost) return setMsg({ text: AUTOPOST_LOCKED_TEXT, type: "error" });
     if (selectedPlatforms.includes("tiktok") && !tiktokPrivacy) return setMsg({ text: "Choose who can view this video on TikTok before publishing.", type: "error" });
     if (selectedPlatforms.includes("tiktok") && tiktokInfo?.creator_can_post === false) return setMsg({ text: "TikTok says you can't post right now. Please try again later.", type: "error" });
     if (selectedPlatforms.includes("tiktok") && tiktokInfo?.max_video_post_duration_sec && selectedVideoDurationSec && selectedVideoDurationSec > tiktokInfo.max_video_post_duration_sec) {
@@ -260,7 +264,7 @@ export default function Publish() {
           body: JSON.stringify({ platform, video_url: videoUrl, caption: v?.caption ?? caption, hashtags: v?.hashtags ?? hashtags, title: selectedProject.title, brand_id: selectedBrandId, ...tiktokFields }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Publish failed");
+        if (!res.ok) throw new Error(storeSafeMessage(data.error) || "Publish failed");
         results.push(data.warning ? `${platform} (${data.warning})` : platform);
         if (platform === "tiktok" && data.publishId) {
           pollTiktokPublishStatus(data.publishId); // fire-and-forget -- updates tiktokPublishStatus as it goes, doesn't block this loop
@@ -281,7 +285,7 @@ export default function Publish() {
     if (selectedPlatforms.length === 0) return setMsg({ text: "Select at least one platform", type: "error" });
     const unconnected = selectedPlatforms.filter(p => !accounts[p]);
     if (unconnected.length > 0) return setMsg({ text: `Connect your ${unconnected.join(", ")} account(s) first`, type: "error" });
-    if (!canAutopost) return setMsg({ text: "Auto-posting requires an upgrade.", type: "error" });
+    if (!canAutopost) return setMsg({ text: AUTOPOST_LOCKED_TEXT, type: "error" });
     setSubmitting(true); setMsg({ text: "", type: "" });
     const results = [];
     for (const platform of selectedPlatforms) {
@@ -293,7 +297,7 @@ export default function Publish() {
           body: JSON.stringify({ platform, video_url: selectedProject.output_url || selectedProject.render_url, caption: v?.caption ?? caption, hashtags: v?.hashtags ?? hashtags, title: selectedProject.title, post_at: new Date(scheduleAt).toISOString(), brand_id: selectedBrandId }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Schedule failed");
+        if (!res.ok) throw new Error(storeSafeMessage(data.error) || "Schedule failed");
         results.push(data.warning ? `${platform} (${data.warning})` : platform);
       } catch (err) {
         results.push(`FAIL: ${platform}: ${err.message}`);
@@ -368,7 +372,7 @@ export default function Publish() {
     const res = await fetch(`/api/social/${platformId}/auth${qs}`, { headers });
     const data = await res.json();
     if (data.authUrl) openExternal(data.authUrl);
-    else setMsg({ text: data.error || `Failed to connect ${platformId}`, type: "error" });
+    else setMsg({ text: storeSafeMessage(data.error) || `Failed to connect ${platformId}`, type: "error" });
   }
 
   const card   = { background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)", borderRadius: 12, padding: 24, marginBottom: 16 };
@@ -396,7 +400,7 @@ export default function Publish() {
           <div style={{ ...card, background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", marginBottom: 20 }}>
             <div style={{ fontSize: 13, color: "#fbbf24" }}>
               Free trial — <strong>{trialStatus.days_remaining} day{trialStatus.days_remaining !== 1 ? "s" : ""}</strong> remaining.{" "}
-              <a href="/pricing" style={{ color: "#fbbf24", textDecoration: "underline" }}>Upgrade anytime →</a>
+              {purchasesAllowed() && <a href="/pricing" style={{ color: "#fbbf24", textDecoration: "underline" }}>Upgrade anytime →</a>}
             </div>
           </div>
         )}
@@ -405,9 +409,9 @@ export default function Publish() {
           <div style={{ ...card, background: "linear-gradient(135deg, rgba(77,208,255,0.1), rgba(29,78,216,0.1))", border: "1px solid rgba(77,208,255,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#e2e8f0", marginBottom: 4 }}>Auto-posting not active</div>
-              <div style={{ fontSize: 12, color: "#94a3b8" }}>Add the $15/mo Auto-posting add-on to unlock auto-publishing.</div>
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>{purchasesAllowed() ? "Add the $15/mo Auto-posting add-on to unlock auto-publishing." : "Auto-posting isn't available on your plan."}</div>
             </div>
-            <button onClick={() => window.location.href = "/account"} style={{ padding: "9px 18px", borderRadius: 8, border: "none", whiteSpace: "nowrap", background: "var(--btn-primary-grad)", color: "var(--btn-primary-text)", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Upgrade →</button>
+            {purchasesAllowed() && <button onClick={() => window.location.href = "/account"} style={{ padding: "9px 18px", borderRadius: 8, border: "none", whiteSpace: "nowrap", background: "var(--btn-primary-grad)", color: "var(--btn-primary-text)", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Upgrade →</button>}
           </div>
         )}
 
@@ -451,7 +455,7 @@ export default function Publish() {
                       : <span style={{ fontSize: 13, color: "#ef4444" }}>Not connected{selectedBrand ? ` for ${selectedBrand.brand_label}` : ""}</span>
                     }
                   </div>
-                  {!connected && (
+                  {!connected && (canAutopost || purchasesAllowed()) && (
                     <button onClick={() => connectPlatform(pid)} style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: canAutopost ? (platform?.color || "var(--btn-primary-grad)") : "#4dd0ff", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
                       {canAutopost ? `Connect ${platform?.label}` : "Upgrade to Connect"}
                     </button>

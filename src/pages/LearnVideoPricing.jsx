@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import LearnPageLayout from "../components/LearnPageLayout";
 import PromptResultShowcase from "../components/PromptResultShowcase";
 import { learnPages } from "../data/learnPagesSeo";
+import { purchasesAllowed } from "../utils/nativeApp.js";
 
 const h2Style = { fontSize: 20, fontWeight: 700, color: "var(--onyx-text)", marginTop: 36, marginBottom: 12 };
 const pStyle = { color: "var(--onyx-text-dim)", fontSize: 15, marginBottom: 16 };
@@ -92,7 +93,7 @@ export default function LearnVideoPricing() {
 
       <p style={{ ...pStyle, marginBottom: 0 }}>
         See real, current pricing for every model on Onyx Reelz — no
-        guessing, no expiring credits. <Link to="/pricing" style={{ color: "var(--onyx-cyan)" }}>View pricing &rarr;</Link>
+        guessing, no expiring credits.{purchasesAllowed() && <>{" "}<Link to="/pricing" style={{ color: "var(--onyx-cyan)" }}>View pricing &rarr;</Link></>}
       </p>
     </LearnPageLayout>
   );
