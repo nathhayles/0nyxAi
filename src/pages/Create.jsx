@@ -115,6 +115,12 @@ function isMobileDevice() {
   return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent) || window.innerWidth < 768;
 }
 
+// Must match START_FRAME_MODELS in the backend's lib/startFrame.js.
+const START_FRAME_OPTIONS = [
+  { id: "seedream-4.5", label: "Standard", credits: 6 },
+  { id: "nano-banana-2", label: "High quality", credits: 16 },
+];
+
 export default function CreatePage() {
   const navigate = useNavigate();
 
@@ -136,6 +142,10 @@ export default function CreatePage() {
   const [brand, setBrand] = useState("");
   const [contentMode, setContentMode] = useState("cinematic"); // "cinematic" | "marketing" — visual-direction style, see backend/routes/analyse.js CONTENT_MODE_COPY
   const [characterLock, setCharacterLock] = useState(false);
+  // Scene start frames: quality of the still generated for each Kling 3 Pro
+  // scene that tags a Character consistency character (see the backend's
+  // lib/startFrame.js). Credits match START_FRAME_MODELS there.
+  const [startFrameModel, setStartFrameModel] = useState("seedream-4.5");
   const [motionRefUrl, setMotionRefUrl] = useState("");
   const [videoModel, setVideoModel] = useState("kling-2.6-pro");
   // Auto-Model-Routing (docs/margin-and-feature-scoping-2026-09-08.md Task
@@ -217,6 +227,14 @@ export default function CreatePage() {
   // the review screen shows the REAL total before any credits are spent,
   // and the server still enforces the real balance check regardless.
   const estimatedCredits = mode === "ai" && !isAutoModel ? estimatedScenes * selectedModelOption.credits : 0;
+  // Start frames can't be counted before the script is analysed (which
+  // scenes tag a Character consistency character isn't known yet), so the
+  // Estimator shows the per-scene price separately; the real charge is
+  // exact, and Auto's review step shows it per scene. With Character Lock,
+  // scenes 2+ continue from the previous scene, so at most scene 1 has one.
+  const startFrameEligibleModel = videoModel === "kling-2.6-pro" || isAutoModel;
+  const startFrameCreditsEach = START_FRAME_OPTIONS.find(o => o.id === startFrameModel)?.credits || 6;
+  const showStartFrameEstimate = mode === "ai" && startFrameEligibleModel && /@[A-Za-z0-9_]/.test(script);
 
   // Only block if credits have loaded and are genuinely insufficient
   const insufficientCredits = mode === "ai" && !isAutoModel && credits !== null && estimatedCredits > credits;
@@ -300,7 +318,7 @@ export default function CreatePage() {
           const previewRes = await fetch("/api/kling/preview-auto-model", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ scenes: analysis.scenes, aspect_ratio: ratio }),
+            body: JSON.stringify({ scenes: analysis.scenes, aspect_ratio: ratio, character_lock: characterLock, brand_id: brand || null, start_frame_model: startFrameModel }),
           });
           const previewData = await previewRes.json().catch(() => null);
           if (!previewRes.ok || !previewData?.scenes) {
@@ -325,6 +343,7 @@ export default function CreatePage() {
           : theme;
         const klingBody = { prompt: script, theme: effectiveTheme, analysis, aspect_ratio: ratio, model: videoModel, brand_id: brand || null, content_mode: contentMode };
         if (characterLock) klingBody.character_lock = true;
+        klingBody.start_frame_model = startFrameModel;
         if (motionRefUrl.trim()) klingBody.motion_ref_url = motionRefUrl.trim();
         if (sceneModelOverrides && Object.keys(sceneModelOverrides).length) klingBody.sceneModelOverrides = sceneModelOverrides;
 
@@ -797,6 +816,41 @@ export default function CreatePage() {
                   </div>
                 </label>
 
+                {/* Scene start frames -- Kling 3 Pro (or Auto, which can pick
+                    it): each scene tagging a Character consistency character
+                    opens on a generated still of them in that scene's
+                    setting. With Character Lock on, scenes 2+ continue from
+                    the previous scene instead. */}
+                {startFrameEligibleModel && (
+                  <div style={{
+                    padding: "10px 14px", borderRadius: 10, marginBottom: 10,
+                    background: "var(--onyx-bg-2)", border: "1px solid rgba(255,255,255,0.08)",
+                  }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>Start frames</div>
+                    <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2, marginBottom: 8 }}>
+                      Scenes that tag a character (Character consistency) open on a still of them in that scene's setting.
+                      {characterLock ? " With Character Lock on, only scene 1 gets one — later scenes continue from the previous scene." : ""}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {START_FRAME_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setStartFrameModel(opt.id)}
+                          style={{
+                            padding: "6px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer",
+                            background: startFrameModel === opt.id ? "rgba(0,210,255,0.15)" : "var(--onyx-bg)",
+                            border: `1px solid ${startFrameModel === opt.id ? "rgba(0,210,255,0.5)" : "rgba(255,255,255,0.12)"}`,
+                            color: startFrameModel === opt.id ? "#00d2ff" : "var(--onyx-text)",
+                          }}
+                        >
+                          {opt.label} · {opt.credits} cr per scene
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Motion Reference URL -- Kling-only: submitSceneJob only ever
                     attaches this for models with supportsRefs (currently just
                     kling-2.6-pro); for every other model it was already a
@@ -845,8 +899,15 @@ export default function CreatePage() {
               <div style={{ color: "var(--onyx-text-faint)" }}>Words: {wordCount}</div>
               <div style={{ color: "var(--onyx-text-faint)" }}>Scenes: {estimatedScenes}</div>
               {mode === "ai" && <div style={{ color: "var(--onyx-text-faint)" }}>{selectedModelOption.creditsLabel ? `${selectedModelOption.creditsLabel} (${estimatedScenes} scenes)` : `${selectedModelOption.credits} credits × ${estimatedScenes} scenes`}</div>}
+              {showStartFrameEstimate && (
+                <div style={{ color: "var(--onyx-text-faint)" }}>
+                  {characterLock
+                    ? `+ ${startFrameCreditsEach} credits if scene 1 tags a character (start frame)`
+                    : `+ ${startFrameCreditsEach} credits per scene that tags a character (start frames)`}
+                </div>
+              )}
               <div style={{ color: insufficientCredits ? "#ff5c5c" : "var(--onyx-text)" }}>
-                {mode === "ai" && isAutoModel ? "AI Credits Needed: shown in the review step before you generate" : `AI Credits Needed: ${estimatedCredits}`}
+                {mode === "ai" && isAutoModel ? "AI Credits Needed: shown in the review step before you generate" : `AI Credits Needed: ${estimatedCredits}${showStartFrameEstimate ? " + start frames" : ""}`}
               </div>
             </div>
           </div>
