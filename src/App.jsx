@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { TOKEN_EXPIRY_BUFFER_SECONDS } from "./utils/auth.js";
 import Navbar from "./components/Navbar";
@@ -8,7 +8,8 @@ import LandingPage from "./pages/LandingPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import { getAuthHeaders } from "./utils/auth";
-import { listenForDeepLinks } from "./capacitor.js";
+import { listenForDeepLinks, isNative } from "./capacitor.js";
+import { purchasesAllowed } from "./utils/nativeApp.js";
 
 const Signup = lazy(() => import("./pages/Signup"));
 const Admin = lazy(() => import("./pages/Admin"));
@@ -323,7 +324,16 @@ export default function App() {
       <main>
       <Routes>
 
-        <Route path="/" element={<LandingPage session={session} />} />
+        {/* The native apps never open on the marketing home page: "/" goes
+            to the dashboard when signed in, else to login. */}
+        <Route
+          path="/"
+          element={
+            isNative()
+              ? (sessionLoading ? null : <Navigate to={session ? "/dashboard" : "/login"} replace />)
+              : <LandingPage session={session} />
+          }
+        />
 
         <Route
           path="/dashboard"
@@ -382,7 +392,8 @@ export default function App() {
           }
         />
 
-        <Route path="/pricing" element={<PricingPage />} />
+        {/* No purchasing in the native apps (src/utils/nativeApp.js). */}
+        <Route path="/pricing" element={purchasesAllowed() ? <PricingPage /> : <Navigate to="/dashboard" replace />} />
         <Route path="/earn" element={<Earn />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/learn" element={<Learn />} />

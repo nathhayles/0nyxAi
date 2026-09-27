@@ -1,4 +1,5 @@
 import React from "react";
+import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
 
 // Speaker labels ("@Opal: ") are never spoken, and a mention reads as the
 // name -- show the line the way it will sound.
@@ -83,7 +84,7 @@ export default function TalkingPresenterReview({ review, loading, videoModelLabe
                 {review.videoCredits} video · {review.startFrameCredits} start frames · {review.lipSyncCredits} lip-sync
               </span>
             )}
-            {notEnoughCredits && <span className="tp-warn">You have {credits} credits — not enough for this reel.</span>}
+            {notEnoughCredits && <span className="tp-warn">{purchasesAllowed() ? `You have ${credits} credits — not enough for this reel.` : NO_CREDITS_TEXT}</span>}
             <span className="tp-total-note">Nothing is charged until you click Generate. You're never charged more than this total.</span>
           </div>
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
 import HelpTooltip from "../components/HelpTooltip.jsx";
+import { purchasesAllowed, storeSafeMessage } from "../utils/nativeApp.js";
 
 const isMobileDevice = () =>
   window.innerWidth < 1024 ||
@@ -121,7 +122,7 @@ export default function Dashboard() {
     <div style={{minHeight:"100vh",color:"var(--onyx-text)",padding:"40px"}} onClick={() => setMenuOpen(null)}>
       {loadError && (
         <div style={{padding:"12px 16px",borderRadius:8,marginBottom:20,background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",color:"#f87171",fontSize:14}}>
-          {loadError} {loadError.toLowerCase().includes("trial") && <a href="/pricing" style={{color:"#f87171",textDecoration:"underline"}}>Upgrade now</a>}
+          {storeSafeMessage(loadError)} {purchasesAllowed() && loadError.toLowerCase().includes("trial") && <a href="/pricing" style={{color:"#f87171",textDecoration:"underline"}}>Upgrade now</a>}
         </div>
       )}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>

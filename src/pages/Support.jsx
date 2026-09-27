@@ -1,7 +1,17 @@
 import React, { useState } from "react";
 import SEO from "../components/SEO";
 import { staticPages } from "../data/staticPagesSeo";
-import { SECTIONS } from "../data/supportSections.js";
+import { SECTIONS as ALL_SECTIONS } from "../data/supportSections.js";
+import { purchasesAllowed } from "../utils/nativeApp.js";
+
+// The native apps show no prices or buying instructions (src/utils/
+// nativeApp.js), so answers about paying are left out there.
+const PURCHASE_TEXT_RE = /\$\d|pricing|billing|\bbought\b|\bbuy\b|purchase|top up|add-on|\/month/i;
+const SECTIONS = purchasesAllowed()
+  ? ALL_SECTIONS
+  : ALL_SECTIONS
+      .map((s) => ({ ...s, items: s.items.filter((i) => !PURCHASE_TEXT_RE.test(`${i.q} ${i.a}`)) }))
+      .filter((s) => s.items.length > 0);
 
 
 function AccordionItem({ q, a }) {

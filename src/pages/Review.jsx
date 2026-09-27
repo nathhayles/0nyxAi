@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import SEO from "../components/SEO";
+import { purchasesAllowed, storeSafeMessage } from "../utils/nativeApp.js";
 
 // TikTok deliberately excluded from this mobile flow -- its publish call
 // requires privacy_level + content-disclosure toggles (real platform
@@ -316,7 +317,7 @@ export default function Review() {
   async function handlePublish() {
     if (!render?.url) return setPublishMsg({ text: "No exported video to publish yet", type: "error" });
     if (selectedPlatforms.length === 0) return setPublishMsg({ text: "Select at least one platform", type: "error" });
-    if (!canAutopost) return setPublishMsg({ text: "Auto-posting requires an upgrade.", type: "error" });
+    if (!canAutopost) return setPublishMsg({ text: purchasesAllowed() ? "Auto-posting requires an upgrade." : "Auto-posting isn't available on your plan.", type: "error" });
     setPublishing(true);
     setPublishMsg({ text: "", type: "" });
     const results = [];
@@ -328,7 +329,7 @@ export default function Review() {
           body: JSON.stringify({ platform, video_url: render.url, caption, hashtags, title: reel?.title }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Publish failed");
+        if (!res.ok) throw new Error(storeSafeMessage(data.error) || "Publish failed");
         results.push(platform);
       } catch (err) {
         results.push(`FAIL: ${platform}: ${err.message}`);
@@ -585,7 +586,7 @@ export default function Review() {
             </div>
 
             {!canAutopost && (
-              <div style={{ ...card, fontSize: 13, color: "#fbbf24" }}>Auto-posting requires an upgrade to publish from here.</div>
+              <div style={{ ...card, fontSize: 13, color: "#fbbf24" }}>{purchasesAllowed() ? "Auto-posting requires an upgrade to publish from here." : "Auto-posting isn't available on your plan."}</div>
             )}
             {publishMsg.text && (
               <div style={{ ...card, fontSize: 13, color: publishMsg.type === "error" ? "#f87171" : "#4ade80" }}>{publishMsg.text}</div>

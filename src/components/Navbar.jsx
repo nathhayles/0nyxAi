@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { purchasesAllowed } from "../utils/nativeApp.js";
 
 const NAV_LINKS = [
   { label: "Dashboard",    to: "/dashboard" },
@@ -8,7 +9,8 @@ const NAV_LINKS = [
   { label: "Planner",      to: "/planner" },
   { label: "Characters",   to: "/characters" },
   { label: "Learn",        to: "/learn" },
-  { label: "Pricing",      to: "/pricing" },
+  // No purchasing in the native apps (src/utils/nativeApp.js).
+  ...(purchasesAllowed() ? [{ label: "Pricing", to: "/pricing" }] : []),
 ];
 
 export default function Navbar({ session }) {
