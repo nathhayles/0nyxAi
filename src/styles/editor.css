@@ -839,6 +839,16 @@ textarea {
   position: relative;
 }
 
+/* Pinned below .panelStickyContent (e.g. VoiceOverPanel's Apply buttons),
+   so primary actions stay reachable at any scroll position. */
+.panelStickyFooter {
+  flex-shrink: 0;
+  background: var(--panel-bg);
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
 /* Scroll affordance: without this, a scrollable list with no visible
    scrollbar (overlay-scrollbar browsers) hard-clips its last row with no
    cue that more content exists below — easy to mistake for the sticky
