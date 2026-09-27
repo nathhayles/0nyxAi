@@ -167,6 +167,19 @@ export default function LearnCharacterConsistency() {
         run lip-sync again.
       </p>
 
+      <h2 style={h2Style}>Talking presenter: a character speaking to camera</h2>
+      <p style={pStyle}>
+        For talking-to-camera shots, pick <strong style={strong}>Talking
+        presenter</strong> in the Scenes panel's model dropdown. Tag one
+        character in the scene; Onyx makes a still of them in the scene's
+        setting and animates it speaking the voiceover — made first in their
+        linked voice if the scene doesn't have one. It replaces both the
+        video model and lip-sync for these shots, at a fraction of the cost:
+        about 11 credits a second at 768p (7 at 480p) plus 6 for the start
+        frame. The voiceover can be up to 15 seconds; split longer narration
+        across two scenes.
+      </p>
+
       <h2 style={h2Style}>What this doesn't do</h2>
       <p style={pStyle}>
         Character consistency through reference photos anchors appearance —

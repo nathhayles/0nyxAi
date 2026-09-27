@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import HelpTooltip from "./HelpTooltip.jsx";
 import CharacterTagTextarea from "./CharacterTagTextarea.jsx";
 import { getAuthHeaders } from "../utils/auth.js";
+import { TALKING_PRESENTER, DEFAULT_PRESENTER_RESOLUTION, presenterSceneBody } from "../utils/talkingPresenter.js";
 
 function normalizeNarrationText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -67,6 +68,9 @@ const REGEN_MODEL_OPTIONS = [
   // the widest range of any model here -- this is a premium, token-priced
   // model, the range is honest, not a display bug.
   { id: "seedance-2.5",   label: "✨ Seedance 2.5", credits: 2421, creditsLabel: "62-2421 cr/scene", premium: true },
+  // Talking presenter (routes/presenter.js): 480p 5s + standard start frame
+  // (34 + 6) up to 768p 15s + high-quality start frame (160 + 16).
+  { id: TALKING_PRESENTER, label: "🎙 Talking presenter", credits: 176, creditsLabel: "40-176 cr/scene" },
 ];
 
 // Why a scene can't be lip-synced right now, or null when it can. Mirrors
@@ -191,7 +195,9 @@ export default function StoryboardPanel({
   // also decides whether this scene gets a start frame -- from its text,
   // reference mode, Start Image and "Continue from previous scene" -- using
   // the same functions as the real charge.
-  const [estimate, setEstimate] = useState(null); // { videoCredits, startFrameCredits, startFrameApplies, total, startFrameModels }
+  // Talking presenter scenes use POST /api/presenter/estimate instead, which
+  // also returns the lip-sync credits and anything blocking the scene.
+  const [estimate, setEstimate] = useState(null); // { videoCredits, startFrameCredits, startFrameApplies, total, startFrameModels } | presenter: { presenter, blocker, startFrameCredits, lipSyncCredits, total, secondsSource, ... }
   const [estimateLoading, setEstimateLoading] = useState(false);
   const estimatedCredits = estimate?.total ?? null;
 
@@ -204,6 +210,8 @@ export default function StoryboardPanel({
   const activeHasStartImage = !!(supportsStartImage && (activeSceneObj?.sourceImageUrl || "").trim());
   const activeContinues = !!(activeSceneObj?.continueFromPrevious && previousSceneVideoUrl(scenes, activeIndex));
   const activeStartFrameModel = activeSceneObj?.startFrameModel || null;
+  const isPresenter = regenModel === TALKING_PRESENTER;
+  const presenterBodyKey = isPresenter && activeSceneObj ? JSON.stringify(presenterSceneBody(activeSceneObj)) : null;
   useEffect(() => {
     let cancelled = false;
     setEstimateLoading(true);
@@ -211,6 +219,17 @@ export default function StoryboardPanel({
       try {
         const headers = await getAuthHeaders();
         headers["Content-Type"] = "application/json";
+        if (presenterBodyKey) {
+          const res = await fetch("/api/presenter/estimate", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ ...JSON.parse(presenterBodyKey), brand_id: brandId || null }),
+          });
+          const data = await res.json().catch(() => null);
+          const usable = res.ok && data && (data.blocker || Number.isFinite(data.total));
+          if (!cancelled) setEstimate(usable ? { ...data, presenter: true } : null);
+          return;
+        }
         const res = await fetch("/api/kling/estimate-scenes", {
           method: "POST",
           headers,
@@ -239,7 +258,7 @@ export default function StoryboardPanel({
       }
     }, 400);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [regenModel, activeDuration, activeResolution, aspectRatio, activeText, activeReferenceMode, activeHasStartImage, activeContinues, activeStartFrameModel, brandId]);
+  }, [regenModel, activeDuration, activeResolution, aspectRatio, activeText, activeReferenceMode, activeHasStartImage, activeContinues, activeStartFrameModel, brandId, presenterBodyKey]);
 
   useEffect(() => {
     (async () => {
@@ -511,7 +530,8 @@ export default function StoryboardPanel({
               {!isStock && (
                 <button
                   className="sceneSmallBtn primary"
-                  disabled={!!generatingScenes[sc.id]}
+                  disabled={!!generatingScenes[sc.id] || (isPresenter && sc.id === activeScene && !!estimate?.presenter && !!estimate?.blocker)}
+                  title={isPresenter && sc.id === activeScene && estimate?.presenter && estimate?.blocker ? estimate.blocker : undefined}
                   onClick={(e) => { e.stopPropagation(); onGenerateScene(sc.id); }}
                 >
                   {generatingScenes[sc.id]?.status === "submitting"
@@ -715,7 +735,11 @@ export default function StoryboardPanel({
                 Vidu models: 1-16). Falls back to Kling's own spec (the
                 app's default model) during the brief window before
                 capabilities have loaded, rather than rendering nothing. */}
-            {(() => {
+            {isPresenter ? (
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }} onClick={(e) => e.stopPropagation()}>
+                Length: follows the voiceover (5–15 seconds)
+              </div>
+            ) : (() => {
               const spec = durationSpec || { type: "discrete", values: [5, 10], default: 5 };
               return (
                 <div
@@ -813,6 +837,25 @@ export default function StoryboardPanel({
               </div>
             )}
 
+            {/* Set by utils/lipSyncState.js's voiceoverReplacedChanges when a
+                lip-synced scene gets a new voiceover: the clip's own audio
+                (the old narration) is muted so export doesn't play both. */}
+            {sc.voiceoverChangedAfterLipSync && (
+              <div
+                style={{
+                  display: "flex", alignItems: "center", gap: 6, fontSize: 11,
+                  color: "#f0b429", background: "rgba(240,180,41,0.12)",
+                  border: "1px solid rgba(240,180,41,0.3)", borderRadius: 6,
+                  padding: "5px 8px", marginTop: -4, marginBottom: 8,
+                }}
+                onClick={(e) => e.stopPropagation()}
+                title="This scene's video was lip-synced to its previous voiceover. Its own audio is muted so the old and new narration don't play together."
+              >
+                <span>⚠️</span>
+                <span>Voiceover changed — regenerate to re-sync. The clip's own audio is muted until then.</span>
+              </div>
+            )}
+
             {/* ── 1080p upgrade (wan-2.7 only) ── */}
             {/* Real user choice, not a per-model force like wan-2.5's 480p --
                 default stays 720p ($0.10/s); checking this sends
@@ -853,6 +896,28 @@ export default function StoryboardPanel({
               </div>
             )}
 
+            {/* ── Talking presenter resolution (768p default, 480p cheaper) ── */}
+            {isPresenter && (
+              <div
+                style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span style={{ fontSize: 12, opacity: 0.7, marginRight: 2 }}>Resolution:</span>
+                {[{ id: "768P", label: "768p" }, { id: "480P", label: "480p (cheaper)" }].map((r) => {
+                  const credits = sc.id === activeScene && estimate?.presenter ? estimate.resolutions?.find((x) => x.id === r.id)?.credits : null;
+                  return (
+                    <button
+                      key={r.id}
+                      className={"sceneSmallBtn" + ((sc.presenterResolution || DEFAULT_PRESENTER_RESOLUTION) === r.id ? " primary" : "")}
+                      onClick={(e) => { e.stopPropagation(); updateField(sc.id, "presenterResolution", r.id); }}
+                    >
+                      {r.label}{credits != null ? ` · ${credits} cr` : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* ── Live credit estimate (2026-08-08) -- only shown for the
                 active scene, since the estimate fetch is keyed on the
                 ACTIVE scene's duration/resolution (see the useEffect above)
@@ -862,7 +927,34 @@ export default function StoryboardPanel({
                 aspect-ratio pickers never offer "auto" as a value at all
                 (2026-08-08 decision), so whatever's currently selected is
                 already the exact value that would be billed. ── */}
-            {sc.id === activeScene && (REGEN_MODEL_OPTIONS.find(o => o.id === regenModel)?.premium || estimate?.startFrameApplies) && (
+            {sc.id === activeScene && isPresenter && (
+              <div style={{ fontSize: 12, marginBottom: 8, opacity: 0.85 }} onClick={(e) => e.stopPropagation()}>
+                {estimateLoading ? (
+                  <span style={{ opacity: 0.5 }}>Estimated cost: calculating…</span>
+                ) : !estimate?.presenter ? (
+                  <span style={{ opacity: 0.5 }}>Estimated cost: unavailable</span>
+                ) : estimate.blocker ? (
+                  <span style={{ color: "#f87171" }}>{estimate.blocker}</span>
+                ) : (
+                  <>
+                    <span style={{ opacity: 0.6 }}>Estimated cost: </span>
+                    <span style={{ fontWeight: 600, color: "#fbbf24" }}>
+                      {estimate.secondsSource === "estimated" ? "about " : ""}{estimate.total} credits
+                      <span style={{ fontWeight: 400, opacity: 0.8 }}> (incl. {estimate.startFrameCredits} for the start frame, {estimate.lipSyncCredits} for lip-sync)</span>
+                    </span>
+                    <div style={{ fontSize: 11, opacity: 0.65, marginTop: 3, lineHeight: 1.4 }}>
+                      {estimate.secondsSource === "estimated"
+                        ? `${estimate.character}'s voiceover will be made first from the narration (about ${estimate.billedSeconds}s).`
+                        : `${estimate.billedSeconds}s of speech${estimate.padded ? " (under 5s, so padded to 5s)" : ""}.`}
+                    </div>
+                    {estimate.lengthWarning && (
+                      <div style={{ fontSize: 11, color: "#f0b429", marginTop: 3 }}>{estimate.lengthWarning}</div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+            {sc.id === activeScene && !isPresenter && (REGEN_MODEL_OPTIONS.find(o => o.id === regenModel)?.premium || estimate?.startFrameApplies) && (
               <div style={{ fontSize: 12, marginBottom: 8, opacity: 0.85, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <span style={{ opacity: 0.6 }}>Estimated cost:</span>
                 {estimateLoading ? (
@@ -968,7 +1060,7 @@ export default function StoryboardPanel({
                     value beats the character's own stored default when set;
                     unset (the default, "Use character default") lets each
                     tagged character in the scene fall back to its own setting. */}
-                {parseTaggedNames(sc.action).some((name) =>
+                {!isPresenter && parseTaggedNames(sc.action).some((name) =>
                   characters.some((c) => normalizeTagName(c.name) === normalizeTagName(name) && (c.character_reference_images || []).length > 0)
                 ) && (
                   <div style={{ marginBottom: 4 }} onClick={(e) => e.stopPropagation()}>
@@ -1007,7 +1099,7 @@ export default function StoryboardPanel({
                     frame (routes/kling.js planStartFrames). "Continue from
                     previous scene" skips it and starts from the previous
                     scene's last frame instead, for continuity. */}
-                {index > 0 && previousSceneVideoUrl(scenes, index) && (
+                {!isPresenter && index > 0 && previousSceneVideoUrl(scenes, index) && (
                   <label
                     style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--onyx-text-dim)", margin: "4px 0", cursor: "pointer" }}
                     onClick={(e) => e.stopPropagation()}
@@ -1021,10 +1113,12 @@ export default function StoryboardPanel({
                     Continue from previous scene
                   </label>
                 )}
-                {sc.id === activeScene && estimate?.startFrameApplies && (
+                {sc.id === activeScene && (estimate?.startFrameApplies || (estimate?.presenter && !estimate.blocker)) && (
                   <div style={{ fontSize: 11, color: "var(--onyx-text-dim)", margin: "4px 0 6px" }} onClick={(e) => e.stopPropagation()}>
                     <div style={{ marginBottom: 4, lineHeight: 1.4 }}>
-                      Start frame: a still of your character in this scene's setting opens the video.
+                      {estimate?.presenter
+                        ? "Start frame: a still of your character in this scene's setting, which Talking presenter animates."
+                        : "Start frame: a still of your character in this scene's setting opens the video."}
                     </div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {(estimate.startFrameModels || []).map((m) => {

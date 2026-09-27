@@ -30,6 +30,10 @@ const CONTENT = {
       {
         heading: "Cost",
         body: "Each AI scene costs 18–150 credits depending on the model. Regenerating a scene that has a voiceover also lip-syncs it, which adds a surcharge (about 86 credits for 5s, 171 for 10s). To lip-sync without regenerating, use the scene's Lip-sync button."
+      },
+      {
+        heading: "Talking presenter",
+        body: "For talking-to-camera shots, pick Talking presenter in the model dropdown: one tagged character speaks the scene's voiceover (made first in their linked voice if there isn't one). Voiceover 5–15s. About 11 credits a second at 768p or 7 at 480p, plus the start frame — the card shows the full total."
       }
     ]
   },
@@ -217,7 +221,7 @@ const CONTENT = {
       { heading: "What it's for", body: "Save a reusable character — name, optional details (build, age, hair, eyes, wardrobe and more) and 2–4 reference images — so they look the same across every generation." },
       { heading: "Using a character", body: "Type @CharacterName in a scene's Action or Background field. Autocomplete shows your saved characters." },
       { heading: "Reference mode", items: ["Character Consistency — anchors to the reference photo; best for a recognisable recurring character", "Scene Accuracy — follows the prompt text, prioritising action, setting and camera over an exact face match", "Each character has a default mode, overridable per scene"] },
-      { heading: "Character voices", items: ["Edit → Linked voice: pick a voice from the list, or paste an ElevenLabs voice ID from your ElevenLabs library", "One character in a scene: tag them (e.g. @Opal) in Action or the narration and their voice is used automatically", "Several characters: start each spoken line with @Name: — e.g. @Opal: Welcome… then @Max: Thanks…", "Tags are never spoken or shown in captions", "Lip-sync: single-speaker scenes only — apply the voiceover, then use the scene's Lip-sync button"] },
+      { heading: "Character voices", items: ["Edit → Linked voice: pick a voice from the list, or paste an ElevenLabs voice ID from your ElevenLabs library", "One character in a scene: tag them (e.g. @Opal) in Action or the narration and their voice is used automatically", "Several characters: start each spoken line with @Name: — e.g. @Opal: Welcome… then @Max: Thanks…", "Tags are never spoken or shown in captions", "Lip-sync: single-speaker scenes only — apply the voiceover, then use the scene's Lip-sync button", "Talking presenter (model dropdown): one tagged character speaks to camera — the voiceover is made in their linked voice if the scene has none"] },
       { heading: "Start frames", items: ["On Kling 3 Pro, a Character Consistency scene opens on a generated still of the character in that scene's setting (6 credits, or 16 for High quality)", "Tick \"Continue from previous scene\" to start from the previous scene's last frame instead"] },
       { heading: "Good to know", items: ["A brief fade (under 1 second) at the start of a Character Consistency clip is expected, not a bug", "Characters flagged as a real person get an automatic AI-disclosure clip at the start of the export (EU AI Act)"] },
     ],
@@ -228,6 +232,7 @@ const CONTENT = {
     sections: [
       { heading: "One character", body: "Tag them in the Action box or here, e.g. @Opal. Their linked voice is used automatically, and the Voice Over panel shows \"Using Opal's voice\"." },
       { heading: "Several characters", body: "Start each spoken line with @Name: — with the colon:\n\n@Opal: Welcome to the show.\n@Max: Thanks for having me." },
+      { heading: "Talking presenter", body: "One tagged character speaks this narration to camera, in their linked voice. Keep it to 15 seconds or less." },
     ],
   },
   autoRouting: {
