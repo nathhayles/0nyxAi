@@ -45,6 +45,10 @@ const TIER_DISPLAY_LABEL = {
   "Chirp3-HD": "Premium HD",
 };
 
+// Scene-row status text: takes the remaining width next to "Scene N" and
+// wraps onto more lines instead of overflowing.
+const statusStyle = { fontSize: 10, lineHeight: 1.35, minWidth: 0, flex: "0 1 auto", textAlign: "right", overflowWrap: "anywhere" };
+
 export default function VoiceOverPanel({
   scenes = [],
   setScenes,
@@ -70,9 +74,13 @@ export default function VoiceOverPanel({
   const [filterLanguage, setFilterLanguage] = useState("all");
   const [filterSearch, setFilterSearch] = useState("");
 
-  // Collapsible header state
-  const [headerExpanded, setHeaderExpanded] = useState(true);
+  // The filter block scrolls away with the list (see the layout comment in
+  // the JSX). filtersScrolledAway only toggles the visibility of the ⚙
+  // "back to filters" button, which is always laid out, so scrolling never
+  // changes any element's height.
+  const [filtersScrolledAway, setFiltersScrolledAway] = useState(false);
   const scrollContentRef = useRef(null);
+  const filtersRef = useRef(null);
 
   // Remembers the volume level to restore on unmute -- voiceoverVolume itself
   // becomes 0 while muted, so this is the only place the pre-mute level lives.
@@ -187,17 +195,24 @@ export default function VoiceOverPanel({
     if (selectedSceneIndex >= safeScenes.length) setSelectedSceneIndex(0);
   }, [safeScenes.length]);
 
-  // Collapse/expand header on scroll
+  // Shows the ⚙ button once the filter block has scrolled out of view.
+  // Previously this collapsed the ~250px filter block itself past
+  // scrollTop 40 and re-expanded it below 10. Collapsing made the scroll area
+  // taller, which clamped scrollTop back under 10 whenever the list was only
+  // a little taller than the panel (e.g. the Favourites filter), re-expanding
+  // the header: the panel snapped back to the top on every scroll and the
+  // Apply buttons were unreachable.
   useEffect(() => {
     const el = scrollContentRef.current;
     if (!el) return;
     const onScroll = () => {
-      if (el.scrollTop > 40 && headerExpanded) setHeaderExpanded(false);
-      if (el.scrollTop < 10 && !headerExpanded) setHeaderExpanded(true);
+      const filtersHeight = filtersRef.current?.offsetHeight || 0;
+      setFiltersScrolledAway(el.scrollTop > Math.max(filtersHeight - 10, 40));
     };
+    onScroll();
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, [headerExpanded]);
+  }, []);
 
   // Standard catalog = OpenAI voices + Google Standard/WaveNet for selected language
   // Premium catalog = ElevenLabs voices + Google Chirp3-HD for selected language
@@ -283,7 +298,7 @@ export default function VoiceOverPanel({
       <div className="panelStickyTop" style={{ transition: "padding 0.15s" }}>
 
         {/* Tier toggle — always visible */}
-        <div style={{ display: "flex", gap: 6, marginBottom: headerExpanded ? 10 : 0, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6, marginBottom: 10, alignItems: "center" }}>
           {[
             { key: "standard", label: "Standard" },
             { key: "premium",  label: "Premium"  },
@@ -307,20 +322,22 @@ export default function VoiceOverPanel({
             ★ Favourites
           </button>
           <HelpTooltip topic="voiceover" />
-          {/* Collapsed state: show filter icon to re-expand */}
-          {!headerExpanded && (
-            <button type="button" onClick={() => { setHeaderExpanded(true); if (scrollContentRef.current) scrollContentRef.current.scrollTop = 0; }}
-              title="Show filters"
-              style={{ width: 28, height: 28, flexShrink: 0, borderRadius: 6, border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-surface)", color: activeFilters > 0 ? "var(--onyx-cyan)" : "var(--onyx-text-dim)", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {activeFilters > 0 ? `⚙${activeFilters}` : "⚙"}
-            </button>
-          )}
+          {/* Back to the filters once they've scrolled away. Always laid out
+              (hidden with visibility, not unmounted) so it never changes the
+              header's size mid-scroll. */}
+          <button type="button" onClick={() => scrollContentRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+            title="Show filters"
+            aria-hidden={!filtersScrolledAway}
+            tabIndex={filtersScrolledAway ? 0 : -1}
+            style={{ visibility: filtersScrolledAway ? "visible" : "hidden", width: 26, height: 26, flexShrink: 0, borderRadius: 6, border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-surface)", color: activeFilters > 0 ? "var(--onyx-cyan)" : "var(--onyx-text-dim)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+            {activeFilters > 0 ? `⚙${activeFilters}` : "⚙"}
+          </button>
         </div>
 
-        {/* Narration volume + mute — always visible (not gated behind the
-            collapsible filter panel below) since it's a control you want to
-            reach for at any scroll position, not a one-time filter setting. */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: headerExpanded ? 10 : 8 }}>
+        {/* Narration volume + mute — pinned here (not in the scrolling
+            filter block) since it's a control you want to reach for at any
+            scroll position, not a one-time filter setting. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
             type="button"
             onClick={() => setVoiceoverVolume(voiceoverVolume > 0 ? 0 : lastVoiceoverVolumeRef.current)}
@@ -346,18 +363,14 @@ export default function VoiceOverPanel({
           </span>
         </div>
 
-        {/* Expanded filter panel — animated via CSS grid-template-rows rather
-            than an unmount/mount toggle, so crossing the scroll threshold
-            smoothly collapses this ~230px block instead of instantly
-            vanishing it (the abrupt version was the source of the "glitchy"
-            snap when scrolling past the header). Content stays mounted
-            (controls keep their state/focus), just visually collapsed. */}
-        <div style={{
-          display: "grid",
-          gridTemplateRows: headerExpanded ? "1fr" : "0fr",
-          transition: "grid-template-rows 0.22s ease",
-        }}>
-          <div style={{ overflow: "hidden", minHeight: 0 }}>
+      </div>
+
+      {/* Layout: only the tier row and narration volume are pinned at the
+          top, and the Apply buttons are pinned in the footer. The filters
+          scroll away with the voice list instead of collapsing, so nothing
+          changes height while scrolling (see the filtersScrolledAway effect). */}
+      <div className="panelStickyContent" ref={scrollContentRef}>
+        <div ref={filtersRef} style={{ paddingTop: 8 }}>
             {/* Language selector — applies to Google voices in both tiers */}
             <div style={{ marginBottom: 10 }}>
               <label style={LABEL_STYLE}>
@@ -443,11 +456,7 @@ export default function VoiceOverPanel({
             {isLoadingVoices && <div style={{ fontSize: 11, color: "var(--onyx-text-dim)", marginBottom: 6 }}>Loading voices…</div>}
             {premiumVoicesError && <div style={{ fontSize: 11, color: "#f87171", marginBottom: 6 }}>{premiumVoicesError}</div>}
             {googleVoicesError && <div style={{ fontSize: 11, color: "#f87171", marginBottom: 6 }}>{googleVoicesError}</div>}
-          </div>
         </div>
-      </div>
-
-      <div className="panelStickyContent" ref={scrollContentRef}>
 
         {/* Voice card list */}
         <div style={{ display: "grid", gap: 6, marginBottom: 12 }}>
@@ -552,6 +561,9 @@ export default function VoiceOverPanel({
                 onClick={() => setSelectedSceneIndex(index)}
                 style={{
                   textAlign: "left",
+                  width: "100%",
+                  minWidth: 0,
+                  boxSizing: "border-box",
                   border: `0.5px solid ${isSelected ? "var(--onyx-cyan)" : "var(--onyx-hairline)"}`,
                   borderRadius: 8,
                   padding: "8px 10px",
@@ -562,23 +574,27 @@ export default function VoiceOverPanel({
                   gap: 4,
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-                  <div style={{ fontWeight: 600, fontSize: 11, color: "var(--onyx-text)" }}>Scene {index + 1}</div>
-                  {isGenerating ? (
-                    <span style={{ fontSize: 10, color: "var(--onyx-cyan,#4dd0ff)" }}>⏳ generating…</span>
-                  ) : scene?.voiceoverVoiceName ? (
-                    <span style={{ fontSize: 10, color: "var(--onyx-text-faint)" }}>🎙 {scene.voiceoverVoiceName}</span>
-                  ) : scene?.voiceoverUrl ? (
-                    <span style={{ fontSize: 10, color: "var(--onyx-text-faint)" }}>🎙 voice assigned</span>
-                  ) : (
-                    <span style={{ fontSize: 10, color: "var(--onyx-text-faint)" }}>No voice</span>
-                  )}
+                {/* Status wraps rather than being clipped: long voice names
+                    (ElevenLabs names can be a full sentence) used to push past
+                    the row's right edge, where the panel's overflow-x: hidden
+                    cut them off. */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 11, color: "var(--onyx-text)", flexShrink: 0 }}>Scene {index + 1}</div>
+                  <span style={{ ...statusStyle, color: isGenerating ? "var(--onyx-cyan,#4dd0ff)" : "var(--onyx-text-faint)" }}>
+                    {isGenerating
+                      ? "⏳ generating…"
+                      : scene?.voiceoverVoiceName
+                      ? `🎙 ${scene.voiceoverVoiceName}`
+                      : scene?.voiceoverUrl
+                      ? "🎙 voice assigned"
+                      : "No voice"}
+                  </span>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--onyx-text-dim)", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                   {narration || <span style={{ opacity: 0.4 }}>No narration</span>}
                 </div>
                 {characterVoiceNames.length > 0 && (
-                  <div style={{ fontSize: 10, color: "var(--onyx-cyan,#4dd0ff)" }}>
+                  <div style={{ fontSize: 10, lineHeight: 1.35, color: "var(--onyx-cyan,#4dd0ff)", overflowWrap: "anywhere" }}>
                     Using {characterVoiceNames.map((name) => `${name}'s`).join(" and ")} voice{characterVoiceNames.length > 1 ? "s" : ""}
                   </div>
                 )}
@@ -590,6 +606,10 @@ export default function VoiceOverPanel({
           )}
         </div>
 
+      </div>
+
+      {/* Sticky footer: always visible below the scroll area. */}
+      <div className="panelStickyFooter">
         {/* Fully-tagged notes (Option 1, 2026-08-12): shown BEFORE the user
             clicks Apply, not just after -- a scene whose every speaker turn
             resolves to its own tagged character's linked voice ignores
