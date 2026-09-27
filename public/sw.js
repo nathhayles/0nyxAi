@@ -13,7 +13,9 @@
 // (e.g. an old credit balance, or a reel that looks "done" when it isn't)
 // would be a real, confusing bug, not a performance win. Only same-origin
 // static assets and page shells are ever touched here.
-const CACHE_VERSION = "onyx-pwa-v1";
+// v2: purges v1 caches, which could hold a page shell referencing chunks a
+// later deploy deleted.
+const CACHE_VERSION = "onyx-pwa-v2";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGES_CACHE = `${CACHE_VERSION}-pages`;
 
@@ -66,7 +68,12 @@ self.addEventListener("fetch", (event) => {
         const cached = await caches.match(request);
         if (cached) return cached;
         const response = await fetch(request);
-        if (response.ok) {
+        // Never cache an HTML response under an asset URL: a server whose
+        // SPA fallback answers a missing (deleted-by-deploy) chunk with
+        // index.html and a 200 would otherwise pin that page to the chunk's
+        // URL for good. Live nginx 404s missing assets, so this is a guard.
+        const isHtml = (response.headers.get("content-type") || "").includes("text/html");
+        if (response.ok && !isHtml) {
           const cache = await caches.open(STATIC_CACHE);
           cache.put(request, response.clone());
         }
@@ -76,15 +83,19 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Page navigations (the HTML shell) -- network-first, so a user online
-  // always gets the latest deployed version; falls back to the last cached
-  // shell only when genuinely offline, for basic offline resilience rather
-  // than a hard failure.
+  // Page navigations (the HTML shell) -- network-first, never cache-first,
+  // so a user online always gets the latest deployed version; falls back to
+  // the last cached shell only when genuinely offline, for basic offline
+  // resilience rather than a hard failure. cache: "no-store" also skips the
+  // browser's HTTP cache, so a stale index.html referencing deleted chunks
+  // can't come from there either (nginx already sends no-store for it; this
+  // doesn't depend on that). If an offline shell's chunks are gone,
+  // src/staleChunkRecovery.js and index.html's inline guard recover.
   if (request.mode === "navigate") {
     event.respondWith(
       (async () => {
         try {
-          const response = await fetch(request);
+          const response = await fetch(request, { cache: "no-store" });
           if (response.ok) {
             const cache = await caches.open(PAGES_CACHE);
             cache.put(request, response.clone());

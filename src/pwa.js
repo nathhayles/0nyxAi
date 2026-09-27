@@ -6,7 +6,11 @@
 export function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return; // unsupported browser -- no-op, never throws
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch((err) => {
+    // updateViaCache "none": the update check for sw.js itself always goes
+    // to the network, never the HTTP cache, so a deploy's service worker is
+    // picked up on the next navigation (it then takes over immediately --
+    // skipWaiting + clients.claim in public/sw.js).
+    navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).catch((err) => {
       // Never let a registration failure affect the app itself -- this is
       // pure enhancement, not a requirement to function.
       console.warn("[pwa] service worker registration failed:", err.message);
