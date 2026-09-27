@@ -69,6 +69,27 @@ const REGEN_MODEL_OPTIONS = [
   { id: "seedance-2.5",   label: "✨ Seedance 2.5", credits: 2421, creditsLabel: "62-2421 cr/scene", premium: true },
 ];
 
+// Why a scene can't be lip-synced right now, or null when it can. Mirrors
+// the backend's checks in routes/lipsync.js so the button explains itself
+// instead of failing after a round trip.
+function lipSyncBlocker(sc, isGenerating) {
+  if (sc.lipSynced) return "Already lip-synced to this voiceover";
+  if (isGenerating || sc.generationPending) return "Wait for this scene to finish generating";
+  if (sc.mediaType !== "video" || !(sc.mediaUrl || sc.url)) return "Generate or add a video for this scene first";
+  if (!sc.voiceoverUrl) return "Add a voiceover to this scene first";
+  if (sc.voiceoverStale) return "The narration changed since the voiceover was made -- regenerate the voiceover first";
+  if ((sc.voiceoverSegments?.length || 0) > 1) return "Lip-sync needs a single-speaker voiceover";
+  return null;
+}
+
+// Client-side estimate only (the backend charges on the video's real,
+// probed length). Same formula as syncSurchargeCredits in the backend's
+// lib/syncLipSync.js: $0.128/s x 1.33 markup, 1 credit = $0.01.
+function lipSyncCreditEstimate(sc) {
+  const seconds = Number(sc.sourceDuration || sc.duration) || 5;
+  return Math.ceil((seconds * 0.128 * 1.33) / 0.01);
+}
+
 export default function StoryboardPanel({
   brandId,
   scenes,
@@ -91,6 +112,8 @@ export default function StoryboardPanel({
   aspectRatio = "9:16",
   onUpscaleScene,
   upscalingScenes = {},
+  onLipSyncScene,
+  lipSyncingScenes = {},
   upscaleCapabilities = {},
   onReorder,
   timelineState,
@@ -501,6 +524,34 @@ export default function StoryboardPanel({
                       : upscalingScenes[sc.id]?.status === "polling"
                       ? "Upscaling…"
                       : "Upscale"}
+                  </button>
+                );
+              })()}
+
+              {/* Lip-sync button: syncs the scene's EXISTING video to its
+                  voiceover without regenerating it (EditorV2's lipSyncScene
+                  -> POST /api/lipsync/generate). Stays rendered but disabled,
+                  with the reason in its tooltip, when the scene isn't ready. */}
+              {onLipSyncScene && (() => {
+                const busy = lipSyncingScenes[sc.id] || sc.lipSyncJobId;
+                const blocker = lipSyncBlocker(sc, !!generatingScenes[sc.id]);
+                const estimate = lipSyncCreditEstimate(sc);
+                return (
+                  <button
+                    className="sceneSmallBtn"
+                    disabled={!!blocker || !!busy}
+                    title={blocker || `Match mouth movement to this scene's voiceover (about ${estimate} credits, refunded if it fails)`}
+                    onClick={(e) => { e.stopPropagation(); if (!blocker && !busy) onLipSyncScene(sc.id); }}
+                  >
+                    {lipSyncingScenes[sc.id]?.status === "submitting"
+                      ? "Starting…"
+                      : busy
+                      ? "Lip-syncing…"
+                      : sc.lipSynced
+                      ? "Lip-synced ✓"
+                      : blocker
+                      ? "Lip-sync"
+                      : `Lip-sync · ~${estimate} cr`}
                   </button>
                 );
               })()}

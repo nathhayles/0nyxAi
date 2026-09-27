@@ -2145,6 +2145,7 @@ export default function EditorV2() {
     })();
   }, []);
   const [upscalingScenes, setUpscalingScenes] = useState({});
+  const [lipSyncingScenes, setLipSyncingScenes] = useState({});
   const supportsRefs = modelCapabilities[regenModel]?.supportsRefs ?? false;
   // Distinct from supportsRefs -- gates the End Frame URL field, not the
   // @-tag character reference UI. Previously StoryboardPanel's End Frame
@@ -3816,8 +3817,26 @@ export default function EditorV2() {
   // "closed the laptop and came back later" and "backgrounded the tab and
   // switched back" self-heal without a support ticket or manual DB lookup.
   const reconcilingJobsRef = useRef(new Set());
+  const applyLipSyncResultRef = useRef(() => {});
   const reconcilePendingScenes = useCallback(async () => {
     const list = scenesRef.current || [];
+    // Lip-sync jobs (see lipSyncScene below) leave the same kind of trail:
+    // lipSyncJobId stays on the scene until a result is applied.
+    for (const sc of list.filter(sc => sc.lipSyncJobId && !reconcilingJobsRef.current.has(sc.lipSyncJobId))) {
+      reconcilingJobsRef.current.add(sc.lipSyncJobId);
+      try {
+        const ph = await getAuthHeaders();
+        const res = await fetch(`/api/lipsync/status/${sc.lipSyncJobId}`, { headers: ph });
+        const poll = await res.json().catch(() => ({}));
+        if (poll.status === "completed" && poll.videoUrl) applyLipSyncResultRef.current(sc.id, poll.videoUrl);
+        else if (poll.status === "failed" || res.status === 404) updateSceneRef.current(sc.id, { lipSyncJobId: null, lipSyncSourceUrl: null });
+      } catch (e) {
+        console.warn("[EditorV2] reconcile lip-sync failed:", sc.id, e);
+      } finally {
+        reconcilingJobsRef.current.delete(sc.lipSyncJobId);
+      }
+    }
+
     const pending = list.filter(sc =>
       sc.generationPending && sc.jobId && !(sc.mediaUrl || sc.url) && !reconcilingJobsRef.current.has(sc.jobId)
     );
@@ -3930,6 +3949,9 @@ export default function EditorV2() {
         if (updated.__voDuration > 0) {
           changes.duration = updated.__voDuration + 1.5;
         }
+        // Same rule as useVoiceoverEngine: a new voiceover invalidates an
+        // earlier lip-sync (the backend clears it too, see brandApply.js).
+        if (updated.voiceoverUrl && updated.voiceoverUrl !== original.voiceoverUrl) changes.lipSynced = false;
         updateSceneRef.current(original.id, changes);
       });
 
@@ -4569,6 +4591,87 @@ export default function EditorV2() {
     }
   }, [scenes, toast, selectedBrandId]);
 
+  // Lip-sync button: runs Sync.so over the scene's EXISTING video and its
+  // voiceover (POST /api/lipsync/generate), without regenerating the video.
+  // The backend charges the surcharge up front and refunds it if the job
+  // fails. lipSyncJobId/lipSyncSourceUrl are saved on the scene so
+  // reconcilePendingScenes can finish the job after a reload.
+  const applyLipSyncResult = useCallback((id, videoUrl) => {
+    const scene = (scenesRef.current || []).find(s => s.id === id);
+    if (!scene) return;
+    const currentUrl = scene.mediaUrl || scene.url;
+    // The scene's video changed while lip-sync was running (regenerated,
+    // swapped, uploaded) -- the result belongs to the old video, so don't
+    // overwrite the new one with it.
+    if (scene.lipSyncSourceUrl && currentUrl !== scene.lipSyncSourceUrl) {
+      updateSceneRef.current(id, { lipSyncJobId: null, lipSyncSourceUrl: null });
+      toast.show("Lip-sync finished, but this scene's video changed in the meantime, so the result wasn't applied.", "error");
+      return;
+    }
+    updateSceneRef.current(id, {
+      mediaUrl: videoUrl, url: videoUrl, mediaType: "video",
+      lipSynced: true, preLipSyncMediaUrl: currentUrl || null,
+      lipSyncJobId: null, lipSyncSourceUrl: null,
+    });
+  }, [toast]);
+  applyLipSyncResultRef.current = applyLipSyncResult;
+
+  const lipSyncScene = useCallback(async (id) => {
+    setLipSyncingScenes(p => ({ ...p, [id]: { status: "submitting" } }));
+    try {
+      const scene = scenes.find(s => s.id === id); if (!scene) return;
+      const videoUrl = scene.mediaUrl || scene.url;
+      const h = await getAuthHeaders(); h["Content-Type"] = "application/json";
+      const submitRes = await fetch("/api/lipsync/generate", {
+        method: "POST",
+        headers: h,
+        body: JSON.stringify({
+          videoUrl,
+          voiceoverUrl: scene.voiceoverUrl,
+          voiceoverMultiSpeaker: (scene.voiceoverSegments?.length || 0) > 1,
+          sceneId: String(id),
+        }),
+      });
+      const { jobId, credits, error: submitErr } = await submitRes.json().catch(() => ({}));
+      if (!jobId) throw new Error(submitErr || "Couldn't start lip-sync");
+
+      updateSceneRef.current(id, { lipSyncJobId: jobId, lipSyncSourceUrl: videoUrl });
+      setLipSyncingScenes(p => ({ ...p, [id]: { status: "polling" } }));
+
+      // Backend waits up to 10 min on Sync.so, plus the copy into R2.
+      const deadline = Date.now() + 12 * 60 * 1000;
+      while (Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 5000));
+        let poll;
+        try {
+          const ph = await getAuthHeaders();
+          poll = await (await fetch(`/api/lipsync/status/${jobId}`, { headers: ph })).json();
+        } catch (pollErr) {
+          console.warn("[EditorV2] lip-sync poll transient failure, retrying:", pollErr);
+          continue;
+        }
+        if (poll.status === "completed") {
+          if (!poll.videoUrl) throw new Error("Lip-sync completed but no video URL returned");
+          applyLipSyncResult(id, poll.videoUrl);
+          toast.show(`Lip-sync complete (${credits} credits)`, "success");
+          return;
+        }
+        if (poll.status === "failed") {
+          updateSceneRef.current(id, { lipSyncJobId: null, lipSyncSourceUrl: null });
+          throw new Error(poll.error || "Lip-sync failed. Your credits have been refunded.");
+        }
+      }
+      // Still running server-side: lipSyncJobId stays on the scene, so the
+      // result is picked up on the next reload or tab focus.
+      throw new Error("Lip-sync is taking longer than usual. It will appear on this scene when it finishes.");
+    } catch (e) {
+      console.error("[EditorV2] lip-sync", e);
+      toast.show(e.message || "Lip-sync failed", "error");
+    } finally {
+      setLipSyncingScenes(p => ({ ...p, [id]: false }));
+    }
+  }, [scenes, toast, applyLipSyncResult]);
+
   // User-agent sniffing alone missed a real case: a desktop browser window
   // narrowed below the editor's usable width (or an unusual/absent mobile
   // UA string) rendered the actual multi-panel desktop layout instead of
@@ -4891,7 +4994,7 @@ export default function EditorV2() {
         <div style={{ flex: 1, display: "flex", minHeight: 0, overflow: "hidden" }}>
           {/* Sidebar */}
           <Sidebar open={sidebarOpen} activeTab={activeMenu} setActiveTab={setActiveMenu}>
-            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel brandId={selectedBrandId} scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage} durationSpec={durationSpec} supports1080pUpgrade={supports1080pUpgrade} resolutionOptions={resolutionOptions} aspectRatio={ratio} onUpscaleScene={upscaleScene} upscalingScenes={upscalingScenes} upscaleCapabilities={upscaleCapabilities} onReorder={moveScene} timelineState={timelineState} dispatch={dispatchWithHistory}/></Safe>}
+            {activeMenu==="storyboard" && <Safe name="StoryboardPanel"><StoryboardPanel brandId={selectedBrandId} scenes={scenes} activeScene={activeScene} setActiveScene={setActiveScene} updateScenes={handleSetScenes} onSaveScene={() => { saveNow(); saveSceneToAiStudio(activeScene); }} onDeleteScene={deleteScene} onGenerateScene={regenerateScene} generatingScenes={generatingScenes} onAddScene={addScene} regenModel={regenModel} onRegenModelChange={setRegenModel} supportsRefs={supportsRefs} supportsEndFrame={supportsEndFrame} supportsStartImage={supportsStartImage} durationSpec={durationSpec} supports1080pUpgrade={supports1080pUpgrade} resolutionOptions={resolutionOptions} aspectRatio={ratio} onUpscaleScene={upscaleScene} upscalingScenes={upscalingScenes} onLipSyncScene={lipSyncScene} lipSyncingScenes={lipSyncingScenes} upscaleCapabilities={upscaleCapabilities} onReorder={moveScene} timelineState={timelineState} dispatch={dispatchWithHistory}/></Safe>}
             {activeMenu==="visuals"    && <Safe name="VisualsPanel"><VisualsPanel
               tab={visualsTab} setTab={setVisualsTab}
               scenes={scenes} activeScene={activeScene}
