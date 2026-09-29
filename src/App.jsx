@@ -10,6 +10,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { getAuthHeaders } from "./utils/auth";
 import { listenForDeepLinks, isNative } from "./capacitor.js";
 import { purchasesAllowed } from "./utils/nativeApp.js";
+import { initAttribution } from "./utils/attribution.js";
 
 const Signup = lazy(() => import("./pages/Signup"));
 const Admin = lazy(() => import("./pages/Admin"));
@@ -94,6 +95,9 @@ if (ref) {
     }
   })()
 }
+
+// First-touch UTM/referrer capture + one anonymous "visit" event (see utils/attribution.js).
+initAttribution()
 
 /*
 ------------------------

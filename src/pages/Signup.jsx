@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import SEO from "../components/SEO"
 import { staticPages } from "../data/staticPagesSeo"
 import AuthShell from "../components/AuthShell"
+import { signupAttributionPayload } from "../utils/attribution"
 import "../auth.css"
 
 export default function Signup() {
@@ -27,7 +28,7 @@ export default function Signup() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, username, referral_code }),
+        body: JSON.stringify({ email, password, username, referral_code, ...signupAttributionPayload() }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Signup failed")
