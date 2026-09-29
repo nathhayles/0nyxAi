@@ -130,11 +130,11 @@ const CHECKLIST_ITEMS = [
 ];
 
 const Checklist = ({ style }) => (
-  <div style={{ display:"flex", flexDirection:"column", gap:10, padding:"20px 24px", borderRadius:12,
-    background:"rgba(77,208,255,0.08)", border:"0.5px solid rgba(77,208,255,0.2)", ...style }}>
+  <div style={{ display:"flex", flexDirection:"column", gap:12, padding:"20px 24px", borderRadius:14,
+    background:"rgba(255,255,255,.04)", border:"1px solid rgba(255,255,255,.08)", ...style }}>
     {CHECKLIST_ITEMS.map(item => (
-      <div key={item} style={{ display:"flex", alignItems:"center", gap:10, fontSize:13.5, color:"var(--onyx-cyan)" }}>
-        <span style={{ color:"#22c55e", fontWeight:700, flexShrink:0 }}>✓</span> {item}
+      <div key={item} style={{ display:"flex", alignItems:"center", gap:12, fontSize:14, lineHeight:1.4, color:"var(--onyx-text)" }}>
+        <span style={{ color:"#7fe7ff", fontWeight:800, fontSize:15, flexShrink:0 }}>✓</span> {item}
       </div>
     ))}
   </div>
@@ -177,15 +177,14 @@ export default function PricingPage() {
         {/* Hero — one free tier, no card required */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE_OUT }}
           style={{ marginBottom:40 }}>
-          <h1 style={{ margin:"0 0 12px", textAlign:"center", fontSize:"clamp(2rem, 5vw, 3rem)", fontWeight:700,
-            background:"linear-gradient(100deg, #fff 30%, #9eecff 55%, #ffcf8f 75%, #fff 95%)",
-            WebkitBackgroundClip:"text", backgroundClip:"text", color:"transparent" }}>
+          <h1 style={{ margin:"0 0 10px", textAlign:"center", fontSize:"clamp(2rem, 5vw, 2.75rem)", fontWeight:800,
+            letterSpacing:"-.02em", lineHeight:1.1, color:"var(--onyx-text)" }}>
             Onyx is free
           </h1>
-          <p style={{ fontSize:18, color:"var(--onyx-text-dim)", margin:"0 0 20px", textAlign:"center" }}>
+          <p style={{ fontSize:16, lineHeight:1.5, color:"var(--onyx-text-dim)", margin:"0 0 24px", textAlign:"center" }}>
             No card. No trial. No plan to pick.
           </p>
-          <Checklist style={{ maxWidth:420, margin:"0 auto 24px" }} />
+          <Checklist style={{ maxWidth:520, margin:"0 auto 28px" }} />
           <div style={{ textAlign:"center" }}>
             <a href="/signup" className="press-btn" style={{ display:"inline-block", padding:"16px 40px", borderRadius:10, fontWeight:700, fontSize:16,
               background:"linear-gradient(180deg,#5edcff,#2db8ee)", color:"var(--btn-primary-text)", textDecoration:"none" }}>
