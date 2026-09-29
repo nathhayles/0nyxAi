@@ -5,6 +5,7 @@ import SEO from "../components/SEO";
 import { staticPages } from "../data/staticPagesSeo";
 import { isNative, openExternal } from "../capacitor.js";
 import { purchasesAllowed } from "../utils/nativeApp.js";
+import PricingCreditCallout from "../components/PricingCreditCallout";
 
 const EASE_OUT = [0.23, 1, 0.32, 1];
 const fadeUp = {
@@ -170,6 +171,8 @@ export default function PricingPage() {
     }}>
       <SEO {...staticPages.find(p => p.path === "/pricing")} />
       <div style={{ maxWidth:1120, margin:"0 auto", padding:"64px 24px 64px" }}>
+
+        <PricingCreditCallout />
 
         {/* Hero — one free tier, no card required */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE_OUT }}
