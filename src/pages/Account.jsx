@@ -5,6 +5,7 @@ import { getAuthHeaders } from "../utils/auth.js";
 import YouTubeConnect from "../components/YouTubeConnect.jsx";
 import { useCredits } from "../state/CreditsContext.jsx";
 import { isNative, openExternal } from "../capacitor.js";
+import { purchasesAllowed, NOT_ON_PLAN_TEXT } from "../utils/nativeApp.js";
 import { describeTransaction } from "../utils/creditTransactionLabels.js";
 
 // Must match routes/account.js's own CONFIRMATION_TEXT constant exactly --
@@ -29,7 +30,8 @@ const SERVICE_ICONS = [
   { label: "Pexels Stock",    icon: "PX", color: "#05a081" },
   { label: "Freepik AI",      icon: "FP", color: "#ff5722" },
   { label: "Supabase",        icon: "SB", color: "#3ecf8e" },
-  { label: "Stripe Billing",  icon: "ST", color: "#6772e5" },
+  // Billing isn't shown in the native apps (src/utils/nativeApp.js).
+  ...(purchasesAllowed() ? [{ label: "Stripe Billing",  icon: "ST", color: "#6772e5" }] : []),
 ];
 
 const PLAN_COLORS = { pro: "#f59e0b", agency: "#f59e0b", creator: "#4dd0ff", starter: "var(--btn-primary-grad)", free: "#475569" };
@@ -358,6 +360,8 @@ export default function Account() {
   }
 
   const handleManageBilling = async () => {
+    // The billing portal can buy and change plans: website only.
+    if (!purchasesAllowed()) { alert(NOT_ON_PLAN_TEXT); return; }
     const headers = await getAuthHeaders();
     headers["Content-Type"] = "application/json";
     const res = await fetch("/api/stripe/create-portal", {
@@ -380,7 +384,7 @@ export default function Account() {
     const qs = params.toString() ? `?${params.toString()}` : "";
     const res = await fetch(`/api/social/${platformId}/auth${qs}`, { headers });
     const data = await res.json();
-    if (data.upgrade) handleManageBilling();
+    if (data.upgrade) { if (purchasesAllowed()) handleManageBilling(); else alert(NOT_ON_PLAN_TEXT); }
     else if (data.authUrl) openExternal(data.authUrl);
     else alert(data.error || `Failed to connect ${platformId}`);
   }
@@ -417,7 +421,7 @@ export default function Account() {
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <div style={{ padding: "6px 16px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: `${planColor}20`, border: `1px solid ${planColor}`, color: planColor, textTransform: "uppercase", letterSpacing: "1px" }}>{planLabel} Plan</div>
-          <button onClick={handleManageBilling} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 600, background: "var(--onyx-surface-2)", border: "1px solid #4b5563", color: "var(--onyx-text)", borderRadius: 8, cursor: "pointer" }}>Manage Billing →</button>
+          {purchasesAllowed() && <button onClick={handleManageBilling} style={{ padding: "8px 16px", fontSize: 12, fontWeight: 600, background: "var(--onyx-surface-2)", border: "1px solid #4b5563", color: "var(--onyx-text)", borderRadius: 8, cursor: "pointer" }}>Manage Billing →</button>}
         </div>
       </div>
 
@@ -461,6 +465,7 @@ export default function Account() {
             </div>
           </div>
         </div>
+        {purchasesAllowed() && (
         <div style={{ marginTop: 20, padding: "12px 16px", background: "var(--onyx-surface)", borderRadius: 8, border: "1px solid var(--onyx-hairline-strong)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--onyx-text)" }}>Need more credits?</div>
@@ -468,6 +473,7 @@ export default function Account() {
           </div>
           <button onClick={() => window.location.href = "/pricing"} style={{ padding: "8px 18px", background: "var(--btn-primary-grad)", border: "none", color: "var(--btn-primary-text)", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Top Up Credits</button>
         </div>
+        )}
       </div>
 
       <CreditActivitySection />
@@ -481,7 +487,8 @@ export default function Account() {
           {canAutopost && <div style={{ fontSize: 11, padding: "4px 10px", borderRadius: 20, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", color: "#4ade80", fontWeight: 700 }}>✓ Auto-posting active</div>}
         </div>
 
-        {!canAutopost && (
+        {/* The add-on offer is website only (src/utils/nativeApp.js). */}
+        {!canAutopost && purchasesAllowed() && (
           <div style={{ padding: "16px 20px", borderRadius: 10, background: "linear-gradient(135deg, rgba(77,208,255,0.12), rgba(29,78,216,0.12))", border: "1px solid rgba(77,208,255,0.3)", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--onyx-text)", marginBottom: 4 }}>Unlock Auto-Posting</div>
@@ -506,7 +513,7 @@ export default function Account() {
               ))}
               {!atLimit
                 ? <><button onClick={() => window.location.href = "/branding"} style={{ padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "1px dashed #2b3442", background: "transparent", color: "var(--onyx-text-dim)" }}>+ Add Brand</button><button onClick={() => window.location.href = "/branding"} style={{ padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "1px solid var(--onyx-hairline-strong)", background: "transparent", color: "var(--onyx-text-faint)" }}>Manage Brands →</button></>
-                : <button onClick={handleManageBilling} style={{ padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "1px dashed #4dd0ff", background: "transparent", color: "#4dd0ff" }}>+ Upgrade for more brands</button>
+                : purchasesAllowed() && <button onClick={handleManageBilling} style={{ padding: "7px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "1px dashed #4dd0ff", background: "transparent", color: "#4dd0ff" }}>+ Upgrade for more brands</button>
               }
             </div>
             <div style={{ fontSize: 11, color: "var(--onyx-text-dim)", marginTop: 8 }}>{brands.length} / {brandLimit === Infinity ? "∞" : brandLimit} brands on {planLabel} plan</div>
@@ -529,13 +536,13 @@ export default function Account() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--onyx-text)" }}>{s.label}</div>
                       <div style={{ fontSize: 11, color: connected ? "#22c55e" : "#475569", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {connected ? `@${socialAccounts[s.id]}` : s.status === "coming" ? "Coming soon" : !canAutopost ? "Requires add-on" : "Not connected"}
+                        {connected ? `@${socialAccounts[s.id]}` : s.status === "coming" ? "Coming soon" : !canAutopost ? (purchasesAllowed() ? "Requires add-on" : "Not on your plan") : "Not connected"}
                       </div>
                     </div>
                     {s.status === "connect" && !connected && canAutopost && (
                       <button onClick={() => handleConnect(s.id)} style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${s.color}40`, background: `${s.color}15`, color: s.color, fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>Connect</button>
                     )}
-                    {s.status === "connect" && !connected && !canAutopost && (
+                    {s.status === "connect" && !connected && !canAutopost && purchasesAllowed() && (
                       <button onClick={handleManageBilling} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #4dd0ff40", background: "rgba(77,208,255,0.1)", color: "#7de0ff", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>Upgrade</button>
                     )}
                     {connected && (

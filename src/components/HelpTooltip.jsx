@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { purchasesAllowed } from "../utils/nativeApp.js";
 
 // Each entry: { title, sections: [{ heading, body? , items? }], video? }
 // video is optional: { src, poster?, caption? } -- rendered above the
@@ -80,7 +81,7 @@ const CONTENT = {
     title: "Exporting Your Reel",
     sections: [
       { heading: "What Export does", body: "Renders all your scenes, voiceover, music and captions into a single MP4 file and downloads it to your device." },
-      { heading: "Requirements", items: ["A clean, watermark-free download costs 1 credit per minute of video — check your balance on the Account page and top up on Pricing", "Your reel must have at least one scene with a video clip", "Rendering usually takes 1–3 minutes depending on reel length and captions"] },
+      { heading: "Requirements", items: [(purchasesAllowed() ? "A clean, watermark-free download costs 1 credit per minute of video — check your balance on the Account page and top up on Pricing" : "A clean, watermark-free download costs 1 credit per minute of video — check your balance on the Account page"), "Your reel must have at least one scene with a video clip", "Rendering usually takes 1–3 minutes depending on reel length and captions"] },
       { heading: "After export", body: "Share creates a watermarked preview link and never costs credits. Publish posts to your connected Instagram, YouTube, LinkedIn and TikTok accounts." },
     ],
   },
@@ -117,6 +118,7 @@ const CONTENT = {
       { heading: "How it works", body: "Type what your business does → AI writes a script → generates scenes with voiceover, visuals and music → ready to publish. Under 10 minutes." },
       { heading: "Creation flows", items: ["Create — AI script from scratch", "Video to Reel — upload your own clips", "URL to Video — paste a webpage URL", "Audio to Video — upload a podcast or audio file"] },
       { heading: "Tips", items: ["Be specific in your brief — mention your niche, tone and audience", "Use 3–5 scenes for social media, 8–12 for longer content", "Choose 9:16 for TikTok/Reels/Shorts, 16:9 for YouTube"] },
+      { heading: "Talking presenter", items: ["On by default: a scene that tags one character with photos and a linked voice becomes them speaking to camera, lip-synced", "A review screen shows every scene's mode and exact cost before anything is charged — switch any scene back to the video model there", "Keep a presenter scene's narration to 15 seconds or less", "Not with Auto model routing yet"] },
     ],
   },
   dashboard: {

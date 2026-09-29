@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import HelpTooltip from "../components/HelpTooltip.jsx";
+import { storeSafeMessage } from "../utils/nativeApp.js";
 
 // Fetches the file as a blob and saves it directly, instead of relying on
 // the anchor `download` attribute -- R2-hosted track URLs are cross-origin
@@ -862,7 +863,7 @@ export default function Music() {
       }
 
       if (lyriaRes.status === 402) {
-        setGenError(lyriaData?.error || "Insufficient credits");
+        setGenError(storeSafeMessage(lyriaData?.error || "Insufficient credits"));
         setGenerating(false);
         setGenStatus("");
         return;

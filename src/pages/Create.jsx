@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Navigate, Link, useNavigate } from "react-router-dom";
 import HelpTooltip from "../components/HelpTooltip.jsx";
 import { generateStoryboardFromScript } from "../lib/createStoryboard";
@@ -7,12 +7,15 @@ import BrandSelector from "../components/BrandSelector.jsx";
 import TemplateSelectorPill from "../components/TemplateSelectorPill.jsx";
 import QuickCreatePanel from "../components/QuickCreatePanel.jsx";
 import AutoModelRoutingPreview from "../components/AutoModelRoutingPreview.jsx";
+import TalkingPresenterReview from "../components/TalkingPresenterReview.jsx";
 import ThemeSelectorPill from "../components/ThemeSelectorPill.jsx";
 import { TEMPLATES } from "../data/templates.js";
 import { useSpeechInput } from "../hooks/useSpeechInput.js";
 import { useCredits } from "../state/CreditsContext.jsx";
 import { generateReelTitle } from "../utils/autoTitle.js";
 import { STYLE_CHIPS, appendChipModifier } from "../config/styleChips.js";
+import { estimateSceneCount, estimateScenes } from "../utils/sceneEstimate.js";
+import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
 
 const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 
@@ -111,6 +114,23 @@ function normalizeGeneratedScene(scene, index) {
   };
 }
 
+// The voiceover the pipeline made for a scene (a Talking presenter scene, or
+// one that stayed on the video model, e.g. too long), in the scene fields
+// the editor uses -- so the reel keeps it instead of making another.
+function jobVoiceover(job) {
+  if (!job?.voiceover?.url) return {};
+  return {
+    voiceoverUrl: job.voiceover.url,
+    voiceoverDuration: job.voiceover.duration ?? null,
+    voiceoverProvider: job.voiceover.provider || null,
+    voiceoverVoice: job.voiceover.voice || null,
+    voiceoverVoiceId: job.voiceover.voice || null,
+    voiceoverVoiceName: job.character ? `${job.character}'s voice` : null,
+    voiceoverSourceText: job.narration || "",
+    voiceoverStale: false,
+  };
+}
+
 function isMobileDevice() {
   return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent) || window.innerWidth < 768;
 }
@@ -120,6 +140,36 @@ const START_FRAME_OPTIONS = [
   { id: "seedream-4.5", label: "Standard", credits: 6 },
   { id: "nano-banana-2", label: "High quality", credits: 16 },
 ];
+
+// A collapsible group in the Create page's settings rail. The header shows
+// the section's current choices, so a closed section still says what's set.
+function SettingsSection({ id, title, summary, open, onToggle, children }) {
+  return (
+    <section id={`create-section-${id}`} style={{ borderRadius: 12, border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-bg-2)" }}>
+      <button
+        type="button"
+        onClick={() => onToggle(id)}
+        aria-expanded={open}
+        aria-controls={`create-section-${id}-body`}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "11px 14px",
+          background: "transparent", border: "none", color: "var(--onyx-text)", cursor: "pointer", textAlign: "left",
+        }}
+      >
+        <span style={{ fontWeight: 700, fontSize: 14 }}>{title}</span>
+        <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: "var(--onyx-text-faint)", textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {summary}
+        </span>
+        <span aria-hidden="true" style={{ fontSize: 11, color: "var(--onyx-text-faint)", transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>▼</span>
+      </button>
+      {open && (
+        <div id={`create-section-${id}-body`} style={{ padding: "0 14px 14px" }}>
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
 
 export default function CreatePage() {
   const navigate = useNavigate();
@@ -146,6 +196,14 @@ export default function CreatePage() {
   // scene that tags a Character consistency character (see the backend's
   // lib/startFrame.js). Credits match START_FRAME_MODELS there.
   const [startFrameModel, setStartFrameModel] = useState("seedream-4.5");
+  // Talking presenter (backend routes/presenter.js via the pipeline): scenes
+  // that tag one character with photos and a linked voice are generated as
+  // that character speaking to camera, lip-synced. On by default -- the
+  // review step shows every scene's mode and exact cost before any charge.
+  const [talkingPresenter, setTalkingPresenter] = useState(true);
+  const [presenterResolution, setPresenterResolution] = useState("768P");
+  const [presenterReview, setPresenterReview] = useState(null); // { data, loading } while the review modal is open
+  const presenterReviewRef = useRef(null); // { resolve, toggle } for the pending review Promise
   const [motionRefUrl, setMotionRefUrl] = useState("");
   const [videoModel, setVideoModel] = useState("kling-2.6-pro");
   // Auto-Model-Routing (docs/margin-and-feature-scoping-2026-09-08.md Task
@@ -176,6 +234,8 @@ export default function CreatePage() {
   // sharing this page rather than a new route so it reuses the auth/credits
   // gating above instead of duplicating it (2026-08-27 product call).
   const [pageMode, setPageMode] = useState("storyboard");
+  // Create page settings rail: which collapsible sections are open.
+  const [openSections, setOpenSections] = useState({ setup: true, format: true, video: false, characters: false, advanced: false });
 
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState("Idle");
@@ -217,7 +277,8 @@ export default function CreatePage() {
   // above and the picker render below, which renders from this combined list.
   const pickerOptions = autoRoutingEnabled ? [AUTO_MODEL_OPTION, ...VIDEO_MODEL_OPTIONS] : VIDEO_MODEL_OPTIONS;
   const wordCount = script.trim() ? script.trim().split(/\s+/).length : 0;
-  const estimatedScenes = Math.max(1, Math.ceil(wordCount / 22));
+  // Explicit "Scene 1:" markers when the script has them, else ~22 words a scene.
+  const estimatedScenes = estimateSceneCount(script);
   const selectedModelOption = pickerOptions.find(m => m.id === videoModel) || VIDEO_MODEL_OPTIONS[1];
   const isAutoModel = videoModel === "auto";
   // Auto's real per-scene cost isn't known client-side until the pre-flight
@@ -226,7 +287,6 @@ export default function CreatePage() {
   // scenes-times-flat-credits pre-check is skipped for Auto specifically;
   // the review screen shows the REAL total before any credits are spent,
   // and the server still enforces the real balance check regardless.
-  const estimatedCredits = mode === "ai" && !isAutoModel ? estimatedScenes * selectedModelOption.credits : 0;
   // Start frames can't be counted before the script is analysed (which
   // scenes tag a Character consistency character isn't known yet), so the
   // Estimator shows the per-scene price separately; the real charge is
@@ -235,9 +295,27 @@ export default function CreatePage() {
   const startFrameEligibleModel = videoModel === "kling-2.6-pro" || isAutoModel;
   const startFrameCreditsEach = START_FRAME_OPTIONS.find(o => o.id === startFrameModel)?.credits || 6;
   const showStartFrameEstimate = mode === "ai" && startFrameEligibleModel && /@[A-Za-z0-9_]/.test(script);
+  // Not with Auto model routing in this version (its own review screen).
+  const presenterAvailable = mode === "ai" && !isAutoModel;
+  const usePresenter = presenterAvailable && talkingPresenter;
+  // Per guessed scene: Talking presenter (one tagged character, <=15s of
+  // narration) at its per-second rate plus a start frame, else the model's
+  // per-scene price. Start frames on video scenes are shown separately.
+  const scenePlan = estimateScenes(script, {
+    videoCredits: selectedModelOption.credits,
+    presenter: usePresenter,
+    presenterResolution,
+    startFrameCredits: startFrameCreditsEach,
+  });
+  const presenterScenePlan = scenePlan.filter((s) => s.mode === "presenter");
+  const videoSceneCount = scenePlan.length - presenterScenePlan.length;
+  const presenterEstimateCredits = presenterScenePlan.reduce((a, s) => a + s.credits, 0);
+  const estimatedCredits = mode === "ai" && !isAutoModel ? scenePlan.reduce((a, s) => a + s.credits, 0) : 0;
 
-  // Only block if credits have loaded and are genuinely insufficient
-  const insufficientCredits = mode === "ai" && !isAutoModel && credits !== null && estimatedCredits > credits;
+  // Only block if credits have loaded and are genuinely insufficient. With
+  // Talking presenter the rough word-count estimate overstates the cost, so
+  // the review screen (exact total, Generate disabled when short) decides.
+  const insufficientCredits = mode === "ai" && !isAutoModel && !usePresenter && credits !== null && estimatedCredits > credits;
 
   const canGenerate = useMemo(() => {
     if (!script.trim()) return false;
@@ -347,6 +425,53 @@ export default function CreatePage() {
         if (motionRefUrl.trim()) klingBody.motion_ref_url = motionRefUrl.trim();
         if (sceneModelOverrides && Object.keys(sceneModelOverrides).length) klingBody.sceneModelOverrides = sceneModelOverrides;
 
+        // Talking presenter review: POST /api/kling/review-pipeline prices
+        // the exact plan the pipeline will charge (and makes the presenter
+        // voiceovers, reusing any already made for the same text and voice).
+        // Each per-scene switch asks again. The pipeline is sent the reviewed
+        // total and never charges more than it.
+        if (usePresenter && analysis?.scenes?.length) {
+          klingBody.talking_presenter = { enabled: true, resolution: presenterResolution };
+          let videoModelScenes = [];
+          const fetchReview = async () => {
+            const r = await fetch("/api/kling/review-pipeline", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ ...klingBody, video_model_scenes: videoModelScenes }),
+            });
+            const d = await r.json().catch(() => null);
+            if (!r.ok || !d?.scenes) throw new Error(d?.error || "Couldn't work out this reel's cost — please try again.");
+            return d;
+          };
+          setProgressStep("Preparing voiceovers and working out the cost...");
+          const first = await fetchReview();
+          const decision = await new Promise((resolve) => {
+            presenterReviewRef.current = {
+              resolve,
+              toggle: async (sceneIndex, useVideo) => {
+                videoModelScenes = useVideo ? [...new Set([...videoModelScenes, sceneIndex])] : videoModelScenes.filter((i) => i !== sceneIndex);
+                setPresenterReview((prev) => ({ ...prev, loading: true }));
+                try {
+                  setPresenterReview({ data: await fetchReview(), loading: false });
+                } catch (err) {
+                  setPresenterReview((prev) => ({ ...prev, loading: false }));
+                  setError(err.message);
+                }
+              },
+            };
+            setPresenterReview({ data: first, loading: false });
+          });
+          setPresenterReview(null);
+          presenterReviewRef.current = null;
+          if (!decision.confirmed) {
+            setLoading(false);
+            setProgressStep("");
+            return;
+          }
+          klingBody.video_model_scenes = videoModelScenes;
+          klingBody.expected_total = decision.totalCost;
+        }
+
         const res = await fetch("/api/kling/", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -390,7 +515,9 @@ export default function CreatePage() {
             try {
               const { data: { session: pollSession } } = await supabase.auth.getSession();
               const pollToken = pollSession?.access_token || token;
-              const r = await fetch(`/api/kling/status/${job.jobId}`, { headers: pollToken ? { Authorization: `Bearer ${pollToken}` } : {} });
+              // Talking presenter scenes run as their own jobs.
+              const statusPath = job.kind === "presenter" ? `/api/presenter/status/${job.jobId}` : `/api/kling/status/${job.jobId}`;
+              const r = await fetch(statusPath, { headers: pollToken ? { Authorization: `Bearer ${pollToken}` } : {} });
               d = await r.json();
             } catch (pollErr) {
               // Transient failure for this one scene (offline, DNS, a gateway
@@ -435,10 +562,14 @@ export default function CreatePage() {
               const shortfallChanges = shortfall
                 ? { durationShortfall: true, durationShortfallExpected: expectedDuration, durationShortfallDelivered: d.deliveredDuration }
                 : {};
-              results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaUrl: d.videoUrl, thumbnail: d.thumbnailUrl || null, mediaType: "video", isAiGenerated: true, generatedAt: new Date().toISOString(), mode: "ai", needsBleedFade: !!d.needsBleedFade, ...durationChanges, ...shortfallChanges };
+              // A presenter scene's video carries its voice (lipSynced), and
+              // its length is the voiceover's, so no shortfall check applies.
+              results[i] = job.kind === "presenter"
+                ? { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaUrl: d.videoUrl, thumbnail: d.thumbnailUrl || null, mediaType: "video", isAiGenerated: true, generatedAt: new Date().toISOString(), mode: "ai", lipSynced: true, ...durationChanges, ...jobVoiceover(job) }
+                : { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaUrl: d.videoUrl, thumbnail: d.thumbnailUrl || null, mediaType: "video", isAiGenerated: true, generatedAt: new Date().toISOString(), mode: "ai", needsBleedFade: !!d.needsBleedFade, ...durationChanges, ...shortfallChanges, ...jobVoiceover(job) };
               pending.delete(i);
             } else if (d.status === "failed") {
-              results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai" };
+              results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai", ...jobVoiceover(job) };
               pending.delete(i);
             }
           }));
@@ -450,7 +581,9 @@ export default function CreatePage() {
         // which made it look like that scene was never generated at all.
         for (const i of pending) {
           const job = jobs[i];
-          results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai", generationPending: true, jobId: job.jobId };
+          // presenterJobId (not jobId) for a presenter scene: the editor's
+          // reconcilePendingScenes polls /api/presenter/status for those.
+          results[i] = { id: i+1, narration: job.narration, action: job.visual_direction || job.visual_prompt || job.narration, mediaType: "video", isAiGenerated: true, mode: "ai", generationPending: true, ...(job.kind === "presenter" ? { presenterJobId: job.jobId } : { jobId: job.jobId }), ...jobVoiceover(job) };
         }
         scenes = results.filter(Boolean);
       }
@@ -525,24 +658,63 @@ export default function CreatePage() {
 
   const displayCredits = credits === null ? "..." : credits;
 
+  // Layout (1440x900 first): script box, then the Generate bar -- a summary
+  // of every chosen option plus the Estimator, pinned under the script -- in
+  // the centre; settings in short collapsible sections in a right-hand rail.
+  // Layout only: every control below is the same state and handler as
+  // before. Clicking a summary chip opens the section that sets it.
+  const openSection = (id) => setOpenSections((prev) => ({ ...prev, [id]: true }));
+  const toggleSection = (id) => setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
+  const selectStyle = {
+    width: "100%", padding: "9px 12px", borderRadius: 10,
+    border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-bg-2)",
+    color: "var(--onyx-text)", marginBottom: 12, maxWidth: "100%", boxSizing: "border-box", fontSize: 13,
+  };
+  const fieldLabel = { display: "block", marginBottom: 6, fontWeight: 600, fontSize: 13 };
+  const activeChips = STYLE_CHIPS.filter((chip) => script.includes(chip.modifier));
+  const themeLabel = THEMES.find((t) => t.value === theme)?.label || theme;
+  const startFrameLabel = START_FRAME_OPTIONS.find((o) => o.id === startFrameModel)?.label || startFrameModel;
+  const summaryItems = [
+    { id: "mode", label: mode === "ai" ? "AI Video" : "Standard Storyboard", section: "setup" },
+    mode === "ai" && { id: "theme", label: themeLabel, section: "setup" },
+    mode === "ai" && { id: "content", label: contentMode === "marketing" ? "Marketing" : "Cinematic content", section: "setup" },
+    { id: "ratio", label: ratio, section: "format" },
+    mode === "ai" && { id: "model", label: selectedModelOption.label, section: "video" },
+    mode === "ai" && characterLock && { id: "lock", label: "Character Lock", section: "characters" },
+    mode === "ai" && startFrameEligibleModel && { id: "frames", label: `Start frames: ${startFrameLabel}`, section: "characters" },
+    mode === "ai" && usePresenter && { id: "presenter", label: `🎙 Talking presenter ${presenterResolution === "480P" ? "480p" : "768p"}`, section: "characters" },
+    mode === "ai" && videoModel === "kling-2.6-pro" && motionRefUrl.trim() && { id: "motion", label: "Motion reference", section: "advanced" },
+    ...activeChips.map((chip) => ({ id: `chip-${chip.id}`, label: chip.label, section: "advanced" })),
+  ].filter(Boolean);
+  const sectionSummaries = {
+    setup: [mode === "ai" ? "AI Video" : "Standard", mode === "ai" && themeLabel].filter(Boolean).join(" · "),
+    format: ratio,
+    video: selectedModelOption.label,
+    characters: [characterLock ? "Lock on" : "Lock off", startFrameEligibleModel && startFrameLabel, usePresenter && "Presenter on"].filter(Boolean).join(" · "),
+    advanced: [videoModel === "kling-2.6-pro" && motionRefUrl.trim() && "Motion ref", activeChips.length ? `${activeChips.length} prompt chip${activeChips.length > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ") || "None",
+  };
+
   return (
-    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)", padding: isMobile ? "16px" : "40px 24px", maxWidth: "100vw", overflowX: "hidden", boxSizing: "border-box" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-        <Link to="/dashboard" style={{ color: "#00d2ff" }}>
-          ← Back to Projects
-        </Link>
+    <div style={{ minHeight: "100vh", background: "var(--onyx-bg)", color: "var(--onyx-text)", padding: isMobile ? "16px" : "24px 24px 40px", maxWidth: "100vw", overflowX: "hidden", boxSizing: "border-box" }}>
+      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
+          <div>
+            <Link to="/dashboard" style={{ color: "#00d2ff" }}>
+              ← Back to Projects
+            </Link>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <h1 className="page-title">Create Reel</h1>
-          <HelpTooltip topic="create" />
-        </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "4px 0 4px" }}>
+              <h1 className="page-title" style={{ margin: 0 }}>Create Reel</h1>
+              <HelpTooltip topic="create" />
+            </div>
 
-        <p style={{ opacity: 0.8, marginBottom: 10 }}>
-          Paste a script or story idea, configure settings, and generate your storyboard.
-        </p>
+            <p style={{ opacity: 0.8, margin: 0, fontSize: 14 }}>
+              Paste a script or story idea, configure settings, and generate your storyboard.
+            </p>
+          </div>
 
         {/* Other creation tools */}
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 28 }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <Link to="/video-to-reel" style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px',
             borderRadius: 12, border: '1px solid rgba(77,208,255,0.4)',
@@ -588,8 +760,10 @@ export default function CreatePage() {
             </div>
           </Link>
         </div>
+        </div>
 
-        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 8 }}>
           {[
             { id: "storyboard", label: "Storyboard" },
             { id: "quick", label: "Quick Create" },
@@ -611,17 +785,18 @@ export default function CreatePage() {
 
         <div
           style={{
-            marginBottom: 20,
-            padding: 10,
+            padding: "7px 12px",
             borderRadius: 8,
             background: "var(--onyx-bg-2)",
-            border: "1px solid var(--onyx-hairline-strong)"
+            border: "1px solid var(--onyx-hairline-strong)",
+            fontSize: 14,
           }}
         >
           Credits Available:{" "}
           <b style={{ color: insufficientCredits ? "#ff5c5c" : "#00d2ff" }}>
             {displayCredits}
           </b>
+        </div>
         </div>
 
         {pageMode === "quick" && (
@@ -633,30 +808,230 @@ export default function CreatePage() {
         )}
 
         {pageMode === "storyboard" && (
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "320px 1fr", gap: isMobile ? 20 : 32 }}>
-          <div>
-            <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>Brand</label>
+        <div style={{
+          display: "grid", alignItems: "start",
+          gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "minmax(0, 1fr) 360px",
+          gridTemplateAreas: isMobile ? '"script" "settings" "generate"' : '"main settings"',
+          gap: isMobile ? 16 : 24,
+        }}>
+          {/* Centre: script + Generate bar. On mobile this wrapper dissolves
+              (display: contents) so the settings sit between the two. */}
+          <div style={isMobile ? { display: "contents" } : { gridArea: "main", minWidth: 0 }}>
+          <div style={{ gridArea: "script", minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+              <label style={{ fontWeight: 600, marginBottom: 4 }}>Script or story idea</label>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 8, flexWrap: "wrap" }}>
+            <TemplateSelectorPill value={selectedTemplateId} onChange={handleTemplateChange} />
+            <ThemeSelectorPill selectedTheme={selectedTheme} onSelect={setSelectedTheme} />
+              <div style={{ marginBottom: 4 }}>
+              {micSupported && (
+                <button
+                  type="button"
+                  onClick={micToggle}
+                  title={micListening ? "Stop recording" : "Dictate script"}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "6px 12px", borderRadius: 20,
+                    border: `1px solid ${micListening ? "#ef4444" : "rgba(255,255,255,0.15)"}`,
+                    background: micListening ? "rgba(239,68,68,0.12)" : "var(--onyx-surface)",
+                    color: micListening ? "#ef4444" : "var(--onyx-text-dim)",
+                    cursor: "pointer", fontSize: 12, fontWeight: 600,
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <span style={{
+                    display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                    background: micListening ? "#ef4444" : "var(--onyx-text-faint)",
+                    animation: micListening ? "pulse 1s infinite" : "none",
+                  }} />
+                  {micListening ? "Stop" : "Dictate"}
+                </button>
+              )}
+              </div>
+              </div>
+            </div>
+            {micListening && (
+              <div style={{ marginBottom: 8, fontSize: 12, color: "#ef4444", display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", display: "inline-block", animation: "pulse 1s infinite" }} />
+                Listening — speak your script…
+              </div>
+            )}
 
-            <BrandSelector value={brand} onChange={(id) => setBrand(id)} />
+            <textarea
+              value={script}
+              onChange={(e) => setScript(e.target.value)}
+              placeholder="Paste your script here, or click Dictate to speak it…"
+              rows={isMobile ? 10 : 11}
+              style={{
+                width: "100%",
+                borderRadius: 16,
+                border: "1px solid var(--onyx-hairline-strong)",
+                background: "var(--onyx-bg-2)",
+                color: "var(--onyx-text)",
+                padding: 18,
+                resize: "vertical",
+                fontSize: 15,
+                lineHeight: 1.6,
+                marginBottom: 12,
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+
+          {/* Generate bar: pinned to the bottom of the screen on desktop
+              while the script is long enough to scroll. */}
+          <div style={{
+            gridArea: "generate", minWidth: 0,
+            ...(isMobile ? {} : { position: "sticky", bottom: 0, zIndex: 2, paddingBottom: 12, background: "var(--onyx-bg)" }),
+          }}>
+          <div style={{
+            display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "minmax(0, 1fr) 340px", gap: 14,
+            padding: 14, borderRadius: 14, background: "var(--onyx-bg-2)", border: "1px solid var(--onyx-hairline-strong)",
+          }}>
+          <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase", color: "var(--onyx-text-faint)", marginBottom: 6 }}>Your settings</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              {summaryItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => openSection(item.section)}
+                  title="Change in settings"
+                  style={{
+                    padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    border: "1px solid var(--onyx-hairline-strong)", background: "var(--onyx-surface)", color: "var(--onyx-text-dim)",
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ marginTop: "auto" }}>
+            {error ? (
+              <div style={{ color: "#ff5c5c", marginBottom: 12 }}>{error}</div>
+            ) : null}
+
+            {loading ? (
+              <div
+                style={{
+                  marginBottom: 20,
+                  padding: 16,
+                  borderRadius: 12,
+                  background: "var(--onyx-bg-2)",
+                  border: "1px solid rgba(255,255,255,0.08)"
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>{progressStep}</div>
+                <div
+                  style={{
+                    width: "100%",
+                    height: 10,
+                    borderRadius: 999,
+                    background: "rgba(255,255,255,0.08)",
+                    overflow: "hidden"
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${progressPercent}%`,
+                      height: "100%",
+                      background: "linear-gradient(90deg, #00d2ff, #3b82f6)"
+                    }}
+                  />
+                </div>
+                <div style={{ color: "var(--onyx-text-dim)", opacity: 1, marginTop: 8 }}>{progressPercent}%</div>
+                {mode === "ai" && loading && (
+                  <div style={{fontSize:12,opacity:0.6,marginTop:8,lineHeight:1.6}}>
+                    AI video generation takes 2–4 minutes per scene. Please keep this tab open. Your reel will open automatically when ready.
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            <button
+              onClick={handleGenerate}
+              disabled={!canGenerate}
+              className="btn-teal"
+              style={{ width: "100%" }}
+            >
+              {loading ? "Generating..." : "Generate Reel"}
+            </button>
+            </div>
+          </div>
+
+            <div
+              style={{
+                padding: 12,
+                borderRadius: 12,
+                background: "var(--onyx-bg)",
+                border: "1px solid var(--onyx-hairline-strong)",
+                fontSize: 13,
+                lineHeight: 1.45,
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: 10, color: "var(--onyx-text)" }}>Estimator</div>
+              <div style={{ color: "var(--onyx-text-faint)" }}>Words: {wordCount}</div>
+              <div style={{ color: "var(--onyx-text-faint)" }}>Scenes: {estimatedScenes}</div>
+              {mode === "ai" && videoSceneCount > 0 && <div style={{ color: "var(--onyx-text-faint)" }}>{selectedModelOption.creditsLabel ? `${selectedModelOption.creditsLabel} (${videoSceneCount} scene${videoSceneCount === 1 ? "" : "s"})` : `${selectedModelOption.credits} credits × ${videoSceneCount} scene${videoSceneCount === 1 ? "" : "s"}`}</div>}
+              {showStartFrameEstimate && (
+                <div style={{ color: "var(--onyx-text-faint)" }}>
+                  {characterLock
+                    ? `+ ${startFrameCreditsEach} credits if scene 1 tags a character (start frame)`
+                    : `+ ${startFrameCreditsEach} credits per scene that tags a character (start frames)`}
+                </div>
+              )}
+              {usePresenter && (
+                <div style={{ color: "var(--onyx-text-faint)" }}>
+                  {presenterScenePlan.length
+                    ? `${presenterScenePlan.length} Talking presenter scene${presenterScenePlan.length === 1 ? "" : "s"}: about ${presenterEstimateCredits} credits (about ${presenterResolution === "480P" ? 7 : 11} credits per second of narration + a start frame)`
+                    : `Talking presenter scenes instead: about ${presenterResolution === "480P" ? 7 : 11} credits per second of narration + a start frame`}
+                </div>
+              )}
+              <div style={{ color: insufficientCredits ? "#ff5c5c" : "var(--onyx-text)" }}>
+                {mode === "ai" && isAutoModel
+                  ? "AI Credits Needed: shown in the review step before you generate"
+                  : usePresenter
+                  ? `AI Credits Needed: up to about ${estimatedCredits}${showStartFrameEstimate ? " + start frames" : ""} — the exact total is shown on the review screen before you generate`
+                  : `AI Credits Needed: ${estimatedCredits}${showStartFrameEstimate ? " + start frames" : ""}`}
+              </div>
+            </div>
+          </div>
+          </div>
+          </div>
+
+          {/* Settings rail */}
+          <div style={{
+            gridArea: "settings", minWidth: 0,
+            ...(isMobile ? {} : { position: "sticky", top: 16, maxHeight: "calc(100vh - 32px)", overflowY: "auto" }),
+            display: "flex", flexDirection: "column", gap: 8,
+          }}>
+            <SettingsSection id="setup" title="Setup" summary={sectionSummaries.setup} open={openSections.setup} onToggle={toggleSection}>
+            <label style={fieldLabel}>Generation mode</label>
+
+            <select
+              value={mode}
+              onChange={(e) => setMode(e.target.value)}
+              style={selectStyle}
+            >
+              <option value="standard">Standard Storyboard</option>
+              <option value="ai">AI Video</option>
+            </select>
+
+            <label style={fieldLabel}>Brand</label>
+
+            <div style={{ marginBottom: mode === "ai" ? 12 : 0 }}>
+            <BrandSelector value={brand} onChange={(id) => setBrand(id)} style={{ fontSize: 13 }} />
+            </div>
 
             {mode === "ai" && (
             <>
-            <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>Visual theme</label>
+            <label style={fieldLabel}>Visual theme</label>
 
             <select
               value={theme}
               onChange={(e) => setTheme(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 12,
-                borderRadius: 12,
-                border: "1px solid var(--onyx-hairline-strong)",
-                background: "var(--onyx-bg-2)",
-                color: "var(--onyx-text)",
-                marginBottom: 20,
-                maxWidth: "100%",
-                boxSizing: "border-box"
-              }}
+              style={selectStyle}
             >
               {THEMES.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -664,48 +1039,13 @@ export default function CreatePage() {
                 </option>
               ))}
             </select>
-            </>
-            )}
 
-            <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>Generation mode</label>
-
-            <select
-              value={mode}
-              onChange={(e) => setMode(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 12,
-                borderRadius: 12,
-                border: "1px solid var(--onyx-hairline-strong)",
-                background: "var(--onyx-bg-2)",
-                color: "var(--onyx-text)",
-                marginBottom: 20,
-                maxWidth: "100%",
-                boxSizing: "border-box"
-              }}
-            >
-              <option value="standard">Standard Storyboard</option>
-              <option value="ai">AI Video</option>
-            </select>
-
-            {mode === "ai" && (
-            <>
-            <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>Content mode</label>
+            <label style={fieldLabel}>Content mode</label>
 
             <select
               value={contentMode}
               onChange={(e) => setContentMode(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 12,
-                borderRadius: 12,
-                border: "1px solid var(--onyx-hairline-strong)",
-                background: "var(--onyx-bg-2)",
-                color: "var(--onyx-text)",
-                marginBottom: 8,
-                maxWidth: "100%",
-                boxSizing: "border-box"
-              }}
+              style={{ ...selectStyle, marginBottom: 6 }}
             >
               <option value="cinematic">Cinematic — dramatic, story-driven visuals</option>
               {/* Re-enabled 2026-08-13: live QA pass (real pipeline, Nathan's real
@@ -715,38 +1055,29 @@ export default function CreatePage() {
                   without a live output-quality test. Re-enable only after that test passes. */}
               {/* <option value="animated">Kids / Animated — bright, colorful, family-friendly visuals</option> */}
             </select>
-            <div style={{ fontSize: 11, color: "var(--onyx-text-faint)", marginBottom: 20 }}>
+            <div style={{ fontSize: 11, color: "var(--onyx-text-faint)" }}>
               Slower, story-paced scene count and dramatic camera direction, tuned for narrative content.
             </div>
             </>
             )}
+            </SettingsSection>
 
-            <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>Aspect ratio</label>
+            <SettingsSection id="format" title="Format" summary={sectionSummaries.format} open={openSections.format} onToggle={toggleSection}>
+            <label style={fieldLabel}>Aspect ratio</label>
 
             <select
               value={ratio}
               onChange={(e) => setRatio(e.target.value)}
-              style={{
-                width: "100%",
-                padding: 12,
-                borderRadius: 12,
-                border: "1px solid var(--onyx-hairline-strong)",
-                background: "var(--onyx-bg-2)",
-                color: "var(--onyx-text)",
-                marginBottom: 20,
-                maxWidth: "100%",
-                boxSizing: "border-box"
-              }}
+              style={{ ...selectStyle, marginBottom: 0 }}
             >
               <option value="16:9">16:9 — Landscape (YouTube, Facebook)</option>
               <option value="9:16">9:16 — Portrait (Reels, TikTok, Shorts)</option>
               <option value="1:1">1:1 — Square (Instagram)</option>
             </select>
+            </SettingsSection>
 
             {mode === "ai" && (
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: "block", marginBottom: 10, fontWeight: 600 }}>AI Options</label>
-
+            <SettingsSection id="video" title="Video" summary={sectionSummaries.video} open={openSections.video} onToggle={toggleSection}>
                 {/* Model selector */}
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600, fontSize: 14, marginBottom: 6 }}>
@@ -794,7 +1125,11 @@ export default function CreatePage() {
                     ))}
                   </div>
                 </div>
+            </SettingsSection>
+            )}
 
+            {mode === "ai" && (
+            <SettingsSection id="characters" title="Characters" summary={sectionSummaries.characters} open={openSections.characters} onToggle={toggleSection}>
                 {/* Character Lock */}
                 <label style={{
                   display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
@@ -851,6 +1186,59 @@ export default function CreatePage() {
                   </div>
                 )}
 
+                {/* Talking presenter: single-character speaking scenes become
+                    that character talking to camera, lip-synced (backend
+                    routes/presenter.js). The review step shows each scene's
+                    mode and exact cost, with a per-scene switch back to the
+                    video model, before anything is charged. */}
+                {mode === "ai" && (
+                  <div style={{
+                    padding: "10px 14px", borderRadius: 10, marginBottom: 10,
+                    background: "var(--onyx-bg-2)", border: `1px solid ${usePresenter ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                    opacity: presenterAvailable ? 1 : 0.5,
+                  }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: presenterAvailable ? "pointer" : "not-allowed" }}>
+                      <input
+                        type="checkbox"
+                        checked={usePresenter}
+                        disabled={!presenterAvailable}
+                        onChange={(e) => setTalkingPresenter(e.target.checked)}
+                        style={{ width: 16, height: 16, accentColor: "#00d2ff", cursor: "inherit" }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14 }}>🎙 Talking presenter for single-character scenes</div>
+                        <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>
+                          {presenterAvailable
+                            ? "A scene that tags one character with photos and a linked voice becomes that character speaking to camera, lip-synced — much cheaper than a video model plus lip-sync. You'll see every scene's mode and exact cost before anything is charged."
+                            : "Not available with Auto model routing yet — pick a specific model to use it."}
+                        </div>
+                      </div>
+                    </label>
+                    {usePresenter && (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, paddingLeft: 26 }}>
+                        {[{ id: "768P", label: "768p", rate: 11 }, { id: "480P", label: "480p (cheaper)", rate: 7 }].map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() => setPresenterResolution(opt.id)}
+                            style={{
+                              padding: "6px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer",
+                              background: presenterResolution === opt.id ? "rgba(0,210,255,0.15)" : "var(--onyx-bg)",
+                              border: `1px solid ${presenterResolution === opt.id ? "rgba(0,210,255,0.5)" : "rgba(255,255,255,0.12)"}`,
+                              color: presenterResolution === opt.id ? "#00d2ff" : "var(--onyx-text)",
+                            }}
+                          >
+                            {opt.label} · about {opt.rate} cr/second
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+            </SettingsSection>
+            )}
+
+            <SettingsSection id="advanced" title="Advanced" summary={sectionSummaries.advanced} open={openSections.advanced} onToggle={toggleSection}>
                 {/* Motion Reference URL -- Kling-only: submitSceneJob only ever
                     attaches this for models with supportsRefs (currently just
                     kling-2.6-pro); for every other model it was already a
@@ -859,7 +1247,7 @@ export default function CreatePage() {
                     working-looking field for 4 of 5 models that quietly does
                     nothing is worse than hiding it -- see the 2026-08-07
                     motionRefUrl/styleRefUrl investigation. */}
-                {videoModel === "kling-2.6-pro" && (
+                {mode === "ai" && videoModel === "kling-2.6-pro" && (
                   <div style={{
                     padding: "10px 14px", borderRadius: 10,
                     background: "var(--onyx-bg-2)", border: `1px solid ${motionRefUrl.trim() ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,
@@ -884,91 +1272,9 @@ export default function CreatePage() {
                     />
                   </div>
                 )}
-              </div>
-            )}
 
-            <div
-              style={{
-                padding: 16,
-                borderRadius: 12,
-                background: "var(--onyx-bg-2)",
-                border: "1px solid var(--onyx-hairline-strong)"
-              }}
-            >
-              <div style={{ fontWeight: 600, marginBottom: 10, color: "var(--onyx-text)" }}>Estimator</div>
-              <div style={{ color: "var(--onyx-text-faint)" }}>Words: {wordCount}</div>
-              <div style={{ color: "var(--onyx-text-faint)" }}>Scenes: {estimatedScenes}</div>
-              {mode === "ai" && <div style={{ color: "var(--onyx-text-faint)" }}>{selectedModelOption.creditsLabel ? `${selectedModelOption.creditsLabel} (${estimatedScenes} scenes)` : `${selectedModelOption.credits} credits × ${estimatedScenes} scenes`}</div>}
-              {showStartFrameEstimate && (
-                <div style={{ color: "var(--onyx-text-faint)" }}>
-                  {characterLock
-                    ? `+ ${startFrameCreditsEach} credits if scene 1 tags a character (start frame)`
-                    : `+ ${startFrameCreditsEach} credits per scene that tags a character (start frames)`}
-                </div>
-              )}
-              <div style={{ color: insufficientCredits ? "#ff5c5c" : "var(--onyx-text)" }}>
-                {mode === "ai" && isAutoModel ? "AI Credits Needed: shown in the review step before you generate" : `AI Credits Needed: ${estimatedCredits}${showStartFrameEstimate ? " + start frames" : ""}`}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <TemplateSelectorPill value={selectedTemplateId} onChange={handleTemplateChange} />
-            <ThemeSelectorPill selectedTheme={selectedTheme} onSelect={setSelectedTheme} />
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <label style={{ fontWeight: 600 }}>Script or story idea</label>
-              {micSupported && (
-                <button
-                  type="button"
-                  onClick={micToggle}
-                  title={micListening ? "Stop recording" : "Dictate script"}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "6px 12px", borderRadius: 20,
-                    border: `1px solid ${micListening ? "#ef4444" : "rgba(255,255,255,0.15)"}`,
-                    background: micListening ? "rgba(239,68,68,0.12)" : "var(--onyx-surface)",
-                    color: micListening ? "#ef4444" : "var(--onyx-text-dim)",
-                    cursor: "pointer", fontSize: 12, fontWeight: 600,
-                    transition: "all 0.2s",
-                  }}
-                >
-                  <span style={{
-                    display: "inline-block", width: 8, height: 8, borderRadius: "50%",
-                    background: micListening ? "#ef4444" : "var(--onyx-text-faint)",
-                    animation: micListening ? "pulse 1s infinite" : "none",
-                  }} />
-                  {micListening ? "Stop" : "Dictate"}
-                </button>
-              )}
-            </div>
-            {micListening && (
-              <div style={{ marginBottom: 8, fontSize: 12, color: "#ef4444", display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", display: "inline-block", animation: "pulse 1s infinite" }} />
-                Listening — speak your script…
-              </div>
-            )}
-
-            <textarea
-              value={script}
-              onChange={(e) => setScript(e.target.value)}
-              placeholder="Paste your script here, or click Dictate to speak it…"
-              rows={16}
-              style={{
-                width: "100%",
-                borderRadius: 16,
-                border: "1px solid var(--onyx-hairline-strong)",
-                background: "var(--onyx-bg-2)",
-                color: "var(--onyx-text)",
-                padding: 18,
-                resize: "vertical",
-                fontSize: 15,
-                lineHeight: 1.6,
-                marginBottom: 12
-              }}
-            />
-
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+            <div style={{ fontWeight: 600, fontSize: 14, margin: mode === "ai" && videoModel === "kling-2.6-pro" ? "12px 0 6px" : "0 0 6px" }}>Prompt chips</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {STYLE_CHIPS.map((chip) => {
                 const active = script.includes(chip.modifier);
                 return (
@@ -993,56 +1299,7 @@ export default function CreatePage() {
                 );
               })}
             </div>
-
-            {error ? (
-              <div style={{ color: "#ff5c5c", marginBottom: 12 }}>{error}</div>
-            ) : null}
-
-            {loading ? (
-              <div
-                style={{
-                  marginBottom: 20,
-                  padding: 16,
-                  borderRadius: 12,
-                  background: "var(--onyx-bg-2)",
-                  border: "1px solid rgba(255,255,255,0.08)"
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>{progressStep}</div>
-                <div
-                  style={{
-                    width: "100%",
-                    height: 10,
-                    borderRadius: 999,
-                    background: "rgba(255,255,255,0.08)",
-                    overflow: "hidden"
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${progressPercent}%`,
-                      height: "100%",
-                      background: "linear-gradient(90deg, #00d2ff, #3b82f6)"
-                    }}
-                  />
-                </div>
-                <div style={{ color: "var(--onyx-text-dim)", opacity: 1, marginTop: 8 }}>{progressPercent}%</div>
-                {mode === "ai" && loading && (
-                  <div style={{fontSize:12,opacity:0.6,marginTop:8,lineHeight:1.6}}>
-                    AI video generation takes 2–4 minutes per scene. Please keep this tab open. Your reel will open automatically when ready.
-                  </div>
-                )}
-              </div>
-            ) : null}
-
-            <button
-              onClick={handleGenerate}
-              disabled={!canGenerate}
-              className="btn-teal"
-              style={{ width: "100%" }}
-            >
-              {loading ? "Generating..." : "Generate Reel"}
-            </button>
+            </SettingsSection>
           </div>
         </div>
         )}
@@ -1068,10 +1325,17 @@ export default function CreatePage() {
                 border: "1px solid rgba(255,255,255,0.08)"
               }}
             >
-              <h3 style={{ marginTop: 0 }}>Not enough credits</h3>
-              <p style={{ opacity: 0.8 }}>
-                Your AI video request needs {estimatedCredits} credits, but only {displayCredits} are available.
-              </p>
+              {/* Native apps: neutral text only, no upgrade link (src/utils/nativeApp.js). */}
+              {purchasesAllowed() ? (
+                <>
+                  <h3 style={{ marginTop: 0 }}>Not enough credits</h3>
+                  <p style={{ opacity: 0.8 }}>
+                    Your AI video request needs {estimatedCredits} credits, but only {displayCredits} are available.
+                  </p>
+                </>
+              ) : (
+                <p style={{ marginTop: 0 }}>{NO_CREDITS_TEXT}</p>
+              )}
               <div style={{ display: "flex", gap: 12, marginTop: 18 }}>
                 <button
                   onClick={() => setShowUpgradeModal(false)}
@@ -1086,7 +1350,7 @@ export default function CreatePage() {
                 >
                   Close
                 </button>
-                <Link
+                {purchasesAllowed() && <Link
                   to="/billing"
                   style={{
                     flex: 1,
@@ -1100,11 +1364,23 @@ export default function CreatePage() {
                   }}
                 >
                   Upgrade
-                </Link>
+                </Link>}
               </div>
             </div>
           </div>
         ) : null}
+
+        {presenterReview && (
+          <TalkingPresenterReview
+            review={presenterReview.data}
+            loading={presenterReview.loading}
+            videoModelLabel={selectedModelOption.label}
+            credits={credits}
+            onToggle={(sceneIndex, useVideo) => presenterReviewRef.current?.toggle(sceneIndex, useVideo)}
+            onCancel={() => presenterReviewRef.current?.resolve({ confirmed: false })}
+            onConfirm={() => presenterReviewRef.current?.resolve({ confirmed: true, totalCost: presenterReview.data?.totalCost })}
+          />
+        )}
 
         {autoModelPreview && (
           <AutoModelRoutingPreview

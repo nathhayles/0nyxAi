@@ -3,7 +3,12 @@
 // gate was migrated to a credit-based model (see routes/render.js's
 // "Gate clean download behind credits, not a plan" comment). Shown when
 // POST /api/render returns 402 INSUFFICIENT_CREDITS.
+//
+// Native apps: neutral text and a close button only (src/utils/nativeApp.js).
+import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
+
 export default function ExportUpgradeModal({ requiredCredits, onClose }) {
+  const canBuy = purchasesAllowed();
   return (
     <div className="export-upgrade-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="export-upgrade-modal">
@@ -12,14 +17,18 @@ export default function ExportUpgradeModal({ requiredCredits, onClose }) {
           <button className="export-upgrade-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div className="export-upgrade-body">
-          <p>
-            Exporting a watermark-free reel costs 1 credit per minute of
-            rendered output{requiredCredits ? ` — this export needs ${requiredCredits} credit${requiredCredits === 1 ? "" : "s"}` : ""}.
-            Your balance doesn't cover it yet.
-          </p>
+          {canBuy ? (
+            <p>
+              Exporting a watermark-free reel costs 1 credit per minute of
+              rendered output{requiredCredits ? ` — this export needs ${requiredCredits} credit${requiredCredits === 1 ? "" : "s"}` : ""}.
+              Your balance doesn't cover it yet.
+            </p>
+          ) : (
+            <p>{NO_CREDITS_TEXT}</p>
+          )}
           <div className="export-upgrade-actions">
-            <a href="/pricing#buy-credits" className="btn btn-primary">Buy credits</a>
-            <button className="btn btn-ghost" onClick={onClose}>Not now</button>
+            {canBuy && <a href="/pricing#buy-credits" className="btn btn-primary">Buy credits</a>}
+            <button className="btn btn-ghost" onClick={onClose}>{canBuy ? "Not now" : "Close"}</button>
           </div>
         </div>
       </div>

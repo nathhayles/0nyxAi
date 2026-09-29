@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient.js";
 import SEO from "../components/SEO";
 import { staticPages } from "../data/staticPagesSeo";
 import { isNative, openExternal } from "../capacitor.js";
+import { purchasesAllowed } from "../utils/nativeApp.js";
 
 const EASE_OUT = [0.23, 1, 0.32, 1];
 const fadeUp = {
@@ -29,6 +30,8 @@ const PRICE_IDS = {
 };
 
 async function startCheckout(priceKey, setBusy) {
+  // Never from the native apps (App.jsx also routes /pricing away there).
+  if (!purchasesAllowed()) return;
   setBusy(priceKey);
   try {
     const { data: { session } } = await supabase.auth.getSession();
