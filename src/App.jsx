@@ -96,7 +96,7 @@ if (ref) {
   })()
 }
 
-// First-touch UTM/referrer capture + one anonymous "visit" event (see utils/attribution.js).
+// Read UTMs/referrer into memory only for the signup request (see utils/attribution.js). Nothing is stored on the device.
 initAttribution()
 
 /*

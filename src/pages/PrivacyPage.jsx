@@ -31,6 +31,19 @@ export default function PrivacyPage() {
         <li><strong>Payment information:</strong> processed securely by Stripe. We do not store card details.</li>
       </ul>
 
+      {/* DRAFT wording for Nathan's approval. Not legal advice. Retention period must be confirmed before this goes live. */}
+      <h2 style={{ fontSize: 20, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>2a. How You Found Us (Marketing Attribution)</h2>
+      <p>When you create an account we record where you came from, so we can understand which channels are worth our time. This is what we collect at signup:</p>
+      <ul style={{ paddingLeft: 24, marginTop: 8 }}>
+        <li><strong>Link parameters:</strong> if you arrived through a link that carries campaign tags (<code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_content</code>, <code>utm_term</code>) and you sign up during that same visit, we save those tags.</li>
+        <li><strong>Referrer:</strong> the website you came from, if your browser tells us.</li>
+        <li><strong>Your answer to "How did you hear about us?"</strong> This question is optional. If you choose "Other" you can add up to 100 characters of text. Skipping it makes no difference to your account.</li>
+      </ul>
+      <p>We also note when you reach a few milestones (creating an account, your first reel, your first publish and your first credit purchase) and keep them alongside these details, so we can see which channels lead to real use.</p>
+      <p><strong>Nothing is stored on your device for this.</strong> We do not use cookies, local storage or similar technology for attribution. The link parameters and referrer are read from the page only while you are signing up and are sent with your signup request. If your browser sends a Global Privacy Control or Do Not Track signal, we do not read the link parameters or referrer at all.</p>
+      <p><strong>Why we do this and our lawful basis:</strong> to understand which channels work so we can decide where to spend our time and money. We rely on legitimate interests (UK GDPR Article 6(1)(f)). We think the impact on you is low, because the information is limited and is not used to profile you or to show you advertising. You can object at any time by emailing <a href="mailto:privacy@onyx-reelz.com" style={{ color: "#4dd0ff" }}>privacy@onyx-reelz.com</a>.</p>
+      <p><strong>How long we keep it:</strong> [CONFIRM RETENTION PERIOD]. If you delete your account, the attribution record we hold for you is deleted, and the milestone records are disconnected from your account.</p>
+
       <h2 style={{ fontSize: 20, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>3. How We Use Your Information</h2>
       <ul style={{ paddingLeft: 24, marginTop: 8 }}>
         <li>To provide and operate the Onyx Reelz platform and its features.</li>

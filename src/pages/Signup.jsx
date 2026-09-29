@@ -4,13 +4,15 @@ import { useNavigate } from "react-router-dom"
 import SEO from "../components/SEO"
 import { staticPages } from "../data/staticPagesSeo"
 import AuthShell from "../components/AuthShell"
-import { signupAttributionPayload } from "../utils/attribution"
+import { signupAttributionPayload, selfReportedPayload, SOURCE_OPTIONS, SOURCE_OTHER_MAX } from "../utils/attribution"
 import "../auth.css"
 
 export default function Signup() {
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [source, setSource] = useState("")
+  const [sourceOther, setSourceOther] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const navigate = useNavigate()
@@ -28,7 +30,7 @@ export default function Signup() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, username, referral_code, ...signupAttributionPayload() }),
+        body: JSON.stringify({ email, password, username, referral_code, ...signupAttributionPayload(), ...selfReportedPayload(source, sourceOther) }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Signup failed")
@@ -91,6 +93,28 @@ export default function Signup() {
           onChange={e => setPassword(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleSignup()}
         />
+
+        <label className="auth-label" htmlFor="signup-source">How did you hear about us? (optional)</label>
+        <select
+          id="signup-source"
+          className="auth-input"
+          value={source}
+          onChange={e => setSource(e.target.value)}
+        >
+          <option value="">Prefer not to say</option>
+          {SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        {source === "other" && (
+          <input
+            className="auth-input"
+            style={{ marginTop: 8 }}
+            placeholder="Tell us where (optional)"
+            aria-label="Where did you hear about us?"
+            maxLength={SOURCE_OTHER_MAX}
+            value={sourceOther}
+            onChange={e => setSourceOther(e.target.value)}
+          />
+        )}
 
         <button
           onClick={handleSignup}
