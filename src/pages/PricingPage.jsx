@@ -126,7 +126,6 @@ const CHECKLIST_ITEMS = [
   "Unlimited stock video, images & music",
   "Learn/Academy content — full access",
   "Share watermarked reels — unlimited",
-  "Pay only for AI generation & downloads",
 ];
 
 const Checklist = ({ style }) => (
