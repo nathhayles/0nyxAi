@@ -2,11 +2,11 @@ import './PricingCreditCallout.css';
 
 export default function PricingCreditCallout() {
   return (
-    <section className="pcc" aria-labelledby="pcc-title">
+    <section className="pcc" aria-label="How Onyx pricing works">
       <div className="pcc__eyebrow">Simple, honest pricing</div>
-      <h2 id="pcc-title" className="pcc__title">
+      <p className="pcc__title">
         No subscription. <span className="pcc__grad">Pay only for what you make.</span>
-      </h2>
+      </p>
       <p className="pcc__sub">
         Onyx is free to use. You only pay for AI generation and downloads, so you decide
         how much AI goes into every reel.
