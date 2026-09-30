@@ -67,17 +67,17 @@ export function getAttribution() {
   return captured;
 }
 
-// Dropdown for the optional "How did you hear about us?" question.
+// Dropdown for the optional "How did you hear about Onyx?" question.
 export const SOURCE_OPTIONS = [
-  { value: "instagram", label: "Instagram" },
+  { value: "search", label: "Search" },
   { value: "tiktok", label: "TikTok" },
+  { value: "instagram", label: "Instagram" },
   { value: "youtube", label: "YouTube" },
+  { value: "x", label: "X" },
   { value: "linkedin", label: "LinkedIn" },
-  { value: "facebook_meta", label: "Facebook/Meta" },
-  { value: "google_search", label: "Google search" },
-  { value: "ai_assistant", label: "ChatGPT or another AI assistant" },
-  { value: "friend_colleague", label: "A friend or colleague" },
-  { value: "blog_learn", label: "A blog or Learn guide" },
+  { value: "reddit_community", label: "Reddit/community" },
+  { value: "ai_tool_directory", label: "AI tool directory" },
+  { value: "friend_referral", label: "Friend/referral" },
   { value: "other", label: "Other" },
 ];
 export const SOURCE_OTHER_MAX = 100;
@@ -93,4 +93,11 @@ export function selfReportedPayload(source, other) {
   const out = { self_reported_source: source };
   if (source === "other" && other && other.trim()) out.self_reported_other = other.trim().slice(0, SOURCE_OTHER_MAX);
   return out;
+}
+
+// The marketing-email checkbox (unticked by default). Only a ticked box is sent;
+// the server records the consent with a timestamp and the wording version.
+export const MARKETING_OPT_IN_LABEL = "Email me product updates and tips (optional)";
+export function marketingPayload(checked) {
+  return checked === true ? { marketing_opt_in: true } : {};
 }

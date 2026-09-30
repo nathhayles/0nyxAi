@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom"
 import SEO from "../components/SEO"
 import { staticPages } from "../data/staticPagesSeo"
 import AuthShell from "../components/AuthShell"
-import { signupAttributionPayload, selfReportedPayload, SOURCE_OPTIONS, SOURCE_OTHER_MAX } from "../utils/attribution"
+import { signupAttributionPayload, selfReportedPayload, marketingPayload, MARKETING_OPT_IN_LABEL, SOURCE_OPTIONS, SOURCE_OTHER_MAX } from "../utils/attribution"
 import "../auth.css"
 
 export default function Signup() {
@@ -13,6 +13,7 @@ export default function Signup() {
   const [password, setPassword] = useState("")
   const [source, setSource] = useState("")
   const [sourceOther, setSourceOther] = useState("")
+  const [marketingOptIn, setMarketingOptIn] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const navigate = useNavigate()
@@ -30,7 +31,7 @@ export default function Signup() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, username, referral_code, ...signupAttributionPayload(), ...selfReportedPayload(source, sourceOther) }),
+        body: JSON.stringify({ email, password, username, referral_code, ...signupAttributionPayload(), ...selfReportedPayload(source, sourceOther), ...marketingPayload(marketingOptIn) }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Signup failed")
@@ -94,7 +95,7 @@ export default function Signup() {
           onKeyDown={e => e.key === "Enter" && handleSignup()}
         />
 
-        <label className="auth-label" htmlFor="signup-source">How did you hear about us? (optional)</label>
+        <label className="auth-label" htmlFor="signup-source">How did you hear about Onyx? (optional)</label>
         <select
           id="signup-source"
           className="auth-input"
@@ -115,6 +116,16 @@ export default function Signup() {
             onChange={e => setSourceOther(e.target.value)}
           />
         )}
+
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 14, fontSize: 13, lineHeight: 1.4, color: "rgba(255,255,255,0.75)", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={marketingOptIn}
+            onChange={e => setMarketingOptIn(e.target.checked)}
+            style={{ marginTop: 2, flexShrink: 0 }}
+          />
+          <span>{MARKETING_OPT_IN_LABEL}</span>
+        </label>
 
         <button
           onClick={handleSignup}
