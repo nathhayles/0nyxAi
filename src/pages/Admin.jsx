@@ -13,6 +13,7 @@ const TABS = [
   { key: 'users', label: 'Users' },
   { key: 'model-usage', label: 'Model Usage' },
   { key: 'spend-breakdown', label: 'Spend Breakdown' },
+  { key: 'growth', label: 'Growth Funnel' },
   { key: 'flagged-uploads', label: 'Flagged Uploads' },
   { key: 'api-keys', label: 'API Keys' },
 ];
@@ -146,6 +147,7 @@ export default function AdminPanel() {
       {activeTab === 'users' && <UsersPanel users={users} onGrant={grantCredits} grantingCredits={grantingCredits} />}
       {activeTab === 'model-usage' && <ModelUsagePanel />}
       {activeTab === 'spend-breakdown' && <SpendBreakdownPanel />}
+      {activeTab === 'growth' && <GrowthFunnelPanel />}
       {activeTab === 'flagged-uploads' && <FlaggedUploadsPanel />}
       {activeTab === 'api-keys' && <ApiKeysPanel users={users} />}
     </div>
@@ -452,6 +454,156 @@ function SpendBreakdownPanel() {
           </table>
         )}
       </div>
+    </div>
+  );
+}
+
+// GET /api/admin/analytics/growth-funnel (growth_funnel_weekly view, migration 079).
+// Signup cohorts by week and by source, with the count at each stage and two
+// percentages: "% of the previous stage" (big) and "% of signups" (tooltip).
+// A cohort counts a user at a stage if they EVER reached it, and stages are not
+// forced to be sequential, so the step % can exceed 100.
+const GROWTH_WEEKS = [
+  { key: '4', label: '4 weeks' },
+  { key: '12', label: '12 weeks' },
+  { key: '26', label: '26 weeks' },
+];
+const GROWTH_STAGES = [
+  { key: 'generated', label: 'Generated' },
+  { key: 'exported', label: 'Exported' },
+  { key: 'published', label: 'Published' },
+  { key: 'purchased', label: 'Purchased' },
+];
+const SOURCE_TYPE_LABELS = { utm: 'UTM', self_reported: 'Self-reported', unknown: '—' };
+
+function GrowthStageCell({ row, stage }) {
+  const step = row.step_pct?.[stage];
+  const ofSignups = row.signup_pct?.[stage];
+  return (
+    <td
+      style={{ ...s.td, textAlign: 'right' }}
+      title={ofSignups == null ? '' : `${ofSignups}% of signups`}
+    >
+      <span style={{ fontWeight: 700 }}>{(row[stage] ?? 0).toLocaleString()}</span>
+      <span style={{ color: 'var(--onyx-text-faint)', fontSize: 11, marginLeft: 6 }}>
+        {step == null ? '—' : `${step}%`}
+      </span>
+    </td>
+  );
+}
+
+function GrowthFunnelTable({ rows, firstColLabel, renderFirst }) {
+  return (
+    <table style={s.table}>
+      <thead>
+        <tr>
+          <th style={s.th}>{firstColLabel}</th>
+          <th style={{ ...s.th, textAlign: 'right' }}>Signups</th>
+          {GROWTH_STAGES.map(st => (
+            <th key={st.key} style={{ ...s.th, textAlign: 'right' }}>{st.label}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, i) => (
+          <tr key={i} style={s.row}>
+            <td style={s.td}>{renderFirst(row)}</td>
+            <td style={{ ...s.td, textAlign: 'right', fontWeight: 700, color: '#4dd0ff' }}>{row.signups.toLocaleString()}</td>
+            {GROWTH_STAGES.map(st => <GrowthStageCell key={st.key} row={row} stage={st.key} />)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function GrowthFunnelPanel() {
+  const [weeks, setWeeks] = useState('12');
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`/api/admin/analytics/growth-funnel?weeks=${weeks}`, { headers });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.error || 'Failed to load');
+        if (!cancelled) setData(d);
+      } catch (e) {
+        if (!cancelled) setError(e.message);
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [weeks]);
+
+  const card = { background: 'var(--onyx-bg-2)', border: '1px solid var(--onyx-hairline-strong)', borderRadius: 10, padding: 20, marginBottom: 20 };
+  const heading = { color: '#e2e8f0', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 14px' };
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h3 style={{ color: '#4dd0ff', fontSize: 14, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
+          Growth Funnel
+        </h3>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {GROWTH_WEEKS.map(w => (
+            <button
+              key={w.key}
+              onClick={() => setWeeks(w.key)}
+              style={{
+                ...s.grantBtn,
+                background: weeks === w.key ? '#4dd0ff44' : 'transparent',
+                borderColor: weeks === w.key ? '#4dd0ff' : 'var(--onyx-hairline-strong)',
+                color: weeks === w.key ? '#7de0ff' : 'var(--onyx-text-faint)',
+                fontSize: 11,
+                padding: '4px 10px',
+              }}
+            >
+              {w.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <p style={{ fontSize: 11, color: 'var(--onyx-text-faint)', margin: '0 0 14px' }}>
+        Signup cohorts: each user is counted in the week they signed up and at a later stage if they have <em>ever</em> reached it.
+        The small % is the share of the previous stage (hover a cell for % of signups); stages aren't strictly sequential, so it can exceed 100%.
+        Source is the UTM source, falling back to the "How did you hear about Onyx?" answer. Users before the attribution rollout show as "(unknown)".
+      </p>
+
+      {loading ? (
+        <p style={{ color: '#4dd0ff', fontSize: 13, margin: 0 }}>Loading...</p>
+      ) : error ? (
+        <p style={{ color: '#f87171', fontSize: 13, margin: 0 }}>Failed to load: {error}</p>
+      ) : !data || data.weeks.length === 0 ? (
+        <p style={{ color: 'var(--onyx-text-faint)', fontSize: 13, margin: 0 }}>No signups recorded in this window.</p>
+      ) : (
+        <>
+          <div style={card}>
+            <h4 style={heading}>By signup week (total {data.totals.signups.toLocaleString()} signups)</h4>
+            <GrowthFunnelTable rows={data.weeks} firstColLabel="Week starting" renderFirst={row => row.cohort_week} />
+          </div>
+          <div style={card}>
+            <h4 style={heading}>By source</h4>
+            <GrowthFunnelTable
+              rows={data.by_source}
+              firstColLabel="Source"
+              renderFirst={row => (
+                <>
+                  {row.source}
+                  <span style={{ color: 'var(--onyx-text-faint)', fontSize: 11, marginLeft: 8 }}>{SOURCE_TYPE_LABELS[row.source_type] || ''}</span>
+                </>
+              )}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

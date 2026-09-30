@@ -1,7 +1,7 @@
 // Run with: npm test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseAttribution, selfReportedPayload, SOURCE_OPTIONS } from "../src/utils/attribution.js";
+import { parseAttribution, selfReportedPayload, marketingPayload, SOURCE_OPTIONS } from "../src/utils/attribution.js";
 
 test("captures all five UTMs and the external referrer", () => {
   const a = parseAttribution(
@@ -31,4 +31,19 @@ test("selfReportedPayload: allow-listed value only, free text only for 'other', 
   assert.deepEqual(selfReportedPayload("other", "  a podcast "), { self_reported_source: "other", self_reported_other: "a podcast" });
   assert.equal(selfReportedPayload("other", "y".repeat(300)).self_reported_other.length, 100);
   assert.equal(SOURCE_OPTIONS.length, 10);
+});
+
+test("dropdown offers exactly the ten requested options, with Other last", () => {
+  assert.deepEqual(SOURCE_OPTIONS.map((o) => o.label),
+    ["Search", "TikTok", "Instagram", "YouTube", "X", "LinkedIn", "Reddit/community", "AI tool directory", "Friend/referral", "Other"]);
+  assert.equal(SOURCE_OPTIONS.at(-1).value, "other");
+  assert.deepEqual(selfReportedPayload("reddit_community", ""), { self_reported_source: "reddit_community" });
+  assert.deepEqual(selfReportedPayload("facebook_meta", ""), {}, "old options are no longer offered");
+});
+
+test("marketing opt-in is sent only when the box is ticked", () => {
+  assert.deepEqual(marketingPayload(false), {});
+  assert.deepEqual(marketingPayload(undefined), {});
+  assert.deepEqual(marketingPayload("true"), {});
+  assert.deepEqual(marketingPayload(true), { marketing_opt_in: true });
 });
