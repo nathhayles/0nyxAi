@@ -7,6 +7,7 @@ import {
   isPremiumVoice, ambassadorErrorMessage, ambassadorUsageSummary,
 } from "../src/utils/ambassador.js";
 import { creditErrorMessage } from "../src/utils/creditErrors.js";
+import { CREATE_RATIO_OPTIONS } from "../src/data/createRatios.js";
 
 const LIMITED = { ambassador: true, tier: "limited", monthly_cap: 200, spent_this_month: 40, cap_remaining: 160, vo_minutes_quota: 200, vo_minutes_used: 12.34, vo_minutes_remaining: 187.66 };
 const PRO = { ...LIMITED, tier: "pro" };
@@ -86,4 +87,19 @@ test("creditErrorMessage shows ambassador messages for their 403s", () => {
 test("usage summary for the badge", () => {
   assert.equal(ambassadorUsageSummary(null), null);
   assert.deepEqual(ambassadorUsageSummary(PRO), { tierLabel: "Pro", spent: 40, cap: 200, capRemaining: 160, voUsed: 12.3, voQuota: 200, voRemaining: 187.7 });
+});
+
+test("Create's aspect-ratio picker: ambassadors only see exportable ratios", () => {
+  // Normal accounts: the full list, unchanged.
+  assert.equal(filterRatios(CREATE_RATIO_OPTIONS, null), CREATE_RATIO_OPTIONS);
+  for (const amb of [LIMITED, PRO]) {
+    const shown = filterRatios(CREATE_RATIO_OPTIONS, amb).map((o) => o.value);
+    assert.ok(shown.length > 0);
+    assert.ok(shown.every((r) => AMBASSADOR_RATIOS.includes(r)), shown.join(","));
+    assert.deepEqual(shown, CREATE_RATIO_OPTIONS.map((o) => o.value).filter((r) => AMBASSADOR_RATIOS.includes(r)));
+  }
+  // If a non-exportable ratio is ever added to Create, ambassadors don't get it.
+  const extended = [...CREATE_RATIO_OPTIONS, { value: "21:9", label: "21:9" }, { value: "4:3", label: "4:3" }];
+  assert.deepEqual(filterRatios(extended, PRO).map((o) => o.value), ["16:9", "9:16", "1:1"]);
+  assert.equal(filterRatios(extended, null).length, 5);
 });

@@ -18,7 +18,8 @@ import { estimateSceneCount, estimateScenes } from "../utils/sceneEstimate.js";
 import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
 import { creditErrorMessage } from "../utils/creditErrors.js";
 import useAmbassador from "../hooks/useAmbassador.js";
-import { ambassadorFeatures, filterVideoModels, isAllowedVideoModel, defaultVideoModel, defaultRatio } from "../utils/ambassador.js";
+import { ambassadorFeatures, filterVideoModels, isAllowedVideoModel, defaultVideoModel, defaultRatio, filterRatios } from "../utils/ambassador.js";
+import { CREATE_RATIO_OPTIONS } from "../data/createRatios.js";
 
 const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 
@@ -291,8 +292,13 @@ export default function CreatePage() {
       setVideoModel(defaultVideoModel(videoModel, ambassador, VIDEO_MODEL_OPTIONS, "id"));
     }
     if (!features.presenter) setTalkingPresenter(false);
-    setRatio((r) => defaultRatio(r, ambassador));
   }, [ambassador]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Also catches a ratio set later (e.g. by a template): ambassadors always
+  // land on a ratio their exports support.
+  useEffect(() => {
+    if (ambassador) setRatio((r) => defaultRatio(r, ambassador));
+  }, [ambassador, ratio]);
+  const ratioOptions = filterRatios(CREATE_RATIO_OPTIONS, ambassador);
 
   // Auto (when enabled) isn't in VIDEO_MODEL_OPTIONS -- see AUTO_MODEL_OPTION
   // above and the picker render below, which renders from this combined list.
@@ -1092,9 +1098,7 @@ export default function CreatePage() {
               onChange={(e) => setRatio(e.target.value)}
               style={{ ...selectStyle, marginBottom: 0 }}
             >
-              <option value="16:9">16:9 — Landscape (YouTube, Facebook)</option>
-              <option value="9:16">9:16 — Portrait (Reels, TikTok, Shorts)</option>
-              <option value="1:1">1:1 — Square (Instagram)</option>
+              {ratioOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             </SettingsSection>
 
