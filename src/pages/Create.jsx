@@ -17,6 +17,8 @@ import { STYLE_CHIPS, appendChipModifier } from "../config/styleChips.js";
 import { estimateSceneCount, estimateScenes } from "../utils/sceneEstimate.js";
 import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
 import { creditErrorMessage } from "../utils/creditErrors.js";
+import useAmbassador from "../hooks/useAmbassador.js";
+import { ambassadorFeatures, filterVideoModels, isAllowedVideoModel, defaultVideoModel, defaultRatio } from "../utils/ambassador.js";
 
 const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 
@@ -274,13 +276,31 @@ export default function CreatePage() {
 
   const selectedTemplate = TEMPLATES.find(t => t.id === selectedTemplateId) || null;
 
+  // Ambassador accounts (src/utils/ambassador.js): Limited has no AI video
+  // (Standard Storyboard only); Pro picks from its allowed models only. No
+  // Auto, Talking presenter or Reshoot. The server enforces all of this.
+  const { ambassador } = useAmbassador();
+  const features = ambassadorFeatures(ambassador);
+  const videoModelOptions = filterVideoModels(VIDEO_MODEL_OPTIONS, ambassador, "id");
+  useEffect(() => {
+    if (!ambassador) return;
+    if (!features.aiVideo) {
+      setMode((m) => (m === "ai" ? "standard" : m));
+      setPageMode((m) => (m === "quick" ? "storyboard" : m));
+    } else if (!isAllowedVideoModel(videoModel, ambassador)) {
+      setVideoModel(defaultVideoModel(videoModel, ambassador, VIDEO_MODEL_OPTIONS, "id"));
+    }
+    if (!features.presenter) setTalkingPresenter(false);
+    setRatio((r) => defaultRatio(r, ambassador));
+  }, [ambassador]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto (when enabled) isn't in VIDEO_MODEL_OPTIONS -- see AUTO_MODEL_OPTION
   // above and the picker render below, which renders from this combined list.
-  const pickerOptions = autoRoutingEnabled ? [AUTO_MODEL_OPTION, ...VIDEO_MODEL_OPTIONS] : VIDEO_MODEL_OPTIONS;
+  const pickerOptions = autoRoutingEnabled && features.autoModel ? [AUTO_MODEL_OPTION, ...videoModelOptions] : videoModelOptions;
   const wordCount = script.trim() ? script.trim().split(/\s+/).length : 0;
   // Explicit "Scene 1:" markers when the script has them, else ~22 words a scene.
   const estimatedScenes = estimateSceneCount(script);
-  const selectedModelOption = pickerOptions.find(m => m.id === videoModel) || VIDEO_MODEL_OPTIONS[1];
+  const selectedModelOption = pickerOptions.find(m => m.id === videoModel) || videoModelOptions[0] || VIDEO_MODEL_OPTIONS[1];
   const isAutoModel = videoModel === "auto";
   // Auto's real per-scene cost isn't known client-side until the pre-flight
   // review step below actually calls /api/kling/preview-auto-model (which
@@ -298,7 +318,7 @@ export default function CreatePage() {
   const showStartFrameEstimate = mode === "ai" && startFrameEligibleModel && /@[A-Za-z0-9_]/.test(script);
   // Not with Auto model routing in this version (its own review screen).
   const presenterAvailable = mode === "ai" && !isAutoModel;
-  const usePresenter = presenterAvailable && talkingPresenter;
+  const usePresenter = presenterAvailable && talkingPresenter && features.presenter;
   // Per guessed scene: Talking presenter (one tagged character, <=15s of
   // narration) at its per-second rate plus a start frame, else the model's
   // per-scene price. Start frames on video scenes are shown separately.
@@ -749,7 +769,7 @@ export default function CreatePage() {
               <div style={{ fontSize: 11, color: 'var(--onyx-text-faint)', fontWeight: 400 }}>Podcast / voiceover → reel</div>
             </div>
           </Link>
-          <Link to="/reshoot" style={{
+          {features.reshoot && <Link to="/reshoot" style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px',
             borderRadius: 12, border: '1px solid rgba(236,72,153,0.3)',
             background: 'rgba(236,72,153,0.06)', textDecoration: 'none',
@@ -759,7 +779,7 @@ export default function CreatePage() {
               <div>Reshoot</div>
               <div style={{ fontSize: 11, color: 'var(--onyx-text-faint)', fontWeight: 400 }}>Edit an existing clip with a prompt</div>
             </div>
-          </Link>
+          </Link>}
         </div>
         </div>
 
@@ -767,7 +787,8 @@ export default function CreatePage() {
         <div style={{ display: "flex", gap: 8 }}>
           {[
             { id: "storyboard", label: "Storyboard" },
-            { id: "quick", label: "Quick Create" },
+            // Quick Create generates AI video -- not for Limited ambassadors.
+            ...(features.aiVideo ? [{ id: "quick", label: "Quick Create" }] : []),
           ].map((t) => (
             <button
               key={t.id}
@@ -803,7 +824,7 @@ export default function CreatePage() {
         {pageMode === "quick" && (
           <QuickCreatePanel
             brand={brand}
-            videoModelOptions={VIDEO_MODEL_OPTIONS}
+            videoModelOptions={videoModelOptions}
             onCreated={(reelId) => navigate(`/editor-v2?reelId=${reelId}`)}
           />
         )}
@@ -1016,7 +1037,7 @@ export default function CreatePage() {
               style={selectStyle}
             >
               <option value="standard">Standard Storyboard</option>
-              <option value="ai">AI Video</option>
+              {features.aiVideo && <option value="ai">AI Video</option>}
             </select>
 
             <label style={fieldLabel}>Brand</label>
@@ -1192,7 +1213,7 @@ export default function CreatePage() {
                     routes/presenter.js). The review step shows each scene's
                     mode and exact cost, with a per-scene switch back to the
                     video model, before anything is charged. */}
-                {mode === "ai" && (
+                {mode === "ai" && features.presenter && (
                   <div style={{
                     padding: "10px 14px", borderRadius: 10, marginBottom: 10,
                     background: "var(--onyx-bg-2)", border: `1px solid ${usePresenter ? "rgba(0,210,255,0.4)" : "rgba(255,255,255,0.08)"}`,

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { FONTS } from "../data/fonts.js";
+import useAmbassador from "../hooks/useAmbassador.js";
+import { ambassadorFeatures } from "../utils/ambassador.js";
 const LOGO_POSITIONS = ["top-left", "top-right", "top-center", "bottom-left", "bottom-right", "bottom-center"];
 const AVATAR_POSITIONS = ["bottom-left", "bottom-right", "bottom-center", "left", "right"];
 const CAPTION_POSITIONS = ["top", "middle", "bottom"];
@@ -134,6 +136,13 @@ export default function BrandingPanel({ onApply }) {
   const [voices, setVoices]               = useState([]);
   const [voicesLoading, setVoicesLoading] = useState(false);
   const [voiceTier, setVoiceTier]         = useState("standard");
+  // Ambassador accounts: no premium voices, no avatars (HeyGen), no AI music
+  // (all server-enforced), so none of them is offered here.
+  const { ambassador } = useAmbassador();
+  const ambF = ambassadorFeatures(ambassador);
+  const tabs = TABS.filter((t) => t !== "Avatar" || ambF.avatars);
+  const voiceTiers = ambF.premiumVoices ? ["standard", "premium"] : ["standard"];
+  useEffect(() => { if (!ambF.premiumVoices) setVoiceTier("standard"); }, [ambF.premiumVoices]);
   const [avatars, setAvatars]             = useState([]);
   const [userAvatars, setUserAvatars]     = useState([]);
   const [avatarsLoading, setAvatarsLoading] = useState(false);
@@ -275,7 +284,7 @@ export default function BrandingPanel({ onApply }) {
   useEffect(() => { loadBrands(); }, []);
   useEffect(() => {
     if (activeTab === "Voice") loadVoices(voiceTier);
-    if (activeTab === "Avatar") loadAvatars();
+    if (activeTab === "Avatar" && ambF.avatars) loadAvatars();
     if (activeTab === "Music") loadStockTracks();
   }, [activeTab]);
   useEffect(() => { if (activeTab === "Voice") loadVoices(voiceTier); }, [voiceTier]);
@@ -477,7 +486,7 @@ export default function BrandingPanel({ onApply }) {
 
             {/* Tab bar */}
             <div style={{ display: "flex", gap: 0, borderBottom: "0.5px solid var(--onyx-hairline)", padding: "0 24px", flexShrink: 0 }}>
-              {TABS.map(tab => (
+              {tabs.map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)} style={{
                   padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
                   border: "none", background: "transparent",
@@ -786,7 +795,7 @@ export default function BrandingPanel({ onApply }) {
               {activeTab === "Voice" && (
                 <div style={{ maxWidth: 600 }}>
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                    {["standard", "premium"].map(t => (
+                    {voiceTiers.map(t => (
                       <button key={t} onClick={() => setVoiceTier(t)} style={{
                         flex: 1, padding: "8px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
                         background: voiceTier === t ? "var(--chip-bg-strong)" : "var(--onyx-hairline)",
@@ -876,14 +885,16 @@ export default function BrandingPanel({ onApply }) {
                       {!filteredTracks.length && <div style={{ color: "var(--onyx-text-faint)", fontSize: 13, textAlign: "center", padding: 20 }}>No tracks found</div>}
                     </div>
                   )}
-                  <button onClick={() => window.open("/music", "_blank")} style={{ ...btn, width: "100%", marginTop: 12, textAlign: "center" }}>
-                    Browse Music Studio →
-                  </button>
+                  {ambF.musicGeneration && (
+                    <button onClick={() => window.open("/music", "_blank")} style={{ ...btn, width: "100%", marginTop: 12, textAlign: "center" }}>
+                      Browse Music Studio →
+                    </button>
+                  )}
                 </div>
               )}
 
               {/* ── Avatar tab ── */}
-              {activeTab === "Avatar" && (
+              {activeTab === "Avatar" && ambF.avatars && (
                 <div style={{ maxWidth: 680 }}>
                   <div style={{ fontSize: 11, color: "#fbbf24", padding: "6px 10px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: 6, marginBottom: 14 }}>
                     Avatar uses credits per scene

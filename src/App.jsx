@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-
 import { useState, useEffect } from "react";
 import { TOKEN_EXPIRY_BUFFER_SECONDS } from "./utils/auth.js";
 import Navbar from "./components/Navbar";
+import AmbassadorFeatureGate from "./components/AmbassadorFeatureGate.jsx";
 
 import LandingPage from "./pages/LandingPage";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -458,7 +459,7 @@ export default function App() {
           path="/music"
           element={
             <ProtectedRoute session={session} sessionLoading={sessionLoading}>
-              <Music />
+              <AmbassadorFeatureGate feature="musicGeneration" title="Music Studio"><Music /></AmbassadorFeatureGate>
             </ProtectedRoute>
           }
         />
@@ -466,7 +467,7 @@ export default function App() {
         <Route path="/url-to-video" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><UrlToVideo /></ProtectedRoute>} />
         <Route path="/ppt-to-video" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><PptToVideo /></ProtectedRoute>} />
         <Route path="/audio-to-video" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><AudioToVideo /></ProtectedRoute>} />
-        <Route path="/compare" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ComparePage /></ProtectedRoute>} />
+        <Route path="/compare" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><AmbassadorFeatureGate feature="compare" title="Model Compare"><ComparePage /></AmbassadorFeatureGate></ProtectedRoute>} />
         <Route path="/publish" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Publish /></ProtectedRoute>} />
         <Route path="/scheduler" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Publish /></ProtectedRoute>} />
         <Route path="/planner" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Planner /></ProtectedRoute>} />
@@ -475,7 +476,7 @@ export default function App() {
         <Route path="/viral-hooks" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ViralHooks /></ProtectedRoute>} />
         <Route path="/content-plan" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ContentPlan /></ProtectedRoute>} />
         <Route path="/video-to-reel" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><VideoToReel /></ProtectedRoute>} />
-        <Route path="/reshoot" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ReshootVideo /></ProtectedRoute>} />
+        <Route path="/reshoot" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><AmbassadorFeatureGate feature="reshoot" title="Reshoot"><ReshootVideo /></AmbassadorFeatureGate></ProtectedRoute>} />
         <Route path="/reframe360" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Reframe360 /></ProtectedRoute>} />
         <Route path="/projects" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><ProjectsPage /></ProtectedRoute>} />
         <Route path="/characters" element={<ProtectedRoute session={session} sessionLoading={sessionLoading}><Characters /></ProtectedRoute>} />

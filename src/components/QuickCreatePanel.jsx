@@ -24,6 +24,11 @@ export default function QuickCreatePanel({ brand, videoModelOptions, onCreated }
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
   const [duration, setDuration] = useState(5);
   const [videoModel, setVideoModel] = useState(videoModelOptions?.[0]?.id || "kling-2.6-pro");
+  // The option list can shrink after mount (ambassador accounts get their
+  // allowed models only): never keep a model that is no longer offered.
+  useEffect(() => {
+    if (videoModelOptions?.length && !videoModelOptions.some((m) => m.id === videoModel)) setVideoModel(videoModelOptions[0].id);
+  }, [videoModelOptions, videoModel]);
 
   const [estimatedCredits, setEstimatedCredits] = useState(null);
   const [estimateLoading, setEstimateLoading] = useState(false);

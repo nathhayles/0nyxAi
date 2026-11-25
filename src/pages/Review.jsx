@@ -4,6 +4,8 @@ import { supabase } from "../supabaseClient.js";
 import SEO from "../components/SEO";
 import { purchasesAllowed, storeSafeMessage } from "../utils/nativeApp.js";
 import { creditErrorMessage } from "../utils/creditErrors.js";
+import useAmbassador from "../hooks/useAmbassador.js";
+import { ambassadorFeatures } from "../utils/ambassador.js";
 
 // TikTok deliberately excluded from this mobile flow -- its publish call
 // requires privacy_level + content-disclosure toggles (real platform
@@ -56,6 +58,13 @@ export default function Review() {
   const [reelId] = useState(() => new URLSearchParams(window.location.search).get("reelId"));
   const [session, setSession] = useState(null);
   const [step, setStep] = useState("review");
+  // Trim re-cuts the finished render (and so could cut out an ambassador's
+  // ad): not available to ambassadors (server answers 403), so the step is
+  // skipped and "next" after captions goes straight to publish.
+  const { ambassador } = useAmbassador();
+  const trimAllowed = ambassadorFeatures(ambassador).trim;
+  const steps = trimAllowed ? STEPS : STEPS.filter((s) => s !== "trim");
+  const afterCaptions = trimAllowed ? "trim" : "publish";
   const [reel, setReel] = useState(null);
   const [render, setRender] = useState(null); // { url, duration }
   const [loading, setLoading] = useState(true);
@@ -374,8 +383,8 @@ export default function Review() {
             trim values); later steps are deliberately NOT skippable this way
             to keep the approve→trim→captions→publish progression intact. */}
         <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
-          {STEPS.map((s, i) => {
-            const canJump = i < STEPS.indexOf(step);
+          {steps.map((s, i) => {
+            const canJump = i < steps.indexOf(step);
             return (
               <button key={s} onClick={() => canJump && setStep(s)} disabled={!canJump} style={{
                 flex: 1, textAlign: "center", padding: "8px 4px", minHeight: 36, borderRadius: 8, fontSize: 11, fontWeight: 700,
@@ -434,7 +443,7 @@ export default function Review() {
           </div>
         )}
 
-        {step === "trim" && render?.url && (
+        {step === "trim" && trimAllowed && render?.url && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={card}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Trim start/end</div>
@@ -524,7 +533,7 @@ export default function Review() {
 
             {!captionConfirming ? (
               <div style={{ display: "flex", gap: 10 }}>
-                <button style={{ ...btnSecondary, flex: 1 }} onClick={() => setStep("trim")}>
+                <button style={{ ...btnSecondary, flex: 1 }} onClick={() => setStep(afterCaptions)}>
                   {captionsDirty ? "Discard & skip →" : "Skip →"}
                 </button>
                 <button

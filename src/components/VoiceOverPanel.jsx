@@ -6,6 +6,8 @@ import { useVoiceoverEngine, STANDARD_VOICES, GOOGLE_LANGUAGES, normalizeNarrati
 import { getAuthHeaders } from "../utils/auth.js";
 import HelpTooltip from "./HelpTooltip.jsx";
 import { voiceIsInVideo } from "../utils/lipSyncState.js";
+import useAmbassador from "../hooks/useAmbassador.js";
+import { ambassadorFeatures, ambassadorUsageSummary } from "../utils/ambassador.js";
 
 // Voice names that get a "Popular" badge (Premium tab)
 const POPULAR_VOICE_NAMES = new Set(["Natasha", "Aaron"]);
@@ -67,6 +69,12 @@ export default function VoiceOverPanel({
 
   // Two user-facing tiers: "standard" (OpenAI + Google Standard/WaveNet) and "premium" (ElevenLabs + Google Chirp3-HD)
   const [voiceTier, setVoiceTier] = useState("standard");
+  // Ambassador accounts: standard voices only (premium answers 403), and the
+  // minutes shown are their monthly ambassador pool.
+  const { ambassador } = useAmbassador();
+  const premiumAllowed = ambassadorFeatures(ambassador).premiumVoices;
+  const ambUsage = ambassadorUsageSummary(ambassador);
+  useEffect(() => { if (!premiumAllowed) setVoiceTier("standard"); }, [premiumAllowed]);
   // Language selector — applies to Google voices in both tiers
   const [googleLanguage, setGoogleLanguage] = useState("en-US");
   // Sub-filters
@@ -302,7 +310,7 @@ export default function VoiceOverPanel({
         <div style={{ display: "flex", gap: 6, marginBottom: 10, alignItems: "center" }}>
           {[
             { key: "standard", label: "Standard" },
-            { key: "premium",  label: "Premium"  },
+            ...(premiumAllowed ? [{ key: "premium", label: "Premium" }] : []),
           ].map(({ key, label }) => (
             <button key={key} type="button" onClick={() => setVoiceTier(key)}
               style={{ flex: 1, padding: "6px 0", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
@@ -445,7 +453,12 @@ export default function VoiceOverPanel({
               )}
             </div>
 
-            {voMinutes && voiceTier !== "premium" && (
+            {ambUsage && (
+              <div style={{ fontSize: 10, color: "var(--onyx-text-faint)", marginBottom: 6 }}>
+                Ambassador voiceover minutes: {ambUsage.voUsed} / {ambUsage.voQuota} this month
+              </div>
+            )}
+            {!ambUsage && voMinutes && voiceTier !== "premium" && (
               <div style={{ fontSize: 10, color: "var(--onyx-text-faint)", marginBottom: 6 }}>
                 {/* minutes_limit is Infinity server-side (unlimited on free tier),
                     which JSON serializes to null over the wire -- show "Unlimited"

@@ -1,5 +1,7 @@
 import React, { useState, useRef } from "react";
 import { getAuthHeaders } from "../utils/auth.js";
+import useAmbassador from "../hooks/useAmbassador.js";
+import { filterRatios } from "../utils/ambassador.js";
 
 // Magic Resize v1 (docs/margin-and-feature-scoping-2026-09-08.md, Task 3 #1).
 // Batch multi-format export on an ALREADY-RENDERED reel: reuses the exact
@@ -30,7 +32,10 @@ export default function MagicResizeModal({
   musicVolume, voiceoverVolume, sfxVolume, brand, reelId, captionsVisible,
   title, buildRenderRequest, onClose, toast,
 }) {
-  const availableRatios = RATIO_OPTIONS.filter(r => r.id !== currentRatio);
+  // Ambassador exports only support 9:16, 16:9, 1:1 and 4:5 (server refuses
+  // the rest), so other ratios aren't offered to them.
+  const { ambassador } = useAmbassador();
+  const availableRatios = filterRatios(RATIO_OPTIONS, ambassador, "id").filter(r => r.id !== currentRatio);
   const [selected, setSelected] = useState(() => new Set());
   const [activeTab, setActiveTab] = useState(availableRatios[0]?.id || null);
   // { [ratio]: { [sceneId]: {x,y} } }

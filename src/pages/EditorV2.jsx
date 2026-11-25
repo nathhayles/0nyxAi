@@ -45,6 +45,8 @@ import { TALKING_PRESENTER, PRESENTER_CAPABILITIES, presenterSceneBody } from ".
 import { voiceoverReplacedChanges, resyncedChanges, voiceInVideoSceneIds } from "../utils/lipSyncState.js";
 import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
 import { creditErrorMessage } from "../utils/creditErrors.js";
+import useAmbassador from "../hooks/useAmbassador.js";
+import { ambassadorFeatures } from "../utils/ambassador.js";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -397,11 +399,16 @@ function Toolbar({ title, onTitleChange, description, onDescriptionChange, tags,
 const RAIL_WIDTH = 136;
 
 function Sidebar({ open, activeTab, setActiveTab, children }) {
+  // Ambassador accounts don't get avatars (HeyGen; server-enforced), so the
+  // tab isn't offered.
+  const { ambassador } = useAmbassador();
+  const ambF = ambassadorFeatures(ambassador);
+  const tabs = SIDEBAR_TABS.filter((t) => t.key !== "avatar" || ambF.avatars);
   return (
     <div style={{ width: open ? RAIL_WIDTH + 320 : RAIL_WIDTH, flexShrink: 0, borderRight: "0.5px solid var(--onyx-hairline-strong,rgba(255,255,255,0.14))", background: "var(--panel-bg,rgba(6,9,15,0.5))", display: "flex", flexDirection: "column", transition: "width 0.2s ease", overflow: "hidden", position: "relative", zIndex: 10 }}>
       {/* Icon rail */}
       <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: RAIL_WIDTH, display: "flex", flexDirection: "column", alignItems: "stretch", paddingTop: 8, paddingLeft: 6, paddingRight: 6, gap: 2, borderRight: open ? "0.5px solid var(--onyx-hairline,rgba(255,255,255,0.07))" : "none" }}>
-        {SIDEBAR_TABS.map((t, idx) => (
+        {tabs.map((t, idx) => (
           <button key={t.key} onClick={() => setActiveTab(t.key)} title={t.label}
             className={activeTab === t.key ? "btn-ghost active" : "btn-ghost"}
             style={{ height: 34, border: "0.5px solid transparent", cursor: "pointer", display: "flex", flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 8, fontSize: 14 }}>
@@ -2139,7 +2146,12 @@ export default function EditorV2() {
   // rather than hardcoded here, so StoryboardPanel never fakes a uniform
   // dropdown across models that don't actually share one.
   const [upscaleCapabilities, setUpscaleCapabilities] = useState({});
+  // Ambassadors can't upscale, so the capability list isn't fetched for them
+  // (the route answers 403). Waits until ambassador status has loaded.
+  const { ambassador, loading: ambassadorLoading } = useAmbassador();
+  const ambFeatures = ambassadorFeatures(ambassador);
   useEffect(() => {
+    if (ambassadorLoading || !ambFeatures.upscale) return;
     (async () => {
       try {
         const res = await fetch("/api/upscale/capabilities", { headers: await getAuthHeaders() });
@@ -2149,7 +2161,7 @@ export default function EditorV2() {
         console.error("[EditorV2] failed to load upscale capabilities:", e);
       }
     })();
-  }, []);
+  }, [ambassadorLoading, ambFeatures.upscale]);
   const [upscalingScenes, setUpscalingScenes] = useState({});
   const [lipSyncingScenes, setLipSyncingScenes] = useState({});
   const supportsRefs = modelCapabilities[regenModel]?.supportsRefs ?? false;

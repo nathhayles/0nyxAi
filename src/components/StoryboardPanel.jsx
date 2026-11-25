@@ -3,6 +3,8 @@ import HelpTooltip from "./HelpTooltip.jsx";
 import CharacterTagTextarea from "./CharacterTagTextarea.jsx";
 import { getAuthHeaders } from "../utils/auth.js";
 import { TALKING_PRESENTER, DEFAULT_PRESENTER_RESOLUTION, presenterSceneBody } from "../utils/talkingPresenter.js";
+import useAmbassador from "../hooks/useAmbassador.js";
+import { ambassadorFeatures, filterVideoModels, isAllowedVideoModel, defaultVideoModel } from "../utils/ambassador.js";
 
 function normalizeNarrationText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
@@ -173,6 +175,17 @@ export default function StoryboardPanel({
   const [stockResults, setStockResults] = useState({});
   const [stockSearching, setStockSearching] = useState({});
   const [uploadingScene, setUploadingScene] = useState({});
+  // Ambassador accounts (src/utils/ambassador.js): Limited can't generate or
+  // regenerate AI video; Pro regenerates with its allowed models only. No
+  // upscale, lip-sync or Talking presenter. The server enforces all of it.
+  const { ambassador } = useAmbassador();
+  const ambF = ambassadorFeatures(ambassador);
+  const regenOptions = filterVideoModels(REGEN_MODEL_OPTIONS, ambassador, "id");
+  useEffect(() => {
+    if (ambassador && ambF.regenerate && onRegenModelChange && !isAllowedVideoModel(regenModel, ambassador)) {
+      onRegenModelChange(defaultVideoModel(regenModel, ambassador, REGEN_MODEL_OPTIONS, "id"));
+    }
+  }, [ambassador, regenModel]); // eslint-disable-line react-hooks/exhaustive-deps
   const [uploadingSourceImage, setUploadingSourceImage] = useState({});
   const [characters, setCharacters] = useState([]);
   // Upscale controls are ephemeral per-scene UI state (which of the 5
@@ -387,7 +400,7 @@ export default function StoryboardPanel({
 
   return (
     <div style={{ maxWidth: "100%", boxSizing: "border-box" }}>
-      {onRegenModelChange && (
+      {onRegenModelChange && ambF.regenerate && (
         <div style={{
           padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 4,
           // Same sticky-header pattern as SequencerPanel's ruler (position:
@@ -420,7 +433,7 @@ export default function StoryboardPanel({
                     background: "var(--onyx-bg)", color: "var(--onyx-text)",
                   }}
                 >
-                  {REGEN_MODEL_OPTIONS.map(opt => (
+                  {regenOptions.map(opt => (
                     <option key={opt.id} value={opt.id} disabled={opt.disabled}>{opt.label}{opt.disabled ? "" : ` — ${opt.creditsLabel || `${opt.credits} cr/scene`}`}</option>
                   ))}
                 </select>
@@ -527,7 +540,7 @@ export default function StoryboardPanel({
                 </button>
               )}
 
-              {!isStock && (
+              {!isStock && ambF.regenerate && (
                 <button
                   className="sceneSmallBtn primary"
                   disabled={!!generatingScenes[sc.id] || (isPresenter && sc.id === activeScene && !!estimate?.presenter && !!estimate?.blocker)}
@@ -562,7 +575,7 @@ export default function StoryboardPanel({
                   disabled) when there's no media yet, rather than
                   disappearing, so it doesn't read as random flicker while
                   scrubbing between scenes. */}
-              {onUpscaleScene && (() => {
+              {onUpscaleScene && ambF.upscale && (() => {
                 const hasMedia = !!(sc.mediaUrl || sc.url);
                 const disabled = !hasMedia || !!upscalingScenes[sc.id];
                 return (
@@ -585,7 +598,7 @@ export default function StoryboardPanel({
                   voiceover without regenerating it (EditorV2's lipSyncScene
                   -> POST /api/lipsync/generate). Stays rendered but disabled,
                   with the reason in its tooltip, when the scene isn't ready. */}
-              {onLipSyncScene && (() => {
+              {onLipSyncScene && ambF.lipSync && (() => {
                 const busy = lipSyncingScenes[sc.id] || sc.lipSyncJobId;
                 const blocker = lipSyncBlocker(sc, !!generatingScenes[sc.id]);
                 const estimate = lipSyncCreditEstimate(sc);
@@ -611,7 +624,7 @@ export default function StoryboardPanel({
             </div>
 
             {/* ── Upscale panel ── */}
-            {onUpscaleScene && upscaleOpen[sc.id] && (() => {
+            {onUpscaleScene && ambF.upscale && upscaleOpen[sc.id] && (() => {
               const modelId = upscaleModel[sc.id] || "topaz";
               const cap = upscaleCapabilities[modelId];
               const control = cap?.uiControl;

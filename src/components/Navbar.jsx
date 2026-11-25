@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { purchasesAllowed } from "../utils/nativeApp.js";
+import { AmbassadorBadge } from "./AmbassadorBadge.jsx";
 
 const NAV_LINKS = [
   { label: "Dashboard",    to: "/dashboard" },
@@ -258,6 +259,9 @@ export default function Navbar({ session }) {
         {/* Right — theme toggle + burger or login */}
         <div className="onyx-nav__right">
 
+          {/* Ambassador accounts only (renders nothing otherwise) */}
+          {session && !isMobile && <AmbassadorBadge />}
+
           {/* Theme toggle */}
           <button
             className="onyx-nav__icon-btn"
@@ -305,6 +309,7 @@ export default function Navbar({ session }) {
                       <div className="onyx-nav__dropdown-header">
                         <div className="onyx-nav__dropdown-label">Signed in as</div>
                         <div className="onyx-nav__dropdown-email">{session.user?.email || "—"}</div>
+                        <div style={{ marginTop: 6 }}><AmbassadorBadge /></div>
                       </div>
                     )}
                     {NAV_LINKS.map(({ label, to }) => (
