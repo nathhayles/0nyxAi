@@ -4,6 +4,7 @@ import { getAuthHeaders } from '../utils/auth.js';
 import TemplateSelectorPill from '../components/TemplateSelectorPill.jsx';
 import ThemeSelectorPill from '../components/ThemeSelectorPill.jsx';
 import HelpTooltip from '../components/HelpTooltip.jsx';
+import { creditErrorMessage } from "../utils/creditErrors.js";
 
 const THEMES = [
   { id: 'cinematic', label: 'Cinematic', desc: 'Dark, dramatic, film-like' },
@@ -85,8 +86,8 @@ export default function VideoToReel() {
         body: formData,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Processing failed');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(creditErrorMessage(res.status, data) || data.error || 'Processing failed');
 
       setProgress('Opening editor...');
       navigate(`/editor?reelId=${data.reelId}`);

@@ -16,6 +16,7 @@ import { generateReelTitle } from "../utils/autoTitle.js";
 import { STYLE_CHIPS, appendChipModifier } from "../config/styleChips.js";
 import { estimateSceneCount, estimateScenes } from "../utils/sceneEstimate.js";
 import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 
 const AUTOSAVE_KEY = "onyx_editor_autosave_v2";
 
@@ -478,7 +479,7 @@ export default function CreatePage() {
           body: JSON.stringify(klingBody)
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.error || `Pipeline failed (${res.status}): ${JSON.stringify(data)}`);
+        if (!res.ok) throw new Error(creditErrorMessage(res.status, data) || data?.error || `Pipeline failed (${res.status}): ${JSON.stringify(data)}`);
         const { jobs, pipelineId: pid } = data;
         setPipelineId(pid ?? null);
         if (!jobs?.length) throw new Error("No scenes started");

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { getAuthHeaders } from "../utils/auth.js";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 import HelpTooltip from "./HelpTooltip.jsx";
 
 const AVATAR_POSITIONS = [
@@ -132,9 +133,9 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
         const endpoint = tab === "stock" ? "/api/heygen/generate" : "/api/heygen/photo-avatar";
 
         const res = await fetch(endpoint, { method: "POST", headers, body: JSON.stringify(body) });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
 
-        if (!res.ok) throw new Error(data.error || "Generation failed");
+        if (!res.ok) throw new Error(creditErrorMessage(res.status, data) || data.error || "Generation failed");
 
         // Store video_id on scene for polling
         setScenes(prev => prev.map(s => s.id === scene.id ? {
@@ -173,8 +174,8 @@ export default function AvatarPanel({ scenes, setScenes, activeScene, reelVideoU
           duration_mins: durationMins,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Translation failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(creditErrorMessage(res.status, data) || data.error || "Translation failed");
       alert(`Translation started! ID: ${data.translation_id}`);
     } catch (e) {
       setError(e.message);

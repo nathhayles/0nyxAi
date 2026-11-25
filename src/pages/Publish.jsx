@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient.js";
 import { isNative, openExternal } from "../capacitor.js";
 import { purchasesAllowed, storeSafeMessage } from "../utils/nativeApp.js";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 
 // No purchase wording in the native apps (src/utils/nativeApp.js).
 const AUTOPOST_LOCKED_TEXT = purchasesAllowed() ? "Auto-posting requires an upgrade." : "Auto-posting isn't available on your plan.";
@@ -343,8 +344,8 @@ export default function Publish() {
         method: 'POST', headers,
         body: JSON.stringify({ prompt: aiPrompt, platform: selectedPlatforms[0] || 'instagram' }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(creditErrorMessage(res.status, data) || storeSafeMessage(data.error) || 'Generation failed');
       if (data.caption) setCaption(data.caption);
       if (data.hashtags) setHashtags(data.hashtags);
     } catch (err) {

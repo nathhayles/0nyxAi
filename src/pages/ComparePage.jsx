@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getAuthHeaders } from "../utils/auth.js";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 
 // Model comparison mode -- first pass (2026-09-06). Lets a user generate the
 // same prompt across multiple models and see results side-by-side. Feasibility
@@ -61,8 +62,8 @@ export default function ComparePage() {
           reference_mode: null,
         }),
       });
-      const submitData = await submitRes.json();
-      if (!submitData?.jobId) throw new Error(submitData?.error || "No jobId returned");
+      const submitData = await submitRes.json().catch(() => ({}));
+      if (!submitData?.jobId) throw new Error(creditErrorMessage(submitRes.status, submitData) || submitData?.error || "No jobId returned");
 
       setResults(prev => ({ ...prev, [modelId]: { status: "polling", videoUrl: null, thumbnailUrl: null, error: null } }));
 
