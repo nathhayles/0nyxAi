@@ -9,6 +9,8 @@ import React, {
 import { createPortal } from "react-dom";
 import HelpTooltip from "./HelpTooltip.jsx";
 import { getAuthHeaders } from "../utils/auth.js";
+import { creditErrorMessage } from "../utils/creditErrors.js";
+import { storeSafeMessage } from "../utils/nativeApp.js";
 import { usePlayheadTicker } from "../hooks/usePlayheadTicker.js";
 import { PLATFORM_SAFE_ZONES, SAFE_ZONE_PLATFORMS } from "../data/platformSafeZones.js";
 import {
@@ -1232,6 +1234,40 @@ function SequencerPanelBase({
   // ── BPM detection state ───────────────────────────────────────────────────
   const [beatBpm,     setBeatBpm]     = useState(null);
   const [bpmAnalysing, setBpmAnalysing] = useState(false);
+  const [bpmError,    setBpmError]    = useState("");
+
+  // First clip on the music track: what "Detect BPM" analyses.
+  const musicClipUrl = useMemo(() => {
+    const src = timelineState.tracks.find(t => t.key === "music")?.clips?.find(c => c.src)?.src || "";
+    return src.startsWith("http") ? src : src ? `https://onyx-reelz.com${src}` : "";
+  }, [timelineState.tracks]);
+
+  // Opt-in BPM detection (Fadr analyse, 2 credits, charged server-side).
+  // Previously ran automatically on every music drop and swallowed errors,
+  // so users were charged for a lookup they never asked for.
+  const detectBpm = useCallback(async () => {
+    if (!musicClipUrl || bpmAnalysing) return;
+    setBpmError("");
+    setBpmAnalysing(true);
+    try {
+      const headers = await getAuthHeaders();
+      const form = new FormData();
+      form.append("url", musicClipUrl);
+      const res = await fetch("/api/music/fadr/analyse", { method: "POST", headers, body: form });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setBpmError(creditErrorMessage(res.status, data) || storeSafeMessage(data.error) || "BPM detection failed. Please try again.");
+      } else if (data.bpm) {
+        setBeatBpm(Math.round(data.bpm));
+      } else {
+        setBpmError("No clear beat found in this track.");
+      }
+    } catch {
+      setBpmError("BPM detection failed. Please try again.");
+    } finally {
+      setBpmAnalysing(false);
+    }
+  }, [musicClipUrl, bpmAnalysing]);
 
   const snapTgts = useMemo(() => {
     const base = snapTargets(timelineState, selected);
@@ -1368,21 +1404,12 @@ function SequencerPanelBase({
       }
     }
 
-    // Background BPM detection when a music clip is dropped
+    // A new music clip invalidates the old beat grid. BPM detection is no
+    // longer automatic: it costs credits (Fadr analyse), so it only runs when
+    // the user clicks "Detect BPM" (detectBpm below).
     if (trackKey === "music" && fullUrl) {
       setBeatBpm(null);
-      setBpmAnalysing(true);
-      (async () => {
-        try {
-          const headers = await getAuthHeaders();
-          const form = new FormData();
-          form.append("url", fullUrl);
-          const res = await fetch("/api/music/fadr/analyse", { method: "POST", headers, body: form });
-          const data = await res.json();
-          if (res.ok && data.bpm) setBeatBpm(Math.round(data.bpm));
-        } catch { /* silent — BPM snap is a bonus, not critical */ }
-        finally { setBpmAnalysing(false); }
-      })();
+      setBpmError("");
     }
   }, [dispatch, timelineState, updateScene, onSfxOutOfRange]);
 
@@ -1564,7 +1591,20 @@ function SequencerPanelBase({
 
         <Div/>
 
-        {/* BPM indicator — shown after music clip drop + Fadr analysis */}
+        {/* BPM: opt-in detection (2 credits), then the beat-grid indicator */}
+        {musicClipUrl && !beatBpm && !bpmAnalysing && (
+          <button
+            onClick={detectBpm}
+            title="Detect this track's tempo to snap clips to the beat (2 credits)"
+            style={{ fontSize: 9.5, fontFamily: "monospace", color: "#a78bfa", background: "transparent", border: "0.5px solid rgba(124,58,237,0.4)", borderRadius: 4, padding: "1px 6px", cursor: "pointer" }}>
+            ♩ Detect BPM · 2 credits
+          </button>
+        )}
+        {bpmError && !bpmAnalysing && (
+          <span role="alert" title={bpmError} style={{ fontSize: 9.5, color: "#f87171", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {bpmError}
+          </span>
+        )}
         {bpmAnalysing && (
           <span style={{ fontSize: 9.5, color: "rgba(167,139,250,0.6)", fontFamily: "monospace" }} title="Detecting BPM…">
             ♩ …

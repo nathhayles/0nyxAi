@@ -102,7 +102,10 @@ export default function Review() {
       const headers = authHeaders(sess);
       const [reelRes, renderRes] = await Promise.all([
         fetch(`/api/reels/${reelId}`, { headers }),
-        fetch(`/api/reels/${reelId}/renders`, { headers }),
+        // mode=download: this screen trims and publishes, so it needs the clean
+        // download render, never a watermarked share render (the backend
+        // defaults to share when no mode is sent).
+        fetch(`/api/reels/${reelId}/renders?mode=download`, { headers }),
       ]);
       if (!reelRes.ok) throw new Error("Reel not found");
       const reelData = await reelRes.json();

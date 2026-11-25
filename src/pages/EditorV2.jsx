@@ -5031,7 +5031,9 @@ export default function EditorV2() {
                 if (!reelId) { setSavedMsg("Save your reel first."); return; }
                 const h = await getAuthHeaders();
                 setSavedMsg("Building share link…");
-                const res = await fetch(`/api/reels/${reelId}/renders`, { headers: h });
+                // mode=share: a share link must reuse only a watermarked share
+                // render, never the clean paid download render.
+                const res = await fetch(`/api/reels/${reelId}/renders?mode=share`, { headers: h });
                 const data = await res.json();
                 let shareSourceUrl = data.url;
                 if (!shareSourceUrl) {
