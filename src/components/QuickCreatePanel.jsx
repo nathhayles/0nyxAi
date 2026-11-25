@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { getAuthHeaders } from "../utils/auth.js";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 import { TEMPLATES } from "../data/templates.js";
 
 // "Style Presets" one-click flow (Higgsfield gap, see
@@ -113,8 +114,9 @@ export default function QuickCreatePanel({ brand, videoModelOptions, onCreated }
           reference_mode: null,
         }),
       });
-      const { jobId, error: submitErr } = await submitRes.json();
-      if (!jobId) throw new Error(submitErr || "No jobId returned");
+      const submitData = await submitRes.json().catch(() => ({}));
+      const { jobId, error: submitErr } = submitData;
+      if (!jobId) throw new Error(creditErrorMessage(submitRes.status, submitData) || submitErr || "No jobId returned");
 
       setStatusText("Generating your clip — this can take a few minutes…");
       // Same 5s-poll / 20min-deadline pattern as EditorV2.jsx's

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
 import HelpTooltip from "../components/HelpTooltip.jsx";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 
 export default function UrlToVideo() {
   const navigate = useNavigate();
@@ -28,8 +29,8 @@ export default function UrlToVideo() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ url: normalizedUrl }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Analysis failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(creditErrorMessage(res.status, data) || data.error || "Analysis failed");
       setPreview(data);
     } catch (err) {
       setError(err.message);

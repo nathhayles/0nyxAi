@@ -7,7 +7,7 @@ import { useMemo, useRef, useState } from "react";
 import { getAuthHeaders } from "../utils/auth.js";
 import { stripNarrationTags } from "../utils/narrationTags.js";
 import { voiceoverReplacedChanges } from "../utils/lipSyncState.js";
-import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 
 // OpenAI gpt-4o-mini-tts voices — all multilingual (language = input text language)
 export const STANDARD_VOICES = [
@@ -357,7 +357,9 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data?.success || !Array.isArray(data?.results)) {
-        throw new Error(data?.error || `Voice generation failed (${res.status})`);
+        // Premium voices are charged here, server-side (402 when the balance
+        // doesn't cover it); there is no separate client pre-charge any more.
+        throw new Error(creditErrorMessage(res.status, data) || data?.error || `Voice generation failed (${res.status})`);
       }
 
       if (autoRefreshRequestIdRef.current !== requestId) return;
@@ -519,34 +521,10 @@ export function useVoiceoverEngine({ scenes, setScenes, speed = 1, voiceoverVolu
       return;
     }
 
-    if (tier === "premium") {
-      // stripSpeakerTags: an honest estimate must count only what will
-      // actually be spoken, not "@Tag: " syntax around it -- previously
-      // counted s.text.length raw, over-estimating (and over-charging the
-      // precheck against) any scene with speaker tags. Doesn't attempt to
-      // predict which turns will end up using a tagged character's OWN
-      // voice instead of this picked one (see routes/tts.mjs's
-      // generate-batch for the real per-turn resolution) -- that would
-      // require replicating character-voice resolution client-side for a
-      // precheck estimate alone; this fixes the specific named bug (tag
-      // syntax inflating the count) without attempting that larger change.
-      const totalChars = targetScenes.reduce((sum, s) => sum + stripSpeakerTags(s.text).length, 0);
-      const creditsNeeded = Math.ceil(totalChars * 1.5 / 100);
-      try {
-        const headers = await getAuthHeaders();
-        const creditRes = await fetch("/api/credits/deduct-tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...headers },
-          body: JSON.stringify({ charCount: totalChars })
-        });
-        if (creditRes.status === 402) { setStatus(purchasesAllowed() ? `Not enough credits. This voice costs ${creditsNeeded} credits.` : NO_CREDITS_TEXT); return; }
-        if (!creditRes.ok) { setStatus("Credit check failed. Please try again."); return; }
-      } catch {
-        setStatus("Credit check failed. Please try again.");
-        return;
-      }
-    }
-
+    // No client-side charge here: premium voices are charged by the server
+    // inside /api/tts/generate-batch (TTS_SERVER_CHARGE), and a 402 from it
+    // is shown by regenerateVoiceovers. The old POST /api/credits/deduct-tts
+    // pre-charge is a no-op on the server now and has been removed.
     await regenerateVoiceovers({ targetIndexes: targetScenes.map((s) => s.index), voiceId, tier, isAuto: false });
     if (tier === "standard") fetchVoMinutes();
   };

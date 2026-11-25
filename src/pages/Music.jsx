@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient.js";
 import { getAuthHeaders } from "../utils/auth.js";
 import HelpTooltip from "../components/HelpTooltip.jsx";
 import { storeSafeMessage } from "../utils/nativeApp.js";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 
 // Fetches the file as a blob and saves it directly, instead of relying on
 // the anchor `download` attribute -- R2-hosted track URLs are cross-origin
@@ -638,7 +639,7 @@ export default function Music() {
         body: JSON.stringify({ topic: rapTopic, mood: rapMood, lengthTier: rapLengthTier }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setRapLyricsError(data?.error || `Failed (${res.status})`); setRapLyricsLoading(false); return; }
+      if (!res.ok) { setRapLyricsError(creditErrorMessage(res.status, data) || data?.error || `Failed (${res.status})`); setRapLyricsLoading(false); return; }
       setRapDraft(data);
     } catch (err) {
       setRapLyricsError(err.message);
@@ -661,7 +662,7 @@ export default function Music() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setRapGenError(data?.error || `Failed (${res.status})`);
+        setRapGenError(creditErrorMessage(res.status, data) || data?.error || `Failed (${res.status})`);
         setRapGenerating(false);
         setRapGenStatus("");
         return;
@@ -863,7 +864,7 @@ export default function Music() {
       }
 
       if (lyriaRes.status === 402) {
-        setGenError(storeSafeMessage(lyriaData?.error || "Insufficient credits"));
+        setGenError(creditErrorMessage(lyriaRes.status, lyriaData) || storeSafeMessage(lyriaData?.error || "Insufficient credits"));
         setGenerating(false);
         setGenStatus("");
         return;
@@ -878,7 +879,7 @@ export default function Music() {
         body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setGenError(data?.error || `Failed (${res.status})`); setGenerating(false); setGenStatus(""); return; }
+      if (!res.ok) { setGenError(creditErrorMessage(res.status, data) || data?.error || `Failed (${res.status})`); setGenerating(false); setGenStatus(""); return; }
 
       const taskId = data?.taskId;
       if (!taskId) { setGenError("No task ID returned."); setGenerating(false); setGenStatus(""); return; }
@@ -1415,8 +1416,8 @@ export default function Music() {
                             headers: await getAuthHeaders(),
                             body: form,
                           });
-                          const data = await res.json();
-                          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) throw new Error(creditErrorMessage(res.status, data) || storeSafeMessage(data.error) || `HTTP ${res.status}`);
                           setFadrResult({ op, ...data });
                           if (op === 'stems') {
                             setResolvedStems(

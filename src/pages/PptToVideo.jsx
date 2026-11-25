@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import BrandSelector from "../components/BrandSelector.jsx";
 import HelpTooltip from "../components/HelpTooltip.jsx";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 
 export default function PptToVideo() {
   const navigate = useNavigate();
@@ -30,8 +31,8 @@ export default function PptToVideo() {
         headers: { Authorization: `Bearer ${session.access_token}` },
         body: formData,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Extraction failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(creditErrorMessage(res.status, data) || data.error || "Extraction failed");
       setPreview(data);
     } catch (err) {
       setError(err.message);

@@ -5,6 +5,7 @@ import BrandSelector from "../components/BrandSelector.jsx";
 import { useSpeechInput } from "../hooks/useSpeechInput.js";
 import HelpTooltip from "../components/HelpTooltip.jsx";
 import { storeSafeMessage } from "../utils/nativeApp.js";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 
 const PLATFORMS = ["tiktok", "instagram", "youtube", "linkedin", "twitter"];
 const TONES = ["bold", "educational", "funny", "inspirational", "professional"];
@@ -74,7 +75,7 @@ export default function ViralHooks() {
         body: JSON.stringify({ topic, niche, platform, tone, count }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(storeSafeMessage(data.error) || "Generation failed");
+      if (!res.ok) throw new Error(creditErrorMessage(res.status, data) || storeSafeMessage(data.error) || "Generation failed");
       setHooks(data.hooks || []);
     } catch (err) {
       setError(err.message);
@@ -92,7 +93,7 @@ export default function ViralHooks() {
         body: JSON.stringify({ hook: hook.text, topic, platform }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(storeSafeMessage(data.error));
+      if (!res.ok) throw new Error(creditErrorMessage(res.status, data) || storeSafeMessage(data.error) || "Caption failed");
       setCaptions(prev => ({ ...prev, [index]: data }));
       setExpandedId(index);
     } catch (err) {

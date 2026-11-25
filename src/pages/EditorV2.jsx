@@ -44,6 +44,7 @@ import { stripNarrationTags } from "../utils/narrationTags.js";
 import { TALKING_PRESENTER, PRESENTER_CAPABILITIES, presenterSceneBody } from "../utils/talkingPresenter.js";
 import { voiceoverReplacedChanges, resyncedChanges, voiceInVideoSceneIds } from "../utils/lipSyncState.js";
 import { purchasesAllowed, NO_CREDITS_TEXT } from "../utils/nativeApp.js";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 
 // ── Error boundary ────────────────────────────────────────────────────────────
 class Safe extends React.Component {
@@ -4495,8 +4496,9 @@ export default function EditorV2() {
           start_frame_model: scene.startFrameModel || null,
         }),
       });
-      const { jobId, error: submitErr } = await submitRes.json();
-      if (!jobId) throw new Error(submitErr || "No jobId returned");
+      const submitData = await submitRes.json().catch(() => ({}));
+      const { jobId, error: submitErr } = submitData;
+      if (!jobId) throw new Error(creditErrorMessage(submitRes.status, submitData) || submitErr || "No jobId returned");
 
       // Persisted onto the scene immediately (not just tracked in local
       // generatingScenes state) so the jobId survives a poll-loop death --
@@ -4624,7 +4626,7 @@ export default function EditorV2() {
       if (!submitRes.ok || !data.jobId) {
         throw new Error(data.error === "vo_minutes_exceeded"
           ? "You've used all your voiceover minutes, so this scene's voiceover couldn't be made."
-          : data.error || "Couldn't start Talking presenter");
+          : creditErrorMessage(submitRes.status, data) || data.error || "Couldn't start Talking presenter");
       }
       jobId = data.jobId;
       updateSceneRef.current(id, { presenterJobId: jobId, generationPending: true });
@@ -4686,8 +4688,9 @@ export default function EditorV2() {
         headers: h,
         body: JSON.stringify({ sourceUrl, model, param, brandId: selectedBrandId }),
       });
-      const { jobId, credits, error: submitErr } = await submitRes.json();
-      if (!jobId) throw new Error(submitErr || "No jobId returned");
+      const submitData = await submitRes.json().catch(() => ({}));
+      const { jobId, credits, error: submitErr } = submitData;
+      if (!jobId) throw new Error(creditErrorMessage(submitRes.status, submitData) || submitErr || "No jobId returned");
 
       // draftMediaUrl set here, before the poll loop, from whatever
       // mediaUrl already is -- NOT inside the completion handler below,
@@ -4770,8 +4773,9 @@ export default function EditorV2() {
           sceneId: String(id),
         }),
       });
-      const { jobId, credits, error: submitErr } = await submitRes.json().catch(() => ({}));
-      if (!jobId) throw new Error(submitErr || "Couldn't start lip-sync");
+      const submitData = await submitRes.json().catch(() => ({}));
+      const { jobId, credits, error: submitErr } = submitData;
+      if (!jobId) throw new Error(creditErrorMessage(submitRes.status, submitData) || submitErr || "Couldn't start lip-sync");
 
       updateSceneRef.current(id, { lipSyncJobId: jobId, lipSyncSourceUrl: videoUrl });
       setLipSyncingScenes(p => ({ ...p, [id]: { status: "polling" } }));

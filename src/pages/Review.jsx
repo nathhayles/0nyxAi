@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient.js";
 import SEO from "../components/SEO";
 import { purchasesAllowed, storeSafeMessage } from "../utils/nativeApp.js";
+import { creditErrorMessage } from "../utils/creditErrors.js";
 
 // TikTok deliberately excluded from this mobile flow -- its publish call
 // requires privacy_level + content-disclosure toggles (real platform
@@ -175,8 +176,8 @@ export default function Review() {
         headers: authHeaders(),
         body: JSON.stringify({ startOffset: trimStart, endOffset: trimEnd }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Trim failed");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(creditErrorMessage(res.status, data) || storeSafeMessage(data.error) || "Trim failed");
       setSessionCreditsSpent(c => c + (data.creditsCharged || 0));
       const result = await pollRenderJob(data.jobId);
       setRender(result);
