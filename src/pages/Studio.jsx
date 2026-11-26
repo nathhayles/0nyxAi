@@ -1,6 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient.js";
+import useAmbassador from "../hooks/useAmbassador.js";
+import { ambassadorFeatures } from "../utils/ambassador.js";
+import { AmbassadorUsagePanel } from "../components/AmbassadorBadge.jsx";
 
 const TOOLS = [
   { id:"blank-editor", icon:"🎬", label:"Blank Editor", desc:"Skip AI generation and templates — start with an empty timeline and build your reel from scratch", route:"/editor", color:"#94a3b8", available:true },
@@ -58,6 +61,10 @@ export default function Studio() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [usage, setUsage] = useState(null);
+  const { ambassador } = useAmbassador();
+  // Ambassadors don't get AI music generation (server-enforced); don't offer it.
+  const features = ambassadorFeatures(ambassador);
+  const tools = TOOLS.filter((t) => t.id !== "text-to-music" || features.musicGeneration);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -86,11 +93,12 @@ export default function Studio() {
               <CreditsChip balance={usage.balance} />
             </div>
           )}
+          {ambassador && <div style={{ marginTop: 12 }}><AmbassadorUsagePanel /></div>}
         </div>
 
         {/* Tool grid */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:20 }}>
-          {TOOLS.map(tool => (
+          {tools.map(tool => (
             <div
               key={tool.id}
               onClick={() => tool.available && navigate(tool.route)}

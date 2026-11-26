@@ -21,6 +21,8 @@ import { AUDIO_CEILING_MULTIPLIERS } from "@shared/audioConstants.js";
 import { TRANSITION_CATALOG, normalizeTransition } from "../utils/transitions.js";
 import { STYLE_PRESETS } from "../config/stylePresets.js";
 import { voiceIsInVideo } from "../utils/lipSyncState.js";
+import useAmbassador from "../hooks/useAmbassador.js";
+import { ambassadorFeatures, AMBASSADOR_RATIOS } from "../utils/ambassador.js";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const TRACK_H       = 48;   // px per track row
@@ -1189,6 +1191,11 @@ function SequencerPanelBase({
   theme,
   onOpenTransitionPanel,
 }) {
+  // Ambassador accounts: no Fadr (Detect BPM), and only the ratios their
+  // exports support (src/utils/ambassador.js; the server enforces both).
+  const { ambassador } = useAmbassador();
+  const ambFeatures = ambassadorFeatures(ambassador);
+  const ratioEntries = Object.entries(RATIOS).filter(([k]) => !ambassador || AMBASSADOR_RATIOS.includes(k) || k === ratio);
   const isOpal = theme === "opal";
   const [zoom, setZoom]           = useState(DEFAULT_ZOOM);
   const [ctxMenu, setCtxMenu]     = useState(null);
@@ -1592,7 +1599,7 @@ function SequencerPanelBase({
         <Div/>
 
         {/* BPM: opt-in detection (2 credits), then the beat-grid indicator */}
-        {musicClipUrl && !beatBpm && !bpmAnalysing && (
+        {ambFeatures.fadr && musicClipUrl && !beatBpm && !bpmAnalysing && (
           <button
             onClick={detectBpm}
             title="Detect this track's tempo to snap clips to the beat (2 credits)"
@@ -1634,8 +1641,10 @@ function SequencerPanelBase({
                 cursor: "pointer", fontFamily: "inherit", outline: "none",
               }}
             >
-              {Object.entries(RATIOS).map(([k, r]) => (
-                <option key={k} value={k}>{r.icon} {r.label}</option>
+              {ratioEntries.map(([k, r]) => (
+                <option key={k} value={k}>
+                  {r.icon} {r.label}{ambassador && !AMBASSADOR_RATIOS.includes(k) ? " (can't export)" : ""}
+                </option>
               ))}
             </select>
           </>

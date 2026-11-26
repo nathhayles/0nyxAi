@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getAuthHeaders } from '../utils/auth';
 import DesktopOnlyGate from '../components/DesktopOnlyGate.jsx';
+import { AmbassadorsPanel, AdVariantsPanel } from './AdminAmbassadors.jsx';
 
 // Tab restructure (2026-08-13): previously all 4 sections below the stats
 // header rendered stacked on one long page. TABS drives both the nav bar
@@ -16,6 +17,8 @@ const TABS = [
   { key: 'growth', label: 'Growth Funnel' },
   { key: 'flagged-uploads', label: 'Flagged Uploads' },
   { key: 'api-keys', label: 'API Keys' },
+  { key: 'ambassadors', label: 'Ambassadors' },
+  { key: 'ad-variants', label: 'Ambassador Ads' },
 ];
 
 function TabBar({ active, onChange }) {
@@ -86,17 +89,27 @@ export default function AdminPanel() {
     })();
   }, []);
 
-  const grantCredits = async (userId, amount) => {
+  // Superadmin only, whole credits 1-100000, note required (backend
+  // admin_grant_credits, migration 087: balance, ledger row and audit row in
+  // one transaction). Returns null on success or the server's error text.
+  const grantCredits = async (userId, amount, note) => {
     setGrantingCredits(g => ({ ...g, [userId]: true }));
-    const headers = await getAuthHeaders();
-    await fetch(`/api/admin/users/${userId}/credits`, {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: Number(amount) }),
-    });
-    const fresh = await fetch('/api/admin/users', { headers }).then(r => r.json());
-    setData(fresh);
+    let error = null;
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`/api/admin/users/${userId}/credits`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: Number(amount), note: note.trim() }),
+      });
+      if (!res.ok) error = (await res.json().catch(() => ({}))).error || `Grant failed (${res.status})`;
+      const fresh = await fetch('/api/admin/users', { headers }).then(r => r.json());
+      setData(fresh);
+    } catch (e) {
+      error = e.message;
+    }
     setGrantingCredits(g => ({ ...g, [userId]: false }));
+    return error;
   };
 
   // Dense data tables (user/generation lists, 5-column stat grids) -- the
@@ -150,6 +163,8 @@ export default function AdminPanel() {
       {activeTab === 'growth' && <GrowthFunnelPanel />}
       {activeTab === 'flagged-uploads' && <FlaggedUploadsPanel />}
       {activeTab === 'api-keys' && <ApiKeysPanel users={users} />}
+      {activeTab === 'ambassadors' && <AmbassadorsPanel users={users} />}
+      {activeTab === 'ad-variants' && <AdVariantsPanel />}
     </div>
   );
 }
@@ -1163,6 +1178,8 @@ function UsersPanel({ users, onGrant, grantingCredits }) {
 
 function UserRow({ user: u, onGrant, granting }) {
   const [credAmt, setCredAmt] = useState('');
+  const [credNote, setCredNote] = useState('');
+  const [grantError, setGrantError] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [detail, setDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -1252,17 +1269,32 @@ function UserRow({ user: u, onGrant, granting }) {
             <input
               value={credAmt}
               onChange={e => setCredAmt(e.target.value)}
-              placeholder="±credits"
+              placeholder="+credits"
               style={s.credInput}
               type="number"
+              min={1}
+              max={100000}
+            />
+            <input
+              value={credNote}
+              onChange={e => setCredNote(e.target.value)}
+              placeholder="Note (required)"
+              maxLength={500}
+              style={{ ...s.credInput, width: 130 }}
             />
             <button
-              onClick={() => { onGrant(u.id, credAmt); setCredAmt(''); }}
-              disabled={!credAmt || granting}
+              onClick={async () => {
+                const err = await onGrant(u.id, credAmt, credNote);
+                setGrantError(err || '');
+                if (!err) { setCredAmt(''); setCredNote(''); }
+              }}
+              disabled={!(Number.isInteger(Number(credAmt)) && Number(credAmt) >= 1) || !credNote.trim() || granting}
+              title="Superadmin only. Whole credits 1-100000; the note is saved in the audit log."
               style={s.grantBtn}
             >
               {granting ? '...' : '+'}
             </button>
+            {grantError && <span role="alert" style={{ color: '#f87171', fontSize: 11, maxWidth: 160 }}>{grantError}</span>}
             <button
               onClick={() => { setMsgOpen(o => !o); setMsgResult(null); }}
               style={{ ...s.grantBtn, background: '#4dd0ff22', borderColor: '#4dd0ff66', color: '#7de0ff', fontSize: 14, lineHeight: 1 }}
@@ -1341,6 +1373,9 @@ function UserDetail({ user: u, detail: d }) {
           <Row label="User ID"        value={u.id} mono />
           <Row label="Email"          value={auth.email || u.email || '—'} />
           <Row label="Role"           value={u.role || 'user'} />
+          {d.ambassador && (
+            <Row label="Ambassador" value={`${d.ambassador.tier === 'pro' ? 'Pro' : 'Limited'} · ${d.ambassador.spent_this_month}/${d.ambassador.monthly_cap} credits · ${d.ambassador.vo_minutes_used}/${d.ambassador.vo_minutes_quota} VO min this month`} />
+          )}
           <Row label="Plan"           value={u.plan || 'free'} />
           <Row label="Stripe ID"      value={d.profile?.stripe_customer_id || '—'} mono />
           <Row label="Email Verified" value={auth.email_confirmed_at ? new Date(auth.email_confirmed_at).toLocaleDateString() : 'Not verified'} />
