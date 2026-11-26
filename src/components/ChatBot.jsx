@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { escalateResultMessage } from "../utils/supportReplies.js";
 import FeedbackButton from "./FeedbackButton.jsx";
 import { supabase } from "../supabaseClient.js";
 import { purchasesAllowed } from "../utils/nativeApp.js";
@@ -21,14 +22,15 @@ export default function ChatBot() {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data?.session?.access_token;
-      await fetch("/api/support/escalate", {
+      const res = await fetch("/api/support/escalate", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token && { Authorization: `Bearer ${token}` }) },
         body: JSON.stringify({ issue: messages[messages.length-1]?.content, conversation }),
       });
-      setMessages(prev => [...prev, { role: "assistant", content: "✅ I've sent your conversation to our support team. We'll get back to you at your account email within 24 hours." }]);
+      const body = await res.json().catch(() => null);
+      setMessages(prev => [...prev, { role: "assistant", content: escalateResultMessage(res.ok, body) }]);
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, couldn't send the escalation. Please email support@onyx-reelz.com directly." }]);
+      setMessages(prev => [...prev, { role: "assistant", content: escalateResultMessage(false, null) }]);
     }
   }
 
