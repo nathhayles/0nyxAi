@@ -5464,6 +5464,9 @@ export default function EditorV2() {
               onSafeZonePlatformChange={setSafeZonePlatform}
               onDeleteScene={deleteScene}
               onSfxOutOfRange={() => toast.show("SFX clip placed beyond the end of your video — it won't be included in the export.", "error")}
+              dispatchNoHistory={dispatch}
+              onArollDropMissed={() => toast.show("Drop onto a scene in A-roll to replace its visual.", "error")}
+              onSceneVideoDropped={preloadSceneUrl}
               theme={theme}
               onSeek={p => {
                 const t = p * totalSec;
