@@ -23,6 +23,7 @@ import { STYLE_PRESETS } from "../config/stylePresets.js";
 import { voiceIsInVideo } from "../utils/lipSyncState.js";
 import useAmbassador from "../hooks/useAmbassador.js";
 import { ambassadorFeatures, AMBASSADOR_RATIOS } from "../utils/ambassador.js";
+import { findArollDropTarget, droppedMediaType, sceneMediaReplacement, replacedSceneClipChanges } from "../utils/arollDrop.js";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const TRACK_H       = 48;   // px per track row
@@ -931,6 +932,13 @@ function TrackRowBase({ track, zoom, scrollLeft, selected, totalWidth, onSelect,
       // natively with the container) — do not add scrollLeft again on top.
       const x     = e.clientX - rect.left;
       let time    = Math.max(0, x / zoom);
+      // A-roll drops replace a scene's visual, so what matters is the scene
+      // under the pointer: no snapping (it could jump to the next scene) and
+      // no overlap check (there is always a clip there).
+      if (track.key === "video") {
+        if (onDrop(track.key, time, media) === false) flashReject();
+        return;
+      }
       const dur   = Number(media.duration) || 5;
       if (snapEnabled) {
         const thresh = SNAP_PX / zoom;
@@ -1188,6 +1196,9 @@ function SequencerPanelBase({
   safeZoneEnabled, onSafeZoneToggle, safeZonePlatform, onSafeZonePlatformChange,
   onDeleteScene,
   onSfxOutOfRange,
+  dispatchNoHistory,
+  onArollDropMissed,
+  onSceneVideoDropped,
   theme,
   onOpenTransitionPanel,
 }) {
@@ -1356,6 +1367,31 @@ function SequencerPanelBase({
     const rawUrl = media.url || media.mediaUrl || media.src || media.video_files?.[0]?.link || media.videoUrl || '';
     const fullUrl = rawUrl.startsWith('http') ? rawUrl : rawUrl ? `https://onyx-reelz.com${rawUrl}` : '';
     const dur = media.duration || 5;
+
+    if (trackKey === "video") {
+      if (!fullUrl) return false;
+      const videoClips = timelineState.tracks.find(t => t.key === "video")?.clips || [];
+      const target = findArollDropTarget(videoClips, startTime);
+      if (!target) {
+        onArollDropMissed?.();
+        return false;
+      }
+      const thumbnail = media.thumbnail || media.thumb || fullUrl;
+      const mediaType = droppedMediaType(media, fullUrl);
+      const scene = (scenes || []).find(s => s.id === target.sceneId);
+      if (!scene) {
+        dispatch({ type: "UPDATE_CLIP", clipId: target.id, changes: { src: fullUrl, url: fullUrl, mediaUrl: fullUrl, thumbnail } });
+        return true;
+      }
+      // updateScene records the one undo step; the clip updates after it must
+      // not record more, so they use the plain dispatch.
+      updateScene(scene.id, sceneMediaReplacement(scene, { url: fullUrl, thumbnail, mediaType }));
+      replacedSceneClipChanges(videoClips, scene.id, { url: fullUrl, thumbnail })
+        .forEach(({ clipId, changes }) => dispatchNoHistory({ type: "UPDATE_CLIP", clipId, changes }));
+      if (mediaType === "video") onSceneVideoDropped?.(fullUrl);
+      return true;
+    }
+
     const clip = makeClip({
       trackKey,
       startTime,
@@ -1391,26 +1427,6 @@ function SequencerPanelBase({
       if (startTime >= videoEnd) onSfxOutOfRange?.();
     }
 
-    // If dropping onto video track, update the existing scene clip's mediaUrl instead of adding a new clip
-    if (trackKey === 'video' && fullUrl) {
-      const videoTrack = timelineState.tracks.find(t => t.key === 'video');
-      const overlappingClip = videoTrack?.clips.find(c =>
-        c.sceneId &&
-        startTime >= c.startTime &&
-        startTime < c.startTime + (c.trimEnd - c.trimStart)
-      );
-      if (overlappingClip?.sceneId) {
-        const mediaType = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(fullUrl) ? 'video' : 'image';
-        updateScene?.(overlappingClip.sceneId, {
-          mediaUrl: fullUrl,
-          url: fullUrl,
-          thumbnail: media.thumbnail || media.thumb || fullUrl,
-          mediaType,
-        });
-        dispatch({ type: "UPDATE_CLIP", clipId: overlappingClip.id, changes: { src: fullUrl, thumbnail: fullUrl } });
-      }
-    }
-
     // A new music clip invalidates the old beat grid. BPM detection is no
     // longer automatic: it costs credits (Fadr analyse), so it only runs when
     // the user clicks "Detect BPM" (detectBpm below).
@@ -1418,7 +1434,7 @@ function SequencerPanelBase({
       setBeatBpm(null);
       setBpmError("");
     }
-  }, [dispatch, timelineState, updateScene, onSfxOutOfRange]);
+  }, [dispatch, dispatchNoHistory, timelineState, scenes, updateScene, onSfxOutOfRange, onArollDropMissed, onSceneVideoDropped]);
 
   // ── scrub ─────────────────────────────────────────────────────────────────
   const handleScrub = useCallback((time) => {
